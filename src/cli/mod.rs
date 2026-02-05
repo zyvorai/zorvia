@@ -1227,4 +1227,201 @@ pub enum Commands {
         #[arg(long)]
         enable: bool,
     },
+
+    // ========== OBSERVABILITY & ANALYTICS ==========
+
+    /// Query logs
+    LogsQuery {
+        /// Start time (RFC3339 format)
+        #[arg(long)]
+        start: Option<String>,
+
+        /// End time (RFC3339 format)
+        #[arg(long)]
+        end: Option<String>,
+
+        /// Log level filter (debug, info, warning, error, critical)
+        #[arg(short, long)]
+        level: Option<String>,
+
+        /// Source filter
+        #[arg(short, long)]
+        source: Option<String>,
+
+        /// Search text
+        #[arg(long)]
+        search: Option<String>,
+
+        /// Limit results
+        #[arg(long, default_value = "100")]
+        limit: usize,
+    },
+
+    /// Show log statistics
+    LogsStats {
+        /// Group by (level, source)
+        #[arg(long, default_value = "level")]
+        group_by: String,
+    },
+
+    /// Analyze log patterns
+    LogsPatterns {
+        /// Minimum pattern count
+        #[arg(long, default_value = "2")]
+        min_count: usize,
+    },
+
+    /// Collect VM metrics
+    MetricsCollect {
+        /// VM name
+        vm: String,
+    },
+
+    /// Query metrics
+    MetricsQuery {
+        /// Metric name
+        name: String,
+
+        /// Start time (RFC3339 format)
+        #[arg(long)]
+        start: Option<String>,
+
+        /// End time (RFC3339 format)
+        #[arg(long)]
+        end: Option<String>,
+
+        /// Aggregation (avg, sum, max, min, p50, p95, p99)
+        #[arg(long, default_value = "avg")]
+        aggregation: String,
+    },
+
+    /// Show metrics snapshot
+    MetricsSnapshot {
+        /// Filter by VM
+        #[arg(long)]
+        vm: Option<String>,
+
+        /// CPU threshold for highlighting
+        #[arg(long, default_value = "80")]
+        cpu_threshold: f64,
+
+        /// Memory threshold for highlighting
+        #[arg(long, default_value = "80")]
+        memory_threshold: f64,
+    },
+
+    /// List alert rules
+    AlertsList {
+        /// Show only enabled rules
+        #[arg(long)]
+        enabled_only: bool,
+
+        /// Filter by severity (info, warning, critical)
+        #[arg(long)]
+        severity: Option<String>,
+
+        /// Output format (table, yaml, json)
+        #[arg(short, long, default_value = "table")]
+        output: String,
+    },
+
+    /// Create alert rule
+    AlertsCreate {
+        /// Rule name
+        name: String,
+
+        /// Alert severity (info, warning, critical)
+        #[arg(long)]
+        severity: String,
+
+        /// Metric name
+        #[arg(long)]
+        metric: String,
+
+        /// Threshold operator (gt, lt, eq, gte, lte)
+        #[arg(long)]
+        operator: String,
+
+        /// Threshold value
+        #[arg(long)]
+        threshold: f64,
+
+        /// Duration in minutes
+        #[arg(long, default_value = "5")]
+        duration: i64,
+    },
+
+    /// Show active alerts
+    AlertsActive {
+        /// Filter by severity
+        #[arg(long)]
+        severity: Option<String>,
+
+        /// Output format (table, yaml, json)
+        #[arg(short, long, default_value = "table")]
+        output: String,
+    },
+
+    /// Resolve alert
+    AlertsResolve {
+        /// Alert ID
+        alert_id: String,
+    },
+
+    /// Generate insights
+    InsightsGenerate {
+        /// VM name (optional, analyzes all VMs if not provided)
+        vm: Option<String>,
+
+        /// Insight type (performance, cost, security, availability, capacity)
+        #[arg(long)]
+        insight_type: Option<String>,
+
+        /// Minimum severity (low, medium, high)
+        #[arg(long, default_value = "low")]
+        min_severity: String,
+    },
+
+    /// Show recommendations
+    Recommendations {
+        /// Category (cost, performance, security, reliability, sustainability)
+        #[arg(long)]
+        category: Option<String>,
+
+        /// Minimum priority (low, medium, high)
+        #[arg(long, default_value = "low")]
+        min_priority: String,
+
+        /// Show estimated savings
+        #[arg(long)]
+        with_savings: bool,
+
+        /// Output format (table, yaml, json)
+        #[arg(short, long, default_value = "table")]
+        output: String,
+    },
+
+    /// Analyze trends
+    TrendsAnalyze {
+        /// Metric name
+        metric: String,
+
+        /// Time window in hours
+        #[arg(long, default_value = "24")]
+        window: i64,
+
+        /// Significance threshold percentage
+        #[arg(long, default_value = "10")]
+        threshold: f64,
+    },
+
+    /// Check system health
+    HealthCheck {
+        /// Component filter (optional)
+        component: Option<String>,
+
+        /// Output format (table, yaml, json)
+        #[arg(short, long, default_value = "table")]
+        output: String,
+    },
 }
