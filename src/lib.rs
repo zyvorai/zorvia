@@ -1781,6 +1781,295 @@ pub async fn run(cli: Cli) -> Result<()> {
             println!();
             println!("{}", color::info(&format!("ℹ Sorted by: {}", sort_by)));
         }
+
+        Commands::NetworkList { vm, output } => {
+            use network::NetworkInterface;
+
+            println!("{}", color::header(&format!("Network Interfaces: {}", vm)));
+            println!();
+
+            // Mock network interface data
+            let interfaces = vec![
+                {
+                    let mut iface = NetworkInterface::new("eth0");
+                    iface.network = "pod-network".to_string();
+                    iface.mac_address = "52:54:00:12:34:56".to_string();
+                    iface.ip_address = Some("10.244.0.5".to_string());
+                    iface.state = network::InterfaceState::Up;
+                    iface
+                },
+                {
+                    let mut iface = NetworkInterface::new("eth1");
+                    iface.network = "storage-network".to_string();
+                    iface.mac_address = "52:54:00:12:34:57".to_string();
+                    iface.ip_address = Some("192.168.1.10".to_string());
+                    iface.state = network::InterfaceState::Up;
+                    iface.interface_type = network::InterfaceType::Multus;
+                    iface
+                },
+            ];
+
+            if output == "json" {
+                let json = serde_json::to_string_pretty(&interfaces)?;
+                println!("{}", json);
+            } else if output == "yaml" {
+                let yaml = serde_yaml::to_string(&interfaces)?;
+                println!("{}", yaml);
+            } else {
+                // Table format
+                println!("{:<12} {:<15} {:<20} {:<18} {:<12} {}",
+                    color::label("NAME"),
+                    color::label("NETWORK"),
+                    color::label("MAC ADDRESS"),
+                    color::label("IP ADDRESS"),
+                    color::label("TYPE"),
+                    color::label("STATE")
+                );
+                println!("{}", "-".repeat(95));
+
+                for iface in &interfaces {
+                    let state_str = match iface.state {
+                        network::InterfaceState::Up => color::success("UP"),
+                        network::InterfaceState::Down => color::error("DOWN"),
+                        network::InterfaceState::Unknown => color::muted("UNKNOWN"),
+                    };
+
+                    println!("{:<12} {:<15} {:<20} {:<18} {:<12} {}",
+                        iface.name,
+                        iface.network,
+                        iface.mac_address,
+                        iface.ip_address.as_deref().unwrap_or("-"),
+                        iface.interface_type.as_str(),
+                        state_str
+                    );
+                }
+            }
+        }
+
+        Commands::NetworkGet { vm, interface, output } => {
+            use network::NetworkInterface;
+
+            let mut iface = NetworkInterface::new(&interface);
+            iface.network = "pod-network".to_string();
+            iface.mac_address = "52:54:00:12:34:56".to_string();
+            iface.ip_address = Some("10.244.0.5".to_string());
+            iface.state = network::InterfaceState::Up;
+            iface.mtu = 1500;
+
+            if output == "json" {
+                let json = serde_json::to_string_pretty(&iface)?;
+                println!("{}", json);
+            } else {
+                let yaml = serde_yaml::to_string(&iface)?;
+                println!("{}", yaml);
+            }
+        }
+
+        Commands::NetworkBandwidth { vm, interface, watch, interval } => {
+            use network::bandwidth::{BandwidthMetrics, BandwidthMonitor};
+
+            println!("{}", color::header(&format!("Network Bandwidth: {}", vm)));
+            if let Some(iface) = &interface {
+                println!("  Interface: {}", color::value(iface));
+            }
+            println!();
+
+            // Simulate bandwidth monitoring
+            let iface_name = interface.unwrap_or_else(|| "eth0".to_string());
+            let mut monitor = BandwidthMonitor::new(&iface_name);
+
+            // Add sample data
+            let mut metrics = BandwidthMetrics::new(&iface_name);
+            metrics.rx_bytes = 1_500_000_000;
+            metrics.tx_bytes = 800_000_000;
+            metrics.rx_packets = 1_200_000;
+            metrics.tx_packets = 600_000;
+            metrics.rx_errors = 5;
+            metrics.tx_errors = 2;
+            monitor.add_sample(metrics.clone());
+
+            println!("{:<15} {:<15} {:<15} {:<12} {:<12}",
+                color::label("INTERFACE"),
+                color::label("RX"),
+                color::label("TX"),
+                color::label("RX RATE"),
+                color::label("TX RATE")
+            );
+            println!("{}", "-".repeat(75));
+
+            println!("{:<15} {:<15} {:<15} {:<12} {:<12}",
+                iface_name,
+                BandwidthMetrics::format_bytes(metrics.rx_bytes),
+                BandwidthMetrics::format_bytes(metrics.tx_bytes),
+                "125 MB/s",
+                "80 MB/s"
+            );
+
+            println!();
+            println!("{}", color::header("Statistics:"));
+            println!("  RX Packets:  {}", metrics.rx_packets);
+            println!("  TX Packets:  {}", metrics.tx_packets);
+            println!("  RX Errors:   {}", if metrics.rx_errors > 0 { color::warning(&metrics.rx_errors.to_string()) } else { metrics.rx_errors.to_string() });
+            println!("  TX Errors:   {}", if metrics.tx_errors > 0 { color::warning(&metrics.tx_errors.to_string()) } else { metrics.tx_errors.to_string() });
+            println!("  Error Rate:  {:.3}%", metrics.error_rate());
+
+            if watch {
+                println!();
+                println!("{}", color::info(&format!("ℹ Watch mode not yet implemented. Use --interval {} for update rate.", interval)));
+            }
+        }
+
+        Commands::NetworkTraffic { vm, interface, period, top, output } => {
+            use network::traffic::{TrafficAnalyzer, TrafficFlow, Protocol};
+            use network::bandwidth::BandwidthMetrics;
+
+            println!("{}", color::header(&format!("Network Traffic Analysis: {}", vm)));
+            if let Some(iface) = &interface {
+                println!("  Interface: {}", color::value(iface));
+            }
+            println!("  Period: {}", color::value(&period));
+            println!();
+
+            let mut analyzer = TrafficAnalyzer::new(interface.unwrap_or_else(|| "eth0".to_string()));
+
+            // Add sample flows
+            let mut flow1 = TrafficFlow::new("10.244.0.5", "8.8.8.8", 45123, 443, Protocol::TCP);
+            flow1.bytes = 50_000_000;
+            flow1.packets = 35_000;
+            analyzer.add_flow(flow1);
+
+            let mut flow2 = TrafficFlow::new("10.244.0.5", "10.96.0.1", 54321, 53, Protocol::UDP);
+            flow2.bytes = 1_500_000;
+            flow2.packets = 1_200;
+            analyzer.add_flow(flow2);
+
+            let mut flow3 = TrafficFlow::new("10.244.0.5", "10.244.0.8", 8080, 80, Protocol::TCP);
+            flow3.bytes = 120_000_000;
+            flow3.packets = 85_000;
+            analyzer.add_flow(flow3);
+
+            let summary = analyzer.generate_summary(top);
+
+            if output == "json" {
+                let json = serde_json::to_string_pretty(&summary)?;
+                println!("{}", json);
+            } else if output == "yaml" {
+                let yaml = serde_yaml::to_string(&summary)?;
+                println!("{}", yaml);
+            } else {
+                println!("{}", color::header("Traffic Summary:"));
+                println!("  Total Flows:    {}", summary.total_flows);
+                println!("  Active Flows:   {}", summary.active_flows);
+                println!("  Total Bytes:    {}", BandwidthMetrics::format_bytes(summary.total_bytes));
+                println!("  Total Packets:  {}", summary.total_packets);
+
+                println!();
+                println!("{}", color::header("Protocol Breakdown:"));
+                for (proto, stats) in &summary.protocol_breakdown {
+                    let percentage = summary.protocol_percent(proto);
+                    println!("  {:<8} {:<12} ({:.1}%)",
+                        proto,
+                        BandwidthMetrics::format_bytes(stats.bytes),
+                        percentage
+                    );
+                }
+
+                if !summary.top_talkers.is_empty() {
+                    println!();
+                    println!("{}", color::header(&format!("Top {} Talkers:", top)));
+                    println!("{:<18} {:<15} {:<15} {:<15}",
+                        color::label("IP ADDRESS"),
+                        color::label("SENT"),
+                        color::label("RECEIVED"),
+                        color::label("TOTAL")
+                    );
+                    println!("{}", "-".repeat(70));
+
+                    for talker in &summary.top_talkers {
+                        println!("{:<18} {:<15} {:<15} {:<15}",
+                            talker.ip_address,
+                            BandwidthMetrics::format_bytes(talker.bytes_sent),
+                            BandwidthMetrics::format_bytes(talker.bytes_received),
+                            BandwidthMetrics::format_bytes(talker.total_bytes)
+                        );
+                    }
+                }
+            }
+        }
+
+        Commands::NetworkPolicies { all_namespaces, output } => {
+            use network::policies::{NetworkPolicy, VMSelector};
+
+            println!("{}", color::header("Network Policies"));
+            if all_namespaces {
+                println!("  Namespace: {}", color::value("All"));
+            }
+            println!();
+
+            // Mock policy data
+            let policies = vec![
+                {
+                    let selector = VMSelector::default()
+                        .with_label("app".to_string(), "web".to_string());
+                    NetworkPolicy::new("web-policy")
+                        .with_vm_selector(selector)
+                },
+                {
+                    let selector = VMSelector::default()
+                        .with_label("app".to_string(), "database".to_string());
+                    NetworkPolicy::new("database-policy")
+                        .with_vm_selector(selector)
+                },
+            ];
+
+            if output == "json" {
+                let json = serde_json::to_string_pretty(&policies)?;
+                println!("{}", json);
+            } else if output == "yaml" {
+                let yaml = serde_yaml::to_string(&policies)?;
+                println!("{}", yaml);
+            } else {
+                println!("{:<25} {:<12} {:<12} {}",
+                    color::label("NAME"),
+                    color::label("INGRESS"),
+                    color::label("EGRESS"),
+                    color::label("SELECTOR")
+                );
+                println!("{}", "-".repeat(70));
+
+                for policy in &policies {
+                    let selector_str = policy.vm_selector.labels
+                        .iter()
+                        .map(|(k, v)| format!("{}={}", k, v))
+                        .collect::<Vec<_>>()
+                        .join(",");
+
+                    println!("{:<25} {:<12} {:<12} {}",
+                        policy.name,
+                        policy.ingress_rules.len(),
+                        policy.egress_rules.len(),
+                        selector_str
+                    );
+                }
+            }
+        }
+
+        Commands::NetworkPolicy { name, output } => {
+            use network::policies::{NetworkPolicy, VMSelector};
+
+            let selector = VMSelector::default()
+                .with_label("app".to_string(), "web".to_string());
+            let policy = NetworkPolicy::new(name)
+                .with_vm_selector(selector);
+
+            if output == "json" {
+                let json = serde_json::to_string_pretty(&policy)?;
+                println!("{}", json);
+            } else {
+                let yaml = serde_yaml::to_string(&policy)?;
+                println!("{}", yaml);
+            }
+        }
     }
 
     Ok(())

@@ -512,4 +512,90 @@ pub enum Commands {
         #[arg(short, long, default_value = "table")]
         output: String,
     },
+
+    // ========== NETWORK MANAGEMENT ==========
+
+    /// List network interfaces for a VM
+    NetworkList {
+        /// VM name
+        vm: String,
+
+        /// Output format (table, yaml, json)
+        #[arg(short, long, default_value = "table")]
+        output: String,
+    },
+
+    /// Show network interface details
+    NetworkGet {
+        /// VM name
+        vm: String,
+
+        /// Interface name
+        interface: String,
+
+        /// Output format (yaml, json)
+        #[arg(short, long, default_value = "yaml")]
+        output: String,
+    },
+
+    /// Monitor network bandwidth for a VM
+    NetworkBandwidth {
+        /// VM name
+        vm: String,
+
+        /// Interface name (optional, shows all if not provided)
+        #[arg(short, long)]
+        interface: Option<String>,
+
+        /// Watch mode - continuously update
+        #[arg(short, long)]
+        watch: bool,
+
+        /// Update interval in seconds (for watch mode)
+        #[arg(long, default_value = "5")]
+        interval: u64,
+    },
+
+    /// Show network traffic analysis
+    NetworkTraffic {
+        /// VM name
+        vm: String,
+
+        /// Interface name
+        #[arg(short, long)]
+        interface: Option<String>,
+
+        /// Time period (5m, 15m, 1h, 6h)
+        #[arg(short, long, default_value = "15m")]
+        period: String,
+
+        /// Show top N talkers
+        #[arg(long, default_value = "10")]
+        top: usize,
+
+        /// Output format (table, json, yaml)
+        #[arg(short, long, default_value = "table")]
+        output: String,
+    },
+
+    /// List network policies
+    NetworkPolicies {
+        /// Show all namespaces
+        #[arg(short = 'A', long)]
+        all_namespaces: bool,
+
+        /// Output format (table, yaml, json)
+        #[arg(short, long, default_value = "table")]
+        output: String,
+    },
+
+    /// Show network policy details
+    NetworkPolicy {
+        /// Policy name
+        name: String,
+
+        /// Output format (yaml, json)
+        #[arg(short, long, default_value = "yaml")]
+        output: String,
+    },
 }
