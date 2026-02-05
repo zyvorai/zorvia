@@ -2,6 +2,17 @@
 
 ## 🎯 Common Commands
 
+### VM Snapshots & Backup
+```bash
+zorvia snapshot-create my-vm --name backup-20260205
+zorvia snapshot-list my-vm          # List snapshots for VM
+zorvia snapshot-list                # List all snapshots
+zorvia snapshot-get backup-20260205 # Get snapshot details
+zorvia snapshot-restore backup-20260205 --target restored-vm
+zorvia snapshot-restore backup-20260205 --in-place  # Overwrite existing
+zorvia snapshot-delete old-snapshot
+```
+
 ### VM Profiles
 ```bash
 zorvia profiles                  # List all profiles

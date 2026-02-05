@@ -328,4 +328,123 @@ pub enum Commands {
         #[arg(short, long)]
         alternatives: bool,
     },
+
+    // ========== VM SNAPSHOTS & BACKUP ==========
+
+    /// Create a VM snapshot
+    SnapshotCreate {
+        /// VM name
+        vm: String,
+
+        /// Snapshot name (optional, auto-generated if not provided)
+        #[arg(short, long)]
+        name: Option<String>,
+
+        /// Description of the snapshot
+        #[arg(short, long)]
+        description: Option<String>,
+    },
+
+    /// List snapshots
+    SnapshotList {
+        /// VM name (optional, shows all snapshots if not provided)
+        vm: Option<String>,
+
+        /// Show all namespaces
+        #[arg(short = 'A', long)]
+        all_namespaces: bool,
+
+        /// Output format (table, yaml, json)
+        #[arg(short, long, default_value = "table")]
+        output: String,
+    },
+
+    /// Show snapshot details
+    SnapshotGet {
+        /// Snapshot name
+        name: String,
+
+        /// Output format (yaml, json)
+        #[arg(short, long, default_value = "yaml")]
+        output: String,
+    },
+
+    /// Delete a snapshot
+    SnapshotDelete {
+        /// Snapshot name
+        name: String,
+
+        /// Skip confirmation
+        #[arg(short, long)]
+        yes: bool,
+    },
+
+    /// Restore VM from snapshot
+    SnapshotRestore {
+        /// Snapshot name
+        snapshot: String,
+
+        /// Target VM name (if different from original)
+        #[arg(short, long)]
+        target: Option<String>,
+
+        /// Restore in-place (overwrite existing VM)
+        #[arg(long)]
+        in_place: bool,
+
+        /// Start VM after restore
+        #[arg(long)]
+        start: bool,
+    },
+
+    // ========== PERFORMANCE MONITORING ==========
+
+    /// Show live performance monitoring for a VM
+    MonitorLive {
+        /// VM name
+        vm: String,
+
+        /// Update interval in seconds
+        #[arg(short, long, default_value = "5")]
+        interval: u64,
+    },
+
+    /// Get performance statistics for a VM
+    MonitorStats {
+        /// VM name
+        vm: String,
+
+        /// Time period (5m, 15m, 1h, 6h, 24h, 7d)
+        #[arg(short, long, default_value = "1h")]
+        period: String,
+
+        /// Output format (table, json, yaml, summary)
+        #[arg(short, long, default_value = "table")]
+        output: String,
+    },
+
+    /// Compare performance of multiple VMs
+    MonitorCompare {
+        /// VM names to compare
+        vms: Vec<String>,
+
+        /// Output format (table, json, yaml)
+        #[arg(short, long, default_value = "table")]
+        output: String,
+    },
+
+    /// Show top VMs by resource usage
+    MonitorTop {
+        /// Show all namespaces
+        #[arg(short = 'A', long)]
+        all_namespaces: bool,
+
+        /// Sort by (cpu, memory, disk, score)
+        #[arg(long, default_value = "score")]
+        sort_by: String,
+
+        /// Number of VMs to show
+        #[arg(short, long, default_value = "10")]
+        limit: usize,
+    },
 }

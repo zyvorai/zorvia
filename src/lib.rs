@@ -12,6 +12,8 @@ pub mod utils;
 pub mod profiles;
 pub mod blueprints;
 pub mod health;
+pub mod snapshots;
+pub mod monitoring;
 
 use anyhow::{anyhow, Result};
 use cli::{Cli, Commands};
@@ -19,6 +21,7 @@ use config::{validate_vm_config, VMConfig, VMConfigBuilder};
 use output::{format_output, OutputFormat};
 use std::fs;
 use templates::TEMPLATES;
+use tui::colors::cli as color;
 
 /// Main entry point for the library
 pub async fn run(cli: Cli) -> Result<()> {
@@ -90,10 +93,10 @@ pub async fn run(cli: Cli) -> Result<()> {
                             Ok(_vm) => {
                                 use crate::tui::colors::cli;
                                 println!("{}", cli::success(&format!("VM '{}' created successfully", name)));
-                                println!("  Namespace: {}", cli::namespace(&config.namespace));
+                                println!("  Namespace: {}", color::namespace(&config.namespace));
                                 println!("  Status: {} (use '{}' to start)",
-                                    cli::vm_status("Stopped"),
-                                    cli::command(&format!("zorvia start {}", name))
+                                    color::vm_status("Stopped"),
+                                    color::command(&format!("zorvia start {}", name))
                                 );
                             }
                             Err(e) => {
@@ -106,7 +109,7 @@ pub async fn run(cli: Cli) -> Result<()> {
                     Err(e) => {
                         use crate::tui::colors::cli;
                         eprintln!("{}", cli::error(&format!("Failed to connect to Kubernetes: {}", e)));
-                        eprintln!("  {}", cli::muted("Make sure kubectl is configured and you have access to the cluster"));
+                        eprintln!("  {}", color::muted("Make sure kubectl is configured and you have access to the cluster"));
                         std::process::exit(1);
                     }
                 }
@@ -145,12 +148,12 @@ pub async fn run(cli: Cli) -> Result<()> {
 
                     // Print header with theme colors
                     println!("{:<30} {:<20} {:<15} {:<10}",
-                        cli::header("NAME"),
-                        cli::header("NAMESPACE"),
-                        cli::header("STATUS"),
-                        cli::header("RUNNING")
+                        color::header("NAME"),
+                        color::header("NAMESPACE"),
+                        color::header("STATUS"),
+                        color::header("RUNNING")
                     );
-                    println!("{}", cli::muted(&"-".repeat(75)));
+                    println!("{}", color::muted(&"-".repeat(75)));
 
                     for vm in vms {
                         let name = vm.metadata.name.as_deref().unwrap_or("N/A");
@@ -158,7 +161,7 @@ pub async fn run(cli: Cli) -> Result<()> {
                         let running = if vm.spec.running.unwrap_or(false) {
                             cli::success("Yes")
                         } else {
-                            cli::muted("No")
+                            color::muted("No")
                         };
                         let status = if let Some(s) = &vm.status {
                             s.print_able_status.as_deref().unwrap_or("Unknown")
@@ -169,12 +172,12 @@ pub async fn run(cli: Cli) -> Result<()> {
                         // Format with theme colors
                         let status_display = format!("{} {}",
                             vm_status_symbol(status),
-                            cli::vm_status(status)
+                            color::vm_status(status)
                         );
 
                         println!("{:<30} {:<20} {:<25} {:<10}",
                             cli::vm_name(name),
-                            cli::namespace(namespace),
+                            color::namespace(namespace),
                             status_display,
                             running
                         );
@@ -233,7 +236,7 @@ pub async fn run(cli: Cli) -> Result<()> {
         Commands::Restart { name } => {
             use crate::tui::colors::cli;
             let client = kube::KubeClient::new().await?;
-            println!("{}", cli::info(&format!("Restarting VM '{}'...", name)));
+            println!("{}", color::info(&format!("Restarting VM '{}'...", name)));
             client.restart_vm(&cli.namespace, &name).await?;
             println!("{}", cli::success(&format!("VM '{}' restarted successfully", name)));
         }
@@ -289,10 +292,10 @@ pub async fn run(cli: Cli) -> Result<()> {
         }
 
         Commands::Templates => {
-            use crate::tui::colors::cli;
-            println!("{}", cli::header("Available templates:"));
+            
+            println!("{}", color::header("Available templates:"));
             for template in TEMPLATES.list() {
-                println!("  {} {}", cli::value("•"), cli::label(&template));
+                println!("  {} {}", color::value("•"), color::label(&template));
             }
         }
 
@@ -363,7 +366,7 @@ pub async fn run(cli: Cli) -> Result<()> {
             use crate::tui::colors::cli;
             let client = kube::KubeClient::new().await?;
 
-            println!("{}", cli::info(&format!("Cloning VM '{}' to '{}'...", source, target)));
+            println!("{}", color::info(&format!("Cloning VM '{}' to '{}'...", source, target)));
 
             // Get source VM
             let source_vm = client.get_vm(&cli.namespace, &source).await?;
@@ -406,7 +409,7 @@ pub async fn run(cli: Cli) -> Result<()> {
             println!("{}", cli::success(&format!("VM '{}' cloned successfully", target)));
 
             if start {
-                println!("{}", cli::info(&format!("Starting VM '{}'...", target)));
+                println!("{}", color::info(&format!("Starting VM '{}'...", target)));
                 client.start_vm(&cli.namespace, &target).await?;
                 println!("{}", cli::success(&format!("VM '{}' started", target)));
             }
@@ -430,17 +433,17 @@ pub async fn run(cli: Cli) -> Result<()> {
             summary.display();
 
             println!();
-            println!("{}", cli::header("╔═══════════════════════════════════════════════════════════════╗"));
-            println!("{}", cli::header("║                   VM Resource Details                         ║"));
-            println!("{}", cli::header("╚═══════════════════════════════════════════════════════════════╝"));
+            println!("{}", color::header("╔═══════════════════════════════════════════════════════════════╗"));
+            println!("{}", color::header("║                   VM Resource Details                         ║"));
+            println!("{}", color::header("╚═══════════════════════════════════════════════════════════════╝"));
             println!();
             println!("{:<30} {:<15} {:<10} {:<10}",
-                cli::header("NAME"),
-                cli::header("NAMESPACE"),
-                cli::header("CPU"),
-                cli::header("MEMORY")
+                color::header("NAME"),
+                color::header("NAMESPACE"),
+                color::header("CPU"),
+                color::header("MEMORY")
             );
-            println!("{}", cli::muted(&"-".repeat(70)));
+            println!("{}", color::muted(&"-".repeat(70)));
 
             let mut vm_infos: Vec<_> = vms
                 .iter()
@@ -479,9 +482,9 @@ pub async fn run(cli: Cli) -> Result<()> {
             for (name, namespace, cpu, memory) in vm_infos {
                 println!("{:<30} {:<15} {:<10} {:<10}",
                     cli::vm_name(name),
-                    cli::namespace(namespace),
-                    cli::resource(&cpu.to_string(), "cpu"),
-                    cli::resource(memory, "memory")
+                    color::namespace(namespace),
+                    color::resource(&cpu.to_string(), "cpu"),
+                    color::resource(memory, "memory")
                 );
             }
         }
@@ -513,9 +516,9 @@ pub async fn run(cli: Cli) -> Result<()> {
 
         Commands::Wizard { name } => {
             use crate::tui::colors::cli;
-            println!("{}", cli::header("╔═══════════════════════════════════════════════════════════════╗"));
-            println!("{}", cli::header("║           Interactive VM Creation Wizard                      ║"));
-            println!("{}", cli::header("╚═══════════════════════════════════════════════════════════════╝"));
+            println!("{}", color::header("╔═══════════════════════════════════════════════════════════════╗"));
+            println!("{}", color::header("║           Interactive VM Creation Wizard                      ║"));
+            println!("{}", color::header("╚═══════════════════════════════════════════════════════════════╝"));
             println!();
 
             use dialoguer::{Input, Select};
@@ -564,12 +567,12 @@ pub async fn run(cli: Cli) -> Result<()> {
                 .interact()? == 1;
 
             println!();
-            println!("{}", cli::info("Creating VM with the following configuration:"));
-            println!("  {:<12} {}", cli::label("Name:"), cli::value(&vm_name));
-            println!("  {:<12} {}", cli::label("Template:"), cli::value(template_name));
-            println!("  {:<12} {}", cli::label("CPU:"), cli::resource(&format!("{} cores", cpu_cores), "cpu"));
-            println!("  {:<12} {}", cli::label("Memory:"), cli::resource(&memory, "memory"));
-            println!("  {:<12} {}", cli::label("Disk:"), cli::resource(&disk_size, "disk"));
+            println!("{}", color::info("Creating VM with the following configuration:"));
+            println!("  {:<12} {}", color::label("Name:"), color::value(&vm_name));
+            println!("  {:<12} {}", color::label("Template:"), color::value(template_name));
+            println!("  {:<12} {}", color::label("CPU:"), color::resource(&format!("{} cores", cpu_cores), "cpu"));
+            println!("  {:<12} {}", color::label("Memory:"), color::resource(&memory, "memory"));
+            println!("  {:<12} {}", color::label("Disk:"), color::resource(&disk_size, "disk"));
             println!();
 
             // Create VM
@@ -603,7 +606,7 @@ pub async fn run(cli: Cli) -> Result<()> {
             use indicatif::{ProgressBar, ProgressStyle};
             use crate::tui::colors::cli;
 
-            println!("{}", cli::info(&format!("Loading batch configuration from: {}", cli::path(&file))));
+            println!("{}", color::info(&format!("Loading batch configuration from: {}", cli::path(&file))));
             let mut batch = utils::BatchConfig::from_file(&file)?;
 
             // Apply namespace override
@@ -613,18 +616,18 @@ pub async fn run(cli: Cli) -> Result<()> {
                 batch.apply_namespace(&cli.namespace);
             }
 
-            println!("{}", cli::info(&format!("Found {} VMs to create", batch.vms.len())));
+            println!("{}", color::info(&format!("Found {} VMs to create", batch.vms.len())));
             println!();
 
             if dry_run {
-                println!("{}", cli::info("Dry run - VMs that would be created:"));
+                println!("{}", color::info("Dry run - VMs that would be created:"));
                 for (i, vm) in batch.vms.iter().enumerate() {
                     println!("  {}. {} (namespace: {}, {} cores, {})",
-                        cli::value(&(i + 1).to_string()),
+                        color::value(&(i + 1).to_string()),
                         cli::vm_name(&vm.name),
-                        cli::namespace(&vm.namespace),
-                        cli::resource(&vm.cpu.cores.to_string(), "cpu"),
-                        cli::resource(&vm.memory.size, "memory")
+                        color::namespace(&vm.namespace),
+                        color::resource(&vm.cpu.cores.to_string(), "cpu"),
+                        color::resource(&vm.memory.size, "memory")
                     );
                 }
                 return Ok(());
@@ -682,15 +685,15 @@ pub async fn run(cli: Cli) -> Result<()> {
             pb.finish_with_message("Batch creation complete");
 
             println!();
-            println!("{}", cli::header("╔═══════════════════════════════════════════════════════════════╗"));
-            println!("{}", cli::header("║                   Batch Summary                               ║"));
-            println!("{}", cli::header("╚═══════════════════════════════════════════════════════════════╝"));
-            println!("  {:<12} {}", cli::label("Total VMs:"), cli::value(&batch.vms.len().to_string()));
-            println!("  {:<12} {}", cli::label("Successful:"), cli::success(&format!("{} ✓", success_count)));
-            println!("  {:<12} {}", cli::label("Failed:"), if error_count > 0 {
+            println!("{}", color::header("╔═══════════════════════════════════════════════════════════════╗"));
+            println!("{}", color::header("║                   Batch Summary                               ║"));
+            println!("{}", color::header("╚═══════════════════════════════════════════════════════════════╝"));
+            println!("  {:<12} {}", color::label("Total VMs:"), color::value(&batch.vms.len().to_string()));
+            println!("  {:<12} {}", color::label("Successful:"), cli::success(&format!("{} ✓", success_count)));
+            println!("  {:<12} {}", color::label("Failed:"), if error_count > 0 {
                 cli::error(&format!("{} ✗", error_count))
             } else {
-                cli::muted(&format!("{} ✗", error_count))
+                color::muted(&format!("{} ✗", error_count))
             });
 
             if error_count > 0 && !continue_on_error {
@@ -702,36 +705,36 @@ pub async fn run(cli: Cli) -> Result<()> {
 
         Commands::Profiles { details } => {
             use crate::profiles::PROFILES;
-            use crate::tui::colors::cli;
+            
 
-            println!("{}", cli::header("═══ VM Resource Profiles ═══"));
+            println!("{}", color::header("═══ VM Resource Profiles ═══"));
             println!();
 
             for profile in PROFILES.list() {
-                println!("{} {}", cli::value("•"), cli::header(&profile.name));
-                println!("  {}", cli::muted(&profile.description));
+                println!("{} {}", color::value("•"), color::header(&profile.name));
+                println!("  {}", color::muted(&profile.description));
 
                 if details {
                     println!("  CPU:    {} cores ({} sockets, {} threads)",
-                        cli::resource(&profile.cpu_cores.to_string(), "cpu"),
+                        color::resource(&profile.cpu_cores.to_string(), "cpu"),
                         profile.cpu_sockets,
                         profile.cpu_threads
                     );
-                    println!("  Memory: {}", cli::resource(&profile.memory, "memory"));
-                    println!("  Disk:   {}", cli::resource(&profile.disk_size, "disk"));
+                    println!("  Memory: {}", color::resource(&profile.memory, "memory"));
+                    println!("  Disk:   {}", color::resource(&profile.disk_size, "disk"));
                     println!("  Use cases: {}", profile.use_cases.join(", "));
                     println!("  Recommended OS: {}", profile.recommended_os.join(", "));
                 }
                 println!();
             }
 
-            println!("{}", cli::muted("Use 'zorvia profile <name>' for details"));
-            println!("{}", cli::muted("Create VM with profile: zorvia create <name> --template <os> --profile <profile>"));
+            println!("{}", color::muted("Use 'zorvia profile <name>' for details"));
+            println!("{}", color::muted("Create VM with profile: zorvia create <name> --template <os> --profile <profile>"));
         }
 
         Commands::Profile { name, output } => {
             use crate::profiles::PROFILES;
-            use crate::tui::colors::cli;
+            
 
             let profile = PROFILES.get(&name)
                 .ok_or_else(|| anyhow!("Profile not found: {}", name))?;
@@ -752,7 +755,7 @@ pub async fn run(cli: Cli) -> Result<()> {
             use crate::blueprints::BLUEPRINTS;
             use crate::tui::colors::cli;
 
-            println!("{}", cli::header("═══ Multi-VM Blueprints ═══"));
+            println!("{}", color::header("═══ Multi-VM Blueprints ═══"));
             println!();
 
             let blueprints = if let Some(tag_filter) = tag {
@@ -762,13 +765,13 @@ pub async fn run(cli: Cli) -> Result<()> {
             };
 
             for blueprint in blueprints {
-                println!("{} {}", cli::value("•"), cli::header(&blueprint.name));
-                println!("  {}", cli::muted(&blueprint.description));
-                println!("  VMs: {}", cli::value(&blueprint.vms.len().to_string()));
+                println!("{} {}", color::value("•"), color::header(&blueprint.name));
+                println!("  {}", color::muted(&blueprint.description));
+                println!("  VMs: {}", color::value(&blueprint.vms.len().to_string()));
                 if details {
                     for vm in &blueprint.vms {
                         println!("    {} {} (template: {})",
-                            cli::value("-"),
+                            color::value("-"),
                             cli::vm_name(&vm.name),
                             vm.template
                         );
@@ -778,8 +781,8 @@ pub async fn run(cli: Cli) -> Result<()> {
                 println!();
             }
 
-            println!("{}", cli::muted("Use 'zorvia blueprint <name>' for details"));
-            println!("{}", cli::muted("Deploy blueprint: zorvia deploy <blueprint>"));
+            println!("{}", color::muted("Use 'zorvia blueprint <name>' for details"));
+            println!("{}", color::muted("Deploy blueprint: zorvia deploy <blueprint>"));
         }
 
         Commands::Blueprint { name, output } => {
@@ -815,13 +818,13 @@ pub async fn run(cli: Cli) -> Result<()> {
 
             let vm_prefix = prefix.unwrap_or_else(|| blueprint.clone());
 
-            println!("{}", cli::info(&format!("Deploying blueprint: {}", blueprint)));
+            println!("{}", color::info(&format!("Deploying blueprint: {}", blueprint)));
             println!("  Description: {}", bp.description);
             println!("  VMs to create: {}", bp.vms.len());
             println!();
 
             if dry_run {
-                println!("{}", cli::info("Dry run - VMs that would be created:"));
+                println!("{}", color::info("Dry run - VMs that would be created:"));
                 for (i, vm_spec) in bp.vms.iter().enumerate() {
                     let vm_name = format!("{}-{}", vm_prefix, vm_spec.name);
                     println!("  {}. {}", i + 1, cli::vm_name(&vm_name));
@@ -830,8 +833,8 @@ pub async fn run(cli: Cli) -> Result<()> {
                         if let Some(profile) = PROFILES.get(profile_name) {
                             println!("     Profile: {} ({}, {})",
                                 profile_name,
-                                cli::resource(&profile.cpu_cores.to_string(), "cpu"),
-                                cli::resource(&profile.memory, "memory")
+                                color::resource(&profile.cpu_cores.to_string(), "cpu"),
+                                color::resource(&profile.memory, "memory")
                             );
                         }
                     }
@@ -849,7 +852,7 @@ pub async fn run(cli: Cli) -> Result<()> {
             for vm_spec in &bp.vms {
                 let vm_name = format!("{}-{}", vm_prefix, vm_spec.name);
 
-                println!("{}", cli::info(&format!("Creating VM: {}", vm_name)));
+                println!("{}", color::info(&format!("Creating VM: {}", vm_name)));
 
                 // Get base config from template
                 let mut config = TEMPLATES.get(&vm_spec.template)
@@ -918,7 +921,7 @@ pub async fn run(cli: Cli) -> Result<()> {
             use crate::health::VMHealthReport;
             use crate::tui::colors::cli;
 
-            println!("{}", cli::header(&format!("═══ Health Check: {} ═══", target)));
+            println!("{}", color::header(&format!("═══ Health Check: {} ═══", target)));
             println!();
 
             // Try to load as config file first
@@ -964,9 +967,9 @@ pub async fn run(cli: Cli) -> Result<()> {
             // Display report
             let status_color = match report.overall_status {
                 crate::health::HealthStatus::Healthy => cli::success("✓ HEALTHY"),
-                crate::health::HealthStatus::Warning => cli::warning("⚠ WARNING"),
+                crate::health::HealthStatus::Warning => color::warning("⚠ WARNING"),
                 crate::health::HealthStatus::Critical => cli::error("✗ CRITICAL"),
-                _ => cli::muted("? UNKNOWN"),
+                _ => color::muted("? UNKNOWN"),
             };
 
             println!("Overall Status: {}", status_color);
@@ -974,26 +977,26 @@ pub async fn run(cli: Cli) -> Result<()> {
             println!();
 
             if detailed || !report.checks.is_empty() {
-                println!("{}", cli::header("Checks:"));
+                println!("{}", color::header("Checks:"));
                 for check in &report.checks {
                     let status_icon = match check.status {
-                        crate::health::HealthStatus::Healthy => cli::success("✓"),
-                        crate::health::HealthStatus::Warning => cli::warning("⚠"),
-                        crate::health::HealthStatus::Critical => cli::error("✗"),
-                        _ => cli::muted("?"),
+                        crate::health::HealthStatus::Healthy => color::success("✓"),
+                        crate::health::HealthStatus::Warning => color::warning("⚠"),
+                        crate::health::HealthStatus::Critical => color::error("✗"),
+                        _ => color::muted("?"),
                     };
-                    println!("  {} {} - {}", status_icon, cli::label(&check.name), check.message);
+                    println!("  {} {} - {}", status_icon, color::label(&check.name), check.message);
                     if let Some(ref rec) = check.recommendation {
-                        println!("      {}", cli::muted(&format!("→ {}", rec)));
+                        println!("      {}", color::muted(&format!("→ {}", rec)));
                     }
                 }
                 println!();
             }
 
             if !report.recommendations.is_empty() {
-                println!("{}", cli::header("Recommendations:"));
+                println!("{}", color::header("Recommendations:"));
                 for (i, rec) in report.recommendations.iter().enumerate() {
-                    println!("  {}. {}", i + 1, cli::value(rec));
+                    println!("  {}. {}", i + 1, color::value(rec));
                 }
             }
         }
@@ -1002,24 +1005,24 @@ pub async fn run(cli: Cli) -> Result<()> {
             use crate::profiles::PROFILES;
             use crate::tui::colors::cli;
 
-            println!("{}", cli::header(&format!("═══ Resource Recommendations for: {} ═══", workload)));
+            println!("{}", color::header(&format!("═══ Resource Recommendations for: {} ═══", workload)));
             println!();
 
             let recommendations = PROFILES.recommend(&workload);
 
             if recommendations.is_empty() {
-                println!("{}", cli::warning("No specific recommendations found for this workload"));
-                println!("{}", cli::muted("Showing general-purpose profiles:"));
+                println!("{}", color::warning("No specific recommendations found for this workload"));
+                println!("{}", color::muted("Showing general-purpose profiles:"));
                 println!();
 
                 for profile in vec!["dev", "test", "prod"] {
                     if let Some(p) = PROFILES.get(profile) {
-                        println!("{} {}", cli::value("•"), cli::header(&p.name));
-                        println!("  {}", cli::muted(&p.description));
+                        println!("{} {}", color::value("•"), color::header(&p.name));
+                        println!("  {}", color::muted(&p.description));
                         println!("  CPU: {} cores, Memory: {}, Disk: {}",
-                            cli::resource(&p.cpu_cores.to_string(), "cpu"),
-                            cli::resource(&p.memory, "memory"),
-                            cli::resource(&p.disk_size, "disk")
+                            color::resource(&p.cpu_cores.to_string(), "cpu"),
+                            color::resource(&p.memory, "memory"),
+                            color::resource(&p.disk_size, "disk")
                         );
                         println!();
                     }
@@ -1029,26 +1032,26 @@ pub async fn run(cli: Cli) -> Result<()> {
                 println!();
 
                 for (i, profile) in recommendations.iter().enumerate() {
-                    let marker = if i == 0 { cli::success("★") } else { cli::value("•") };
+                    let marker = if i == 0 { cli::success("★") } else { color::value("•") };
                     let label = if i == 0 { format!("{} (Recommended)", profile.name) } else { profile.name.clone() };
 
-                    println!("{} {}", marker, cli::header(&label));
-                    println!("  {}", cli::muted(&profile.description));
+                    println!("{} {}", marker, color::header(&label));
+                    println!("  {}", color::muted(&profile.description));
                     println!("  Resources:");
                     println!("    CPU:    {} cores ({} sockets × {} threads)",
-                        cli::resource(&profile.cpu_cores.to_string(), "cpu"),
+                        color::resource(&profile.cpu_cores.to_string(), "cpu"),
                         profile.cpu_sockets,
                         profile.cpu_threads
                     );
-                    println!("    Memory: {}", cli::resource(&profile.memory, "memory"));
-                    println!("    Disk:   {}", cli::resource(&profile.disk_size, "disk"));
+                    println!("    Memory: {}", color::resource(&profile.memory, "memory"));
+                    println!("    Disk:   {}", color::resource(&profile.disk_size, "disk"));
                     println!("  Best for: {}", profile.use_cases.join(", "));
                     println!("  Recommended OS: {}", profile.recommended_os.join(", "));
                     println!();
 
                     if i == 0 {
-                        println!("  {}", cli::info("Quick create command:"));
-                        println!("    {}", cli::command(&format!(
+                        println!("  {}", color::info("Quick create command:"));
+                        println!("    {}", color::command(&format!(
                             "zorvia create my-vm --template {} --profile {}",
                             profile.recommended_os.first().unwrap_or(&"ubuntu".to_string()),
                             profile.name
@@ -1059,13 +1062,437 @@ pub async fn run(cli: Cli) -> Result<()> {
             }
 
             if alternatives {
-                println!("{}", cli::header("All Available Profiles:"));
+                println!("{}", color::header("All Available Profiles:"));
                 for profile in PROFILES.list() {
-                    println!("  {} {}", cli::value("•"), cli::label(&profile.name));
+                    println!("  {} {}", color::value("•"), color::label(&profile.name));
                 }
                 println!();
-                println!("{}", cli::muted("Use 'zorvia profiles' to see all profiles"));
+                println!("{}", color::muted("Use 'zorvia profiles' to see all profiles"));
             }
+        }
+
+        // ========== VM SNAPSHOTS & BACKUP ==========
+
+        Commands::SnapshotCreate {
+            vm,
+            name,
+            description,
+        } => {
+            use snapshots::{SnapshotConfig, SnapshotManager};
+            use chrono::Utc;
+
+            let manager = SnapshotManager::new(&cli.namespace);
+
+            // Auto-generate snapshot name if not provided
+            let snapshot_name = name.unwrap_or_else(|| {
+                format!("{}-snapshot-{}", vm, Utc::now().format("%Y%m%d-%H%M%S"))
+            });
+
+            let mut config = SnapshotConfig::new(&vm, &snapshot_name);
+            if let Some(desc) = description {
+                config = config.with_description(desc);
+            }
+
+            println!("{}", color::header(&format!("Creating snapshot for VM: {}", vm)));
+            println!("  Snapshot name: {}", color::value(&snapshot_name));
+            if let Some(desc) = &config.description {
+                println!("  Description:   {}", color::muted(desc));
+            }
+            println!();
+
+            match manager.create_snapshot(&config).await {
+                Ok(snapshot) => {
+                    println!("{} Snapshot creation started", color::success("✓"));
+                    println!("  Status:    {}", color::vm_status("InProgress"));
+                    println!();
+                    println!("{}", color::info("Check snapshot status with:"));
+                    println!("  {}", color::command(&format!("zorvia snapshot-get {}", snapshot_name)));
+                }
+                Err(e) => {
+                    println!("{} Failed to create snapshot: {}", color::error("✗"), e);
+                    return Err(e);
+                }
+            }
+        }
+
+        Commands::SnapshotList {
+            vm,
+            all_namespaces: _,
+            output,
+        } => {
+            use snapshots::SnapshotManager;
+
+            let manager = SnapshotManager::new(&cli.namespace);
+
+            let snapshots = if let Some(vm_name) = vm {
+                println!("{}", color::header(&format!("Snapshots for VM: {}", vm_name)));
+                manager.list_snapshots_for_vm(&vm_name).await?
+            } else {
+                println!("{}", color::header(&format!("All Snapshots in namespace: {}", color::namespace(&cli.namespace))));
+                manager.list_all_snapshots().await?
+            };
+
+            if snapshots.is_empty() {
+                println!("{}", color::muted("No snapshots found"));
+                return Ok(());
+            }
+
+            if output == "table" {
+                println!();
+                println!("{:<30} {:<20} {:<12} {:<10} {:<10}",
+                    color::label("NAME"),
+                    color::label("VM"),
+                    color::label("STATUS"),
+                    color::label("SIZE"),
+                    color::label("AGE")
+                );
+                println!("{}", "-".repeat(82));
+
+                for snapshot in &snapshots {
+                    let status_str = match snapshot.status {
+                        snapshots::SnapshotStatus::Succeeded => color::vm_status("Running"),
+                        snapshots::SnapshotStatus::InProgress => color::vm_status("Pending"),
+                        snapshots::SnapshotStatus::Failed => color::vm_status("Failed"),
+                        snapshots::SnapshotStatus::Unknown => color::vm_status("Unknown"),
+                    };
+
+                    println!("{:<30} {:<20} {:<12} {:<10} {:<10}",
+                        snapshot.name,
+                        snapshot.vm_name,
+                        status_str,
+                        snapshot.size.as_deref().unwrap_or("-"),
+                        snapshot.age()
+                    );
+                }
+            } else {
+                let output_format = if output == "json" {
+                    OutputFormat::Json
+                } else {
+                    OutputFormat::Yaml
+                };
+                let formatted = format_output(&snapshots, output_format)?;
+                println!("{}", formatted);
+            }
+        }
+
+        Commands::SnapshotGet { name, output } => {
+            use snapshots::SnapshotManager;
+
+            let manager = SnapshotManager::new(&cli.namespace);
+            let snapshot = manager.get_snapshot(&name).await?;
+
+            if output == "yaml" || output == "json" {
+                let output_format = if output == "json" {
+                    OutputFormat::Json
+                } else {
+                    OutputFormat::Yaml
+                };
+                let formatted = format_output(&snapshot, output_format)?;
+                println!("{}", formatted);
+            } else {
+                println!("{}", color::header(&format!("Snapshot: {}", name)));
+                println!();
+                println!("  VM:          {}", color::value(&snapshot.vm_name));
+                println!("  Namespace:   {}", color::namespace(&snapshot.namespace));
+
+                let status_str = match snapshot.status {
+                    snapshots::SnapshotStatus::Succeeded => color::success("✓ READY"),
+                    snapshots::SnapshotStatus::InProgress => color::warning("◐ IN PROGRESS"),
+                    snapshots::SnapshotStatus::Failed => color::error("✗ FAILED"),
+                    snapshots::SnapshotStatus::Unknown => color::muted("? UNKNOWN"),
+                };
+                println!("  Status:      {}", status_str);
+
+                if let Some(desc) = &snapshot.description {
+                    println!("  Description: {}", color::muted(desc));
+                }
+                if let Some(size) = &snapshot.size {
+                    println!("  Size:        {}", color::resource(size, "storage"));
+                }
+                println!("  Age:         {}", snapshot.age());
+
+                if let Some(duration) = snapshot.duration() {
+                    println!("  Duration:    {}", duration);
+                }
+
+                println!("  Ready:       {}", if snapshot.ready_to_use {
+                    color::success("Yes")
+                } else {
+                    color::muted("No")
+                });
+
+                if let Some(error) = &snapshot.error {
+                    println!("  Error:       {}", color::error(error));
+                }
+            }
+        }
+
+        Commands::SnapshotDelete { name, yes } => {
+            use snapshots::SnapshotManager;
+
+            if !yes {
+                print!("Are you sure you want to delete snapshot '{}'? [y/N] ", name);
+                use std::io::{self, Write};
+                io::stdout().flush()?;
+
+                let mut input = String::new();
+                io::stdin().read_line(&mut input)?;
+
+                if !input.trim().eq_ignore_ascii_case("y") {
+                    println!("{}", color::muted("Cancelled"));
+                    return Ok(());
+                }
+            }
+
+            let manager = SnapshotManager::new(&cli.namespace);
+
+            println!("{}", color::header(&format!("Deleting snapshot: {}", name)));
+            match manager.delete_snapshot(&name).await {
+                Ok(_) => {
+                    println!("{} Snapshot deleted successfully", color::success("✓"));
+                }
+                Err(e) => {
+                    println!("{} Failed to delete snapshot: {}", color::error("✗"), e);
+                    return Err(e);
+                }
+            }
+        }
+
+        Commands::SnapshotRestore {
+            snapshot,
+            target,
+            in_place,
+            start,
+        } => {
+            use snapshots::RestoreManager;
+
+            let manager = RestoreManager::new(&cli.namespace);
+
+            if in_place {
+                // Restore in-place (overwrite existing VM)
+                let default_vm = snapshot.replace("-snapshot", "");
+                let vm_name = target.as_deref().unwrap_or(&default_vm);
+
+                println!("{}", color::header(&format!("Restoring VM in-place: {}", vm_name)));
+                println!("{}", color::warning("⚠ This will overwrite the current VM state"));
+                println!();
+
+                match manager.restore_in_place(vm_name, &snapshot).await {
+                    Ok(restore) => {
+                        println!("{} Restore started", color::success("✓"));
+                        println!("  Restore name: {}", restore.name);
+                        println!("  Status:       {}", color::vm_status("InProgress"));
+                    }
+                    Err(e) => {
+                        println!("{} Failed to restore: {}", color::error("✗"), e);
+                        return Err(e);
+                    }
+                }
+            } else {
+                // Restore to new VM
+                let default_target = format!("{}-restored", snapshot);
+                let target_vm = target.as_deref().unwrap_or(&default_target);
+
+                println!("{}", color::header(&format!("Restoring snapshot to new VM: {}", target_vm)));
+                println!("  Snapshot:  {}", color::value(&snapshot));
+                println!("  Target VM: {}", color::value(target_vm));
+                if start {
+                    println!("  Start:     {}", color::success("Yes"));
+                }
+                println!();
+
+                match manager.restore_to_new_vm(&snapshot, target_vm, start).await {
+                    Ok(restore) => {
+                        println!("{} Restore started", color::success("✓"));
+                        println!("  Restore name: {}", restore.name);
+                        println!("  Status:       {}", color::vm_status("InProgress"));
+                        println!();
+                        if start {
+                            println!("{}", color::info("VM will be started after restore completes"));
+                        }
+                    }
+                    Err(e) => {
+                        println!("{} Failed to restore: {}", color::error("✗"), e);
+                        return Err(e);
+                    }
+                }
+            }
+        }
+
+        // ========== PERFORMANCE MONITORING ==========
+
+        Commands::MonitorLive { vm, interval } => {
+            use monitoring::{MetricsCollector, MonitoringReporter};
+
+            let collector = MetricsCollector::new(&cli.namespace);
+            let reporter = MonitoringReporter::new();
+
+            println!("{}", color::header(&format!("Live Monitoring: {} (Press Ctrl+C to stop)", vm)));
+            println!("{}", color::muted(&format!("Update interval: {} seconds", interval)));
+            println!();
+
+            // Simple loop for demonstration (in a real TUI, this would be in a terminal UI)
+            for i in 0..10 {
+                if i > 0 {
+                    // Clear screen (simple version)
+                    println!("\n{}", "═".repeat(80));
+                }
+
+                match collector.collect(&vm).await {
+                    Ok(metrics) => {
+                        println!("{}", reporter.format_live_metrics(&vm, &metrics));
+                    }
+                    Err(e) => {
+                        println!("{} Failed to collect metrics: {}", color::error("✗"), e);
+                        break;
+                    }
+                }
+
+                if i < 9 {
+                    tokio::time::sleep(tokio::time::Duration::from_secs(interval)).await;
+                }
+            }
+
+            println!();
+            println!("{}", color::info("ℹ Live monitoring stopped"));
+        }
+
+        Commands::MonitorStats {
+            vm,
+            period,
+            output,
+        } => {
+            use monitoring::{MetricsCollector, PerformanceAnalyzer, MonitoringReporter, ReportFormat};
+
+            let collector = MetricsCollector::new(&cli.namespace);
+            let analyzer = PerformanceAnalyzer::with_default_thresholds();
+            let reporter = MonitoringReporter::new();
+
+            println!("{}", color::header(&format!("Performance Statistics: {}", vm)));
+            println!("  Period: {}", color::value(&period));
+            println!();
+
+            match collector.collect(&vm).await {
+                Ok(metrics) => {
+                    let report = analyzer.analyze(&vm, &metrics);
+
+                    let format = match output.as_str() {
+                        "json" => ReportFormat::Json,
+                        "yaml" => ReportFormat::Yaml,
+                        "summary" => ReportFormat::Summary,
+                        _ => ReportFormat::Table,
+                    };
+
+                    match reporter.format_performance_report(&report, &format) {
+                        Ok(formatted) => println!("{}", formatted),
+                        Err(e) => {
+                            println!("{} Failed to format report: {}", color::error("✗"), e);
+                            return Err(e);
+                        }
+                    }
+                }
+                Err(e) => {
+                    println!("{} Failed to collect metrics: {}", color::error("✗"), e);
+                    return Err(e);
+                }
+            }
+        }
+
+        Commands::MonitorCompare { vms, output } => {
+            use monitoring::{MetricsCollector, PerformanceAnalyzer, MonitoringReporter};
+
+            if vms.len() < 2 {
+                println!("{} At least 2 VMs are required for comparison", color::error("✗"));
+                return Err(anyhow!("Need at least 2 VMs"));
+            }
+
+            let collector = MetricsCollector::new(&cli.namespace);
+            let analyzer = PerformanceAnalyzer::with_default_thresholds();
+            let reporter = MonitoringReporter::new();
+
+            println!("{}", color::header(&format!("Comparing {} VMs", vms.len())));
+            println!();
+
+            let mut reports = Vec::new();
+
+            for vm_name in &vms {
+                match collector.collect(vm_name).await {
+                    Ok(metrics) => {
+                        let report = analyzer.analyze(vm_name, &metrics);
+                        reports.push(report);
+                    }
+                    Err(e) => {
+                        println!("{} Failed to collect metrics for {}: {}",
+                            color::error("✗"), vm_name, e);
+                    }
+                }
+            }
+
+            if reports.is_empty() {
+                println!("{} No metrics collected", color::error("✗"));
+                return Ok(());
+            }
+
+            if output == "json" {
+                let json = serde_json::to_string_pretty(&reports)?;
+                println!("{}", json);
+            } else if output == "yaml" {
+                let yaml = serde_yaml::to_string(&reports)?;
+                println!("{}", yaml);
+            } else {
+                // Table format
+                let comparison = analyzer.compare(reports);
+                println!("{}", reporter.format_comparison(comparison));
+            }
+        }
+
+        Commands::MonitorTop {
+            all_namespaces: _,
+            sort_by,
+            limit,
+        } => {
+            use monitoring::{MetricsCollector, PerformanceAnalyzer, MonitoringReporter};
+
+            // Mock VMs for demonstration
+            let vms = vec!["prod-db", "prod-web", "test-vm", "dev-vm", "cache-vm"];
+
+            let collector = MetricsCollector::new(&cli.namespace);
+            let analyzer = PerformanceAnalyzer::with_default_thresholds();
+            let reporter = MonitoringReporter::new();
+
+            println!("{}", color::header(&format!("Top {} VMs by {}", limit.min(vms.len()), sort_by)));
+            println!();
+
+            let mut reports = Vec::new();
+
+            for vm_name in vms.iter().take(limit) {
+                match collector.collect(vm_name).await {
+                    Ok(metrics) => {
+                        let report = analyzer.analyze(vm_name, &metrics);
+                        reports.push(report);
+                    }
+                    Err(_) => {}
+                }
+            }
+
+            // Sort based on sort_by parameter
+            reports.sort_by(|a, b| {
+                match sort_by.as_str() {
+                    "cpu" => b.current_metrics.cpu.usage_percent.partial_cmp(&a.current_metrics.cpu.usage_percent).unwrap(),
+                    "memory" => b.current_metrics.memory.usage_percent.partial_cmp(&a.current_metrics.memory.usage_percent).unwrap(),
+                    "disk" => b.current_metrics.disk.usage_percent.partial_cmp(&a.current_metrics.disk.usage_percent).unwrap(),
+                    _ => b.performance_score.cmp(&a.performance_score), // default: score
+                }
+            });
+
+            let comparison: Vec<_> = reports.into_iter()
+                .map(|r| (r.vm_name, r.performance_score, r.status.as_str().to_string()))
+                .collect();
+
+            println!("{}", reporter.format_comparison(comparison));
+
+            println!();
+            println!("{}", color::info(&format!("ℹ Sorted by: {}", sort_by)));
         }
     }
 

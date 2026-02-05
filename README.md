@@ -12,6 +12,7 @@ A powerful, ergonomic, and extensible Rust CLI and library to declaratively buil
 ## ✨ Features
 
 ### 🚀 Innovative Features (Unique to Zorvia!)
+- 📸 **VM Snapshots & Backup** - Production-grade snapshot management for disaster recovery
 - 📊 **8 VM Resource Profiles** - Pre-configured profiles (dev, prod, database, web, etc.)
 - 🏗️ **Multi-VM Blueprints** - Deploy complete stacks (LAMP, Kubernetes, 3-tier, CI/CD)
 - 🏥 **Automated Health Checks** - Diagnostics with scoring and recommendations
