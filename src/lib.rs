@@ -22,6 +22,7 @@ pub mod cost;
 pub mod automation;
 pub mod observability;
 pub mod multitenancy;
+pub mod gitops;
 
 use anyhow::{anyhow, Result};
 use cli::{Cli, Commands};
