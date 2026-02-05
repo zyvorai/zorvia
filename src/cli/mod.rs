@@ -959,4 +959,137 @@ pub enum Commands {
         #[arg(short, long, default_value = "table")]
         output: String,
     },
+
+    // ========== COST MANAGEMENT & OPTIMIZATION ==========
+
+    /// Show VM cost analysis
+    CostAnalyze {
+        /// VM name (optional, shows all if not provided)
+        vm: Option<String>,
+
+        /// Time period (7d, 30d, 90d, 180d, 365d)
+        #[arg(short, long, default_value = "30d")]
+        period: String,
+
+        /// Output format (table, yaml, json)
+        #[arg(short, long, default_value = "table")]
+        output: String,
+    },
+
+    /// Show cost summary
+    CostSummary {
+        /// Namespace filter
+        #[arg(short, long)]
+        namespace: Option<String>,
+
+        /// Time period (7d, 30d, 90d, 180d, 365d)
+        #[arg(short, long, default_value = "30d")]
+        period: String,
+
+        /// Group by (namespace, team, project)
+        #[arg(long)]
+        group_by: Option<String>,
+
+        /// Output format (table, yaml, json)
+        #[arg(short, long, default_value = "table")]
+        output: String,
+    },
+
+    /// Generate cost report
+    CostReport {
+        /// Report type (daily, weekly, monthly, quarterly, yearly)
+        #[arg(short, long, default_value = "monthly")]
+        report_type: String,
+
+        /// Export format (json, csv, yaml)
+        #[arg(short, long, default_value = "json")]
+        format: String,
+
+        /// Output file (defaults to stdout)
+        #[arg(short, long)]
+        output: Option<String>,
+    },
+
+    /// Manage budgets
+    BudgetList {
+        /// Output format (table, yaml, json)
+        #[arg(short, long, default_value = "table")]
+        output: String,
+    },
+
+    /// Create a budget
+    BudgetCreate {
+        /// Budget name
+        name: String,
+
+        /// Budget amount
+        #[arg(short, long)]
+        amount: f64,
+
+        /// Budget period (daily, weekly, monthly, quarterly, yearly)
+        #[arg(short, long, default_value = "monthly")]
+        period: String,
+
+        /// Scope (global, namespace:<name>, team:<name>, project:<name>)
+        #[arg(short, long, default_value = "global")]
+        scope: String,
+
+        /// Alert threshold (e.g., 80 for 80%)
+        #[arg(long)]
+        alert_threshold: Option<f64>,
+    },
+
+    /// Show budget status
+    BudgetStatus {
+        /// Budget name
+        name: String,
+
+        /// Output format (yaml, json)
+        #[arg(short, long, default_value = "yaml")]
+        output: String,
+    },
+
+    /// Get cost optimization recommendations
+    CostOptimize {
+        /// VM name (optional, shows all if not provided)
+        vm: Option<String>,
+
+        /// Show only high priority recommendations
+        #[arg(long)]
+        high_priority_only: bool,
+
+        /// Output format (table, yaml, json)
+        #[arg(short, long, default_value = "table")]
+        output: String,
+    },
+
+    /// Show cost waste report
+    CostWaste {
+        /// Waste type filter (idle, oversized, storage, snapshots)
+        #[arg(long)]
+        waste_type: Option<String>,
+
+        /// Minimum monthly waste to show
+        #[arg(long, default_value = "10")]
+        min_waste: f64,
+
+        /// Output format (table, yaml, json)
+        #[arg(short, long, default_value = "table")]
+        output: String,
+    },
+
+    /// Forecast costs
+    CostForecast {
+        /// Budget to compare against
+        #[arg(short, long)]
+        budget: Option<f64>,
+
+        /// Forecast period (7d, 30d, 90d)
+        #[arg(short, long, default_value = "30d")]
+        period: String,
+
+        /// Output format (table, yaml, json)
+        #[arg(short, long, default_value = "table")]
+        output: String,
+    },
 }

@@ -18,6 +18,7 @@ pub mod disk;
 pub mod migration;
 pub mod backup;
 pub mod security;
+pub mod cost;
 
 use anyhow::{anyhow, Result};
 use cli::{Cli, Commands};
@@ -2999,6 +3000,395 @@ pub async fn run(cli: Cli) -> Result<()> {
                 } else {
                     color::success("0")
                 });
+            }
+        }
+
+        // ========== COST MANAGEMENT & OPTIMIZATION ==========
+
+        Commands::CostAnalyze { vm, period, output } => {
+            use cost::{CostCalculator, VMCost};
+
+            println!("{}", color::header("Cost Analysis"));
+            if let Some(ref vm_name) = vm {
+                println!("  VM:      {}", color::value(vm_name));
+            }
+            println!("  Period:  {}", period);
+            println!();
+
+            let calculator = CostCalculator::default();
+            let cost = calculator.calculate_vm_cost(
+                vm.as_deref().unwrap_or("example-vm"),
+                "default",
+                4,
+                8,
+                20,
+                730.0
+            );
+
+            println!("Cost Breakdown:");
+            println!("  CPU:      ${:.2}", cost.cpu_cost);
+            println!("  Memory:   ${:.2}", cost.memory_cost);
+            println!("  Storage:  ${:.2}", cost.storage_cost);
+            println!("  Network:  ${:.2}", cost.network_cost);
+            println!("  Total:    {}", color::value(&format!("${:.2}", cost.total_cost)));
+            println!();
+            println!("  Runtime:  {:.1} hours", cost.runtime_hours);
+            println!("  Cost/hr:  ${:.4}", cost.cost_per_hour());
+
+            if output == "json" {
+                println!();
+                let json = serde_json::to_string_pretty(&cost)?;
+                println!("{}", json);
+            } else if output == "yaml" {
+                println!();
+                let yaml = serde_yaml::to_string(&cost)?;
+                println!("{}", yaml);
+            }
+        }
+
+        Commands::CostSummary { namespace, period, group_by, output } => {
+            use cost::CostSummary;
+
+            println!("{}", color::header("Cost Summary"));
+            if let Some(ref ns) = namespace {
+                println!("  Namespace: {}", color::value(ns));
+            }
+            println!("  Period:    {}", period);
+            if let Some(ref group) = group_by {
+                println!("  Group By:  {}", group);
+            }
+            println!();
+
+            let summary = CostSummary::new();
+
+            println!("Summary:");
+            println!("  Total Cost:       {}", color::value(&format!("${:.2}", summary.total_cost)));
+            println!("  VM Count:         {}", summary.vm_count);
+            println!("  Avg Cost/VM:      ${:.2}", summary.average_cost_per_vm());
+            println!();
+            println!("Resource Breakdown:");
+            println!("  CPU:              ${:.2}", summary.cpu_cost);
+            println!("  Memory:           ${:.2}", summary.memory_cost);
+            println!("  Storage:          ${:.2}", summary.storage_cost);
+            println!("  Network:          ${:.2}", summary.network_cost);
+            println!("  Snapshots:        ${:.2}", summary.snapshot_cost);
+
+            if output == "json" {
+                println!();
+                let json = serde_json::to_string_pretty(&summary)?;
+                println!("{}", json);
+            } else if output == "yaml" {
+                println!();
+                let yaml = serde_yaml::to_string(&summary)?;
+                println!("{}", yaml);
+            }
+        }
+
+        Commands::CostReport { report_type, format, output } => {
+            use cost::reports::{ReportGenerator, ReportExporter};
+            use chrono::Utc;
+
+            println!("{}", color::header(&format!("{} Cost Report", report_type)));
+            println!();
+
+            let report = match report_type.as_str() {
+                "monthly" => ReportGenerator::monthly_report(2024, 1),
+                "weekly" => ReportGenerator::weekly_report(Utc::now()),
+                _ => ReportGenerator::custom_report(Utc::now() - chrono::Duration::days(30), Utc::now()),
+            };
+
+            println!("  Report ID:   {}", report.report_id);
+            println!("  Period:      {} to {}",
+                report.period_start.format("%Y-%m-%d"),
+                report.period_end.format("%Y-%m-%d")
+            );
+            println!("  Total Cost:  {}", color::value(&format!("${:.2}", report.summary.total_cost)));
+            println!();
+
+            let content = if format == "csv" {
+                ReportExporter::to_csv(&report)
+            } else if format == "yaml" {
+                serde_yaml::to_string(&report)?
+            } else {
+                ReportExporter::to_json(&report)?
+            };
+
+            if let Some(file_path) = output {
+                std::fs::write(&file_path, content)?;
+                println!("{}", color::success(&format!("Report saved to: {}", file_path)));
+            } else {
+                println!("{}", content);
+            }
+        }
+
+        Commands::BudgetList { output } => {
+            use cost::budgets::{BudgetManager, Budget, BudgetPeriod, BudgetScope};
+
+            println!("{}", color::header("Budgets"));
+            println!();
+
+            let mut manager = BudgetManager::new();
+
+            // Example budgets
+            manager.add_budget(
+                Budget::new("monthly-budget", 5000.0, BudgetPeriod::Monthly)
+                    .with_scope(BudgetScope::Global)
+            );
+            manager.add_budget(
+                Budget::new("dev-budget", 1000.0, BudgetPeriod::Monthly)
+                    .with_scope(BudgetScope::Namespace("dev".to_string()))
+            );
+
+            if output == "json" {
+                let json = serde_json::to_string_pretty(&manager.all_budgets())?;
+                println!("{}", json);
+            } else if output == "yaml" {
+                let yaml = serde_yaml::to_string(&manager.all_budgets())?;
+                println!("{}", yaml);
+            } else {
+                println!("{:<20} {:<15} {:<15} {:<10}",
+                    color::label("NAME"),
+                    color::label("AMOUNT"),
+                    color::label("PERIOD"),
+                    color::label("SCOPE")
+                );
+                println!("{}", "-".repeat(65));
+
+                for budget in manager.all_budgets() {
+                    println!("{:<20} ${:<14.2} {:<15} {}",
+                        budget.name,
+                        budget.amount,
+                        budget.period.to_string(),
+                        budget.scope.to_string()
+                    );
+                }
+            }
+        }
+
+        Commands::BudgetCreate { name, amount, period, scope, alert_threshold } => {
+            use cost::budgets::{Budget, BudgetPeriod, BudgetScope, BudgetAlert, NotificationType};
+
+            println!("{}", color::header(&format!("Creating Budget: {}", name)));
+            println!();
+
+            let budget_period = match period.as_str() {
+                "daily" => BudgetPeriod::Daily,
+                "weekly" => BudgetPeriod::Weekly,
+                "quarterly" => BudgetPeriod::Quarterly,
+                "yearly" => BudgetPeriod::Yearly,
+                _ => BudgetPeriod::Monthly,
+            };
+
+            let budget_scope = if scope == "global" {
+                BudgetScope::Global
+            } else if let Some(ns) = scope.strip_prefix("namespace:") {
+                BudgetScope::Namespace(ns.to_string())
+            } else if let Some(team) = scope.strip_prefix("team:") {
+                BudgetScope::Team(team.to_string())
+            } else {
+                BudgetScope::Global
+            };
+
+            let mut budget = Budget::new(&name, amount, budget_period)
+                .with_scope(budget_scope);
+
+            if let Some(threshold) = alert_threshold {
+                budget = budget.add_alert(
+                    BudgetAlert::new(threshold, NotificationType::Email)
+                );
+            }
+
+            println!("  Name:       {}", color::value(&budget.name));
+            println!("  Amount:     {}", color::value(&format!("${:.2}", budget.amount)));
+            println!("  Period:     {}", budget.period);
+            println!("  Scope:      {}", budget.scope);
+            if !budget.alerts.is_empty() {
+                println!("  Alerts:     {} configured", budget.alerts.len());
+            }
+            println!();
+            println!("{}", color::success("✓ Budget created successfully"));
+        }
+
+        Commands::BudgetStatus { name, output } => {
+            use cost::budgets::{Budget, BudgetPeriod, BudgetStatus};
+
+            let mut budget = Budget::new(&name, 5000.0, BudgetPeriod::Monthly);
+            budget.update_spend(3750.0);
+
+            let status = BudgetStatus::from_budget(&budget);
+
+            println!("{}", color::header(&format!("Budget Status: {}", name)));
+            println!();
+            println!("  Amount:       {}", color::value(&format!("${:.2}", status.amount)));
+            println!("  Current:      ${:.2}", status.current_spend);
+            println!("  Remaining:    ${:.2}", status.remaining);
+            println!("  Utilization:  {}%", status.utilization_percent as u8);
+            println!("  Status:       {}", match status.status {
+                cost::budgets::Status::Healthy => color::success("Healthy"),
+                cost::budgets::Status::Warning => color::warning("Warning"),
+                cost::budgets::Status::Critical => color::error("Critical"),
+                cost::budgets::Status::Exceeded => color::error("Exceeded"),
+            });
+
+            if output == "json" {
+                println!();
+                let json = serde_json::to_string_pretty(&status)?;
+                println!("{}", json);
+            } else if output == "yaml" {
+                println!();
+                let yaml = serde_yaml::to_string(&status)?;
+                println!("{}", yaml);
+            }
+        }
+
+        Commands::CostOptimize { vm, high_priority_only, output } => {
+            use cost::optimization::{OptimizationEngine, OptimizationReport};
+
+            println!("{}", color::header("Cost Optimization Recommendations"));
+            if let Some(ref vm_name) = vm {
+                println!("  VM: {}", color::value(vm_name));
+            }
+            println!();
+
+            let report = OptimizationEngine::generate_report(vm.as_deref().unwrap_or("example-vm"));
+
+            let recommendations = if high_priority_only {
+                report.high_priority_recommendations()
+            } else {
+                report.recommendations.iter().collect()
+            };
+
+            println!("Potential Savings: {}", color::value(&format!("${:.2}/month", report.total_potential_savings)));
+            println!("Recommendations:   {}", recommendations.len());
+            println!();
+
+            if output == "json" {
+                let json = serde_json::to_string_pretty(&recommendations)?;
+                println!("{}", json);
+            } else if output == "yaml" {
+                let yaml = serde_yaml::to_string(&recommendations)?;
+                println!("{}", yaml);
+            } else {
+                println!("{:<15} {:<25} {:<10} {:<15} {}",
+                    color::label("PRIORITY"),
+                    color::label("TYPE"),
+                    color::label("SAVINGS"),
+                    color::label("SAVINGS %"),
+                    color::label("DESCRIPTION")
+                );
+                println!("{}", "-".repeat(90));
+
+                for rec in recommendations {
+                    let priority_str = match rec.priority {
+                        cost::optimization::Priority::Critical => color::error("Critical"),
+                        cost::optimization::Priority::High => color::error("High"),
+                        cost::optimization::Priority::Medium => color::warning("Medium"),
+                        cost::optimization::Priority::Low => color::info("Low"),
+                    };
+
+                    println!("{:<15} {:<25} ${:<9.2} {:<15.1}% {}",
+                        priority_str,
+                        rec.recommendation_type.to_string(),
+                        rec.potential_savings,
+                        rec.savings_percent,
+                        rec.description
+                    );
+                }
+            }
+        }
+
+        Commands::CostWaste { waste_type, min_waste, output } => {
+            use cost::optimization::{OptimizationEngine, WasteType};
+
+            println!("{}", color::header("Cost Waste Report"));
+            if let Some(ref wtype) = waste_type {
+                println!("  Type: {}", wtype);
+            }
+            println!("  Minimum: ${:.2}/month", min_waste);
+            println!();
+
+            // Example waste reports
+            let wastes = vec![
+                OptimizationEngine::detect_storage_waste(100, 10.0),
+                OptimizationEngine::detect_old_snapshots(10, 120, 5.0).unwrap(),
+            ];
+
+            let filtered: Vec<_> = wastes.iter()
+                .filter(|w| w.monthly_waste >= min_waste)
+                .collect();
+
+            println!("Total Monthly Waste: {}", color::error(&format!("${:.2}", filtered.iter().map(|w| w.monthly_waste).sum::<f64>())));
+            println!("Waste Items:         {}", filtered.len());
+            println!();
+
+            if output == "json" {
+                let json = serde_json::to_string_pretty(&filtered)?;
+                println!("{}", json);
+            } else if output == "yaml" {
+                let yaml = serde_yaml::to_string(&filtered)?;
+                println!("{}", yaml);
+            } else {
+                println!("{:<20} {:<20} {:<15} {}",
+                    color::label("RESOURCE"),
+                    color::label("TYPE"),
+                    color::label("MONTHLY WASTE"),
+                    color::label("DETAILS")
+                );
+                println!("{}", "-".repeat(80));
+
+                for waste in filtered {
+                    let severity_str = match waste.severity {
+                        cost::optimization::WasteSeverity::High => color::error("High"),
+                        cost::optimization::WasteSeverity::Medium => color::warning("Medium"),
+                        cost::optimization::WasteSeverity::Low => color::info("Low"),
+                    };
+
+                    println!("{:<20} {:<20} ${:<14.2} {}",
+                        waste.vm_name,
+                        format!("{:?}", waste.waste_type),
+                        waste.monthly_waste,
+                        waste.details
+                    );
+                }
+            }
+        }
+
+        Commands::CostForecast { budget, period, output } => {
+            use cost::budgets::CostForecast;
+
+            println!("{}", color::header("Cost Forecast"));
+            println!("  Period: {}", period);
+            if let Some(b) = budget {
+                println!("  Budget: ${:.2}", b);
+            }
+            println!();
+
+            let mut forecast = CostForecast::new(cost::budgets::BudgetPeriod::Monthly, 1500.0);
+            forecast.project_linear(15.0, 30.0);
+
+            println!("Forecast:");
+            println!("  Current Spend:    ${:.2}", forecast.current_spend);
+            println!("  Projected Spend:  {}", color::value(&format!("${:.2}", forecast.projected_spend)));
+            println!("  Confidence:       {}%", forecast.confidence as u8);
+            println!("  Method:           {:?}", forecast.forecast_method);
+            println!();
+
+            if let Some(budget_amount) = budget {
+                if forecast.is_over_budget(budget_amount) {
+                    println!("{}", color::error(&format!("⚠ Forecast exceeds budget by ${:.2}", forecast.projected_spend - budget_amount)));
+                } else {
+                    println!("{}", color::success(&format!("✓ Forecast within budget (${:.2} remaining)", budget_amount - forecast.projected_spend)));
+                }
+            }
+
+            if output == "json" {
+                println!();
+                let json = serde_json::to_string_pretty(&forecast)?;
+                println!("{}", json);
+            } else if output == "yaml" {
+                println!();
+                let yaml = serde_yaml::to_string(&forecast)?;
+                println!("{}", yaml);
             }
         }
     }
