@@ -1,0 +1,97 @@
+use crate::config::VMConfig;
+use anyhow::Result;
+use serde::Serialize;
+
+#[derive(Debug, Clone, Copy)]
+pub enum OutputFormat {
+    Yaml,
+    Json,
+}
+
+impl OutputFormat {
+    pub fn from_str(s: &str) -> Option<Self> {
+        match s.to_lowercase().as_str() {
+            "yaml" | "yml" => Some(Self::Yaml),
+            "json" => Some(Self::Json),
+            _ => None,
+        }
+    }
+
+    pub fn from_path(path: &str) -> Self {
+        if path.ends_with(".json") {
+            Self::Json
+        } else {
+            Self::Yaml
+        }
+    }
+}
+
+/// Formats a VMConfig to YAML
+pub fn to_yaml<T: Serialize>(value: &T) -> Result<String> {
+    Ok(serde_yaml::to_string(value)?)
+}
+
+/// Formats a VMConfig to JSON
+pub fn to_json<T: Serialize>(value: &T) -> Result<String> {
+    Ok(serde_json::to_string_pretty(value)?)
+}
+
+/// Formats a VMConfig to the specified format
+pub fn format_output<T: Serialize>(value: &T, format: OutputFormat) -> Result<String> {
+    match format {
+        OutputFormat::Yaml => to_yaml(value),
+        OutputFormat::Json => to_json(value),
+    }
+}
+
+/// Pretty print VMConfig to stdout
+pub fn print_vm_config(config: &VMConfig, format: OutputFormat) -> Result<()> {
+    let output = format_output(config, format)?;
+    println!("{}", output);
+    Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::config::VMConfigBuilder;
+
+    #[test]
+    fn test_yaml_output() {
+        let config = VMConfigBuilder::new("test")
+            .namespace("default")
+            .cpu(2, 1, 1)
+            .memory("4Gi")
+            .build();
+
+        let yaml = to_yaml(&config).unwrap();
+        assert!(yaml.contains("name: test"));
+        assert!(yaml.contains("namespace: default"));
+    }
+
+    #[test]
+    fn test_json_output() {
+        let config = VMConfigBuilder::new("test")
+            .namespace("default")
+            .cpu(2, 1, 1)
+            .memory("4Gi")
+            .build();
+
+        let json = to_json(&config).unwrap();
+        assert!(json.contains("\"name\": \"test\""));
+        assert!(json.contains("\"namespace\": \"default\""));
+    }
+
+    #[test]
+    fn test_output_format_from_str() {
+        assert!(matches!(
+            OutputFormat::from_str("yaml"),
+            Some(OutputFormat::Yaml)
+        ));
+        assert!(matches!(
+            OutputFormat::from_str("json"),
+            Some(OutputFormat::Json)
+        ));
+        assert!(OutputFormat::from_str("invalid").is_none());
+    }
+}

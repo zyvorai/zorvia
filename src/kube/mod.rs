@@ -1,0 +1,254 @@
+pub mod converter;
+pub mod status;
+pub mod types;
+
+use crate::config::VMConfig;
+use crate::utils::ZorviaError;
+use anyhow::Result;
+use k8s_openapi::api::core::v1::PersistentVolumeClaim;
+use kube::{
+    api::{Api, DeleteParams, ListParams, Patch, PatchParams, PostParams},
+    Client, Config,
+};
+use serde_json::json;
+
+pub use converter::vm_config_to_kubevirt;
+pub use status::{ResourceSummary, VMStatus};
+pub use types::*;
+
+/// Kubernetes client for managing KubeVirt VMs
+pub struct KubeClient {
+    client: Client,
+}
+
+impl KubeClient {
+    /// Create a new KubeClient from default kubeconfig
+    pub async fn new() -> Result<Self> {
+        let config = Config::infer().await?;
+        let client = Client::try_from(config)?;
+        Ok(Self { client })
+    }
+
+    /// Create a new KubeClient with custom kubeconfig path
+    pub async fn with_kubeconfig(_path: &str) -> Result<Self> {
+        let config = Config::from_kubeconfig(&kube::config::KubeConfigOptions {
+            context: None,
+            cluster: None,
+            user: None,
+        })
+        .await?;
+        let client = Client::try_from(config)?;
+        Ok(Self { client })
+    }
+
+    /// Get API handle for VirtualMachines in a namespace
+    fn vm_api(&self, namespace: &str) -> Api<VirtualMachine> {
+        Api::namespaced(self.client.clone(), namespace)
+    }
+
+    /// Get API handle for PVCs in a namespace
+    fn pvc_api(&self, namespace: &str) -> Api<PersistentVolumeClaim> {
+        Api::namespaced(self.client.clone(), namespace)
+    }
+
+    /// List all VMs in a namespace
+    pub async fn list_vms(&self, namespace: &str) -> Result<Vec<VirtualMachine>> {
+        let vms: Api<VirtualMachine> = self.vm_api(namespace);
+        let lp = ListParams::default();
+        let vm_list = vms.list(&lp).await?;
+        Ok(vm_list.items)
+    }
+
+    /// List all VMs across all namespaces
+    pub async fn list_all_vms(&self) -> Result<Vec<VirtualMachine>> {
+        let vms: Api<VirtualMachine> = Api::all(self.client.clone());
+        let lp = ListParams::default();
+        let vm_list = vms.list(&lp).await?;
+        Ok(vm_list.items)
+    }
+
+    /// Get a specific VM
+    pub async fn get_vm(&self, namespace: &str, name: &str) -> Result<VirtualMachine> {
+        let vms: Api<VirtualMachine> = self.vm_api(namespace);
+        let vm = vms.get(name).await?;
+        Ok(vm)
+    }
+
+    /// Create a VM from VMConfig
+    pub async fn create_vm(&self, config: &VMConfig) -> Result<VirtualMachine> {
+        let vms: Api<VirtualMachine> = self.vm_api(&config.namespace);
+
+        // Check if VM already exists
+        if vms.get(&config.name).await.is_ok() {
+            return Err(ZorviaError::VmExists(config.name.clone()).into());
+        }
+
+        // Convert VMConfig to KubeVirt VirtualMachine
+        let vm = vm_config_to_kubevirt(config)?;
+
+        // Create the VM
+        let pp = PostParams::default();
+        let created = vms.create(&pp, &vm).await?;
+
+        Ok(created)
+    }
+
+    /// Delete a VM
+    pub async fn delete_vm(&self, namespace: &str, name: &str) -> Result<()> {
+        let vms: Api<VirtualMachine> = self.vm_api(namespace);
+
+        // Check if VM exists
+        if vms.get(name).await.is_err() {
+            return Err(ZorviaError::VmNotFound(name.to_string()).into());
+        }
+
+        let dp = DeleteParams::default();
+        vms.delete(name, &dp).await?;
+
+        Ok(())
+    }
+
+    /// Start a VM (set running: true)
+    pub async fn start_vm(&self, namespace: &str, name: &str) -> Result<VirtualMachine> {
+        let vms: Api<VirtualMachine> = self.vm_api(namespace);
+
+        // Check if VM exists
+        if vms.get(name).await.is_err() {
+            return Err(ZorviaError::VmNotFound(name.to_string()).into());
+        }
+
+        let patch = json!({
+            "spec": {
+                "running": true
+            }
+        });
+
+        let pp = PatchParams::default();
+        let patched = vms
+            .patch(name, &pp, &Patch::Merge(&patch))
+            .await?;
+
+        Ok(patched)
+    }
+
+    /// Stop a VM (set running: false)
+    pub async fn stop_vm(&self, namespace: &str, name: &str) -> Result<VirtualMachine> {
+        let vms: Api<VirtualMachine> = self.vm_api(namespace);
+
+        // Check if VM exists
+        if vms.get(name).await.is_err() {
+            return Err(ZorviaError::VmNotFound(name.to_string()).into());
+        }
+
+        let patch = json!({
+            "spec": {
+                "running": false
+            }
+        });
+
+        let pp = PatchParams::default();
+        let patched = vms
+            .patch(name, &pp, &Patch::Merge(&patch))
+            .await?;
+
+        Ok(patched)
+    }
+
+    /// Restart a VM (stop then start)
+    pub async fn restart_vm(&self, namespace: &str, name: &str) -> Result<VirtualMachine> {
+        self.stop_vm(namespace, name).await?;
+        tokio::time::sleep(tokio::time::Duration::from_secs(2)).await;
+        self.start_vm(namespace, name).await
+    }
+
+    /// Check if a VM is running
+    pub async fn is_running(&self, namespace: &str, name: &str) -> Result<bool> {
+        let vm = self.get_vm(namespace, name).await?;
+        Ok(vm.spec.running.unwrap_or(false))
+    }
+
+    /// Get VM status string
+    pub async fn get_status(&self, namespace: &str, name: &str) -> Result<String> {
+        let vm = self.get_vm(namespace, name).await?;
+
+        if let Some(status) = &vm.status {
+            if let Some(printable) = &status.print_able_status {
+                return Ok(printable.clone());
+            }
+            if status.ready.unwrap_or(false) {
+                return Ok("Running".to_string());
+            }
+            if status.created.unwrap_or(false) {
+                return Ok("Created".to_string());
+            }
+        }
+
+        if vm.spec.running.unwrap_or(false) {
+            Ok("Starting".to_string())
+        } else {
+            Ok("Stopped".to_string())
+        }
+    }
+
+    /// Create a PVC for a VM disk
+    pub async fn create_pvc(
+        &self,
+        namespace: &str,
+        name: &str,
+        size: &str,
+        storage_class: Option<&str>,
+    ) -> Result<PersistentVolumeClaim> {
+        use k8s_openapi::api::core::v1::PersistentVolumeClaimSpec;
+        use k8s_openapi::apimachinery::pkg::api::resource::Quantity;
+        use std::collections::BTreeMap;
+
+        let pvcs: Api<PersistentVolumeClaim> = self.pvc_api(namespace);
+
+        let mut requests = BTreeMap::new();
+        requests.insert("storage".to_string(), Quantity(size.to_string()));
+
+        let pvc = PersistentVolumeClaim {
+            metadata: k8s_openapi::apimachinery::pkg::apis::meta::v1::ObjectMeta {
+                name: Some(name.to_string()),
+                namespace: Some(namespace.to_string()),
+                ..Default::default()
+            },
+            spec: Some(PersistentVolumeClaimSpec {
+                access_modes: Some(vec!["ReadWriteOnce".to_string()]),
+                resources: Some(k8s_openapi::api::core::v1::VolumeResourceRequirements {
+                    requests: Some(requests),
+                    ..Default::default()
+                }),
+                storage_class_name: storage_class.map(|s| s.to_string()),
+                ..Default::default()
+            }),
+            status: None,
+        };
+
+        let pp = PostParams::default();
+        let created = pvcs.create(&pp, &pvc).await?;
+
+        Ok(created)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_vm_conversion() {
+        use crate::config::VMConfigBuilder;
+
+        let config = VMConfigBuilder::new("test")
+            .namespace("default")
+            .cpu(2, 1, 1)
+            .memory("4Gi")
+            .add_blank_disk("rootdisk", "20Gi", 1)
+            .add_pod_network("default")
+            .build();
+
+        let vm = vm_config_to_kubevirt(&config).unwrap();
+        assert_eq!(vm.metadata.name, Some("test".to_string()));
+    }
+}

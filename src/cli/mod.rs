@@ -1,0 +1,253 @@
+use clap::{Parser, Subcommand};
+
+#[derive(Parser, Debug)]
+#[command(name = "zorvia")]
+#[command(about = "Craft VMs for KubeVirt with Rust power!", long_about = None)]
+#[command(version)]
+pub struct Cli {
+    /// Kubernetes namespace
+    #[arg(long, default_value = "default", env = "ZORVIA_NAMESPACE")]
+    pub namespace: String,
+
+    /// Path to kubeconfig file
+    #[arg(long, env = "KUBECONFIG")]
+    pub kubeconfig: Option<String>,
+
+    /// Enable verbose logging
+    #[arg(short, long, global = true)]
+    pub verbose: bool,
+
+    #[command(subcommand)]
+    pub command: Commands,
+}
+
+#[derive(Subcommand, Debug)]
+pub enum Commands {
+    /// Create a new VM
+    Create {
+        /// VM name
+        name: String,
+
+        /// Use a template (ubuntu, centos, fedora, debian, rhel, windows)
+        #[arg(short, long)]
+        template: Option<String>,
+
+        /// Load configuration from file
+        #[arg(short, long)]
+        from_file: Option<String>,
+
+        /// Number of CPU cores
+        #[arg(long)]
+        cpus: Option<u32>,
+
+        /// Memory size (e.g., 4Gi, 8Gi)
+        #[arg(long)]
+        memory: Option<String>,
+
+        /// Disk size (e.g., 20Gi, 40Gi)
+        #[arg(long)]
+        disk_size: Option<String>,
+
+        /// Storage class for disks
+        #[arg(long)]
+        storage_class: Option<String>,
+
+        /// Container disk image
+        #[arg(long)]
+        container_disk: Option<String>,
+
+        /// Cloud-init user data file
+        #[arg(long)]
+        cloud_init: Option<String>,
+
+        /// Dry run (don't create, just show manifest)
+        #[arg(long)]
+        dry_run: bool,
+
+        /// Output format (yaml, json)
+        #[arg(short, long, default_value = "yaml")]
+        output: String,
+    },
+
+    /// List VMs in the namespace
+    List {
+        /// Show all namespaces
+        #[arg(short = 'A', long)]
+        all_namespaces: bool,
+
+        /// Output format (table, yaml, json)
+        #[arg(short, long, default_value = "table")]
+        output: String,
+    },
+
+    /// Get details of a VM
+    Get {
+        /// VM name
+        name: String,
+
+        /// Output format (yaml, json)
+        #[arg(short, long, default_value = "yaml")]
+        output: String,
+    },
+
+    /// Delete a VM
+    Delete {
+        /// VM name
+        name: String,
+
+        /// Skip confirmation
+        #[arg(short, long)]
+        yes: bool,
+    },
+
+    /// Start a VM
+    Start {
+        /// VM name
+        name: String,
+    },
+
+    /// Stop a VM
+    Stop {
+        /// VM name
+        name: String,
+    },
+
+    /// Restart a VM
+    Restart {
+        /// VM name
+        name: String,
+    },
+
+    /// Generate a VM manifest without creating it
+    Generate {
+        /// VM name
+        name: String,
+
+        /// Use a template
+        #[arg(short, long)]
+        template: Option<String>,
+
+        /// Load configuration from file
+        #[arg(short, long)]
+        from_file: Option<String>,
+
+        /// Number of CPU cores
+        #[arg(long)]
+        cpus: Option<u32>,
+
+        /// Memory size
+        #[arg(long)]
+        memory: Option<String>,
+
+        /// Disk size
+        #[arg(long)]
+        disk_size: Option<String>,
+
+        /// Output file (defaults to stdout)
+        #[arg(short, long)]
+        output: Option<String>,
+
+        /// Output format (yaml, json)
+        #[arg(long, default_value = "yaml")]
+        format: String,
+
+        /// Generate KubeVirt VirtualMachine CRD instead of VMConfig
+        #[arg(long)]
+        kubevirt: bool,
+    },
+
+    /// List available templates
+    Templates,
+
+    /// Show template details
+    Template {
+        /// Template name
+        name: String,
+
+        /// Output format (yaml, json)
+        #[arg(short, long, default_value = "yaml")]
+        output: String,
+    },
+
+    /// Validate a VM configuration file
+    Validate {
+        /// Path to configuration file
+        file: String,
+    },
+
+    /// Show detailed VM status with resource information
+    Status {
+        /// VM name
+        name: String,
+
+        /// Watch mode - continuously update status
+        #[arg(short, long)]
+        watch: bool,
+
+        /// Update interval in seconds (for watch mode)
+        #[arg(long, default_value = "3")]
+        interval: u64,
+    },
+
+    /// Clone an existing VM
+    Clone {
+        /// Source VM name
+        source: String,
+
+        /// New VM name
+        target: String,
+
+        /// Start the cloned VM immediately
+        #[arg(long)]
+        start: bool,
+    },
+
+    /// Show resource usage summary
+    Resources {
+        /// Show all namespaces
+        #[arg(short = 'A', long)]
+        all_namespaces: bool,
+
+        /// Sort by (name, cpu, memory)
+        #[arg(long, default_value = "name")]
+        sort_by: String,
+    },
+
+    /// Export VM configuration
+    Export {
+        /// VM name
+        name: String,
+
+        /// Output file (defaults to stdout)
+        #[arg(short, long)]
+        output: Option<String>,
+
+        /// Export as KubeVirt manifest
+        #[arg(long)]
+        kubevirt: bool,
+    },
+
+    /// Interactive VM creation wizard
+    Wizard {
+        /// VM name (optional, will prompt if not provided)
+        name: Option<String>,
+    },
+
+    /// Create multiple VMs from a batch configuration file
+    Batch {
+        /// Path to batch configuration file (YAML/JSON)
+        file: String,
+
+        /// Namespace override for all VMs
+        #[arg(short, long)]
+        namespace: Option<String>,
+
+        /// Dry run - show what would be created
+        #[arg(long)]
+        dry_run: bool,
+
+        /// Continue on errors instead of stopping
+        #[arg(long)]
+        continue_on_error: bool,
+    },
+}
