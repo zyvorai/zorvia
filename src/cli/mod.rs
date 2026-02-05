@@ -834,4 +834,129 @@ pub enum Commands {
         #[arg(long)]
         dry_run: bool,
     },
+
+    // ========== SECURITY & COMPLIANCE ==========
+
+    /// Scan VM for security vulnerabilities
+    SecurityScan {
+        /// VM name
+        vm: String,
+
+        /// Scan type (quick, standard, deep, compliance)
+        #[arg(long, default_value = "standard")]
+        scan_type: String,
+
+        /// Include container scanning
+        #[arg(long)]
+        containers: bool,
+
+        /// Output format (table, json, yaml)
+        #[arg(short, long, default_value = "table")]
+        output: String,
+    },
+
+    /// Show security assessment for a VM
+    SecurityAssess {
+        /// VM name
+        vm: String,
+
+        /// Output format (yaml, json)
+        #[arg(short, long, default_value = "yaml")]
+        output: String,
+    },
+
+    /// Apply security hardening profile
+    SecurityHarden {
+        /// VM name
+        vm: String,
+
+        /// Hardening profile (cis, stig, pci-dss, nist, custom)
+        #[arg(short, long, default_value = "cis")]
+        profile: String,
+
+        /// Verify only, don't apply changes
+        #[arg(long)]
+        verify_only: bool,
+    },
+
+    /// List hardening profiles
+    SecurityProfiles {
+        /// Show detailed information
+        #[arg(short, long)]
+        details: bool,
+    },
+
+    /// Run compliance check
+    ComplianceCheck {
+        /// VM name
+        vm: String,
+
+        /// Compliance framework (pci-dss, hipaa, soc2, iso27001, gdpr, nist, cis)
+        #[arg(short, long, default_value = "pci-dss")]
+        framework: String,
+
+        /// Output format (table, yaml, json)
+        #[arg(short, long, default_value = "table")]
+        output: String,
+    },
+
+    /// Show compliance report
+    ComplianceReport {
+        /// VM name
+        vm: String,
+
+        /// Report ID (optional, shows latest if not provided)
+        #[arg(short, long)]
+        report_id: Option<String>,
+
+        /// Output format (yaml, json)
+        #[arg(short, long, default_value = "yaml")]
+        output: String,
+    },
+
+    /// List audit events
+    AuditList {
+        /// VM name (optional, shows all if not provided)
+        vm: Option<String>,
+
+        /// Event type filter
+        #[arg(long)]
+        event_type: Option<String>,
+
+        /// Severity filter (critical, high, medium, low, info)
+        #[arg(long)]
+        severity: Option<String>,
+
+        /// Show only security events
+        #[arg(long)]
+        security_only: bool,
+
+        /// Output format (table, yaml, json)
+        #[arg(short, long, default_value = "table")]
+        output: String,
+    },
+
+    /// Show audit log details
+    AuditGet {
+        /// Log ID
+        log_id: String,
+
+        /// Output format (yaml, json)
+        #[arg(short, long, default_value = "yaml")]
+        output: String,
+    },
+
+    /// Show audit statistics
+    AuditStats {
+        /// VM name (optional, shows all if not provided)
+        vm: Option<String>,
+
+        /// Time period (24h, 7d, 30d, 90d)
+        #[arg(short, long, default_value = "7d")]
+        period: String,
+
+        /// Output format (table, json, yaml)
+        #[arg(short, long, default_value = "table")]
+        output: String,
+    },
 }
