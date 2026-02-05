@@ -14,6 +14,7 @@ pub mod blueprints;
 pub mod health;
 pub mod snapshots;
 pub mod monitoring;
+pub mod disk;
 
 use anyhow::{anyhow, Result};
 use cli::{Cli, Commands};
@@ -1490,6 +1491,292 @@ pub async fn run(cli: Cli) -> Result<()> {
                 .collect();
 
             println!("{}", reporter.format_comparison(comparison));
+
+            println!();
+            println!("{}", color::info(&format!("ℹ Sorted by: {}", sort_by)));
+        }
+
+        // ========== DISK MANAGEMENT ==========
+
+        Commands::DiskExpand {
+            vm,
+            disk,
+            size,
+            pvc,
+            plan,
+        } => {
+            use disk::{DiskConfig, DiskExpansion};
+
+            let pvc_name = pvc.as_deref().unwrap_or(&disk);
+            let config = DiskConfig::new(&disk, pvc_name)
+                .with_sizes("unknown", &size);
+
+            let expansion = DiskExpansion::new(&cli.namespace);
+            let expansion_plan = expansion.create_plan(&vm, &config)?;
+
+            if plan {
+                // Show plan without executing
+                println!("{}", color::header(&format!("Disk Expansion Plan: {}", vm)));
+                println!("  Disk:        {}", color::value(&disk));
+                println!("  PVC:         {}", color::value(pvc_name));
+                println!("  Target Size: {}", color::value(&size));
+                println!();
+
+                println!("{}", color::header("Expansion Steps:"));
+                for step in &expansion_plan.steps {
+                    let status = if step.completed {
+                        color::success("✓")
+                    } else {
+                        color::muted("○")
+                    };
+                    println!("  {} Step {}: {}", status, step.step_number, step.description);
+                    println!("     {}", color::muted(&format!("$ {}", step.command)));
+                }
+
+                println!();
+                let increase_gi = disk::DiskInfo::parse_size(&size) / (1024 * 1024 * 1024);
+                println!("{}", color::info(&format!("ℹ Estimated time: {}",
+                    expansion.estimate_duration(increase_gi)
+                )));
+            } else {
+                // Execute expansion
+                println!("{}", color::header(&format!("Expanding disk: {}", disk)));
+                println!("  VM:          {}", vm);
+                println!("  Target size: {}", color::value(&size));
+                println!();
+
+                println!("{}", color::info("Starting PVC resize..."));
+                match expansion.resize_pvc(pvc_name, &size).await {
+                    Ok(_) => {
+                        println!("{} PVC resize initiated", color::success("✓"));
+                        println!();
+                        println!("{}", color::warning("⚠ Next steps (run inside VM):"));
+                        println!("  1. Rescan disk:");
+                        println!("     {}", color::command("echo 1 | sudo tee /sys/class/block/vda/device/rescan"));
+                        println!("  2. Expand filesystem (see: zorvia disk-script)");
+                    }
+                    Err(e) => {
+                        println!("{} Failed to resize PVC: {}", color::error("✗"), e);
+                        return Err(e);
+                    }
+                }
+            }
+        }
+
+        Commands::DiskHealth { vm, detailed } => {
+            use disk::{DiskInfo, DiskHealthCheck};
+            use disk::health::DiskHealthStatus;
+
+            println!("{}", color::header(&format!("Disk Health: {}", vm)));
+            println!();
+
+            // Mock disk data for demonstration
+            let mut disks = vec![
+                {
+                    let mut d = DiskInfo::new("root");
+                    d.mount_point = "/".to_string();
+                    d.size = "100Gi".to_string();
+                    d.used = "75Gi".to_string();
+                    d.available = "25Gi".to_string();
+                    d.usage_percent = 75.0;
+                    d.filesystem = "ext4".to_string();
+                    d.device = "/dev/vda1".to_string();
+                    d
+                },
+                {
+                    let mut d = DiskInfo::new("data");
+                    d.mount_point = "/data".to_string();
+                    d.size = "200Gi".to_string();
+                    d.used = "180Gi".to_string();
+                    d.available = "20Gi".to_string();
+                    d.usage_percent = 90.0;
+                    d.filesystem = "xfs".to_string();
+                    d.device = "/dev/vdb1".to_string();
+                    d
+                },
+            ];
+
+            let checker = DiskHealthCheck::with_defaults();
+            let health = checker.check_vm(&vm, disks.clone());
+
+            let status_str = match health.overall_status {
+                DiskHealthStatus::Healthy => color::success("✓ HEALTHY"),
+                DiskHealthStatus::Warning => color::warning("⚠ WARNING"),
+                DiskHealthStatus::Critical => color::error("✗ CRITICAL"),
+                DiskHealthStatus::Full => color::error("✗ FULL"),
+            };
+
+            println!("Overall Status: {}", status_str);
+            println!();
+
+            if detailed {
+                println!("{}", color::header("Disk Details:"));
+                for disk in &disks {
+                    let status = checker.check_disk(disk);
+                    let status_icon = match status {
+                        DiskHealthStatus::Healthy => color::success("✓"),
+                        DiskHealthStatus::Warning => color::warning("⚠"),
+                        DiskHealthStatus::Critical => color::error("✗"),
+                        DiskHealthStatus::Full => color::error("✗"),
+                    };
+
+                    println!();
+                    println!("  {} {}", status_icon, color::value(&disk.mount_point));
+                    println!("    Size:       {}", disk.size);
+                    println!("    Used:       {} ({:.1}%)", disk.used, disk.usage_percent);
+                    println!("    Available:  {}", disk.available);
+                    println!("    Filesystem: {}", disk.filesystem);
+                    println!("    Device:     {}", color::muted(&disk.device));
+
+                    if status != DiskHealthStatus::Healthy {
+                        let recommended = checker.recommend_expansion_size(disk, 60.0);
+                        println!("    {}", color::warning(&format!("→ Recommended size: {}", recommended)));
+                    }
+                }
+            }
+
+            if !health.alerts.is_empty() {
+                println!();
+                println!("{}", color::header("Alerts:"));
+                for alert in &health.alerts {
+                    println!("  {} {}", color::warning("⚠"), alert.message);
+                    println!("    {}", color::muted(&alert.recommendation));
+                }
+            }
+
+            if health.needs_expansion {
+                println!();
+                println!("{}", color::info("ℹ Use 'zorvia disk-expand' to expand disks"));
+            }
+        }
+
+        Commands::DiskScript {
+            filesystem,
+            device,
+            output,
+            dry_run,
+        } => {
+            use disk::{FilesystemType, ExpansionScript, ScriptGenerator};
+
+            let fs_type = FilesystemType::from_string(&filesystem);
+            let script_config = ExpansionScript::new(fs_type.clone(), &device)
+                .with_lvm("ubuntu-vg", "ubuntu-lv")
+                .with_partition(3)
+                .dry_run(dry_run);
+
+            let script = ScriptGenerator::generate(&script_config);
+
+            if let Some(output_file) = output {
+                std::fs::write(&output_file, &script)?;
+                println!("{} Script written to: {}", color::success("✓"), color::path(&output_file));
+                println!();
+                println!("{}", color::info("To execute:"));
+                println!("  {}", color::command(&format!("chmod +x {}", output_file)));
+                println!("  {}", color::command(&format!("sudo ./{}", output_file)));
+            } else {
+                println!("{}", script);
+            }
+
+            println!();
+            println!("{}", color::header("Quick One-Liner:"));
+            println!("{}", color::command(&ScriptGenerator::generate_oneliner(&fs_type, &device)));
+        }
+
+        Commands::DiskUsage {
+            vm,
+            sort_by,
+            output,
+        } => {
+            use disk::DiskInfo;
+
+            println!("{}", color::header("Disk Usage"));
+            if let Some(vm_name) = &vm {
+                println!("  VM: {}", color::value(vm_name));
+            }
+            println!();
+
+            // Mock disk data
+            let mut disks = vec![
+                {
+                    let mut d = DiskInfo::new("prod-db");
+                    d.mount_point = "/".to_string();
+                    d.size = "200Gi".to_string();
+                    d.used = "180Gi".to_string();
+                    d.available = "20Gi".to_string();
+                    d.usage_percent = 90.0;
+                    d
+                },
+                {
+                    let mut d = DiskInfo::new("prod-web");
+                    d.mount_point = "/".to_string();
+                    d.size = "100Gi".to_string();
+                    d.used = "45Gi".to_string();
+                    d.available = "55Gi".to_string();
+                    d.usage_percent = 45.0;
+                    d
+                },
+                {
+                    let mut d = DiskInfo::new("test-vm");
+                    d.mount_point = "/".to_string();
+                    d.size = "50Gi".to_string();
+                    d.used = "38Gi".to_string();
+                    d.available = "12Gi".to_string();
+                    d.usage_percent = 76.0;
+                    d
+                },
+            ];
+
+            // Sort disks
+            match sort_by.as_str() {
+                "usage" => disks.sort_by(|a, b| b.usage_percent.partial_cmp(&a.usage_percent).unwrap()),
+                "size" => disks.sort_by(|a, b| {
+                    let a_size = DiskInfo::parse_size(&a.size);
+                    let b_size = DiskInfo::parse_size(&b.size);
+                    b_size.cmp(&a_size)
+                }),
+                "available" => disks.sort_by(|a, b| {
+                    let a_avail = DiskInfo::parse_size(&a.available);
+                    let b_avail = DiskInfo::parse_size(&b.available);
+                    a_avail.cmp(&b_avail)
+                }),
+                _ => disks.sort_by(|a, b| a.name.cmp(&b.name)),
+            }
+
+            if output == "json" {
+                let json = serde_json::to_string_pretty(&disks)?;
+                println!("{}", json);
+            } else if output == "yaml" {
+                let yaml = serde_yaml::to_string(&disks)?;
+                println!("{}", yaml);
+            } else {
+                // Table format
+                println!("{:<20} {:<12} {:<12} {:<12} {:<10}",
+                    color::label("VM"),
+                    color::label("SIZE"),
+                    color::label("USED"),
+                    color::label("AVAILABLE"),
+                    color::label("USAGE%")
+                );
+                println!("{}", "-".repeat(70));
+
+                for disk in &disks {
+                    let usage_str = if disk.usage_percent >= 90.0 {
+                        color::error(&format!("{:.1}%", disk.usage_percent))
+                    } else if disk.usage_percent >= 75.0 {
+                        color::warning(&format!("{:.1}%", disk.usage_percent))
+                    } else {
+                        format!("{:.1}%", disk.usage_percent)
+                    };
+
+                    println!("{:<20} {:<12} {:<12} {:<12} {}",
+                        disk.name,
+                        disk.size,
+                        disk.used,
+                        disk.available,
+                        usage_str
+                    );
+                }
+            }
 
             println!();
             println!("{}", color::info(&format!("ℹ Sorted by: {}", sort_by)));

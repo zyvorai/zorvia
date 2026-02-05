@@ -447,4 +447,69 @@ pub enum Commands {
         #[arg(short, long, default_value = "10")]
         limit: usize,
     },
+
+    // ========== DISK MANAGEMENT ==========
+
+    /// Expand VM disk size
+    DiskExpand {
+        /// VM name
+        vm: String,
+
+        /// Disk name
+        disk: String,
+
+        /// New size (e.g., 100Gi)
+        size: String,
+
+        /// PVC name (if different from disk name)
+        #[arg(long)]
+        pvc: Option<String>,
+
+        /// Show expansion plan without executing
+        #[arg(long)]
+        plan: bool,
+    },
+
+    /// Check disk health for a VM
+    DiskHealth {
+        /// VM name
+        vm: String,
+
+        /// Show detailed disk information
+        #[arg(short, long)]
+        detailed: bool,
+    },
+
+    /// Generate filesystem expansion script
+    DiskScript {
+        /// Filesystem type (ext4, xfs, lvm, lvm-xfs, btrfs)
+        #[arg(short, long, default_value = "lvm")]
+        filesystem: String,
+
+        /// Device path (e.g., /dev/vda)
+        #[arg(short, long, default_value = "/dev/vda")]
+        device: String,
+
+        /// Output file (defaults to stdout)
+        #[arg(short, long)]
+        output: Option<String>,
+
+        /// Generate dry-run script
+        #[arg(long)]
+        dry_run: bool,
+    },
+
+    /// Get disk usage statistics for VMs
+    DiskUsage {
+        /// VM name (optional, shows all VMs if not provided)
+        vm: Option<String>,
+
+        /// Sort by (name, usage, size, available)
+        #[arg(long, default_value = "usage")]
+        sort_by: String,
+
+        /// Output format (table, json, yaml)
+        #[arg(short, long, default_value = "table")]
+        output: String,
+    },
 }
