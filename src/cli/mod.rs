@@ -1092,4 +1092,139 @@ pub enum Commands {
         #[arg(short, long, default_value = "table")]
         output: String,
     },
+
+    // ========== AUTOMATION & ORCHESTRATION ==========
+
+    /// List automation rules
+    AutomationList {
+        /// Show only enabled rules
+        #[arg(long)]
+        enabled_only: bool,
+
+        /// Output format (table, yaml, json)
+        #[arg(short, long, default_value = "table")]
+        output: String,
+    },
+
+    /// Create automation rule
+    AutomationCreate {
+        /// Rule name
+        name: String,
+
+        /// Description
+        #[arg(short, long)]
+        description: Option<String>,
+
+        /// Trigger type (manual, schedule, event, metric)
+        #[arg(short, long, default_value = "manual")]
+        trigger: String,
+
+        /// Enable immediately
+        #[arg(long)]
+        enable: bool,
+    },
+
+    /// Show automation rule details
+    AutomationGet {
+        /// Rule ID or name
+        rule: String,
+
+        /// Output format (yaml, json)
+        #[arg(short, long, default_value = "yaml")]
+        output: String,
+    },
+
+    /// Execute automation rule
+    AutomationRun {
+        /// Rule ID or name
+        rule: String,
+
+        /// Dry run - show what would be done
+        #[arg(long)]
+        dry_run: bool,
+    },
+
+    /// List workflows
+    WorkflowList {
+        /// Output format (table, yaml, json)
+        #[arg(short, long, default_value = "table")]
+        output: String,
+    },
+
+    /// Create workflow
+    WorkflowCreate {
+        /// Workflow name
+        name: String,
+
+        /// Description
+        #[arg(short, long)]
+        description: Option<String>,
+
+        /// Template (provisioning, disaster-recovery, maintenance)
+        #[arg(short, long)]
+        template: Option<String>,
+    },
+
+    /// Show workflow details
+    WorkflowGet {
+        /// Workflow ID or name
+        workflow: String,
+
+        /// Output format (yaml, json)
+        #[arg(short, long, default_value = "yaml")]
+        output: String,
+    },
+
+    /// Execute workflow
+    WorkflowRun {
+        /// Workflow ID or name
+        workflow: String,
+
+        /// Show execution progress
+        #[arg(short, long)]
+        watch: bool,
+    },
+
+    /// List workflow executions
+    WorkflowExecutions {
+        /// Workflow ID or name (optional, shows all if not provided)
+        workflow: Option<String>,
+
+        /// Limit results
+        #[arg(short, long, default_value = "10")]
+        limit: usize,
+
+        /// Output format (table, yaml, json)
+        #[arg(short, long, default_value = "table")]
+        output: String,
+    },
+
+    /// List scheduled tasks
+    ScheduleList {
+        /// Show only enabled tasks
+        #[arg(long)]
+        enabled_only: bool,
+
+        /// Output format (table, yaml, json)
+        #[arg(short, long, default_value = "table")]
+        output: String,
+    },
+
+    /// Create scheduled task
+    ScheduleCreate {
+        /// Task name
+        name: String,
+
+        /// Rule ID to execute
+        #[arg(short, long)]
+        rule: String,
+
+        /// Schedule (hourly, daily, weekly, interval:3600)
+        #[arg(short, long)]
+        schedule: String,
+
+        /// Enable immediately
+        #[arg(long)]
+        enable: bool,
+    },
 }
