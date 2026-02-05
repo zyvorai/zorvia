@@ -1424,4 +1424,218 @@ pub enum Commands {
         #[arg(short, long, default_value = "table")]
         output: String,
     },
+
+    // ========== MULTI-TENANCY & RBAC ==========
+
+    /// List tenants
+    TenantsList {
+        /// Show only active tenants
+        #[arg(long)]
+        active_only: bool,
+
+        /// Output format (table, yaml, json)
+        #[arg(short, long, default_value = "table")]
+        output: String,
+    },
+
+    /// Create tenant
+    TenantsCreate {
+        /// Tenant name
+        name: String,
+
+        /// Owner user ID
+        #[arg(short, long)]
+        owner: String,
+
+        /// Contact email
+        #[arg(short, long)]
+        email: String,
+
+        /// Description
+        #[arg(short, long)]
+        description: Option<String>,
+
+        /// Default namespace
+        #[arg(long)]
+        namespace: Option<String>,
+    },
+
+    /// Show tenant details
+    TenantsShow {
+        /// Tenant ID or name
+        tenant: String,
+
+        /// Output format (yaml, json)
+        #[arg(short, long, default_value = "yaml")]
+        output: String,
+    },
+
+    /// Delete tenant
+    TenantsDelete {
+        /// Tenant ID
+        tenant: String,
+
+        /// Skip confirmation
+        #[arg(short, long)]
+        yes: bool,
+    },
+
+    /// List users
+    UsersList {
+        /// Show only active users
+        #[arg(long)]
+        active_only: bool,
+
+        /// Filter by group
+        #[arg(short, long)]
+        group: Option<String>,
+
+        /// Output format (table, yaml, json)
+        #[arg(short, long, default_value = "table")]
+        output: String,
+    },
+
+    /// Create user
+    UsersCreate {
+        /// Username
+        username: String,
+
+        /// Email address
+        #[arg(short, long)]
+        email: String,
+
+        /// Assign role
+        #[arg(short, long)]
+        role: Option<String>,
+
+        /// Add to group
+        #[arg(short, long)]
+        group: Option<String>,
+    },
+
+    /// Assign role to user
+    UsersAssignRole {
+        /// User ID or username
+        user: String,
+
+        /// Role to assign
+        role: String,
+
+        /// Scope (cluster or namespace:NAME)
+        #[arg(short, long, default_value = "cluster")]
+        scope: String,
+    },
+
+    /// List roles
+    RolesList {
+        /// Show only built-in roles
+        #[arg(long)]
+        builtin: bool,
+
+        /// Show only custom roles
+        #[arg(long)]
+        custom: bool,
+
+        /// Output format (table, yaml, json)
+        #[arg(short, long, default_value = "table")]
+        output: String,
+    },
+
+    /// Show role details
+    RolesShow {
+        /// Role name
+        role: String,
+
+        /// Output format (yaml, json)
+        #[arg(short, long, default_value = "yaml")]
+        output: String,
+    },
+
+    /// Create custom role
+    RolesCreate {
+        /// Role name
+        name: String,
+
+        /// Description
+        #[arg(short, long)]
+        description: Option<String>,
+
+        /// Permissions (comma-separated, e.g. vm:create,vm:view)
+        #[arg(short, long)]
+        permissions: String,
+    },
+
+    /// List resource quotas
+    QuotasList {
+        /// Filter by namespace
+        #[arg(short, long)]
+        namespace: Option<String>,
+
+        /// Show only exceeded quotas
+        #[arg(long)]
+        exceeded: bool,
+
+        /// Output format (table, yaml, json)
+        #[arg(short, long, default_value = "table")]
+        output: String,
+    },
+
+    /// Create resource quota
+    QuotasCreate {
+        /// Quota name
+        name: String,
+
+        /// Namespace
+        #[arg(short, long)]
+        namespace: String,
+
+        /// Preset (small, medium, large, unlimited)
+        #[arg(short, long, default_value = "medium")]
+        preset: String,
+    },
+
+    /// Show quota details
+    QuotasShow {
+        /// Quota ID or name
+        quota: String,
+
+        /// Show utilization
+        #[arg(long)]
+        utilization: bool,
+
+        /// Output format (yaml, json)
+        #[arg(short, long, default_value = "yaml")]
+        output: String,
+    },
+
+    /// List groups
+    GroupsList {
+        /// Output format (table, yaml, json)
+        #[arg(short, long, default_value = "table")]
+        output: String,
+    },
+
+    /// Create group
+    GroupsCreate {
+        /// Group name
+        name: String,
+
+        /// Description
+        #[arg(short, long)]
+        description: Option<String>,
+
+        /// Assign role to group
+        #[arg(short, long)]
+        role: Option<String>,
+    },
+
+    /// Add user to group
+    GroupsAddUser {
+        /// Group ID or name
+        group: String,
+
+        /// User ID or username
+        user: String,
+    },
 }
+
