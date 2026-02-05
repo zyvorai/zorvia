@@ -715,4 +715,123 @@ pub enum Commands {
         #[arg(short, long)]
         watch: bool,
     },
+
+    // ========== BACKUP & DISASTER RECOVERY ==========
+
+    /// Create a VM backup
+    BackupCreate {
+        /// VM name
+        vm: String,
+
+        /// Backup name (auto-generated if not specified)
+        #[arg(short, long)]
+        name: Option<String>,
+
+        /// Backup type (full, incremental, differential)
+        #[arg(long, default_value = "full")]
+        backup_type: String,
+
+        /// Compression type (gzip, zstd, lz4, none)
+        #[arg(long, default_value = "gzip")]
+        compression: String,
+
+        /// Disable encryption
+        #[arg(long)]
+        no_encryption: bool,
+    },
+
+    /// List backups
+    BackupList {
+        /// VM name (optional, shows all if not specified)
+        vm: Option<String>,
+
+        /// Output format (table, yaml, json)
+        #[arg(short, long, default_value = "table")]
+        output: String,
+    },
+
+    /// Show backup details
+    BackupGet {
+        /// Backup name
+        name: String,
+
+        /// Output format (yaml, json)
+        #[arg(short, long, default_value = "yaml")]
+        output: String,
+    },
+
+    /// Delete a backup
+    BackupDelete {
+        /// Backup name
+        name: String,
+
+        /// Skip confirmation
+        #[arg(short, long)]
+        yes: bool,
+    },
+
+    /// Restore VM from backup
+    BackupRestore {
+        /// Backup name
+        backup: String,
+
+        /// Target VM name (defaults to original)
+        #[arg(short, long)]
+        target: Option<String>,
+
+        /// Start VM after restore
+        #[arg(long)]
+        start: bool,
+    },
+
+    /// Verify backup integrity
+    BackupVerify {
+        /// Backup name
+        name: String,
+
+        /// Verification type (quick, standard, full)
+        #[arg(long, default_value = "standard")]
+        verification_type: String,
+    },
+
+    /// List backup schedules
+    BackupSchedules {
+        /// Output format (table, yaml, json)
+        #[arg(short, long, default_value = "table")]
+        output: String,
+    },
+
+    /// Create backup schedule
+    BackupScheduleCreate {
+        /// Schedule name
+        name: String,
+
+        /// Schedule type (hourly, daily, weekly, monthly)
+        #[arg(long)]
+        schedule: String,
+
+        /// VM selector (all, or specific VM name)
+        #[arg(long)]
+        vm: Option<String>,
+    },
+
+    /// Show disaster recovery plan
+    RecoveryPlan {
+        /// Plan name
+        name: String,
+
+        /// Output format (yaml, json)
+        #[arg(short, long, default_value = "yaml")]
+        output: String,
+    },
+
+    /// Execute disaster recovery
+    RecoveryExecute {
+        /// Plan name
+        plan: String,
+
+        /// Dry run - show what would be done
+        #[arg(long)]
+        dry_run: bool,
+    },
 }
