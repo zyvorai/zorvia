@@ -5,7 +5,13 @@ pub mod network;
 pub mod output;
 pub mod storage;
 pub mod templates;
+pub mod tui;
 pub mod utils;
+
+// Innovative features
+pub mod profiles;
+pub mod blueprints;
+pub mod health;
 
 use anyhow::{anyhow, Result};
 use cli::{Cli, Commands};
@@ -82,19 +88,25 @@ pub async fn run(cli: Cli) -> Result<()> {
                     Ok(client) => {
                         match client.create_vm(&config).await {
                             Ok(_vm) => {
-                                println!("✓ VM '{}' created successfully", name);
-                                println!("  Namespace: {}", config.namespace);
-                                println!("  Status: Stopped (use 'zorvia start {}' to start)", name);
+                                use crate::tui::colors::cli;
+                                println!("{}", cli::success(&format!("VM '{}' created successfully", name)));
+                                println!("  Namespace: {}", cli::namespace(&config.namespace));
+                                println!("  Status: {} (use '{}' to start)",
+                                    cli::vm_status("Stopped"),
+                                    cli::command(&format!("zorvia start {}", name))
+                                );
                             }
                             Err(e) => {
-                                eprintln!("✗ Failed to create VM: {}", e);
+                                use crate::tui::colors::cli;
+                                eprintln!("{}", cli::error(&format!("Failed to create VM: {}", e)));
                                 std::process::exit(1);
                             }
                         }
                     }
                     Err(e) => {
-                        eprintln!("✗ Failed to connect to Kubernetes: {}", e);
-                        eprintln!("  Make sure kubectl is configured and you have access to the cluster");
+                        use crate::tui::colors::cli;
+                        eprintln!("{}", cli::error(&format!("Failed to connect to Kubernetes: {}", e)));
+                        eprintln!("  {}", cli::muted("Make sure kubectl is configured and you have access to the cluster"));
                         std::process::exit(1);
                     }
                 }
@@ -128,22 +140,44 @@ pub async fn run(cli: Cli) -> Result<()> {
                     println!("{}", json);
                 }
                 "table" | _ => {
-                    println!("{:<30} {:<20} {:<10} {:<10}", "NAME", "NAMESPACE", "STATUS", "RUNNING");
-                    println!("{}", "-".repeat(70));
+                    use crate::tui::colors::cli;
+                    use crate::tui::colors::vm_status_symbol;
+
+                    // Print header with theme colors
+                    println!("{:<30} {:<20} {:<15} {:<10}",
+                        cli::header("NAME"),
+                        cli::header("NAMESPACE"),
+                        cli::header("STATUS"),
+                        cli::header("RUNNING")
+                    );
+                    println!("{}", cli::muted(&"-".repeat(75)));
+
                     for vm in vms {
                         let name = vm.metadata.name.as_deref().unwrap_or("N/A");
                         let namespace = vm.metadata.namespace.as_deref().unwrap_or("N/A");
                         let running = if vm.spec.running.unwrap_or(false) {
-                            "Yes"
+                            cli::success("Yes")
                         } else {
-                            "No"
+                            cli::muted("No")
                         };
                         let status = if let Some(s) = &vm.status {
                             s.print_able_status.as_deref().unwrap_or("Unknown")
                         } else {
                             "Unknown"
                         };
-                        println!("{:<30} {:<20} {:<10} {:<10}", name, namespace, status, running);
+
+                        // Format with theme colors
+                        let status_display = format!("{} {}",
+                            vm_status_symbol(status),
+                            cli::vm_status(status)
+                        );
+
+                        println!("{:<30} {:<20} {:<25} {:<10}",
+                            cli::vm_name(name),
+                            cli::namespace(namespace),
+                            status_display,
+                            running
+                        );
                     }
                 }
             }
@@ -178,26 +212,30 @@ pub async fn run(cli: Cli) -> Result<()> {
             }
 
             client.delete_vm(&cli.namespace, &name).await?;
-            println!("✓ VM '{}' deleted successfully", name);
+            use crate::tui::colors::cli;
+            println!("{}", cli::success(&format!("VM '{}' deleted successfully", name)));
         }
 
         Commands::Start { name } => {
+            use crate::tui::colors::cli;
             let client = kube::KubeClient::new().await?;
             client.start_vm(&cli.namespace, &name).await?;
-            println!("✓ VM '{}' started successfully", name);
+            println!("{}", cli::success(&format!("VM '{}' started successfully", name)));
         }
 
         Commands::Stop { name } => {
+            use crate::tui::colors::cli;
             let client = kube::KubeClient::new().await?;
             client.stop_vm(&cli.namespace, &name).await?;
-            println!("✓ VM '{}' stopped successfully", name);
+            println!("{}", cli::success(&format!("VM '{}' stopped successfully", name)));
         }
 
         Commands::Restart { name } => {
+            use crate::tui::colors::cli;
             let client = kube::KubeClient::new().await?;
-            println!("Restarting VM '{}'...", name);
+            println!("{}", cli::info(&format!("Restarting VM '{}'...", name)));
             client.restart_vm(&cli.namespace, &name).await?;
-            println!("✓ VM '{}' restarted successfully", name);
+            println!("{}", cli::success(&format!("VM '{}' restarted successfully", name)));
         }
 
         Commands::Generate {
@@ -251,9 +289,10 @@ pub async fn run(cli: Cli) -> Result<()> {
         }
 
         Commands::Templates => {
-            println!("Available templates:");
+            use crate::tui::colors::cli;
+            println!("{}", cli::header("Available templates:"));
             for template in TEMPLATES.list() {
-                println!("  - {}", template);
+                println!("  {} {}", cli::value("•"), cli::label(&template));
             }
         }
 
@@ -278,7 +317,8 @@ pub async fn run(cli: Cli) -> Result<()> {
             };
 
             validate_vm_config(&config)?;
-            println!("✓ Configuration is valid");
+            use crate::tui::colors::cli;
+            println!("{}", cli::success("Configuration is valid"));
         }
 
         Commands::Status {
@@ -320,9 +360,10 @@ pub async fn run(cli: Cli) -> Result<()> {
             target,
             start,
         } => {
+            use crate::tui::colors::cli;
             let client = kube::KubeClient::new().await?;
 
-            println!("Cloning VM '{}' to '{}'...", source, target);
+            println!("{}", cli::info(&format!("Cloning VM '{}' to '{}'...", source, target)));
 
             // Get source VM
             let source_vm = client.get_vm(&cli.namespace, &source).await?;
@@ -362,12 +403,12 @@ pub async fn run(cli: Cli) -> Result<()> {
 
             // Create the cloned VM
             client.create_vm(&config).await?;
-            println!("✓ VM '{}' cloned successfully", target);
+            println!("{}", cli::success(&format!("VM '{}' cloned successfully", target)));
 
             if start {
-                println!("Starting VM '{}'...", target);
+                println!("{}", cli::info(&format!("Starting VM '{}'...", target)));
                 client.start_vm(&cli.namespace, &target).await?;
-                println!("✓ VM '{}' started", target);
+                println!("{}", cli::success(&format!("VM '{}' started", target)));
             }
         }
 
@@ -383,16 +424,23 @@ pub async fn run(cli: Cli) -> Result<()> {
                 client.list_vms(&cli.namespace).await?
             };
 
+            use crate::tui::colors::cli;
+
             let summary = kube::ResourceSummary::from_vms(&vms);
             summary.display();
 
             println!();
-            println!("╔═══════════════════════════════════════════════════════════════╗");
-            println!("║                   VM Resource Details                         ║");
-            println!("╚═══════════════════════════════════════════════════════════════╝");
+            println!("{}", cli::header("╔═══════════════════════════════════════════════════════════════╗"));
+            println!("{}", cli::header("║                   VM Resource Details                         ║"));
+            println!("{}", cli::header("╚═══════════════════════════════════════════════════════════════╝"));
             println!();
-            println!("{:<30} {:<15} {:<10} {:<10}", "NAME", "NAMESPACE", "CPU", "MEMORY");
-            println!("{}", "-".repeat(70));
+            println!("{:<30} {:<15} {:<10} {:<10}",
+                cli::header("NAME"),
+                cli::header("NAMESPACE"),
+                cli::header("CPU"),
+                cli::header("MEMORY")
+            );
+            println!("{}", cli::muted(&"-".repeat(70)));
 
             let mut vm_infos: Vec<_> = vms
                 .iter()
@@ -429,7 +477,12 @@ pub async fn run(cli: Cli) -> Result<()> {
             }
 
             for (name, namespace, cpu, memory) in vm_infos {
-                println!("{:<30} {:<15} {:<10} {:<10}", name, namespace, cpu, memory);
+                println!("{:<30} {:<15} {:<10} {:<10}",
+                    cli::vm_name(name),
+                    cli::namespace(namespace),
+                    cli::resource(&cpu.to_string(), "cpu"),
+                    cli::resource(memory, "memory")
+                );
             }
         }
 
@@ -450,17 +503,19 @@ pub async fn run(cli: Cli) -> Result<()> {
             };
 
             if let Some(output_file) = output {
+                use crate::tui::colors::cli;
                 fs::write(&output_file, &manifest)?;
-                println!("✓ VM exported to: {}", output_file);
+                println!("{}", cli::success(&format!("VM exported to: {}", cli::path(&output_file))));
             } else {
                 println!("{}", manifest);
             }
         }
 
         Commands::Wizard { name } => {
-            println!("╔═══════════════════════════════════════════════════════════════╗");
-            println!("║           Interactive VM Creation Wizard                      ║");
-            println!("╚═══════════════════════════════════════════════════════════════╝");
+            use crate::tui::colors::cli;
+            println!("{}", cli::header("╔═══════════════════════════════════════════════════════════════╗"));
+            println!("{}", cli::header("║           Interactive VM Creation Wizard                      ║"));
+            println!("{}", cli::header("╚═══════════════════════════════════════════════════════════════╝"));
             println!();
 
             use dialoguer::{Input, Select};
@@ -509,12 +564,12 @@ pub async fn run(cli: Cli) -> Result<()> {
                 .interact()? == 1;
 
             println!();
-            println!("Creating VM with the following configuration:");
-            println!("  Name:     {}", vm_name);
-            println!("  Template: {}", template_name);
-            println!("  CPU:      {} cores", cpu_cores);
-            println!("  Memory:   {}", memory);
-            println!("  Disk:     {}", disk_size);
+            println!("{}", cli::info("Creating VM with the following configuration:"));
+            println!("  {:<12} {}", cli::label("Name:"), cli::value(&vm_name));
+            println!("  {:<12} {}", cli::label("Template:"), cli::value(template_name));
+            println!("  {:<12} {}", cli::label("CPU:"), cli::resource(&format!("{} cores", cpu_cores), "cpu"));
+            println!("  {:<12} {}", cli::label("Memory:"), cli::resource(&memory, "memory"));
+            println!("  {:<12} {}", cli::label("Disk:"), cli::resource(&disk_size, "disk"));
             println!();
 
             // Create VM
@@ -531,11 +586,11 @@ pub async fn run(cli: Cli) -> Result<()> {
 
             let client = kube::KubeClient::new().await?;
             client.create_vm(&config).await?;
-            println!("✓ VM '{}' created successfully", vm_name);
+            println!("{}", cli::success(&format!("VM '{}' created successfully", vm_name)));
 
             if start_vm {
                 client.start_vm(&cli.namespace, &vm_name).await?;
-                println!("✓ VM '{}' started", vm_name);
+                println!("{}", cli::success(&format!("VM '{}' started", vm_name)));
             }
         }
 
@@ -546,8 +601,9 @@ pub async fn run(cli: Cli) -> Result<()> {
             continue_on_error,
         } => {
             use indicatif::{ProgressBar, ProgressStyle};
+            use crate::tui::colors::cli;
 
-            println!("Loading batch configuration from: {}", file);
+            println!("{}", cli::info(&format!("Loading batch configuration from: {}", cli::path(&file))));
             let mut batch = utils::BatchConfig::from_file(&file)?;
 
             // Apply namespace override
@@ -557,14 +613,19 @@ pub async fn run(cli: Cli) -> Result<()> {
                 batch.apply_namespace(&cli.namespace);
             }
 
-            println!("Found {} VMs to create", batch.vms.len());
+            println!("{}", cli::info(&format!("Found {} VMs to create", batch.vms.len())));
             println!();
 
             if dry_run {
-                println!("Dry run - VMs that would be created:");
+                println!("{}", cli::info("Dry run - VMs that would be created:"));
                 for (i, vm) in batch.vms.iter().enumerate() {
-                    println!("  {}. {} (namespace: {}, {}cores, {})",
-                        i + 1, vm.name, vm.namespace, vm.cpu.cores, vm.memory.size);
+                    println!("  {}. {} (namespace: {}, {} cores, {})",
+                        cli::value(&(i + 1).to_string()),
+                        cli::vm_name(&vm.name),
+                        cli::namespace(&vm.namespace),
+                        cli::resource(&vm.cpu.cores.to_string(), "cpu"),
+                        cli::resource(&vm.memory.size, "memory")
+                    );
                 }
                 return Ok(());
             }
@@ -621,15 +682,389 @@ pub async fn run(cli: Cli) -> Result<()> {
             pb.finish_with_message("Batch creation complete");
 
             println!();
-            println!("╔═══════════════════════════════════════════════════════════════╗");
-            println!("║                   Batch Summary                               ║");
-            println!("╚═══════════════════════════════════════════════════════════════╝");
-            println!("  Total VMs:    {}", batch.vms.len());
-            println!("  Successful:   {} ✓", success_count);
-            println!("  Failed:       {} ✗", error_count);
+            println!("{}", cli::header("╔═══════════════════════════════════════════════════════════════╗"));
+            println!("{}", cli::header("║                   Batch Summary                               ║"));
+            println!("{}", cli::header("╚═══════════════════════════════════════════════════════════════╝"));
+            println!("  {:<12} {}", cli::label("Total VMs:"), cli::value(&batch.vms.len().to_string()));
+            println!("  {:<12} {}", cli::label("Successful:"), cli::success(&format!("{} ✓", success_count)));
+            println!("  {:<12} {}", cli::label("Failed:"), if error_count > 0 {
+                cli::error(&format!("{} ✗", error_count))
+            } else {
+                cli::muted(&format!("{} ✗", error_count))
+            });
 
             if error_count > 0 && !continue_on_error {
                 std::process::exit(1);
+            }
+        }
+
+        // ========== INNOVATIVE FEATURES ==========
+
+        Commands::Profiles { details } => {
+            use crate::profiles::PROFILES;
+            use crate::tui::colors::cli;
+
+            println!("{}", cli::header("═══ VM Resource Profiles ═══"));
+            println!();
+
+            for profile in PROFILES.list() {
+                println!("{} {}", cli::value("•"), cli::header(&profile.name));
+                println!("  {}", cli::muted(&profile.description));
+
+                if details {
+                    println!("  CPU:    {} cores ({} sockets, {} threads)",
+                        cli::resource(&profile.cpu_cores.to_string(), "cpu"),
+                        profile.cpu_sockets,
+                        profile.cpu_threads
+                    );
+                    println!("  Memory: {}", cli::resource(&profile.memory, "memory"));
+                    println!("  Disk:   {}", cli::resource(&profile.disk_size, "disk"));
+                    println!("  Use cases: {}", profile.use_cases.join(", "));
+                    println!("  Recommended OS: {}", profile.recommended_os.join(", "));
+                }
+                println!();
+            }
+
+            println!("{}", cli::muted("Use 'zorvia profile <name>' for details"));
+            println!("{}", cli::muted("Create VM with profile: zorvia create <name> --template <os> --profile <profile>"));
+        }
+
+        Commands::Profile { name, output } => {
+            use crate::profiles::PROFILES;
+            use crate::tui::colors::cli;
+
+            let profile = PROFILES.get(&name)
+                .ok_or_else(|| anyhow!("Profile not found: {}", name))?;
+
+            match output.as_str() {
+                "json" => {
+                    let json = serde_json::to_string_pretty(profile)?;
+                    println!("{}", json);
+                }
+                _ => {
+                    let yaml = serde_yaml::to_string(profile)?;
+                    println!("{}", yaml);
+                }
+            }
+        }
+
+        Commands::Blueprints { tag, details } => {
+            use crate::blueprints::BLUEPRINTS;
+            use crate::tui::colors::cli;
+
+            println!("{}", cli::header("═══ Multi-VM Blueprints ═══"));
+            println!();
+
+            let blueprints = if let Some(tag_filter) = tag {
+                BLUEPRINTS.search_by_tag(&tag_filter)
+            } else {
+                BLUEPRINTS.list()
+            };
+
+            for blueprint in blueprints {
+                println!("{} {}", cli::value("•"), cli::header(&blueprint.name));
+                println!("  {}", cli::muted(&blueprint.description));
+                println!("  VMs: {}", cli::value(&blueprint.vms.len().to_string()));
+                if details {
+                    for vm in &blueprint.vms {
+                        println!("    {} {} (template: {})",
+                            cli::value("-"),
+                            cli::vm_name(&vm.name),
+                            vm.template
+                        );
+                    }
+                    println!("  Tags: {}", blueprint.tags.join(", "));
+                }
+                println!();
+            }
+
+            println!("{}", cli::muted("Use 'zorvia blueprint <name>' for details"));
+            println!("{}", cli::muted("Deploy blueprint: zorvia deploy <blueprint>"));
+        }
+
+        Commands::Blueprint { name, output } => {
+            use crate::blueprints::BLUEPRINTS;
+
+            let blueprint = BLUEPRINTS.get(&name)
+                .ok_or_else(|| anyhow!("Blueprint not found: {}", name))?;
+
+            match output.as_str() {
+                "json" => {
+                    let json = serde_json::to_string_pretty(blueprint)?;
+                    println!("{}", json);
+                }
+                _ => {
+                    let yaml = serde_yaml::to_string(blueprint)?;
+                    println!("{}", yaml);
+                }
+            }
+        }
+
+        Commands::Deploy {
+            blueprint,
+            prefix,
+            start,
+            dry_run,
+        } => {
+            use crate::blueprints::BLUEPRINTS;
+            use crate::profiles::PROFILES;
+            use crate::tui::colors::cli;
+
+            let bp = BLUEPRINTS.get(&blueprint)
+                .ok_or_else(|| anyhow!("Blueprint not found: {}", blueprint))?;
+
+            let vm_prefix = prefix.unwrap_or_else(|| blueprint.clone());
+
+            println!("{}", cli::info(&format!("Deploying blueprint: {}", blueprint)));
+            println!("  Description: {}", bp.description);
+            println!("  VMs to create: {}", bp.vms.len());
+            println!();
+
+            if dry_run {
+                println!("{}", cli::info("Dry run - VMs that would be created:"));
+                for (i, vm_spec) in bp.vms.iter().enumerate() {
+                    let vm_name = format!("{}-{}", vm_prefix, vm_spec.name);
+                    println!("  {}. {}", i + 1, cli::vm_name(&vm_name));
+                    println!("     Template: {}", vm_spec.template);
+                    if let Some(profile_name) = &vm_spec.profile {
+                        if let Some(profile) = PROFILES.get(profile_name) {
+                            println!("     Profile: {} ({}, {})",
+                                profile_name,
+                                cli::resource(&profile.cpu_cores.to_string(), "cpu"),
+                                cli::resource(&profile.memory, "memory")
+                            );
+                        }
+                    }
+                    if !vm_spec.depends_on.is_empty() {
+                        println!("     Depends on: {}", vm_spec.depends_on.join(", "));
+                    }
+                    println!();
+                }
+                return Ok(());
+            }
+
+            // Create VMs in dependency order
+            let client = kube::KubeClient::new().await?;
+
+            for vm_spec in &bp.vms {
+                let vm_name = format!("{}-{}", vm_prefix, vm_spec.name);
+
+                println!("{}", cli::info(&format!("Creating VM: {}", vm_name)));
+
+                // Get base config from template
+                let mut config = TEMPLATES.get(&vm_spec.template)
+                    .ok_or_else(|| anyhow!("Template not found: {}", vm_spec.template))?;
+
+                config.name = vm_name.clone();
+                config.namespace = cli.namespace.clone();
+
+                // Apply profile if specified
+                if let Some(profile_name) = &vm_spec.profile {
+                    if let Some(profile) = PROFILES.get(profile_name) {
+                        config.cpu.cores = profile.cpu_cores;
+                        config.cpu.sockets = profile.cpu_sockets;
+                        config.cpu.threads = profile.cpu_threads;
+                        config.memory.size = profile.memory.clone();
+                    }
+                }
+
+                // Apply custom overrides
+                if let Some(cpu) = vm_spec.cpu {
+                    config.cpu.cores = cpu;
+                }
+                if let Some(ref memory) = vm_spec.memory {
+                    config.memory.size = memory.clone();
+                }
+                if let Some(ref disk_size) = vm_spec.disk_size {
+                    if let Some(disk) = config.disks.first_mut() {
+                        disk.size = disk_size.clone();
+                    }
+                }
+
+                // Apply labels
+                for (k, v) in &vm_spec.labels {
+                    config.labels.insert(k.clone(), v.clone());
+                }
+
+                // Create the VM
+                match client.create_vm(&config).await {
+                    Ok(_) => {
+                        println!("{}", cli::success(&format!("VM '{}' created successfully", vm_name)));
+                    }
+                    Err(e) => {
+                        println!("{}", cli::error(&format!("Failed to create VM '{}': {}", vm_name, e)));
+                    }
+                }
+
+                // Start if requested
+                if start {
+                    match client.start_vm(&cli.namespace, &vm_name).await {
+                        Ok(_) => {
+                            println!("{}", cli::success(&format!("VM '{}' started", vm_name)));
+                        }
+                        Err(e) => {
+                            println!("{}", cli::error(&format!("Failed to start VM '{}': {}", vm_name, e)));
+                        }
+                    }
+                }
+
+                println!();
+            }
+
+            println!("{}", cli::success("Blueprint deployment complete!"));
+        }
+
+        Commands::Health { target, detailed } => {
+            use crate::health::VMHealthReport;
+            use crate::tui::colors::cli;
+
+            println!("{}", cli::header(&format!("═══ Health Check: {} ═══", target)));
+            println!();
+
+            // Try to load as config file first
+            let config = if std::path::Path::new(&target).exists() {
+                let content = fs::read_to_string(&target)?;
+                if target.ends_with(".json") {
+                    serde_json::from_str(&content)?
+                } else {
+                    serde_yaml::from_str(&content)?
+                }
+            } else {
+                // Try to get running VM
+                let client = kube::KubeClient::new().await?;
+                let vm = client.get_vm(&cli.namespace, &target).await?;
+
+                // Convert to VMConfig (simplified)
+                let cpu_cores = vm.spec.template.spec.domain.cpu.as_ref()
+                    .and_then(|c| c.cores)
+                    .unwrap_or(2);
+                let memory = vm.spec.template.spec.domain.memory.as_ref()
+                    .and_then(|m| m.guest.as_deref())
+                    .unwrap_or("4Gi")
+                    .to_string();
+
+                VMConfigBuilder::new(&target)
+                    .namespace(&cli.namespace)
+                    .cpu(cpu_cores, 1, 1)
+                    .memory(&memory)
+                    .build()
+            };
+
+            let mut report = VMHealthReport::new(config.name.clone());
+
+            // Run resource checks
+            for check in VMHealthReport::check_resources(
+                config.cpu.cores,
+                &config.memory.size,
+                &config.disks.first().map(|d| d.size.as_str()).unwrap_or("20Gi"),
+            ) {
+                report.add_check(check);
+            }
+
+            // Display report
+            let status_color = match report.overall_status {
+                crate::health::HealthStatus::Healthy => cli::success("✓ HEALTHY"),
+                crate::health::HealthStatus::Warning => cli::warning("⚠ WARNING"),
+                crate::health::HealthStatus::Critical => cli::error("✗ CRITICAL"),
+                _ => cli::muted("? UNKNOWN"),
+            };
+
+            println!("Overall Status: {}", status_color);
+            println!("Health Score:   {}/100", report.score);
+            println!();
+
+            if detailed || !report.checks.is_empty() {
+                println!("{}", cli::header("Checks:"));
+                for check in &report.checks {
+                    let status_icon = match check.status {
+                        crate::health::HealthStatus::Healthy => cli::success("✓"),
+                        crate::health::HealthStatus::Warning => cli::warning("⚠"),
+                        crate::health::HealthStatus::Critical => cli::error("✗"),
+                        _ => cli::muted("?"),
+                    };
+                    println!("  {} {} - {}", status_icon, cli::label(&check.name), check.message);
+                    if let Some(ref rec) = check.recommendation {
+                        println!("      {}", cli::muted(&format!("→ {}", rec)));
+                    }
+                }
+                println!();
+            }
+
+            if !report.recommendations.is_empty() {
+                println!("{}", cli::header("Recommendations:"));
+                for (i, rec) in report.recommendations.iter().enumerate() {
+                    println!("  {}. {}", i + 1, cli::value(rec));
+                }
+            }
+        }
+
+        Commands::Recommend { workload, alternatives } => {
+            use crate::profiles::PROFILES;
+            use crate::tui::colors::cli;
+
+            println!("{}", cli::header(&format!("═══ Resource Recommendations for: {} ═══", workload)));
+            println!();
+
+            let recommendations = PROFILES.recommend(&workload);
+
+            if recommendations.is_empty() {
+                println!("{}", cli::warning("No specific recommendations found for this workload"));
+                println!("{}", cli::muted("Showing general-purpose profiles:"));
+                println!();
+
+                for profile in vec!["dev", "test", "prod"] {
+                    if let Some(p) = PROFILES.get(profile) {
+                        println!("{} {}", cli::value("•"), cli::header(&p.name));
+                        println!("  {}", cli::muted(&p.description));
+                        println!("  CPU: {} cores, Memory: {}, Disk: {}",
+                            cli::resource(&p.cpu_cores.to_string(), "cpu"),
+                            cli::resource(&p.memory, "memory"),
+                            cli::resource(&p.disk_size, "disk")
+                        );
+                        println!();
+                    }
+                }
+            } else {
+                println!("{}", cli::success(&format!("Found {} matching profile(s):", recommendations.len())));
+                println!();
+
+                for (i, profile) in recommendations.iter().enumerate() {
+                    let marker = if i == 0 { cli::success("★") } else { cli::value("•") };
+                    let label = if i == 0 { format!("{} (Recommended)", profile.name) } else { profile.name.clone() };
+
+                    println!("{} {}", marker, cli::header(&label));
+                    println!("  {}", cli::muted(&profile.description));
+                    println!("  Resources:");
+                    println!("    CPU:    {} cores ({} sockets × {} threads)",
+                        cli::resource(&profile.cpu_cores.to_string(), "cpu"),
+                        profile.cpu_sockets,
+                        profile.cpu_threads
+                    );
+                    println!("    Memory: {}", cli::resource(&profile.memory, "memory"));
+                    println!("    Disk:   {}", cli::resource(&profile.disk_size, "disk"));
+                    println!("  Best for: {}", profile.use_cases.join(", "));
+                    println!("  Recommended OS: {}", profile.recommended_os.join(", "));
+                    println!();
+
+                    if i == 0 {
+                        println!("  {}", cli::info("Quick create command:"));
+                        println!("    {}", cli::command(&format!(
+                            "zorvia create my-vm --template {} --profile {}",
+                            profile.recommended_os.first().unwrap_or(&"ubuntu".to_string()),
+                            profile.name
+                        )));
+                        println!();
+                    }
+                }
+            }
+
+            if alternatives {
+                println!("{}", cli::header("All Available Profiles:"));
+                for profile in PROFILES.list() {
+                    println!("  {} {}", cli::value("•"), cli::label(&profile.name));
+                }
+                println!();
+                println!("{}", cli::muted("Use 'zorvia profiles' to see all profiles"));
             }
         }
     }

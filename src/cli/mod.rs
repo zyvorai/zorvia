@@ -250,4 +250,82 @@ pub enum Commands {
         #[arg(long)]
         continue_on_error: bool,
     },
+
+    // ========== INNOVATIVE FEATURES ==========
+
+    /// List VM resource profiles (dev, prod, high-perf, etc.)
+    Profiles {
+        /// Show detailed information
+        #[arg(short, long)]
+        details: bool,
+    },
+
+    /// Show specific profile details
+    Profile {
+        /// Profile name
+        name: String,
+
+        /// Output format (yaml, json)
+        #[arg(short, long, default_value = "yaml")]
+        output: String,
+    },
+
+    /// List multi-VM blueprints (LAMP, Kubernetes, 3-tier, etc.)
+    Blueprints {
+        /// Filter by tag
+        #[arg(short, long)]
+        tag: Option<String>,
+
+        /// Show detailed information
+        #[arg(short, long)]
+        details: bool,
+    },
+
+    /// Show specific blueprint details
+    Blueprint {
+        /// Blueprint name
+        name: String,
+
+        /// Output format (yaml, json)
+        #[arg(short, long, default_value = "yaml")]
+        output: String,
+    },
+
+    /// Deploy a multi-VM blueprint
+    Deploy {
+        /// Blueprint name
+        blueprint: String,
+
+        /// Name prefix for VMs (default: blueprint name)
+        #[arg(short, long)]
+        prefix: Option<String>,
+
+        /// Start VMs after creation
+        #[arg(long)]
+        start: bool,
+
+        /// Dry run - show what would be created
+        #[arg(long)]
+        dry_run: bool,
+    },
+
+    /// Run health check on a VM configuration or running VM
+    Health {
+        /// VM name (for running VM) or config file path
+        target: String,
+
+        /// Show detailed checks
+        #[arg(short, long)]
+        detailed: bool,
+    },
+
+    /// Get resource recommendations for a workload
+    Recommend {
+        /// Workload type (web, database, cache, ci, etc.)
+        workload: String,
+
+        /// Show alternative profiles
+        #[arg(short, long)]
+        alternatives: bool,
+    },
 }

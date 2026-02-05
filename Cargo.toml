@@ -33,5 +33,15 @@ chrono = "0.4"
 dialoguer = "0.11"
 indicatif = "0.17"
 
+# TUI dependencies
+ratatui = "0.28"
+crossterm = "0.28"
+colored = "3.1"
+owo-colors = "4.0"
+miette = { version = "7.0", features = ["fancy"] }
+toml = "0.8"
+dirs = "5.0"
+rustyline = "17.0"
+
 [dev-dependencies]
 tempfile = "3.8"
