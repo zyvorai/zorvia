@@ -598,4 +598,121 @@ pub enum Commands {
         #[arg(short, long, default_value = "yaml")]
         output: String,
     },
+
+    // ========== VM MIGRATION & HIGH AVAILABILITY ==========
+
+    /// Migrate a VM to another node
+    Migrate {
+        /// VM name
+        vm: String,
+
+        /// Target node (auto-select if not specified)
+        #[arg(short, long)]
+        target_node: Option<String>,
+
+        /// Migration type (live, offline, post-copy)
+        #[arg(long, default_value = "live")]
+        migration_type: String,
+
+        /// Show migration plan without executing
+        #[arg(long)]
+        plan: bool,
+    },
+
+    /// Show migration status
+    MigrationStatus {
+        /// VM name
+        vm: String,
+
+        /// Watch mode - continuously update status
+        #[arg(short, long)]
+        watch: bool,
+
+        /// Update interval in seconds (for watch mode)
+        #[arg(long, default_value = "5")]
+        interval: u64,
+    },
+
+    /// List migrations
+    MigrationList {
+        /// Show all namespaces
+        #[arg(short = 'A', long)]
+        all_namespaces: bool,
+
+        /// Filter by state (running, succeeded, failed)
+        #[arg(long)]
+        state: Option<String>,
+
+        /// Output format (table, yaml, json)
+        #[arg(short, long, default_value = "table")]
+        output: String,
+    },
+
+    /// Configure VM high availability
+    HAConfig {
+        /// VM name
+        vm: String,
+
+        /// Enable HA
+        #[arg(long)]
+        enable: bool,
+
+        /// Disable HA
+        #[arg(long)]
+        disable: bool,
+
+        /// HA priority (critical, high, normal, low)
+        #[arg(long)]
+        priority: Option<String>,
+
+        /// Eviction strategy (live-migrate, shutdown, none)
+        #[arg(long)]
+        eviction_strategy: Option<String>,
+    },
+
+    /// Show VM HA status
+    HAStatus {
+        /// VM name
+        vm: String,
+
+        /// Output format (yaml, json)
+        #[arg(short, long, default_value = "yaml")]
+        output: String,
+    },
+
+    /// Evacuate/drain a node
+    EvacuateNode {
+        /// Node name
+        node: String,
+
+        /// Reason for evacuation
+        #[arg(short, long)]
+        reason: Option<String>,
+
+        /// Max parallel migrations
+        #[arg(long, default_value = "2")]
+        max_parallel: u32,
+
+        /// Timeout in seconds
+        #[arg(long, default_value = "3600")]
+        timeout: u64,
+
+        /// Force evacuation
+        #[arg(long)]
+        force: bool,
+
+        /// Show evacuation plan without executing
+        #[arg(long)]
+        plan: bool,
+    },
+
+    /// Show node evacuation status
+    EvacuationStatus {
+        /// Node name
+        node: String,
+
+        /// Watch mode - continuously update status
+        #[arg(short, long)]
+        watch: bool,
+    },
 }

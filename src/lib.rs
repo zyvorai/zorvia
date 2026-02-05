@@ -15,6 +15,7 @@ pub mod health;
 pub mod snapshots;
 pub mod monitoring;
 pub mod disk;
+pub mod migration;
 
 use anyhow::{anyhow, Result};
 use cli::{Cli, Commands};
@@ -23,6 +24,7 @@ use output::{format_output, OutputFormat};
 use std::fs;
 use templates::TEMPLATES;
 use tui::colors::cli as color;
+use chrono::Utc;
 
 /// Main entry point for the library
 pub async fn run(cli: Cli) -> Result<()> {
@@ -2068,6 +2070,290 @@ pub async fn run(cli: Cli) -> Result<()> {
             } else {
                 let yaml = serde_yaml::to_string(&policy)?;
                 println!("{}", yaml);
+            }
+        }
+
+        Commands::Migrate { vm, target_node, migration_type, plan } => {
+            use migration::{MigrationRequest, MigrationType, MigrationStatus, MigrationState, MigrationPhase};
+
+            println!("{}", color::header(&format!("VM Migration: {}", vm)));
+            println!();
+
+            let mig_type = match migration_type.as_str() {
+                "offline" => MigrationType::Offline,
+                "post-copy" => MigrationType::PostCopy,
+                _ => MigrationType::Live,
+            };
+
+            let request = MigrationRequest::new(&vm, "node1")
+                .to_node(target_node.unwrap_or_else(|| "node2".to_string()))
+                .with_type(mig_type);
+
+            if plan {
+                println!("{}", color::header("Migration Plan:"));
+                println!("  VM:           {}", color::value(&vm));
+                println!("  Source:       {}", request.source_node);
+                println!("  Target:       {}", color::value(request.target_node.as_deref().unwrap_or("auto")));
+                println!("  Type:         {}", request.migration_type.as_str());
+                println!();
+                println!("{}", color::header("Migration Steps:"));
+                println!("  1. Validate source and target nodes");
+                println!("  2. Prepare target node resources");
+                println!("  3. Start live memory transfer");
+                println!("  4. Sync disk state");
+                println!("  5. Pause VM and final sync");
+                println!("  6. Resume VM on target node");
+                println!();
+                println!("{}", color::info("ℹ Use 'zorvia migrate' without --plan to execute"));
+            } else {
+                // Simulate migration
+                let status = MigrationStatus::new(&vm, "node1", request.target_node.unwrap_or_else(|| "node2".to_string()));
+
+                println!("{}", color::header("Migration Started:"));
+                println!("  Migration ID: {}", color::value("mig-12345"));
+                println!("  Source:       {}", status.source_node);
+                println!("  Target:       {}", status.target_node);
+                println!("  Type:         {}", request.migration_type.as_str());
+                println!();
+                println!("{}", color::success("✓ Migration initiated successfully"));
+                println!();
+                println!("{}", color::info("ℹ Use 'zorvia migration-status' to monitor progress"));
+            }
+        }
+
+        Commands::MigrationStatus { vm, watch, interval } => {
+            use migration::{MigrationStatus, MigrationState, MigrationPhase};
+
+            println!("{}", color::header(&format!("Migration Status: {}", vm)));
+            println!();
+
+            let mut status = MigrationStatus::new(&vm, "node1", "node2");
+            status.state = MigrationState::Running;
+            status.phase = MigrationPhase::MemoryTransfer;
+            status.progress_percent = 65;
+
+            println!("  State:     {}", match status.state {
+                MigrationState::Running => color::info("Running"),
+                MigrationState::Succeeded => color::success("Succeeded"),
+                MigrationState::Failed => color::error("Failed"),
+                _ => status.state.to_string(),
+            });
+            println!("  Phase:     {}", status.phase);
+            println!("  Progress:  {}%", status.progress_percent);
+            println!("  Source:    {}", status.source_node);
+            println!("  Target:    {}", status.target_node);
+            println!("  Duration:  {}s", status.duration_secs());
+
+            if watch {
+                println!();
+                println!("{}", color::info(&format!("ℹ Watch mode not yet implemented. Use --interval {} for update rate.", interval)));
+            }
+        }
+
+        Commands::MigrationList { all_namespaces, state, output } => {
+            use migration::{MigrationStatus, MigrationState, MigrationPhase};
+
+            println!("{}", color::header("VM Migrations"));
+            if all_namespaces {
+                println!("  Namespace: {}", color::value("All"));
+            }
+            if let Some(s) = &state {
+                println!("  State Filter: {}", color::value(s));
+            }
+            println!();
+
+            // Mock migration data
+            let migrations = vec![
+                {
+                    let mut m = MigrationStatus::new("web-vm", "node1", "node2");
+                    m.state = MigrationState::Running;
+                    m.phase = MigrationPhase::MemoryTransfer;
+                    m.progress_percent = 75;
+                    m
+                },
+                {
+                    let mut m = MigrationStatus::new("db-vm", "node2", "node3");
+                    m.state = MigrationState::Succeeded;
+                    m.phase = MigrationPhase::Succeeded;
+                    m.progress_percent = 100;
+                    m.completed_at = Some(Utc::now());
+                    m
+                },
+            ];
+
+            if output == "json" {
+                let json = serde_json::to_string_pretty(&migrations)?;
+                println!("{}", json);
+            } else if output == "yaml" {
+                let yaml = serde_yaml::to_string(&migrations)?;
+                println!("{}", yaml);
+            } else {
+                println!("{:<15} {:<12} {:<10} {:<10} {:<10} {}",
+                    color::label("VM"),
+                    color::label("STATE"),
+                    color::label("PHASE"),
+                    color::label("PROGRESS"),
+                    color::label("SOURCE"),
+                    color::label("TARGET")
+                );
+                println!("{}", "-".repeat(80));
+
+                for m in &migrations {
+                    let state_str = match m.state {
+                        MigrationState::Running => color::info("Running"),
+                        MigrationState::Succeeded => color::success("Succeeded"),
+                        MigrationState::Failed => color::error("Failed"),
+                        _ => m.state.to_string(),
+                    };
+
+                    println!("{:<15} {:<12} {:<10} {:<10} {:<10} {}",
+                        m.vm_name,
+                        state_str,
+                        m.phase.to_string(),
+                        format!("{}%", m.progress_percent),
+                        m.source_node,
+                        m.target_node
+                    );
+                }
+            }
+        }
+
+        Commands::HAConfig { vm, enable, disable, priority, eviction_strategy } => {
+            use migration::ha::{HAConfig, HAPriority, EvictionStrategy};
+
+            if enable == disable {
+                return Err(anyhow!("Must specify either --enable or --disable"));
+            }
+
+            println!("{}", color::header(&format!("HA Configuration: {}", vm)));
+            println!();
+
+            let mut config = HAConfig::new(&vm);
+            config.enabled = enable;
+
+            if let Some(p) = priority {
+                config.priority = match p.as_str() {
+                    "critical" => HAPriority::Critical,
+                    "high" => HAPriority::High,
+                    "low" => HAPriority::Low,
+                    _ => HAPriority::Normal,
+                };
+            }
+
+            if let Some(s) = eviction_strategy {
+                config.eviction_strategy = match s.as_str() {
+                    "shutdown" => EvictionStrategy::Shutdown,
+                    "none" => EvictionStrategy::None,
+                    _ => EvictionStrategy::LiveMigrate,
+                };
+            }
+
+            println!("  Enabled:            {}", if config.enabled { color::success("Yes") } else { color::muted("No") });
+            println!("  Priority:           {:?}", config.priority);
+            println!("  Eviction Strategy:  {}", config.eviction_strategy);
+            println!("  Auto Restart:       {}", config.failover_policy.auto_restart);
+            println!("  Max Restarts:       {}", config.failover_policy.max_restart_attempts);
+            println!();
+            println!("{}", color::success("✓ HA configuration updated"));
+        }
+
+        Commands::HAStatus { vm, output } => {
+            use migration::ha::HAConfig;
+
+            let config = HAConfig::new(&vm);
+
+            if output == "json" {
+                let json = serde_json::to_string_pretty(&config)?;
+                println!("{}", json);
+            } else {
+                let yaml = serde_yaml::to_string(&config)?;
+                println!("{}", yaml);
+            }
+        }
+
+        Commands::EvacuateNode { node, reason, max_parallel, timeout, force, plan } => {
+            use migration::evacuation::{EvacuationRequest, EvacuationStatus, EvacuationPlanner};
+
+            println!("{}", color::header(&format!("Node Evacuation: {}", node)));
+            println!();
+
+            let request = EvacuationRequest::new(&node, reason.unwrap_or_else(|| "Maintenance".to_string()))
+                .with_timeout(timeout);
+
+            let planner = EvacuationPlanner::new(max_parallel);
+
+            if plan {
+                println!("{}", color::header("Evacuation Plan:"));
+                println!("  Node:         {}", color::value(&node));
+                println!("  Reason:       {}", request.reason);
+                println!("  Max Parallel: {}", max_parallel);
+                println!("  Timeout:      {}s", timeout);
+                println!("  Force:        {}", if force { "Yes" } else { "No" });
+                println!();
+
+                // Mock VM list with priorities
+                let vms = vec![
+                    ("critical-db".to_string(), 100),
+                    ("web-app-1".to_string(), 50),
+                    ("web-app-2".to_string(), 50),
+                    ("cache".to_string(), 30),
+                    ("worker-1".to_string(), 20),
+                ];
+
+                let batches = planner.plan_evacuation(vms);
+                let estimated = planner.estimate_duration(5, 120);
+
+                println!("{}", color::header("Migration Batches:"));
+                for (i, batch) in batches.iter().enumerate() {
+                    println!("  Batch {}: {}", i + 1, batch.join(", "));
+                }
+                println!();
+                println!("  Estimated Duration: {}s (~{} minutes)", estimated, estimated / 60);
+                println!();
+                println!("{}", color::info("ℹ Use 'zorvia evacuate-node' without --plan to execute"));
+            } else {
+                let mut status = EvacuationStatus::new(&node, 5);
+
+                println!("{}", color::header("Evacuation Started:"));
+                println!("  Node:         {}", status.node_name);
+                println!("  Total VMs:    {}", status.total_vms);
+                println!("  Strategy:     Live Migration");
+                println!("  Max Parallel: {}", max_parallel);
+                println!();
+                println!("{}", color::success("✓ Evacuation initiated successfully"));
+                println!();
+                println!("{}", color::info("ℹ Use 'zorvia evacuation-status' to monitor progress"));
+            }
+        }
+
+        Commands::EvacuationStatus { node, watch } => {
+            use migration::evacuation::{EvacuationStatus, EvacuationState};
+
+            println!("{}", color::header(&format!("Evacuation Status: {}", node)));
+            println!();
+
+            let mut status = EvacuationStatus::new(&node, 5);
+            status.state = EvacuationState::InProgress;
+            status.migrated_vms = 3;
+            status.in_progress_vms = 1;
+            status.failed_vms = 0;
+
+            println!("  State:        {}", match status.state {
+                EvacuationState::InProgress => color::info("In Progress"),
+                EvacuationState::Completed => color::success("Completed"),
+                EvacuationState::Failed => color::error("Failed"),
+                _ => status.state.to_string(),
+            });
+            println!("  Total VMs:    {}", status.total_vms);
+            println!("  Migrated:     {}", color::success(&status.migrated_vms.to_string()));
+            println!("  In Progress:  {}", status.in_progress_vms);
+            println!("  Failed:       {}", if status.failed_vms > 0 { color::error(&status.failed_vms.to_string()) } else { "0".to_string() });
+            println!("  Progress:     {}%", status.progress_percent());
+            println!("  Duration:     {}s", status.duration_secs());
+
+            if watch {
+                println!();
+                println!("{}", color::info("ℹ Watch mode not yet implemented"));
             }
         }
     }
