@@ -24,6 +24,7 @@ pub mod observability;
 pub mod multitenancy;
 pub mod gitops;
 pub mod aiml;
+pub mod servicemesh;
 
 use anyhow::{anyhow, Result};
 use cli::{Cli, Commands};
