@@ -26,6 +26,7 @@ pub mod gitops;
 pub mod aiml;
 pub mod servicemesh;
 pub mod dr;
+pub mod compliance;
 
 use anyhow::{anyhow, Result};
 use cli::{Cli, Commands};
