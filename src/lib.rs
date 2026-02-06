@@ -32,6 +32,7 @@ pub mod finops;
 pub mod networking;
 pub mod edge;
 pub mod secrets;
+pub mod multicloud;
 
 use anyhow::{anyhow, Result};
 use cli::{Cli, Commands};
