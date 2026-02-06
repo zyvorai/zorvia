@@ -27,6 +27,7 @@ pub mod aiml;
 pub mod servicemesh;
 pub mod dr;
 pub mod compliance;
+pub mod capacity;
 
 use anyhow::{anyhow, Result};
 use cli::{Cli, Commands};
