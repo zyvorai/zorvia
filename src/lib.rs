@@ -25,6 +25,7 @@ pub mod multitenancy;
 pub mod gitops;
 pub mod aiml;
 pub mod servicemesh;
+pub mod dr;
 
 use anyhow::{anyhow, Result};
 use cli::{Cli, Commands};
