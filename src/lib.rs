@@ -29,6 +29,7 @@ pub mod dr;
 pub mod compliance;
 pub mod capacity;
 pub mod finops;
+pub mod networking;
 
 use anyhow::{anyhow, Result};
 use cli::{Cli, Commands};
