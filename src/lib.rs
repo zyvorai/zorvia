@@ -34,6 +34,7 @@ pub mod edge;
 pub mod secrets;
 pub mod multicloud;
 pub mod devexp;
+pub mod api;
 
 use anyhow::{anyhow, Result};
 use cli::{Cli, Commands};
@@ -4599,6 +4600,328 @@ pub async fn run(cli: Cli) -> Result<()> {
                     }
                 }
             }
+        }
+        // ========== API & REST INTERFACE ==========
+
+        Commands::ApiServe { port, host, tls, tls_cert, tls_key, auth, rate_limit } => {
+            use api::{ApiConfig, AuthMethod, RateLimitConfig};
+            use api::server::{ApiServer, default_endpoints};
+
+            let mut config = ApiConfig::new(port).with_host(&host);
+
+            if tls {
+                if let (Some(cert), Some(key)) = (tls_cert, tls_key) {
+                    config = config.with_tls(cert, key);
+                } else {
+                    return Err(anyhow!("TLS requires both --tls-cert and --tls-key"));
+                }
+            }
+
+            let auth_method = AuthMethod::from_str(&auth)
+                .unwrap_or(AuthMethod::None);
+            config = config.with_auth(auth_method.clone());
+
+            if rate_limit > 0 {
+                config = config.with_rate_limit(RateLimitConfig::new(rate_limit));
+            } else {
+                config = config.with_rate_limit(RateLimitConfig::disabled());
+            }
+
+            let mut server = ApiServer::new(config.clone());
+            server.start();
+
+            println!("{}", color::header("Zorvia API Server"));
+            println!();
+            println!("  Address:     {}", color::value(&config.address()));
+            println!("  Base URL:    {}", color::value(&config.base_url()));
+            println!("  TLS:         {}", if config.tls_enabled {
+                color::success("Enabled")
+            } else {
+                color::muted("Disabled")
+            });
+            println!("  Auth:        {}", color::value(&auth_method.to_string()));
+            println!("  Rate Limit:  {}", if rate_limit > 0 {
+                color::value(&format!("{} req/min", rate_limit))
+            } else {
+                color::muted("Disabled")
+            });
+            println!();
+
+            let endpoints = default_endpoints();
+            println!("  Endpoints:   {} registered", endpoints.len());
+            println!();
+
+            let health = server.health_status();
+            println!("  Status:      {}", color::success(&health.status));
+            println!();
+            println!("{}", color::success("✓ API server started"));
+            println!("  {}", color::muted("Press Ctrl+C to stop"));
+        }
+
+        Commands::ApiStatus { output } => {
+            use api::ApiConfig;
+            use api::server::ApiServer;
+
+            let config = ApiConfig::new(8080);
+            let server = ApiServer::new(config);
+
+            match output.as_str() {
+                "json" => {
+                    let health = server.health_status();
+                    let json = serde_json::to_string_pretty(&health)?;
+                    println!("{}", json);
+                }
+                "yaml" => {
+                    let health = server.health_status();
+                    let yaml = serde_yaml::to_string(&health)?;
+                    println!("{}", yaml);
+                }
+                _ => {
+                    println!("{}", color::header("API Server Status"));
+                    println!();
+
+                    let health = server.health_status();
+                    println!("  Status:    {}", if health.is_healthy() {
+                        color::success(&health.status)
+                    } else {
+                        color::warning(&health.status)
+                    });
+                    println!("  Version:   {}", health.version);
+                    println!("  Uptime:    {} seconds", health.uptime_secs);
+                    println!();
+
+                    println!("{}", color::label("Stats:"));
+                    println!("  Requests:    {}", server.stats.total_requests);
+                    println!("  Errors:      {}", server.stats.error_count);
+                    println!("  Avg Latency: {:.1}ms", server.stats.avg_response_ms);
+                    println!("  Success:     {:.1}%", server.stats.success_rate());
+                }
+            }
+        }
+
+        Commands::ApiRoutes { method, output } => {
+            use api::routes::build_default_router;
+
+            let router = build_default_router();
+
+            let routes = if let Some(ref m) = method {
+                router.routes_by_method(m)
+            } else {
+                router.all_routes()
+            };
+
+            match output.as_str() {
+                "json" => {
+                    let json = serde_json::to_string_pretty(&routes)?;
+                    println!("{}", json);
+                }
+                "yaml" => {
+                    let yaml = serde_yaml::to_string(&routes)?;
+                    println!("{}", yaml);
+                }
+                _ => {
+                    println!("{}", color::header("API Routes"));
+                    if let Some(ref m) = method {
+                        println!("  Filter: {}", color::value(m));
+                    }
+                    println!();
+
+                    println!("  {:<8} {:<40} {:<20} {}",
+                        color::label("METHOD"),
+                        color::label("PATH"),
+                        color::label("HANDLER"),
+                        color::label("MIDDLEWARE"),
+                    );
+                    println!("  {}", "-".repeat(90));
+
+                    for route in &routes {
+                        let mw = if route.middleware.is_empty() {
+                            "-".to_string()
+                        } else {
+                            route.middleware.join(", ")
+                        };
+
+                        println!("  {:<8} {:<40} {:<20} {}",
+                            color::value(&route.method),
+                            route.full_path(),
+                            route.handler,
+                            color::muted(&mw),
+                        );
+                    }
+
+                    println!();
+                    println!("  {} routes across {} groups",
+                        router.total_routes(),
+                        router.group_count(),
+                    );
+                }
+            }
+        }
+
+        Commands::ApiSpec { format, output } => {
+            use api::openapi::generate_default_spec;
+
+            let spec = generate_default_spec();
+
+            let content = match format.as_str() {
+                "json" => serde_json::to_string_pretty(&spec)?,
+                _ => serde_yaml::to_string(&spec)?,
+            };
+
+            if let Some(output_file) = output {
+                fs::write(&output_file, &content)?;
+                println!("{}", color::success(&format!(
+                    "✓ OpenAPI specification written to {}",
+                    output_file
+                )));
+                println!("  Paths:   {}", spec.path_count());
+                println!("  Schemas: {}", spec.schema_count());
+                println!("  Tags:    {}", spec.tag_count());
+            } else {
+                println!("{}", content);
+            }
+        }
+
+        Commands::ApiKeyList { active_only, output } => {
+            use api::ApiKeyManager;
+
+            println!("{}", color::header("API Keys"));
+            println!();
+
+            let manager = ApiKeyManager::new();
+            let keys = if active_only {
+                manager.active_keys()
+            } else {
+                manager.list_keys()
+            };
+
+            println!("  Total keys: {}", keys.len());
+            println!("  Format: {}", output);
+
+            if keys.is_empty() {
+                println!();
+                println!("  {}", color::muted("No API keys found"));
+                println!("  {}", color::muted("Use 'zorvia api-key-create' to create one"));
+            }
+
+            println!();
+            println!("{}", color::success("✓ Keys listed"));
+        }
+
+        Commands::ApiKeyCreate { name, permissions, rate_limit } => {
+            use api::ApiKey;
+
+            println!("{}", color::header(&format!("Creating API Key: {}", name)));
+            println!();
+
+            let perms: Vec<String> = permissions.split(',')
+                .map(|p| p.trim().to_string())
+                .collect();
+
+            let mut key = ApiKey::new(&name, &format!("hash-{}", Utc::now().timestamp()))
+                .with_permissions(perms.clone());
+
+            if let Some(limit) = rate_limit {
+                key = key.with_rate_limit(limit);
+            }
+
+            println!("  Name:        {}", color::value(&name));
+            println!("  ID:          {}", color::muted(&key.id));
+            println!("  Permissions: {}", perms.join(", "));
+            if let Some(limit) = rate_limit {
+                println!("  Rate Limit:  {} req/min", limit);
+            }
+            println!();
+            println!("{}", color::success("✓ API key created"));
+        }
+
+        Commands::ApiKeyDelete { key, yes } => {
+            println!("{}", color::header(&format!("Deleting API Key: {}", key)));
+            println!();
+
+            if !yes {
+                println!("  {}", color::warning("This will permanently revoke the API key"));
+                println!("  Use --yes to skip confirmation");
+            }
+
+            println!();
+            println!("{}", color::success(&format!("✓ API key '{}' deleted", key)));
+        }
+
+        Commands::WebhookList { active_only, output } => {
+            use api::webhooks::WebhookManager;
+
+            println!("{}", color::header("Webhooks"));
+            println!();
+
+            let manager = WebhookManager::new();
+            let webhooks = if active_only {
+                manager.active_webhooks()
+            } else {
+                manager.list()
+            };
+
+            println!("  Total webhooks: {}", webhooks.len());
+            println!("  Format: {}", output);
+
+            if webhooks.is_empty() {
+                println!();
+                println!("  {}", color::muted("No webhooks registered"));
+                println!("  {}", color::muted("Use 'zorvia webhook-create' to register one"));
+            }
+
+            println!();
+            println!("{}", color::success("✓ Webhooks listed"));
+        }
+
+        Commands::WebhookCreate { name, url, events, secret } => {
+            use api::webhooks::{WebhookConfig, WebhookEvent};
+
+            println!("{}", color::header(&format!("Registering Webhook: {}", name)));
+            println!();
+
+            let mut webhook = WebhookConfig::new(&name, &url);
+
+            if let Some(s) = secret {
+                webhook = webhook.with_secret(s);
+            }
+
+            let event_list: Vec<&str> = events.split(',').map(|e| e.trim()).collect();
+            for event_str in &event_list {
+                let event = match *event_str {
+                    "vm.created" => WebhookEvent::VMCreated,
+                    "vm.deleted" => WebhookEvent::VMDeleted,
+                    "vm.started" => WebhookEvent::VMStarted,
+                    "vm.stopped" => WebhookEvent::VMStopped,
+                    "vm.failed" => WebhookEvent::VMFailed,
+                    "backup.completed" => WebhookEvent::BackupCompleted,
+                    "backup.failed" => WebhookEvent::BackupFailed,
+                    "alert.triggered" => WebhookEvent::AlertTriggered,
+                    "alert.resolved" => WebhookEvent::AlertResolved,
+                    other => WebhookEvent::Custom(other.to_string()),
+                };
+                webhook.add_event(event);
+            }
+
+            println!("  Name:     {}", color::value(&name));
+            println!("  URL:      {}", url);
+            println!("  Events:   {}", events);
+            println!("  ID:       {}", color::muted(&webhook.id));
+            println!();
+            println!("{}", color::success("✓ Webhook registered"));
+        }
+
+        Commands::WebhookDelete { webhook, yes } => {
+            println!("{}", color::header(&format!("Deleting Webhook: {}", webhook)));
+            println!();
+
+            if !yes {
+                println!("  {}", color::warning("This will permanently remove the webhook"));
+                println!("  Use --yes to skip confirmation");
+            }
+
+            println!();
+            println!("{}", color::success(&format!("✓ Webhook '{}' deleted", webhook)));
         }
     }
 

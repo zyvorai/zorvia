@@ -1780,5 +1780,141 @@ pub enum Commands {
         #[arg(short, long, default_value = "text")]
         output: String,
     },
+
+    // ========== API & REST INTERFACE ==========
+
+    /// Start the REST API server
+    ApiServe {
+        /// Port to listen on
+        #[arg(short, long, default_value = "8080")]
+        port: u16,
+
+        /// Host to bind to
+        #[arg(long, default_value = "0.0.0.0")]
+        host: String,
+
+        /// Enable TLS
+        #[arg(long)]
+        tls: bool,
+
+        /// TLS certificate path
+        #[arg(long)]
+        tls_cert: Option<String>,
+
+        /// TLS key path
+        #[arg(long)]
+        tls_key: Option<String>,
+
+        /// Authentication method (none, api-key, bearer, basic, oauth2, mtls)
+        #[arg(long, default_value = "none")]
+        auth: String,
+
+        /// Rate limit (requests per minute, 0 to disable)
+        #[arg(long, default_value = "60")]
+        rate_limit: u32,
+    },
+
+    /// Show API server status
+    ApiStatus {
+        /// Output format (text, yaml, json)
+        #[arg(short, long, default_value = "text")]
+        output: String,
+    },
+
+    /// List API routes
+    ApiRoutes {
+        /// Filter by method (GET, POST, PUT, DELETE)
+        #[arg(short, long)]
+        method: Option<String>,
+
+        /// Output format (table, yaml, json)
+        #[arg(short, long, default_value = "table")]
+        output: String,
+    },
+
+    /// Generate OpenAPI specification
+    ApiSpec {
+        /// Output format (yaml, json)
+        #[arg(short, long, default_value = "yaml")]
+        format: String,
+
+        /// Output file (defaults to stdout)
+        #[arg(short, long)]
+        output: Option<String>,
+    },
+
+    /// Manage API keys
+    ApiKeyList {
+        /// Show only active keys
+        #[arg(long)]
+        active_only: bool,
+
+        /// Output format (table, yaml, json)
+        #[arg(short, long, default_value = "table")]
+        output: String,
+    },
+
+    /// Create an API key
+    ApiKeyCreate {
+        /// Key name
+        name: String,
+
+        /// Permissions (comma-separated: read, write, admin)
+        #[arg(short, long, default_value = "read")]
+        permissions: String,
+
+        /// Rate limit for this key (requests per minute)
+        #[arg(long)]
+        rate_limit: Option<u32>,
+    },
+
+    /// Delete an API key
+    ApiKeyDelete {
+        /// Key ID or name
+        key: String,
+
+        /// Skip confirmation
+        #[arg(short, long)]
+        yes: bool,
+    },
+
+    /// List webhook registrations
+    WebhookList {
+        /// Show only active webhooks
+        #[arg(long)]
+        active_only: bool,
+
+        /// Output format (table, yaml, json)
+        #[arg(short, long, default_value = "table")]
+        output: String,
+    },
+
+    /// Register a webhook
+    WebhookCreate {
+        /// Webhook name
+        name: String,
+
+        /// Webhook URL
+        #[arg(short, long)]
+        url: String,
+
+        /// Events to subscribe to (comma-separated)
+        #[arg(short, long)]
+        events: String,
+
+        /// Webhook secret for signing
+        #[arg(short, long)]
+        secret: Option<String>,
+    },
+
+    /// Delete a webhook
+    WebhookDelete {
+        /// Webhook ID or name
+        webhook: String,
+
+        /// Skip confirmation
+        #[arg(short, long)]
+        yes: bool,
+    },
 }
 
