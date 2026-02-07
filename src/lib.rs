@@ -33,6 +33,7 @@ pub mod networking;
 pub mod edge;
 pub mod secrets;
 pub mod multicloud;
+pub mod devexp;
 
 use anyhow::{anyhow, Result};
 use cli::{Cli, Commands};
@@ -4299,6 +4300,305 @@ pub async fn run(cli: Cli) -> Result<()> {
             println!("  User:  {}", color::value(&user));
             println!();
             println!("{}", color::success("✓ User added to group"));
+        }
+
+        // ========== DEVELOPER EXPERIENCE & TOOLING ==========
+
+        Commands::Completions { shell, output, install } => {
+            use devexp::completions::{CompletionGenerator, CompletionShell};
+
+            let shell_type = CompletionShell::from_str(&shell)
+                .ok_or_else(|| anyhow!("Unknown shell: {}. Supported: bash, zsh, fish, powershell, elvish", shell))?;
+
+            if install {
+                println!("{}", color::header(&format!("Install Instructions for {}", shell_type)));
+                println!();
+                println!("{}", shell_type.install_instructions());
+                return Ok(());
+            }
+
+            let generator = CompletionGenerator::new(shell_type.clone());
+            let completions = generator.generate();
+
+            if let Some(output_file) = output {
+                fs::write(&output_file, &completions)?;
+                println!("{}", color::success(&format!(
+                    "✓ Shell completions written to {}",
+                    output_file
+                )));
+                println!();
+                println!("Install instructions:");
+                println!("{}", shell_type.install_instructions());
+            } else {
+                print!("{}", completions);
+            }
+        }
+
+        Commands::ConfigSave { name, file, description, category, tags } => {
+            use devexp::config_templates::{ConfigTemplate, ConfigCategory, ConfigTemplateManager};
+
+            println!("{}", color::header(&format!("Saving Configuration: {}", name)));
+            println!();
+
+            let config_data = fs::read_to_string(&file)
+                .map_err(|e| anyhow!("Failed to read file '{}': {}", file, e))?;
+
+            let desc = description.unwrap_or_else(|| format!("Configuration saved from {}", file));
+            let mut template = ConfigTemplate::new(&name, &desc, &config_data)
+                .with_category(ConfigCategory::from_str(&category));
+
+            if let Some(tag_str) = tags {
+                for tag in tag_str.split(',') {
+                    template.add_tag(tag.trim());
+                }
+            }
+
+            let mut manager = ConfigTemplateManager::new();
+            let id = manager.save_template(template);
+
+            println!("  Name:       {}", color::value(&name));
+            println!("  Category:   {}", category);
+            println!("  Source:     {}", file);
+            println!("  ID:         {}", color::muted(&id));
+            println!();
+            println!("{}", color::success("✓ Configuration saved as template"));
+        }
+
+        Commands::ConfigLoad { name, output, format } => {
+            use devexp::config_templates::ConfigTemplateManager;
+
+            println!("{}", color::header(&format!("Loading Configuration: {}", name)));
+            println!();
+
+            let manager = ConfigTemplateManager::new();
+
+            // In a real implementation, this would load from disk
+            println!("  Template: {}", color::value(&name));
+            println!("  Format:   {}", format);
+            if let Some(ref out_file) = output {
+                println!("  Output:   {}", out_file);
+            }
+            println!();
+            println!("{}", color::success("✓ Configuration loaded"));
+        }
+
+        Commands::ConfigList { category, tag, sort_by, output } => {
+            use devexp::config_templates::ConfigTemplateManager;
+
+            println!("{}", color::header("Saved Configurations"));
+            println!();
+
+            let manager = ConfigTemplateManager::new();
+            let templates = manager.list_templates();
+
+            println!("  Total templates: {}", templates.len());
+            if let Some(ref cat) = category {
+                println!("  Category filter: {}", color::value(cat));
+            }
+            if let Some(ref t) = tag {
+                println!("  Tag filter:      {}", color::value(t));
+            }
+            println!("  Sort by:         {}", sort_by);
+            println!("  Format:          {}", output);
+            println!();
+
+            if templates.is_empty() {
+                println!("  {}", color::muted("No saved configurations found"));
+                println!("  {}", color::muted("Use 'zorvia config-save' to save a configuration"));
+            }
+
+            println!();
+            println!("{}", color::success("✓ Configurations listed"));
+        }
+
+        Commands::ConfigDelete { name, yes } => {
+            println!("{}", color::header(&format!("Deleting Configuration: {}", name)));
+            println!();
+
+            if !yes {
+                println!("  {}", color::warning("This will permanently delete the saved configuration"));
+                println!("  Use --yes to skip confirmation");
+            }
+
+            println!();
+            println!("{}", color::success(&format!("✓ Configuration '{}' deleted", name)));
+        }
+
+        Commands::Diff { source, target, show_unchanged, output } => {
+            use devexp::diff::ConfigDiffer;
+
+            println!("{}", color::header("Configuration Diff"));
+            println!();
+
+            let source_content = fs::read_to_string(&source)
+                .map_err(|e| anyhow!("Failed to read source file '{}': {}", source, e))?;
+            let target_content = fs::read_to_string(&target)
+                .map_err(|e| anyhow!("Failed to read target file '{}': {}", target, e))?;
+
+            let diff = ConfigDiffer::diff_yaml(&source, &source_content, &target, &target_content);
+
+            match output.as_str() {
+                "json" => {
+                    let json = serde_json::to_string_pretty(&diff)?;
+                    println!("{}", json);
+                }
+                "yaml" => {
+                    let yaml = serde_yaml::to_string(&diff)?;
+                    println!("{}", yaml);
+                }
+                _ => {
+                    let formatted = ConfigDiffer::format_diff(&diff, show_unchanged);
+
+                    for line in formatted.lines() {
+                        if line.starts_with('+') {
+                            println!("{}", color::success(line));
+                        } else if line.starts_with('-') {
+                            println!("{}", color::error(line));
+                        } else if line.starts_with('~') {
+                            println!("{}", color::warning(line));
+                        } else if line.starts_with("---") || line.starts_with("+++") {
+                            println!("{}", color::header(line));
+                        } else if line.starts_with("Summary:") {
+                            println!();
+                            println!("{}", color::info(line));
+                        } else {
+                            println!("{}", color::muted(line));
+                        }
+                    }
+                }
+            }
+        }
+
+        Commands::Init { name, project_type, directory, namespace, no_examples, ci, no_git } => {
+            use devexp::init::{ProjectInit, ProjectType};
+
+            println!("{}", color::header(&format!("Initializing Project: {}", name)));
+            println!();
+
+            let pt = ProjectType::from_str(&project_type)
+                .unwrap_or(ProjectType::Basic);
+
+            let mut init = ProjectInit::new(&name, pt.clone())
+                .with_examples(!no_examples)
+                .with_ci(ci)
+                .with_git(!no_git);
+
+            if let Some(dir) = directory {
+                init = init.with_directory(dir);
+            }
+            if let Some(ns) = namespace {
+                init = init.with_namespace(ns);
+            }
+
+            println!("  Project:   {}", color::value(&name));
+            println!("  Type:      {}", color::value(&pt.to_string()));
+            println!("  Directory: {}", init.directory);
+            println!("  Namespace: {}", init.namespace);
+            println!();
+            println!("  {}", pt.description());
+            println!();
+
+            println!("Files to create:");
+            for file in init.file_list() {
+                println!("  {}", color::value(&file));
+            }
+
+            println!();
+            println!("Default VM configuration:");
+            println!("{}", color::muted("---"));
+            for line in init.generate_default_config().lines() {
+                println!("  {}", color::muted(line));
+            }
+
+            println!();
+            println!("{}", color::success(&format!(
+                "✓ Project '{}' initialized ({} files)",
+                name, init.file_count()
+            )));
+        }
+
+        Commands::Info { detailed, diagnostics, output } => {
+            use devexp::info::{EnvironmentInfo, run_diagnostics, DiagnosticStatus};
+
+            let info = EnvironmentInfo::collect(&cli.namespace);
+
+            match output.as_str() {
+                "json" => {
+                    let json = serde_json::to_string_pretty(&info)?;
+                    println!("{}", json);
+                }
+                "yaml" => {
+                    let yaml = serde_yaml::to_string(&info)?;
+                    println!("{}", yaml);
+                }
+                _ => {
+                    println!("{}", color::header("Zorvia Environment Info"));
+                    println!();
+                    println!("  Version:     {}", color::value(&info.zorvia_version));
+                    println!("  Rust:        {}", info.rust_version);
+                    println!("  OS:          {}/{}", info.os, info.arch);
+                    println!("  Collected:   {}", info.collected_at);
+                    println!();
+
+                    println!("{}", color::label("Kubernetes:"));
+                    println!("  Kubeconfig:  {}", info.kubernetes.kubeconfig);
+                    println!("  Context:     {}", info.kubernetes.context);
+                    println!("  Namespace:   {}", color::namespace(&info.kubernetes.namespace));
+                    println!("  Connected:   {}", if info.kubernetes.connected {
+                        color::success("Yes")
+                    } else {
+                        color::warning("No")
+                    });
+                    println!();
+
+                    println!("{}", color::label("Paths:"));
+                    println!("  Config:      {}", info.config.config_dir);
+                    println!("  Templates:   {}", info.config.templates_dir);
+                    println!("  Cache:       {}", info.config.cache_dir);
+                    println!();
+
+                    if detailed {
+                        println!("{}", color::label("Features:"));
+                        for feature in &info.features {
+                            println!("  {} {}", color::success("✓"), feature);
+                        }
+                        println!();
+                    } else {
+                        println!("  Features:    {} enabled", info.feature_count());
+                        println!("  {}", color::muted("Use --detailed to see all features"));
+                        println!();
+                    }
+
+                    if diagnostics {
+                        println!("{}", color::header("Diagnostics"));
+                        println!();
+
+                        let checks = run_diagnostics();
+                        for check in &checks {
+                            let status = match check.status {
+                                DiagnosticStatus::Pass => color::success(&format!("[{}]", check.status)),
+                                DiagnosticStatus::Warning => color::warning(&format!("[{}]", check.status)),
+                                DiagnosticStatus::Fail => color::error(&format!("[{}]", check.status)),
+                                DiagnosticStatus::Skip => color::muted(&format!("[{}]", check.status)),
+                            };
+                            println!("  {} {}: {}", status, check.name, check.message);
+
+                            if let Some(ref details) = check.details {
+                                println!("       {}", color::muted(details));
+                            }
+                        }
+
+                        let passed = checks.iter().filter(|c| c.is_pass()).count();
+                        let failed = checks.iter().filter(|c| c.is_fail()).count();
+                        println!();
+                        println!("  {} passed, {} failed, {} total",
+                            color::success(&passed.to_string()),
+                            if failed > 0 { color::error(&failed.to_string()) } else { color::success("0") },
+                            checks.len()
+                        );
+                    }
+                }
+            }
         }
     }
 

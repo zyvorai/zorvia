@@ -1637,5 +1637,148 @@ pub enum Commands {
         /// User ID or username
         user: String,
     },
+
+    // ========== DEVELOPER EXPERIENCE & TOOLING ==========
+
+    /// Generate shell completions
+    Completions {
+        /// Shell type (bash, zsh, fish, powershell, elvish)
+        shell: String,
+
+        /// Output file (defaults to stdout)
+        #[arg(short, long)]
+        output: Option<String>,
+
+        /// Show install instructions
+        #[arg(long)]
+        install: bool,
+    },
+
+    /// Save a VM configuration as a reusable template
+    ConfigSave {
+        /// Template name
+        name: String,
+
+        /// Path to configuration file
+        #[arg(short, long)]
+        file: String,
+
+        /// Description
+        #[arg(short, long)]
+        description: Option<String>,
+
+        /// Category (dev, test, staging, prod, db, web, cicd, ml)
+        #[arg(short, long, default_value = "dev")]
+        category: String,
+
+        /// Tags (comma-separated)
+        #[arg(short, long)]
+        tags: Option<String>,
+    },
+
+    /// Load a saved configuration template
+    ConfigLoad {
+        /// Template name
+        name: String,
+
+        /// Output file (defaults to stdout)
+        #[arg(short, long)]
+        output: Option<String>,
+
+        /// Output format (yaml, json)
+        #[arg(short, long, default_value = "yaml")]
+        format: String,
+    },
+
+    /// List saved configuration templates
+    ConfigList {
+        /// Filter by category
+        #[arg(short, long)]
+        category: Option<String>,
+
+        /// Filter by tag
+        #[arg(short, long)]
+        tag: Option<String>,
+
+        /// Sort by (name, usage, created)
+        #[arg(long, default_value = "name")]
+        sort_by: String,
+
+        /// Output format (table, yaml, json)
+        #[arg(short, long, default_value = "table")]
+        output: String,
+    },
+
+    /// Delete a saved configuration template
+    ConfigDelete {
+        /// Template name
+        name: String,
+
+        /// Skip confirmation
+        #[arg(short, long)]
+        yes: bool,
+    },
+
+    /// Compare two VM configurations
+    Diff {
+        /// First configuration file
+        source: String,
+
+        /// Second configuration file
+        target: String,
+
+        /// Show unchanged fields
+        #[arg(long)]
+        show_unchanged: bool,
+
+        /// Output format (text, yaml, json)
+        #[arg(short, long, default_value = "text")]
+        output: String,
+    },
+
+    /// Initialize a new zorvia project
+    Init {
+        /// Project name
+        name: String,
+
+        /// Project type (basic, dev, prod, microservices, data-pipeline)
+        #[arg(short, long, default_value = "basic")]
+        project_type: String,
+
+        /// Target directory
+        #[arg(short, long)]
+        directory: Option<String>,
+
+        /// Default namespace
+        #[arg(long)]
+        namespace: Option<String>,
+
+        /// Skip example files
+        #[arg(long)]
+        no_examples: bool,
+
+        /// Include CI/CD configuration
+        #[arg(long)]
+        ci: bool,
+
+        /// Skip git initialization
+        #[arg(long)]
+        no_git: bool,
+    },
+
+    /// Show environment and version information
+    Info {
+        /// Show detailed information
+        #[arg(short, long)]
+        detailed: bool,
+
+        /// Run diagnostics
+        #[arg(long)]
+        diagnostics: bool,
+
+        /// Output format (text, yaml, json)
+        #[arg(short, long, default_value = "text")]
+        output: String,
+    },
 }
 
