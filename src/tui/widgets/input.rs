@@ -1,4 +1,5 @@
 // Input Dialog Widget - Text input forms
+use crate::tui::colors::tui as colors;
 
 use ratatui::{
     layout::{Alignment, Constraint, Direction, Layout, Rect},
@@ -104,10 +105,10 @@ impl InputDialog {
         // Main block
         let block = Block::default()
             .borders(Borders::ALL)
-            .border_style(Style::default().fg(Color::Cyan))
+            .border_style(Style::default().fg(colors::ORANGE))
             .title(Span::styled(
                 &self.title,
-                Style::default().fg(Color::Cyan).add_modifier(Modifier::BOLD),
+                Style::default().fg(colors::ORANGE).add_modifier(Modifier::BOLD),
             ))
             .title_alignment(Alignment::Center);
 
@@ -145,7 +146,7 @@ impl InputDialog {
 
         let style = if is_active {
             Style::default()
-                .fg(Color::Yellow)
+                .fg(colors::WARNING)
                 .add_modifier(Modifier::BOLD)
         } else {
             Style::default().fg(Color::Gray)
@@ -158,7 +159,7 @@ impl InputDialog {
             Line::from(vec![
                 Span::styled("  ", style),
                 Span::styled(display_value, style),
-                Span::styled(cursor, Style::default().fg(Color::Yellow)),
+                Span::styled(cursor, Style::default().fg(colors::WARNING)),
             ]),
         ];
 
@@ -181,7 +182,7 @@ impl InputDialog {
         let submit_btn = Paragraph::new("[ Submit ]")
             .style(
                 Style::default()
-                    .fg(Color::Green)
+                    .fg(colors::SUCCESS)
                     .add_modifier(Modifier::BOLD),
             )
             .alignment(Alignment::Center);
@@ -189,13 +190,13 @@ impl InputDialog {
 
         // Cancel button
         let cancel_btn = Paragraph::new("[ Cancel ]")
-            .style(Style::default().fg(Color::Red).add_modifier(Modifier::BOLD))
+            .style(Style::default().fg(colors::ERROR).add_modifier(Modifier::BOLD))
             .alignment(Alignment::Center);
         f.render_widget(cancel_btn, button_chunks[2]);
 
         // Help text
         let help = Paragraph::new("Tab: Next field | Enter: Submit | Esc: Cancel")
-            .style(Style::default().fg(Color::DarkGray))
+            .style(Style::default().fg(colors::TEXT_MUTED))
             .alignment(Alignment::Center);
 
         let help_area = Rect {

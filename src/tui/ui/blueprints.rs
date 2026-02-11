@@ -1,6 +1,7 @@
 // Blueprints View - Browse and view multi-VM blueprints
 
 use crate::tui::{config::TuiConfig, state::AppState};
+use crate::tui::colors::tui as colors;
 use ratatui::{
     backend::Backend,
     layout::{Alignment, Constraint, Direction, Layout},
@@ -29,9 +30,9 @@ pub fn render(f: &mut Frame, state: &AppState, _config: &TuiConfig) {
 
     // Header
     let header = Paragraph::new(format!("VM Blueprints ({})", blueprints.len()))
-        .style(Style::default().fg(Color::Cyan).add_modifier(Modifier::BOLD))
+        .style(Style::default().fg(colors::ORANGE).add_modifier(Modifier::BOLD))
         .alignment(Alignment::Center)
-        .block(Block::default().borders(Borders::ALL));
+        .block(Block::default().borders(Borders::ALL).border_style(Style::default().fg(colors::BORDER)));
     f.render_widget(header, chunks[0]);
 
     // Split content area
@@ -63,9 +64,9 @@ fn render_blueprint_list(
 ) {
     let header_cells = ["Name", "Type"]
         .iter()
-        .map(|h| Cell::from(*h).style(Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD)));
+        .map(|h| Cell::from(*h).style(Style::default().fg(colors::WARNING).add_modifier(Modifier::BOLD)));
     let header = Row::new(header_cells)
-        .style(Style::default().bg(Color::DarkGray))
+        .style(Style::default().bg(colors::DARK_ORANGE))
         .height(1);
 
     let blueprints_manager = crate::blueprints::BLUEPRINTS.read().unwrap();
@@ -74,9 +75,9 @@ fn render_blueprint_list(
         let is_builtin = blueprints_manager.is_builtin(name);
 
         let type_cell = if is_builtin {
-            Cell::from("Builtin").style(Style::default().fg(Color::Green))
+            Cell::from("Builtin").style(Style::default().fg(colors::SUCCESS))
         } else {
-            Cell::from("Custom").style(Style::default().fg(Color::Cyan))
+            Cell::from("Custom").style(Style::default().fg(colors::ORANGE))
         };
 
         let cells = vec![
@@ -86,8 +87,8 @@ fn render_blueprint_list(
 
         let style = if is_selected {
             Style::default()
-                .bg(Color::Blue)
-                .fg(Color::White)
+                .bg(colors::DARK_ORANGE)
+                .fg(colors::TEXT)
                 .add_modifier(Modifier::BOLD)
         } else {
             Style::default()
@@ -104,7 +105,7 @@ fn render_blueprint_list(
         ],
     )
     .header(header)
-    .block(Block::default().borders(Borders::ALL).title("Blueprints"))
+    .block(Block::default().borders(Borders::ALL).border_style(Style::default().fg(colors::BORDER)).title("Blueprints"))
     .column_spacing(1);
 
     f.render_widget(table, area);
@@ -130,23 +131,23 @@ fn render_blueprint_details(
         let info_text = vec![
             Line::from(""),
             Line::from(vec![
-                Span::styled("Name:        ", Style::default().fg(Color::White).add_modifier(Modifier::BOLD)),
+                Span::styled("Name:        ", Style::default().fg(colors::TEXT).add_modifier(Modifier::BOLD)),
                 Span::raw(&blueprint.name),
             ]),
             Line::from(""),
             Line::from(vec![
-                Span::styled("Description: ", Style::default().fg(Color::White).add_modifier(Modifier::BOLD)),
+                Span::styled("Description: ", Style::default().fg(colors::TEXT).add_modifier(Modifier::BOLD)),
                 Span::raw(&blueprint.description),
             ]),
             Line::from(""),
             Line::from(vec![
-                Span::styled("VMs:         ", Style::default().fg(Color::White).add_modifier(Modifier::BOLD)),
+                Span::styled("VMs:         ", Style::default().fg(colors::TEXT).add_modifier(Modifier::BOLD)),
                 Span::raw(format!("{}", blueprint.vms.len())),
             ]),
         ];
 
         let info = Paragraph::new(info_text)
-            .block(Block::default().borders(Borders::ALL).title("Blueprint Details"))
+            .block(Block::default().borders(Borders::ALL).border_style(Style::default().fg(colors::BORDER)).title("Blueprint Details"))
             .alignment(Alignment::Left);
 
         f.render_widget(info, detail_chunks[0]);
@@ -155,17 +156,17 @@ fn render_blueprint_details(
         let vm_items: Vec<ListItem> = blueprint.vms.iter().map(|vm| {
             let profile = vm.profile.as_ref().map(|p| p.as_str()).unwrap_or("default");
             let content = format!("  • {} ({})", vm.name, profile);
-            ListItem::new(content).style(Style::default().fg(Color::White))
+            ListItem::new(content).style(Style::default().fg(colors::TEXT))
         }).collect();
 
         let vm_list = List::new(vm_items)
-            .block(Block::default().borders(Borders::ALL).title("Virtual Machines"));
+            .block(Block::default().borders(Borders::ALL).border_style(Style::default().fg(colors::BORDER)).title("Virtual Machines"));
 
         f.render_widget(vm_list, detail_chunks[1]);
     } else {
         let text = Paragraph::new("Blueprint not found")
             .alignment(Alignment::Center)
-            .block(Block::default().borders(Borders::ALL).title("Blueprint Details"));
+            .block(Block::default().borders(Borders::ALL).border_style(Style::default().fg(colors::BORDER)).title("Blueprint Details"));
         f.render_widget(text, area);
     }
 }
@@ -174,9 +175,9 @@ fn render_help(f: &mut Frame, area: ratatui::layout::Rect) {
     let help_text = "↑↓/jk: Navigate | Enter: View Details | d: Deploy | q: Quit | ?: Help";
 
     let help = Paragraph::new(help_text)
-        .style(Style::default().fg(Color::Gray))
+        .style(Style::default().fg(colors::TEXT_MUTED))
         .alignment(Alignment::Center)
-        .block(Block::default().borders(Borders::ALL));
+        .block(Block::default().borders(Borders::ALL).border_style(Style::default().fg(colors::BORDER)));
 
     f.render_widget(help, area);
 }

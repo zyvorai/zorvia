@@ -1,6 +1,7 @@
 // VM Details View - Detailed information about selected VM
 
 use crate::tui::{config::TuiConfig, state::AppState};
+use crate::tui::colors::tui as colors;
 use ratatui::{
     backend::Backend,
     layout::{Alignment, Constraint, Direction, Layout},
@@ -28,9 +29,9 @@ pub fn render(f: &mut Frame, state: &AppState, _config: &TuiConfig) {
         .unwrap_or_else(|| "No VM selected".to_string());
 
     let header = Paragraph::new(format!("VM Details: {}", vm_name))
-        .style(Style::default().fg(Color::Cyan).add_modifier(Modifier::BOLD))
+        .style(Style::default().fg(colors::ORANGE).add_modifier(Modifier::BOLD))
         .alignment(Alignment::Center)
-        .block(Block::default().borders(Borders::ALL));
+        .block(Block::default().borders(Borders::ALL).border_style(Style::default().fg(colors::BORDER)));
     f.render_widget(header, chunks[0]);
 
     // Details
@@ -39,67 +40,67 @@ pub fn render(f: &mut Frame, state: &AppState, _config: &TuiConfig) {
     } else {
         let text = Paragraph::new("No VM selected")
             .alignment(Alignment::Center)
-            .block(Block::default().borders(Borders::ALL));
+            .block(Block::default().borders(Borders::ALL).border_style(Style::default().fg(colors::BORDER)));
         f.render_widget(text, chunks[1]);
     }
 
     // Help
     let help = Paragraph::new("Backspace: Back to list | q: Quit")
-        .style(Style::default().fg(Color::Gray))
+        .style(Style::default().fg(colors::TEXT_MUTED))
         .alignment(Alignment::Center)
-        .block(Block::default().borders(Borders::ALL));
+        .block(Block::default().borders(Borders::ALL).border_style(Style::default().fg(colors::BORDER)));
     f.render_widget(help, chunks[2]);
 }
 
 fn render_details(f: &mut Frame, vm: &crate::tui::state::VmInfo, area: ratatui::layout::Rect) {
     let status_color = match vm.status.as_str() {
-        "Running" => Color::Green,
-        "Stopped" => Color::Gray,
-        _ => Color::Yellow,
+        "Running" => colors::SUCCESS,
+        "Stopped" => colors::TEXT_MUTED,
+        _ => colors::WARNING,
     };
 
     let text = vec![
         Line::from(""),
         Line::from(vec![
-            Span::styled("Name:       ", Style::default().fg(Color::White).add_modifier(Modifier::BOLD)),
+            Span::styled("Name:       ", Style::default().fg(colors::TEXT).add_modifier(Modifier::BOLD)),
             Span::raw(&vm.name),
         ]),
         Line::from(""),
         Line::from(vec![
-            Span::styled("Status:     ", Style::default().fg(Color::White).add_modifier(Modifier::BOLD)),
+            Span::styled("Status:     ", Style::default().fg(colors::TEXT).add_modifier(Modifier::BOLD)),
             Span::styled(&vm.status, Style::default().fg(status_color).add_modifier(Modifier::BOLD)),
         ]),
         Line::from(""),
         Line::from(vec![
-            Span::styled("CPU:        ", Style::default().fg(Color::White).add_modifier(Modifier::BOLD)),
+            Span::styled("CPU:        ", Style::default().fg(colors::TEXT).add_modifier(Modifier::BOLD)),
             Span::raw(&vm.cpu),
         ]),
         Line::from(""),
         Line::from(vec![
-            Span::styled("Memory:     ", Style::default().fg(Color::White).add_modifier(Modifier::BOLD)),
+            Span::styled("Memory:     ", Style::default().fg(colors::TEXT).add_modifier(Modifier::BOLD)),
             Span::raw(&vm.memory),
         ]),
         Line::from(""),
         Line::from(vec![
-            Span::styled("Age:        ", Style::default().fg(Color::White).add_modifier(Modifier::BOLD)),
+            Span::styled("Age:        ", Style::default().fg(colors::TEXT).add_modifier(Modifier::BOLD)),
             Span::raw(&vm.age),
         ]),
         Line::from(""),
         Line::from(vec![
-            Span::styled("Ready:      ", Style::default().fg(Color::White).add_modifier(Modifier::BOLD)),
+            Span::styled("Ready:      ", Style::default().fg(colors::TEXT).add_modifier(Modifier::BOLD)),
             Span::styled(
                 if vm.ready { "Yes" } else { "No" },
                 if vm.ready {
-                    Style::default().fg(Color::Green)
+                    Style::default().fg(colors::SUCCESS)
                 } else {
-                    Style::default().fg(Color::Red)
+                    Style::default().fg(colors::ERROR)
                 },
             ),
         ]),
     ];
 
     let details = Paragraph::new(text)
-        .block(Block::default().borders(Borders::ALL).title("Details"))
+        .block(Block::default().borders(Borders::ALL).border_style(Style::default().fg(colors::BORDER)).title("Details"))
         .alignment(Alignment::Left);
 
     f.render_widget(details, area);

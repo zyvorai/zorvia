@@ -1,4 +1,5 @@
 // Dialog Widget - Confirmation dialogs and alerts
+use crate::tui::colors::tui as colors;
 
 use ratatui::{
     layout::{Alignment, Constraint, Direction, Layout, Rect},
@@ -62,10 +63,10 @@ impl Dialog {
 
         // Determine colors based on dialog type
         let (border_color, title_color) = match self.dialog_type {
-            DialogType::Confirm => (Color::Yellow, Color::Yellow),
-            DialogType::Alert => (Color::Cyan, Color::Cyan),
-            DialogType::Error => (Color::Red, Color::Red),
-            DialogType::Success => (Color::Green, Color::Green),
+            DialogType::Confirm => (colors::WARNING, colors::WARNING),
+            DialogType::Alert => (colors::ORANGE, colors::ORANGE),
+            DialogType::Error => (colors::ERROR, colors::ERROR),
+            DialogType::Success => (colors::SUCCESS, colors::SUCCESS),
         };
 
         // Main block
@@ -118,10 +119,10 @@ impl Dialog {
                 let yes_style = if self.selected {
                     Style::default()
                         .fg(Color::Black)
-                        .bg(Color::Green)
+                        .bg(colors::SUCCESS)
                         .add_modifier(Modifier::BOLD)
                 } else {
-                    Style::default().fg(Color::Green)
+                    Style::default().fg(colors::SUCCESS)
                 };
                 let yes_btn = Paragraph::new("[ Yes ]")
                     .style(yes_style)
@@ -132,10 +133,10 @@ impl Dialog {
                 let no_style = if !self.selected {
                     Style::default()
                         .fg(Color::Black)
-                        .bg(Color::Red)
+                        .bg(colors::ERROR)
                         .add_modifier(Modifier::BOLD)
                 } else {
-                    Style::default().fg(Color::Red)
+                    Style::default().fg(colors::ERROR)
                 };
                 let no_btn = Paragraph::new("[ No ]")
                     .style(no_style)

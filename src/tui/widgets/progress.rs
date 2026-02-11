@@ -1,4 +1,5 @@
 // Progress Bar Widget - Show progress for long-running operations
+use crate::tui::colors::tui as colors;
 
 use ratatui::{
     layout::{Alignment, Constraint, Direction, Layout, Rect},
@@ -53,10 +54,10 @@ impl ProgressBar {
         // Main block
         let block = Block::default()
             .borders(Borders::ALL)
-            .border_style(Style::default().fg(Color::Cyan))
+            .border_style(Style::default().fg(colors::ORANGE))
             .title(Span::styled(
                 &self.title,
-                Style::default().fg(Color::Cyan).add_modifier(Modifier::BOLD),
+                Style::default().fg(colors::ORANGE).add_modifier(Modifier::BOLD),
             ))
             .title_alignment(Alignment::Center);
 
@@ -84,7 +85,7 @@ impl ProgressBar {
             // Spinner animation
             let spinner = Paragraph::new("⠋ Working...")
                 .alignment(Alignment::Center)
-                .style(Style::default().fg(Color::Cyan).add_modifier(Modifier::BOLD));
+                .style(Style::default().fg(colors::ORANGE).add_modifier(Modifier::BOLD));
             f.render_widget(spinner, chunks[1]);
         } else {
             let percent = (self.progress * 100.0) as u16;
@@ -92,8 +93,8 @@ impl ProgressBar {
                 .block(Block::default().borders(Borders::NONE))
                 .gauge_style(
                     Style::default()
-                        .fg(Color::Cyan)
-                        .bg(Color::DarkGray)
+                        .fg(colors::ORANGE)
+                        .bg(colors::TEXT_MUTED)
                         .add_modifier(Modifier::BOLD),
                 )
                 .percent(percent)

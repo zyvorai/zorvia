@@ -1,4 +1,5 @@
 // Notification Widget - Toast-style notifications
+use crate::tui::colors::tui as colors;
 
 use ratatui::{
     layout::{Alignment, Rect},
@@ -81,10 +82,10 @@ impl Notification {
 
         // Determine colors and icon based on type
         let (color, icon) = match self.notification_type {
-            NotificationType::Info => (Color::Cyan, "ℹ"),
-            NotificationType::Success => (Color::Green, "✓"),
-            NotificationType::Warning => (Color::Yellow, "⚠"),
-            NotificationType::Error => (Color::Red, "✗"),
+            NotificationType::Info => (colors::ORANGE, "ℹ"),
+            NotificationType::Success => (colors::SUCCESS, "✓"),
+            NotificationType::Warning => (colors::WARNING, "⚠"),
+            NotificationType::Error => (colors::ERROR, "✗"),
         };
 
         // Main block

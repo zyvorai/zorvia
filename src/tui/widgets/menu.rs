@@ -1,4 +1,5 @@
 // Menu Widget - Context menus and action selection
+use crate::tui::colors::tui as colors;
 
 use ratatui::{
     layout::{Alignment, Constraint, Direction, Layout, Rect},
@@ -140,10 +141,10 @@ impl Menu {
         // Main block
         let block = Block::default()
             .borders(Borders::ALL)
-            .border_style(Style::default().fg(Color::Cyan))
+            .border_style(Style::default().fg(colors::ORANGE))
             .title(Span::styled(
                 &self.title,
-                Style::default().fg(Color::Cyan).add_modifier(Modifier::BOLD),
+                Style::default().fg(colors::ORANGE).add_modifier(Modifier::BOLD),
             ))
             .title_alignment(Alignment::Center);
 
@@ -158,11 +159,11 @@ impl Menu {
             .map(|(i, item)| {
                 let is_selected = i == self.selected;
                 let style = if !item.enabled {
-                    Style::default().fg(Color::DarkGray)
+                    Style::default().fg(colors::TEXT_MUTED)
                 } else if is_selected {
                     Style::default()
                         .fg(Color::Black)
-                        .bg(Color::Cyan)
+                        .bg(colors::ORANGE)
                         .add_modifier(Modifier::BOLD)
                 } else {
                     Style::default().fg(Color::White)
