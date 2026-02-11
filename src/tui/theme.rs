@@ -1,12 +1,13 @@
 // Zorvia TUI Theme System
-// Inspired by GuestKit's color palette and design patterns
+// Coral-Terracotta Orange color scheme (Pantone 7416 C inspired)
+// Matches GuestKit's visual identity
 
 use ratatui::style::{Color, Modifier, Style};
 
 /// Main theme structure containing all color definitions
 #[derive(Debug, Clone)]
 pub struct Theme {
-    // Primary brand colors (Purple - Kubernetes/Virtualization theme)
+    // Primary brand colors (Coral-Terracotta Orange - Pantone 7416 C inspired)
     pub primary: Color,
     pub dark_primary: Color,
     pub light_primary: Color,
@@ -47,42 +48,42 @@ pub struct Theme {
 impl Default for Theme {
     fn default() -> Self {
         Self {
-            // Primary colors - Purple theme
-            primary: Color::Rgb(136, 86, 222),        // #8856DE
-            dark_primary: Color::Rgb(106, 60, 180),   // #6A3CB4
-            light_primary: Color::Rgb(165, 115, 255), // #A573FF
+            // Primary colors - Coral-Terracotta Orange theme (Pantone 7416 C)
+            primary: Color::Rgb(222, 115, 86),        // #DE7356 Primary coral orange
+            dark_primary: Color::Rgb(180, 85, 60),    // #B4553C Darker terracotta
+            light_primary: Color::Rgb(255, 145, 115), // #FF9173 Lighter coral
 
             // Status colors
-            success: Color::Rgb(50, 205, 50),  // #32CD32 LimeGreen
-            warning: Color::Rgb(255, 165, 0),  // #FFA500 Orange
-            error: Color::Rgb(220, 50, 47),    // #DC322F Red
-            info: Color::Rgb(100, 150, 255),   // #6496FF Soft Blue
+            success: Color::Rgb(50, 205, 50),   // #32CD32 Brighter green
+            warning: Color::Rgb(255, 200, 0),   // #FFC800 Deeper yellow
+            error: Color::Rgb(220, 50, 47),     // #DC322F Deep red
+            info: Color::Rgb(100, 150, 255),    // #6496FF Soft blue
 
             // VM state colors
             vm_running: Color::Rgb(50, 205, 50),   // SUCCESS - green
-            vm_pending: Color::Rgb(255, 200, 100), // #FFC864 yellow
+            vm_pending: Color::Rgb(255, 200, 0),   // WARNING - yellow
             vm_stopped: Color::Rgb(150, 150, 150), // #969696 gray
             vm_failed: Color::Rgb(220, 50, 47),    // ERROR - red
-            vm_migrating: Color::Rgb(100, 200, 255), // #64C8FF cyan
-            vm_paused: Color::Rgb(255, 165, 0),    // WARNING - orange
+            vm_migrating: Color::Rgb(100, 150, 255), // INFO - blue
+            vm_paused: Color::Rgb(255, 200, 0),    // WARNING - yellow
 
             // Resource colors
-            cpu_color: Color::Rgb(100, 200, 100),    // #64C864 green
-            memory_color: Color::Rgb(100, 150, 255), // #6496FF blue
-            disk_color: Color::Rgb(220, 120, 255),   // #DC78FF magenta
-            network_color: Color::Rgb(100, 220, 220), // #64DCDC cyan
+            cpu_color: Color::Rgb(50, 205, 50),      // Green
+            memory_color: Color::Rgb(100, 150, 255), // Blue
+            disk_color: Color::Rgb(222, 115, 86),    // Orange (primary)
+            network_color: Color::Rgb(100, 220, 220), // Cyan
 
             // Text and background
             text_primary: Color::Rgb(220, 220, 220),   // #DCDCDC soft white
             text_secondary: Color::Rgb(180, 180, 180), // #B4B4B4 dimmed
-            text_muted: Color::Rgb(120, 120, 120),     // #787878 muted
+            text_muted: Color::Rgb(128, 128, 128),     // #808080 muted
             bg_color: Color::Reset,                    // Transparent
-            border_color: Color::Rgb(106, 60, 180),    // DARK_PRIMARY
+            border_color: Color::Rgb(180, 85, 60),     // DARK_PRIMARY
 
             // Namespace colors
-            namespace_default: Color::Rgb(100, 150, 255), // #6496FF blue
-            namespace_system: Color::Rgb(255, 100, 100),  // #FF6464 red
-            namespace_user: Color::Rgb(150, 255, 150),    // #96FF96 green
+            namespace_default: Color::Rgb(100, 150, 255), // Blue
+            namespace_system: Color::Rgb(220, 50, 47),    // Red
+            namespace_user: Color::Rgb(50, 205, 50),      // Green
         }
     }
 }
@@ -258,7 +259,10 @@ mod tests {
     #[test]
     fn test_default_theme() {
         let theme = Theme::default();
-        assert_eq!(theme.primary, Color::Rgb(136, 86, 222));
+        // Test Coral-Terracotta Orange theme colors
+        assert_eq!(theme.primary, Color::Rgb(222, 115, 86));
+        assert_eq!(theme.dark_primary, Color::Rgb(180, 85, 60));
+        assert_eq!(theme.light_primary, Color::Rgb(255, 145, 115));
         assert_eq!(theme.success, Color::Rgb(50, 205, 50));
     }
 

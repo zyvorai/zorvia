@@ -1,6 +1,6 @@
 // Dashboard View - Overview of VMs and quick stats
 
-use crate::tui::{config::TuiConfig, state::AppState};
+use crate::tui::{colors::tui as colors, config::TuiConfig, state::AppState};
 use ratatui::{
     backend::Backend,
     layout::{Alignment, Constraint, Direction, Layout},
@@ -25,9 +25,9 @@ pub fn render(f: &mut Frame, state: &AppState, _config: &TuiConfig) {
 
     // Header
     let header = Paragraph::new("Zorvia Dashboard")
-        .style(Style::default().fg(Color::Cyan).add_modifier(Modifier::BOLD))
+        .style(Style::default().fg(colors::ORANGE).add_modifier(Modifier::BOLD))
         .alignment(Alignment::Center)
-        .block(Block::default().borders(Borders::ALL));
+        .block(Block::default().borders(Borders::ALL).border_style(Style::default().fg(colors::BORDER)));
     f.render_widget(header, chunks[0]);
 
     // Content area - split into stats and quick actions
@@ -55,40 +55,40 @@ fn render_stats_panel(f: &mut Frame, state: &AppState, area: ratatui::layout::Re
     let text = vec![
         Line::from(""),
         Line::from(vec![
-            Span::styled("Total VMs:    ", Style::default().fg(Color::White)),
+            Span::styled("Total VMs:    ", Style::default().fg(colors::TEXT)),
             Span::styled(
                 format!("{}", stats.total),
-                Style::default().fg(Color::Cyan).add_modifier(Modifier::BOLD),
+                Style::default().fg(colors::LIGHT_ORANGE).add_modifier(Modifier::BOLD),
             ),
         ]),
         Line::from(""),
         Line::from(vec![
-            Span::styled("Running:      ", Style::default().fg(Color::White)),
+            Span::styled("Running:      ", Style::default().fg(colors::TEXT)),
             Span::styled(
                 format!("{}", stats.running),
-                Style::default().fg(Color::Green).add_modifier(Modifier::BOLD),
+                Style::default().fg(colors::SUCCESS).add_modifier(Modifier::BOLD),
             ),
         ]),
         Line::from(""),
         Line::from(vec![
-            Span::styled("Stopped:      ", Style::default().fg(Color::White)),
+            Span::styled("Stopped:      ", Style::default().fg(colors::TEXT)),
             Span::styled(
                 format!("{}", stats.stopped),
-                Style::default().fg(Color::Gray).add_modifier(Modifier::BOLD),
+                Style::default().fg(colors::TEXT_MUTED).add_modifier(Modifier::BOLD),
             ),
         ]),
         Line::from(""),
         Line::from(vec![
-            Span::styled("Namespace:    ", Style::default().fg(Color::White)),
+            Span::styled("Namespace:    ", Style::default().fg(colors::TEXT)),
             Span::styled(
                 &state.namespace,
-                Style::default().fg(Color::Yellow),
+                Style::default().fg(colors::LIGHT_ORANGE),
             ),
         ]),
     ];
 
     let paragraph = Paragraph::new(text)
-        .block(Block::default().borders(Borders::ALL).title("VM Statistics"))
+        .block(Block::default().borders(Borders::ALL).border_style(Style::default().fg(colors::BORDER)).title("VM Statistics"))
         .alignment(Alignment::Left);
 
     f.render_widget(paragraph, area);
@@ -98,33 +98,33 @@ fn render_quick_actions(f: &mut Frame, area: ratatui::layout::Rect) {
     let text = vec![
         Line::from(""),
         Line::from(vec![
-            Span::styled("2", Style::default().fg(Color::Cyan).add_modifier(Modifier::BOLD)),
+            Span::styled("2", Style::default().fg(colors::ORANGE).add_modifier(Modifier::BOLD)),
             Span::raw("  VM List"),
         ]),
         Line::from(""),
         Line::from(vec![
-            Span::styled("3", Style::default().fg(Color::Cyan).add_modifier(Modifier::BOLD)),
+            Span::styled("3", Style::default().fg(colors::ORANGE).add_modifier(Modifier::BOLD)),
             Span::raw("  Snapshots"),
         ]),
         Line::from(""),
         Line::from(vec![
-            Span::styled("4", Style::default().fg(Color::Cyan).add_modifier(Modifier::BOLD)),
+            Span::styled("4", Style::default().fg(colors::ORANGE).add_modifier(Modifier::BOLD)),
             Span::raw("  Profiles"),
         ]),
         Line::from(""),
         Line::from(vec![
-            Span::styled("5", Style::default().fg(Color::Cyan).add_modifier(Modifier::BOLD)),
+            Span::styled("5", Style::default().fg(colors::ORANGE).add_modifier(Modifier::BOLD)),
             Span::raw("  Blueprints"),
         ]),
         Line::from(""),
         Line::from(vec![
-            Span::styled("?", Style::default().fg(Color::Cyan).add_modifier(Modifier::BOLD)),
+            Span::styled("?", Style::default().fg(colors::ORANGE).add_modifier(Modifier::BOLD)),
             Span::raw("  Help"),
         ]),
     ];
 
     let paragraph = Paragraph::new(text)
-        .block(Block::default().borders(Borders::ALL).title("Quick Actions"))
+        .block(Block::default().borders(Borders::ALL).border_style(Style::default().fg(colors::BORDER)).title("Quick Actions"))
         .alignment(Alignment::Left);
 
     f.render_widget(paragraph, area);
@@ -137,9 +137,9 @@ fn render_status_bar(f: &mut Frame, state: &AppState, area: ratatui::layout::Rec
     );
 
     let status = Paragraph::new(status_text)
-        .style(Style::default().fg(Color::Gray))
+        .style(Style::default().fg(colors::TEXT_MUTED))
         .alignment(Alignment::Center)
-        .block(Block::default().borders(Borders::ALL));
+        .block(Block::default().borders(Borders::ALL).border_style(Style::default().fg(colors::BORDER)));
 
     f.render_widget(status, area);
 }

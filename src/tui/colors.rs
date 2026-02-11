@@ -1,8 +1,40 @@
-// CLI color output helpers
-// These are used for terminal output in the CLI (not TUI)
+// Color helpers for CLI and TUI
+// CLI colors use colored/owo_colors for terminal output
+// TUI colors use ratatui::style::Color for TUI rendering
 
 use colored::Colorize;
 use owo_colors::OwoColorize;
+use ratatui::style::Color;
+
+/// TUI color palette - Coral-Terracotta Orange theme (Pantone 7416 C)
+/// Matches GuestKit's visual identity
+pub mod tui {
+    use super::Color;
+
+    // Primary brand colors - Coral-Terracotta Orange (Pantone 7416 C)
+    pub const ORANGE: Color = Color::Rgb(222, 115, 86);        // #DE7356 Primary coral orange
+    pub const DARK_ORANGE: Color = Color::Rgb(180, 85, 60);    // #B4553C Darker terracotta
+    pub const LIGHT_ORANGE: Color = Color::Rgb(255, 145, 115); // #FF9173 Lighter coral
+
+    // Aliases for compatibility
+    pub const PRIMARY: Color = ORANGE;
+    pub const DARK_PRIMARY: Color = DARK_ORANGE;
+    pub const LIGHT_PRIMARY: Color = LIGHT_ORANGE;
+
+    // Status colors
+    pub const SUCCESS: Color = Color::Rgb(50, 205, 50);   // #32CD32 Brighter green
+    pub const WARNING: Color = Color::Rgb(255, 200, 0);   // #FFC800 Deeper yellow
+    pub const ERROR: Color = Color::Rgb(220, 50, 47);     // #DC322F Deep red
+    pub const INFO: Color = Color::Rgb(100, 150, 255);    // #6496FF Soft blue
+
+    // Text colors
+    pub const TEXT: Color = Color::Rgb(220, 220, 220);    // #DCDCDC Softer white
+    pub const TEXT_MUTED: Color = Color::Rgb(128, 128, 128); // #808080
+
+    // UI element colors
+    pub const BORDER: Color = DARK_ORANGE;
+    pub const BG: Color = Color::Reset;
+}
 
 /// Color scheme for CLI output
 pub mod cli {
