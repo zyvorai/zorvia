@@ -727,13 +727,20 @@ pub async fn run(cli: Cli) -> Result<()> {
 
         Commands::Profiles { details } => {
             use crate::profiles::PROFILES;
-            
+
+            let manager = PROFILES.read().unwrap();
 
             println!("{}", color::header("═══ VM Resource Profiles ═══"));
             println!();
 
-            for profile in PROFILES.list() {
-                println!("{} {}", color::value("•"), color::header(&profile.name));
+            for profile in manager.list() {
+                let prefix = if manager.is_builtin(&profile.name) {
+                    color::value("•")
+                } else {
+                    color::success("★") // Custom profiles with star
+                };
+
+                println!("{} {}", prefix, color::header(&profile.name));
                 println!("  {}", color::muted(&profile.description));
 
                 if details {
@@ -746,48 +753,204 @@ pub async fn run(cli: Cli) -> Result<()> {
                     println!("  Disk:   {}", color::resource(&profile.disk_size, "disk"));
                     println!("  Use cases: {}", profile.use_cases.join(", "));
                     println!("  Recommended OS: {}", profile.recommended_os.join(", "));
+                    println!("  Type: {}", if manager.is_builtin(&profile.name) {
+                        color::muted("builtin")
+                    } else {
+                        color::success("custom")
+                    });
                 }
                 println!();
             }
 
+            println!("{}", color::muted("★ = custom profile, • = builtin profile"));
             println!("{}", color::muted("Use 'zorvia profile <name>' for details"));
-            println!("{}", color::muted("Create VM with profile: zorvia create <name> --template <os> --profile <profile>"));
+            println!("{}", color::muted("Create custom: zorvia profile-create <name> --cpus <n> --memory <size> --disk-size <size>"));
         }
 
         Commands::Profile { name, output } => {
             use crate::profiles::PROFILES;
-            
 
-            let profile = PROFILES.get(&name)
+            let manager = PROFILES.read().unwrap();
+            let profile = manager.get(&name)
                 .ok_or_else(|| anyhow!("Profile not found: {}", name))?;
 
             match output.as_str() {
                 "json" => {
-                    let json = serde_json::to_string_pretty(profile)?;
+                    let json = serde_json::to_string_pretty(&profile)?;
                     println!("{}", json);
                 }
                 _ => {
-                    let yaml = serde_yaml::to_string(profile)?;
+                    let yaml = serde_yaml::to_string(&profile)?;
                     println!("{}", yaml);
                 }
             }
+        }
+
+        Commands::ProfileCreate {
+            name,
+            cpus,
+            sockets,
+            threads,
+            memory,
+            disk_size,
+            description,
+            use_cases,
+            recommended_os,
+            from_file,
+        } => {
+            use crate::profiles::{Profile, PROFILES};
+            use anyhow::Context;
+
+            let profile = if let Some(file_path) = from_file {
+                // Load from file
+                let content = std::fs::read_to_string(file_path)
+                    .context("Failed to read profile file")?;
+                serde_yaml::from_str::<Profile>(&content)
+                    .context("Failed to parse profile YAML")?
+            } else {
+                // Build from arguments
+                Profile {
+                    name: name.clone(),
+                    description: description.clone()
+                        .unwrap_or_else(|| format!("Custom profile: {}", name)),
+                    cpu_cores: cpus,
+                    cpu_sockets: sockets,
+                    cpu_threads: threads,
+                    memory: memory.clone(),
+                    disk_size: disk_size.clone(),
+                    use_cases: use_cases.as_ref()
+                        .map(|s| s.split(',').map(|s| s.trim().to_string()).collect())
+                        .unwrap_or_default(),
+                    recommended_os: recommended_os.as_ref()
+                        .map(|s| s.split(',').map(|s| s.trim().to_string()).collect())
+                        .unwrap_or_default(),
+                }
+            };
+
+            // Create the profile
+            let mut manager = PROFILES.write().unwrap();
+            manager.create_custom(profile)?;
+
+            println!("{}", color::success(&format!("✓ Custom profile '{}' created successfully", name)));
+            println!("{}", color::muted(&format!("  Location: ~/.config/zorvia/profiles/{}.yaml", name)));
+            println!("{}", color::muted(&format!("  Use with: zorvia create <vm-name> --template <os> --profile {}", name)));
+        }
+
+        Commands::ProfileEdit {
+            name,
+            cpus,
+            sockets,
+            threads,
+            memory,
+            disk_size,
+            description,
+            use_cases,
+            recommended_os,
+        } => {
+            use crate::profiles::PROFILES;
+
+            let mut manager = PROFILES.write().unwrap();
+
+            // Load existing profile
+            let mut profile = manager.get(&name)
+                .ok_or_else(|| anyhow!("Profile '{}' not found", name))?;
+
+            // Check if builtin
+            if manager.is_builtin(&name) {
+                anyhow::bail!("Cannot edit builtin profile '{}'. Create a custom profile instead.", name);
+            }
+
+            // Apply updates
+            if let Some(c) = cpus {
+                profile.cpu_cores = c;
+            }
+            if let Some(s) = sockets {
+                profile.cpu_sockets = s;
+            }
+            if let Some(t) = threads {
+                profile.cpu_threads = t;
+            }
+            if let Some(m) = memory {
+                profile.memory = m.clone();
+            }
+            if let Some(d) = disk_size {
+                profile.disk_size = d.clone();
+            }
+            if let Some(desc) = description {
+                profile.description = desc.clone();
+            }
+            if let Some(uc) = use_cases {
+                profile.use_cases = uc.split(',').map(|s| s.trim().to_string()).collect();
+            }
+            if let Some(ros) = recommended_os {
+                profile.recommended_os = ros.split(',').map(|s| s.trim().to_string()).collect();
+            }
+
+            // Update the profile
+            manager.update_custom(profile)?;
+
+            println!("{}", color::success(&format!("✓ Profile '{}' updated successfully", name)));
+        }
+
+        Commands::ProfileDelete { name, yes } => {
+            use crate::profiles::PROFILES;
+
+            let mut manager = PROFILES.write().unwrap();
+
+            // Check if builtin
+            if manager.is_builtin(&name) {
+                anyhow::bail!("Cannot delete builtin profile '{}'", name);
+            }
+
+            // Check if exists
+            if !manager.exists(&name) {
+                anyhow::bail!("Profile '{}' not found", name);
+            }
+
+            // Confirm deletion unless --yes flag
+            if !yes {
+                use dialoguer::Confirm;
+
+                let confirmed = Confirm::new()
+                    .with_prompt(format!("Delete custom profile '{}'?", name))
+                    .default(false)
+                    .interact()?;
+
+                if !confirmed {
+                    println!("{}", color::muted("Deletion cancelled"));
+                    return Ok(());
+                }
+            }
+
+            // Delete the profile
+            manager.delete_custom(&name)?;
+
+            println!("{}", color::success(&format!("✓ Profile '{}' deleted", name)));
         }
 
         Commands::Blueprints { tag, details } => {
             use crate::blueprints::BLUEPRINTS;
             use crate::tui::colors::cli;
 
+            let manager = BLUEPRINTS.read().unwrap();
+
             println!("{}", color::header("═══ Multi-VM Blueprints ═══"));
             println!();
 
             let blueprints = if let Some(tag_filter) = tag {
-                BLUEPRINTS.search_by_tag(&tag_filter)
+                manager.search_by_tag(&tag_filter)
             } else {
-                BLUEPRINTS.list()
+                manager.list()
             };
 
             for blueprint in blueprints {
-                println!("{} {}", color::value("•"), color::header(&blueprint.name));
+                let prefix = if manager.is_builtin(&blueprint.name) {
+                    color::value("•")
+                } else {
+                    color::success("★") // Custom blueprints with star
+                };
+
+                println!("{} {}", prefix, color::header(&blueprint.name));
                 println!("  {}", color::muted(&blueprint.description));
                 println!("  VMs: {}", color::value(&blueprint.vms.len().to_string()));
                 if details {
@@ -799,27 +962,34 @@ pub async fn run(cli: Cli) -> Result<()> {
                         );
                     }
                     println!("  Tags: {}", blueprint.tags.join(", "));
+                    println!("  Type: {}", if manager.is_builtin(&blueprint.name) {
+                        color::muted("builtin")
+                    } else {
+                        color::success("custom")
+                    });
                 }
                 println!();
             }
 
+            println!("{}", color::muted("★ = custom blueprint, • = builtin blueprint"));
             println!("{}", color::muted("Use 'zorvia blueprint <name>' for details"));
-            println!("{}", color::muted("Deploy blueprint: zorvia deploy <blueprint>"));
+            println!("{}", color::muted("Create custom: zorvia blueprint-create <name> --from-file <file>"));
         }
 
         Commands::Blueprint { name, output } => {
             use crate::blueprints::BLUEPRINTS;
 
-            let blueprint = BLUEPRINTS.get(&name)
+            let manager = BLUEPRINTS.read().unwrap();
+            let blueprint = manager.get(&name)
                 .ok_or_else(|| anyhow!("Blueprint not found: {}", name))?;
 
             match output.as_str() {
                 "json" => {
-                    let json = serde_json::to_string_pretty(blueprint)?;
+                    let json = serde_json::to_string_pretty(&blueprint)?;
                     println!("{}", json);
                 }
                 _ => {
-                    let yaml = serde_yaml::to_string(blueprint)?;
+                    let yaml = serde_yaml::to_string(&blueprint)?;
                     println!("{}", yaml);
                 }
             }
@@ -835,7 +1005,8 @@ pub async fn run(cli: Cli) -> Result<()> {
             use crate::profiles::PROFILES;
             use crate::tui::colors::cli;
 
-            let bp = BLUEPRINTS.get(&blueprint)
+            let manager = BLUEPRINTS.read().unwrap();
+            let bp = manager.get(&blueprint)
                 .ok_or_else(|| anyhow!("Blueprint not found: {}", blueprint))?;
 
             let vm_prefix = prefix.unwrap_or_else(|| blueprint.clone());
@@ -852,7 +1023,8 @@ pub async fn run(cli: Cli) -> Result<()> {
                     println!("  {}. {}", i + 1, cli::vm_name(&vm_name));
                     println!("     Template: {}", vm_spec.template);
                     if let Some(profile_name) = &vm_spec.profile {
-                        if let Some(profile) = PROFILES.get(profile_name) {
+                        let manager = PROFILES.read().unwrap();
+                        if let Some(profile) = manager.get(profile_name) {
                             println!("     Profile: {} ({}, {})",
                                 profile_name,
                                 color::resource(&profile.cpu_cores.to_string(), "cpu"),
@@ -885,7 +1057,8 @@ pub async fn run(cli: Cli) -> Result<()> {
 
                 // Apply profile if specified
                 if let Some(profile_name) = &vm_spec.profile {
-                    if let Some(profile) = PROFILES.get(profile_name) {
+                    let manager = PROFILES.read().unwrap();
+                    if let Some(profile) = manager.get(profile_name) {
                         config.cpu.cores = profile.cpu_cores;
                         config.cpu.sockets = profile.cpu_sockets;
                         config.cpu.threads = profile.cpu_threads;
@@ -937,6 +1110,158 @@ pub async fn run(cli: Cli) -> Result<()> {
             }
 
             println!("{}", cli::success("Blueprint deployment complete!"));
+        }
+
+        Commands::BlueprintCreate {
+            name,
+            from_file,
+            description,
+        } => {
+            use crate::blueprints::{Blueprint, BLUEPRINTS};
+            use anyhow::Context;
+
+            // Load blueprint from file
+            let content = std::fs::read_to_string(from_file)
+                .context("Failed to read blueprint file")?;
+            let mut blueprint: Blueprint = serde_yaml::from_str(&content)
+                .context("Failed to parse blueprint YAML")?;
+
+            // Override name if provided
+            blueprint.name = name.clone();
+
+            // Override description if provided
+            if let Some(desc) = description {
+                blueprint.description = desc.clone();
+            }
+
+            // Create the blueprint
+            let mut manager = BLUEPRINTS.write().unwrap();
+            manager.create_custom(blueprint)?;
+
+            println!("{}", color::success(&format!("✓ Custom blueprint '{}' created successfully", name)));
+            println!("{}", color::muted(&format!("  Location: ~/.config/zorvia/blueprints/{}.yaml", name)));
+            println!("{}", color::muted(&format!("  Deploy with: zorvia deploy {}", name)));
+        }
+
+        Commands::BlueprintEdit {
+            name,
+            description,
+        } => {
+            use crate::blueprints::BLUEPRINTS;
+
+            let mut manager = BLUEPRINTS.write().unwrap();
+
+            // Load existing blueprint
+            let mut blueprint = manager.get(&name)
+                .ok_or_else(|| anyhow!("Blueprint '{}' not found", name))?;
+
+            // Check if builtin
+            if manager.is_builtin(&name) {
+                anyhow::bail!("Cannot edit builtin blueprint '{}'. Create a custom blueprint instead.", name);
+            }
+
+            // Apply updates
+            if let Some(desc) = description {
+                blueprint.description = desc.clone();
+            }
+
+            // Update the blueprint
+            manager.update_custom(blueprint)?;
+
+            println!("{}", color::success(&format!("✓ Blueprint '{}' updated successfully", name)));
+        }
+
+        Commands::BlueprintDelete { name, yes } => {
+            use crate::blueprints::BLUEPRINTS;
+
+            let mut manager = BLUEPRINTS.write().unwrap();
+
+            // Check if builtin
+            if manager.is_builtin(&name) {
+                anyhow::bail!("Cannot delete builtin blueprint '{}'", name);
+            }
+
+            // Check if exists
+            if !manager.exists(&name) {
+                anyhow::bail!("Blueprint '{}' not found", name);
+            }
+
+            // Confirm deletion unless --yes flag
+            if !yes {
+                use dialoguer::Confirm;
+
+                let confirmed = Confirm::new()
+                    .with_prompt(format!("Delete custom blueprint '{}'?", name))
+                    .default(false)
+                    .interact()?;
+
+                if !confirmed {
+                    println!("{}", color::muted("Deletion cancelled"));
+                    return Ok(());
+                }
+            }
+
+            // Delete the blueprint
+            manager.delete_custom(&name)?;
+
+            println!("{}", color::success(&format!("✓ Blueprint '{}' deleted", name)));
+        }
+
+        Commands::BlueprintValidate { file, detailed } => {
+            use crate::blueprints::{Blueprint, validator};
+            use anyhow::Context;
+
+            // Load blueprint from file
+            let content = std::fs::read_to_string(&file)
+                .context("Failed to read blueprint file")?;
+            let blueprint: Blueprint = serde_yaml::from_str(&content)
+                .context("Failed to parse blueprint YAML")?;
+
+            println!("{}", color::header(&format!("═══ Validating Blueprint: {} ═══", blueprint.name)));
+            println!();
+
+            // Validate the blueprint
+            match validator::validate_blueprint(&blueprint) {
+                Ok(_) => {
+                    println!("{}", color::success("✓ Blueprint validation passed"));
+                    println!();
+                    println!("  Name: {}", color::value(&blueprint.name));
+                    println!("  Description: {}", blueprint.description);
+                    println!("  VMs: {}", blueprint.vms.len());
+
+                    if detailed {
+                        println!();
+                        println!("{}", color::header("VM Specifications:"));
+                        for vm in &blueprint.vms {
+                            println!("  • {}", color::value(&vm.name));
+                            println!("    Template: {}", vm.template);
+                            if let Some(profile) = &vm.profile {
+                                println!("    Profile: {}", profile);
+                            }
+                            if !vm.depends_on.is_empty() {
+                                println!("    Depends on: {}", vm.depends_on.join(", "));
+                            }
+                        }
+
+                        println!();
+                        println!("{}", color::header("Deployment Order:"));
+                        match validator::resolve_deployment_order(&blueprint.vms) {
+                            Ok(order) => {
+                                for (i, vm_name) in order.iter().enumerate() {
+                                    println!("  {}. {}", i + 1, color::value(vm_name));
+                                }
+                            }
+                            Err(e) => {
+                                println!("  {}", color::error(&format!("Error: {}", e)));
+                            }
+                        }
+                    }
+                }
+                Err(e) => {
+                    println!("{}", color::error(&format!("✗ Blueprint validation failed: {}", e)));
+                    std::process::exit(1);
+                }
+            }
         }
 
         Commands::Health { target, detailed } => {
@@ -1030,7 +1355,8 @@ pub async fn run(cli: Cli) -> Result<()> {
             println!("{}", color::header(&format!("═══ Resource Recommendations for: {} ═══", workload)));
             println!();
 
-            let recommendations = PROFILES.recommend(&workload);
+            let manager = PROFILES.read().unwrap();
+            let recommendations = manager.recommend(&workload);
 
             if recommendations.is_empty() {
                 println!("{}", color::warning("No specific recommendations found for this workload"));
@@ -1038,7 +1364,7 @@ pub async fn run(cli: Cli) -> Result<()> {
                 println!();
 
                 for profile in vec!["dev", "test", "prod"] {
-                    if let Some(p) = PROFILES.get(profile) {
+                    if let Some(p) = manager.get(profile) {
                         println!("{} {}", color::value("•"), color::header(&p.name));
                         println!("  {}", color::muted(&p.description));
                         println!("  CPU: {} cores, Memory: {}, Disk: {}",
@@ -1085,7 +1411,8 @@ pub async fn run(cli: Cli) -> Result<()> {
 
             if alternatives {
                 println!("{}", color::header("All Available Profiles:"));
-                for profile in PROFILES.list() {
+                let manager = PROFILES.read().unwrap();
+                for profile in manager.list() {
                     println!("  {} {}", color::value("•"), color::label(&profile.name));
                 }
                 println!();
@@ -1103,7 +1430,7 @@ pub async fn run(cli: Cli) -> Result<()> {
             use snapshots::{SnapshotConfig, SnapshotManager};
             use chrono::Utc;
 
-            let manager = SnapshotManager::new(&cli.namespace);
+            let manager = SnapshotManager::new(&cli.namespace).await?;
 
             // Auto-generate snapshot name if not provided
             let snapshot_name = name.unwrap_or_else(|| {
@@ -1144,7 +1471,7 @@ pub async fn run(cli: Cli) -> Result<()> {
         } => {
             use snapshots::SnapshotManager;
 
-            let manager = SnapshotManager::new(&cli.namespace);
+            let manager = SnapshotManager::new(&cli.namespace).await?;
 
             let snapshots = if let Some(vm_name) = vm {
                 println!("{}", color::header(&format!("Snapshots for VM: {}", vm_name)));
@@ -1200,7 +1527,7 @@ pub async fn run(cli: Cli) -> Result<()> {
         Commands::SnapshotGet { name, output } => {
             use snapshots::SnapshotManager;
 
-            let manager = SnapshotManager::new(&cli.namespace);
+            let manager = SnapshotManager::new(&cli.namespace).await?;
             let snapshot = manager.get_snapshot(&name).await?;
 
             if output == "yaml" || output == "json" {
@@ -1266,7 +1593,7 @@ pub async fn run(cli: Cli) -> Result<()> {
                 }
             }
 
-            let manager = SnapshotManager::new(&cli.namespace);
+            let manager = SnapshotManager::new(&cli.namespace).await?;
 
             println!("{}", color::header(&format!("Deleting snapshot: {}", name)));
             match manager.delete_snapshot(&name).await {
@@ -1288,7 +1615,7 @@ pub async fn run(cli: Cli) -> Result<()> {
         } => {
             use snapshots::RestoreManager;
 
-            let manager = RestoreManager::new(&cli.namespace);
+            let manager = RestoreManager::new(&cli.namespace).await?;
 
             if in_place {
                 // Restore in-place (overwrite existing VM)
@@ -4922,6 +5249,50 @@ pub async fn run(cli: Cli) -> Result<()> {
 
             println!();
             println!("{}", color::success(&format!("✓ Webhook '{}' deleted", webhook)));
+        }
+
+        Commands::Tui { no_splash, theme, interactive } => {
+            use crossterm::{
+                execute,
+                terminal::{disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen},
+            };
+            use ratatui::{backend::CrosstermBackend, Terminal};
+            use std::io;
+
+            // Load TUI config
+            let mut config = crate::tui::TuiConfig::load()?;
+
+            // Apply theme if specified
+            if let Some(theme_name) = theme {
+                config.theme.name = theme_name;
+            }
+
+            // Setup terminal
+            enable_raw_mode()?;
+            let mut stdout = io::stdout();
+            execute!(stdout, EnterAlternateScreen)?;
+
+            let backend = CrosstermBackend::new(stdout);
+            let mut terminal = Terminal::new(backend)?;
+
+            // Create and run app
+            let result = if interactive {
+                // Enhanced interactive mode with dialogs, menus, and notifications
+                let mut app = crate::tui::InteractiveApp::with_config(cli.namespace.clone(), config);
+                app.run(&mut terminal).await
+            } else {
+                // Basic TUI mode
+                let mut app = crate::tui::App::with_config(cli.namespace.clone(), config);
+                app.run(&mut terminal).await
+            };
+
+            // Restore terminal
+            disable_raw_mode()?;
+            execute!(terminal.backend_mut(), LeaveAlternateScreen)?;
+            terminal.show_cursor()?;
+
+            // Handle any errors
+            result?;
         }
     }
 

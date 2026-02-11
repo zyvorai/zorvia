@@ -1,11 +1,21 @@
 // VM Profiles System - Pre-configured resource profiles for different workloads
 // This is an innovative feature that makes VM creation easier and optimized
 
+mod builtin;
+mod storage;
+mod validator;
+
+pub use validator::{validate_profile, validate_name};
+
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
+use std::sync::RwLock;
 use once_cell::sync::Lazy;
+use anyhow::Result;
 
-pub static PROFILES: Lazy<ProfileManager> = Lazy::new(ProfileManager::new);
+pub static PROFILES: Lazy<RwLock<ProfileManager>> = Lazy::new(|| {
+    RwLock::new(ProfileManager::new().expect("Failed to initialize ProfileManager"))
+});
 
 /// Profile represents a pre-configured resource allocation template
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -21,211 +31,125 @@ pub struct Profile {
     pub recommended_os: Vec<String>,
 }
 
-/// ProfileManager manages all available profiles
+/// ProfileManager manages all available profiles (builtin and custom)
 pub struct ProfileManager {
-    profiles: HashMap<String, Profile>,
+    builtin_profiles: HashMap<String, Profile>,
+    custom_profiles: HashMap<String, Profile>,
+    storage: storage::ProfileStorage,
 }
 
 impl ProfileManager {
-    pub fn new() -> Self {
-        let mut profiles = HashMap::new();
+    pub fn new() -> Result<Self> {
+        let builtin_profiles = builtin::builtin_profiles();
+        let storage = storage::ProfileStorage::new()?;
+        let custom_profiles = storage.load_all()?;
 
-        // Development Profile - Minimal resources
-        profiles.insert("dev".to_string(), Profile {
-            name: "dev".to_string(),
-            description: "Development environment - minimal resources for testing".to_string(),
-            cpu_cores: 1,
-            cpu_sockets: 1,
-            cpu_threads: 1,
-            memory: "2Gi".to_string(),
-            disk_size: "10Gi".to_string(),
-            use_cases: vec![
-                "Local development".to_string(),
-                "Testing".to_string(),
-                "Learning".to_string(),
-            ],
-            recommended_os: vec![
-                "ubuntu".to_string(),
-                "alpine".to_string(),
-                "debian".to_string(),
-            ],
-        });
-
-        // Testing Profile - Moderate resources
-        profiles.insert("test".to_string(), Profile {
-            name: "test".to_string(),
-            description: "Testing environment - moderate resources for CI/CD".to_string(),
-            cpu_cores: 2,
-            cpu_sockets: 1,
-            cpu_threads: 1,
-            memory: "4Gi".to_string(),
-            disk_size: "20Gi".to_string(),
-            use_cases: vec![
-                "CI/CD pipelines".to_string(),
-                "Integration testing".to_string(),
-                "QA environments".to_string(),
-            ],
-            recommended_os: vec![
-                "ubuntu".to_string(),
-                "almalinux".to_string(),
-                "rocky".to_string(),
-            ],
-        });
-
-        // Production Profile - Balanced resources
-        profiles.insert("prod".to_string(), Profile {
-            name: "prod".to_string(),
-            description: "Production environment - balanced resources for reliability".to_string(),
-            cpu_cores: 4,
-            cpu_sockets: 1,
-            cpu_threads: 1,
-            memory: "8Gi".to_string(),
-            disk_size: "40Gi".to_string(),
-            use_cases: vec![
-                "Production workloads".to_string(),
-                "Web applications".to_string(),
-                "API servers".to_string(),
-            ],
-            recommended_os: vec![
-                "ubuntu-22.04".to_string(),
-                "almalinux".to_string(),
-                "rocky".to_string(),
-                "debian".to_string(),
-            ],
-        });
-
-        // High Performance Profile
-        profiles.insert("high-perf".to_string(), Profile {
-            name: "high-perf".to_string(),
-            description: "High performance - maximum resources for demanding workloads".to_string(),
-            cpu_cores: 8,
-            cpu_sockets: 2,
-            cpu_threads: 1,
-            memory: "16Gi".to_string(),
-            disk_size: "100Gi".to_string(),
-            use_cases: vec![
-                "Database servers".to_string(),
-                "Data processing".to_string(),
-                "Machine learning".to_string(),
-                "High traffic applications".to_string(),
-            ],
-            recommended_os: vec![
-                "ubuntu-24.04".to_string(),
-                "almalinux".to_string(),
-                "rocky".to_string(),
-            ],
-        });
-
-        // Micro Service Profile - Container optimized
-        profiles.insert("microservice".to_string(), Profile {
-            name: "microservice".to_string(),
-            description: "Microservice - optimized for containerized applications".to_string(),
-            cpu_cores: 2,
-            cpu_sockets: 1,
-            cpu_threads: 1,
-            memory: "4Gi".to_string(),
-            disk_size: "20Gi".to_string(),
-            use_cases: vec![
-                "Container runtime".to_string(),
-                "Kubernetes nodes".to_string(),
-                "Docker hosts".to_string(),
-                "Microservices".to_string(),
-            ],
-            recommended_os: vec![
-                "flatcar".to_string(),
-                "alpine".to_string(),
-                "ubuntu".to_string(),
-            ],
-        });
-
-        // Database Profile - I/O optimized
-        profiles.insert("database".to_string(), Profile {
-            name: "database".to_string(),
-            description: "Database - optimized for I/O intensive workloads".to_string(),
-            cpu_cores: 6,
-            cpu_sockets: 1,
-            cpu_threads: 1,
-            memory: "16Gi".to_string(),
-            disk_size: "200Gi".to_string(),
-            use_cases: vec![
-                "Database servers".to_string(),
-                "PostgreSQL".to_string(),
-                "MySQL".to_string(),
-                "MongoDB".to_string(),
-                "Redis".to_string(),
-            ],
-            recommended_os: vec![
-                "ubuntu-22.04".to_string(),
-                "debian-12".to_string(),
-                "almalinux".to_string(),
-            ],
-        });
-
-        // Web Server Profile
-        profiles.insert("web".to_string(), Profile {
-            name: "web".to_string(),
-            description: "Web server - optimized for HTTP workloads".to_string(),
-            cpu_cores: 4,
-            cpu_sockets: 1,
-            cpu_threads: 1,
-            memory: "8Gi".to_string(),
-            disk_size: "40Gi".to_string(),
-            use_cases: vec![
-                "Web applications".to_string(),
-                "Nginx".to_string(),
-                "Apache".to_string(),
-                "Static sites".to_string(),
-                "Reverse proxy".to_string(),
-            ],
-            recommended_os: vec![
-                "ubuntu".to_string(),
-                "alpine".to_string(),
-                "debian".to_string(),
-            ],
-        });
-
-        // Minimal Profile - Ultra lightweight
-        profiles.insert("minimal".to_string(), Profile {
-            name: "minimal".to_string(),
-            description: "Minimal - ultra lightweight for basic tasks".to_string(),
-            cpu_cores: 1,
-            cpu_sockets: 1,
-            cpu_threads: 1,
-            memory: "512Mi".to_string(),
-            disk_size: "5Gi".to_string(),
-            use_cases: vec![
-                "DNS server".to_string(),
-                "Jump host".to_string(),
-                "Monitoring agent".to_string(),
-                "Log collector".to_string(),
-            ],
-            recommended_os: vec![
-                "alpine".to_string(),
-            ],
-        });
-
-        Self { profiles }
+        Ok(Self {
+            builtin_profiles,
+            custom_profiles,
+            storage,
+        })
     }
 
-    pub fn get(&self, name: &str) -> Option<&Profile> {
-        self.profiles.get(name)
+    /// Get a profile by name (checks custom first, then builtin)
+    pub fn get(&self, name: &str) -> Option<Profile> {
+        self.custom_profiles
+            .get(name)
+            .or_else(|| self.builtin_profiles.get(name))
+            .cloned()
     }
 
-    pub fn list(&self) -> Vec<&Profile> {
-        let mut profiles: Vec<_> = self.profiles.values().collect();
+    /// List all profiles (builtin + custom)
+    pub fn list(&self) -> Vec<Profile> {
+        let mut profiles: Vec<_> = self.builtin_profiles
+            .values()
+            .chain(self.custom_profiles.values())
+            .cloned()
+            .collect();
+
         profiles.sort_by(|a, b| a.name.cmp(&b.name));
         profiles
     }
 
+    /// Check if a profile exists
     pub fn exists(&self, name: &str) -> bool {
-        self.profiles.contains_key(name)
+        self.custom_profiles.contains_key(name) || self.builtin_profiles.contains_key(name)
+    }
+
+    /// Check if a profile is builtin
+    pub fn is_builtin(&self, name: &str) -> bool {
+        self.builtin_profiles.contains_key(name)
+    }
+
+    /// Create a custom profile
+    pub fn create_custom(&mut self, profile: Profile) -> Result<()> {
+        // Validate the profile
+        validator::validate_profile(&profile)?;
+
+        // Check if profile already exists
+        if self.exists(&profile.name) {
+            anyhow::bail!("Profile '{}' already exists", profile.name);
+        }
+
+        // Save to disk
+        self.storage.save(&profile)?;
+
+        // Add to in-memory map
+        self.custom_profiles.insert(profile.name.clone(), profile);
+
+        Ok(())
+    }
+
+    /// Update a custom profile
+    pub fn update_custom(&mut self, profile: Profile) -> Result<()> {
+        // Validate the profile
+        validator::validate_profile(&profile)?;
+
+        // Check if it's a builtin profile
+        if self.is_builtin(&profile.name) {
+            anyhow::bail!("Cannot modify builtin profile '{}'", profile.name);
+        }
+
+        // Check if profile exists
+        if !self.custom_profiles.contains_key(&profile.name) {
+            anyhow::bail!("Custom profile '{}' not found", profile.name);
+        }
+
+        // Save to disk
+        self.storage.save(&profile)?;
+
+        // Update in-memory map
+        self.custom_profiles.insert(profile.name.clone(), profile);
+
+        Ok(())
+    }
+
+    /// Delete a custom profile
+    pub fn delete_custom(&mut self, name: &str) -> Result<()> {
+        // Check if it's a builtin profile
+        if self.is_builtin(name) {
+            anyhow::bail!("Cannot delete builtin profile '{}'", name);
+        }
+
+        // Check if profile exists
+        if !self.custom_profiles.contains_key(name) {
+            anyhow::bail!("Custom profile '{}' not found", name);
+        }
+
+        // Delete from disk
+        self.storage.delete(name)?;
+
+        // Remove from in-memory map
+        self.custom_profiles.remove(name);
+
+        Ok(())
     }
 
     /// Get profile recommendation based on use case keywords
-    pub fn recommend(&self, use_case: &str) -> Vec<&Profile> {
+    pub fn recommend(&self, use_case: &str) -> Vec<Profile> {
         let use_case_lower = use_case.to_lowercase();
-        let mut matches: Vec<_> = self.profiles
-            .values()
+        let mut matches: Vec<_> = self.list()
+            .into_iter()
             .filter(|p| {
                 p.use_cases.iter().any(|uc|
                     uc.to_lowercase().contains(&use_case_lower) ||
@@ -237,11 +161,17 @@ impl ProfileManager {
         matches.sort_by(|a, b| a.name.cmp(&b.name));
         matches
     }
+
+    /// Reload custom profiles from disk
+    pub fn reload(&mut self) -> Result<()> {
+        self.custom_profiles = self.storage.load_all()?;
+        Ok(())
+    }
 }
 
 impl Default for ProfileManager {
     fn default() -> Self {
-        Self::new()
+        Self::new().expect("Failed to initialize ProfileManager")
     }
 }
 
@@ -251,7 +181,7 @@ mod tests {
 
     #[test]
     fn test_profile_manager() {
-        let manager = ProfileManager::new();
+        let manager = ProfileManager::new().unwrap();
 
         assert!(manager.exists("dev"));
         assert!(manager.exists("prod"));
@@ -265,7 +195,7 @@ mod tests {
 
     #[test]
     fn test_list_profiles() {
-        let manager = ProfileManager::new();
+        let manager = ProfileManager::new().unwrap();
         let profiles = manager.list();
 
         assert!(profiles.len() >= 8);
@@ -273,7 +203,7 @@ mod tests {
 
     #[test]
     fn test_recommend() {
-        let manager = ProfileManager::new();
+        let manager = ProfileManager::new().unwrap();
 
         let db_profiles = manager.recommend("database");
         assert!(!db_profiles.is_empty());
@@ -282,5 +212,41 @@ mod tests {
         let web_profiles = manager.recommend("web");
         assert!(!web_profiles.is_empty());
         assert!(web_profiles.iter().any(|p| p.name == "web"));
+    }
+
+    #[test]
+    fn test_builtin_check() {
+        let manager = ProfileManager::new().unwrap();
+
+        assert!(manager.is_builtin("dev"));
+        assert!(manager.is_builtin("prod"));
+        assert!(!manager.is_builtin("nonexistent"));
+    }
+
+    #[test]
+    fn test_create_custom() {
+        let mut manager = ProfileManager::new().unwrap();
+
+        let custom = Profile {
+            name: "custom-test".to_string(),
+            description: "Custom test profile".to_string(),
+            cpu_cores: 4,
+            cpu_sockets: 1,
+            cpu_threads: 1,
+            memory: "8Gi".to_string(),
+            disk_size: "40Gi".to_string(),
+            use_cases: vec![],
+            recommended_os: vec![],
+        };
+
+        // Should succeed
+        assert!(manager.create_custom(custom.clone()).is_ok());
+
+        // Should exist now
+        assert!(manager.exists("custom-test"));
+        assert!(!manager.is_builtin("custom-test"));
+
+        // Creating again should fail
+        assert!(manager.create_custom(custom).is_err());
     }
 }

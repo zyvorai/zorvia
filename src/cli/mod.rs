@@ -270,6 +270,96 @@ pub enum Commands {
         output: String,
     },
 
+    /// Create a custom profile
+    ProfileCreate {
+        /// Profile name (lowercase alphanumeric with hyphens)
+        name: String,
+
+        /// CPU cores
+        #[arg(long)]
+        cpus: u32,
+
+        /// CPU sockets
+        #[arg(long, default_value = "1")]
+        sockets: u32,
+
+        /// CPU threads per core
+        #[arg(long, default_value = "1")]
+        threads: u32,
+
+        /// Memory (e.g., 4Gi, 512Mi, 16G)
+        #[arg(long)]
+        memory: String,
+
+        /// Disk size (e.g., 10Gi, 500G)
+        #[arg(long)]
+        disk_size: String,
+
+        /// Profile description
+        #[arg(long)]
+        description: Option<String>,
+
+        /// Use cases (comma-separated)
+        #[arg(long)]
+        use_cases: Option<String>,
+
+        /// Recommended OS templates (comma-separated)
+        #[arg(long)]
+        recommended_os: Option<String>,
+
+        /// Load profile from YAML file
+        #[arg(long, conflicts_with_all = &["cpus", "memory", "disk_size"])]
+        from_file: Option<String>,
+    },
+
+    /// Edit a custom profile
+    ProfileEdit {
+        /// Profile name
+        name: String,
+
+        /// CPU cores
+        #[arg(long)]
+        cpus: Option<u32>,
+
+        /// CPU sockets
+        #[arg(long)]
+        sockets: Option<u32>,
+
+        /// CPU threads per core
+        #[arg(long)]
+        threads: Option<u32>,
+
+        /// Memory (e.g., 4Gi, 512Mi, 16G)
+        #[arg(long)]
+        memory: Option<String>,
+
+        /// Disk size (e.g., 10Gi, 500G)
+        #[arg(long)]
+        disk_size: Option<String>,
+
+        /// Profile description
+        #[arg(long)]
+        description: Option<String>,
+
+        /// Use cases (comma-separated)
+        #[arg(long)]
+        use_cases: Option<String>,
+
+        /// Recommended OS templates (comma-separated)
+        #[arg(long)]
+        recommended_os: Option<String>,
+    },
+
+    /// Delete a custom profile
+    ProfileDelete {
+        /// Profile name
+        name: String,
+
+        /// Skip confirmation prompt
+        #[arg(short, long)]
+        yes: bool,
+    },
+
     /// List multi-VM blueprints (LAMP, Kubernetes, 3-tier, etc.)
     Blueprints {
         /// Filter by tag
@@ -289,6 +379,50 @@ pub enum Commands {
         /// Output format (yaml, json)
         #[arg(short, long, default_value = "yaml")]
         output: String,
+    },
+
+    /// Create a custom blueprint
+    BlueprintCreate {
+        /// Blueprint name (lowercase alphanumeric with hyphens)
+        name: String,
+
+        /// Load blueprint from YAML file
+        #[arg(long)]
+        from_file: String,
+
+        /// Blueprint description
+        #[arg(long)]
+        description: Option<String>,
+    },
+
+    /// Edit a custom blueprint
+    BlueprintEdit {
+        /// Blueprint name
+        name: String,
+
+        /// Blueprint description
+        #[arg(long)]
+        description: Option<String>,
+    },
+
+    /// Delete a custom blueprint
+    BlueprintDelete {
+        /// Blueprint name
+        name: String,
+
+        /// Skip confirmation prompt
+        #[arg(short, long)]
+        yes: bool,
+    },
+
+    /// Validate a blueprint file
+    BlueprintValidate {
+        /// Path to blueprint YAML file
+        file: String,
+
+        /// Show detailed validation report
+        #[arg(short, long)]
+        detailed: bool,
     },
 
     /// Deploy a multi-VM blueprint
@@ -1915,6 +2049,21 @@ pub enum Commands {
         /// Skip confirmation
         #[arg(short, long)]
         yes: bool,
+    },
+
+    /// Launch interactive TUI
+    Tui {
+        /// Disable splash screen
+        #[arg(long)]
+        no_splash: bool,
+
+        /// Theme (light, dark)
+        #[arg(long)]
+        theme: Option<String>,
+
+        /// Enable enhanced interactive mode with dialogs and menus
+        #[arg(short, long)]
+        interactive: bool,
     },
 }
 

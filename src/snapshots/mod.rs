@@ -4,10 +4,14 @@
 pub mod types;
 pub mod manager;
 pub mod restore;
+pub mod crds;
+pub mod retention;
 
-pub use types::{SnapshotInfo, SnapshotStatus, RestoreInfo};
+pub use types::{SnapshotInfo, SnapshotStatus, RestoreInfo, RestoreStatus};
 pub use manager::SnapshotManager;
 pub use restore::RestoreManager;
+pub use crds::{VirtualMachineSnapshot, VirtualMachineRestore};
+pub use retention::RetentionEnforcer;
 
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;

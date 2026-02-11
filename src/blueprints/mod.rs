@@ -1,11 +1,21 @@
 // Multi-VM Blueprints - Deploy complete application stacks with one command
 // This is an innovative feature for deploying complex topologies
 
+mod builtin;
+mod storage;
+pub mod validator;
+
+pub use validator::{validate_blueprint, check_circular_dependencies, resolve_deployment_order};
+
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
+use std::sync::RwLock;
 use once_cell::sync::Lazy;
+use anyhow::Result;
 
-pub static BLUEPRINTS: Lazy<BlueprintManager> = Lazy::new(BlueprintManager::new);
+pub static BLUEPRINTS: Lazy<RwLock<BlueprintManager>> = Lazy::new(|| {
+    RwLock::new(BlueprintManager::new().expect("Failed to initialize BlueprintManager"))
+});
 
 /// VMSpec defines a single VM in a blueprint
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -29,275 +39,142 @@ pub struct Blueprint {
     pub tags: Vec<String>,
 }
 
-/// BlueprintManager manages pre-defined blueprints
+/// BlueprintManager manages all available blueprints (builtin and custom)
 pub struct BlueprintManager {
-    blueprints: HashMap<String, Blueprint>,
+    builtin_blueprints: HashMap<String, Blueprint>,
+    custom_blueprints: HashMap<String, Blueprint>,
+    storage: storage::BlueprintStorage,
 }
 
 impl BlueprintManager {
-    pub fn new() -> Self {
-        let mut blueprints = HashMap::new();
+    pub fn new() -> Result<Self> {
+        let builtin_blueprints = builtin::builtin_blueprints();
+        let storage = storage::BlueprintStorage::new()?;
+        let custom_blueprints = storage.load_all()?;
 
-        // LAMP Stack Blueprint
-        blueprints.insert("lamp".to_string(), Blueprint {
-            name: "lamp".to_string(),
-            description: "LAMP Stack (Linux + Apache + MySQL + PHP)".to_string(),
-            vms: vec![
-                VMSpec {
-                    name: "mysql-db".to_string(),
-                    template: "ubuntu".to_string(),
-                    profile: Some("database".to_string()),
-                    cpu: None,
-                    memory: None,
-                    disk_size: Some("100Gi".to_string()),
-                    depends_on: vec![],
-                    labels: HashMap::from([
-                        ("tier".to_string(), "database".to_string()),
-                        ("app".to_string(), "lamp".to_string()),
-                    ]),
-                },
-                VMSpec {
-                    name: "web-server".to_string(),
-                    template: "ubuntu".to_string(),
-                    profile: Some("web".to_string()),
-                    cpu: None,
-                    memory: None,
-                    disk_size: None,
-                    depends_on: vec!["mysql-db".to_string()],
-                    labels: HashMap::from([
-                        ("tier".to_string(), "frontend".to_string()),
-                        ("app".to_string(), "lamp".to_string()),
-                    ]),
-                },
-            ],
-            tags: vec!["web".to_string(), "database".to_string(), "classic".to_string()],
-        });
-
-        // Kubernetes Cluster Blueprint
-        blueprints.insert("k8s-cluster".to_string(), Blueprint {
-            name: "k8s-cluster".to_string(),
-            description: "Kubernetes cluster (1 control plane + 2 workers)".to_string(),
-            vms: vec![
-                VMSpec {
-                    name: "k8s-control".to_string(),
-                    template: "ubuntu-22.04".to_string(),
-                    profile: Some("prod".to_string()),
-                    cpu: Some(4),
-                    memory: Some("8Gi".to_string()),
-                    disk_size: Some("50Gi".to_string()),
-                    depends_on: vec![],
-                    labels: HashMap::from([
-                        ("role".to_string(), "control-plane".to_string()),
-                        ("cluster".to_string(), "k8s".to_string()),
-                    ]),
-                },
-                VMSpec {
-                    name: "k8s-worker-1".to_string(),
-                    template: "ubuntu-22.04".to_string(),
-                    profile: Some("prod".to_string()),
-                    cpu: Some(4),
-                    memory: Some("16Gi".to_string()),
-                    disk_size: Some("100Gi".to_string()),
-                    depends_on: vec!["k8s-control".to_string()],
-                    labels: HashMap::from([
-                        ("role".to_string(), "worker".to_string()),
-                        ("cluster".to_string(), "k8s".to_string()),
-                    ]),
-                },
-                VMSpec {
-                    name: "k8s-worker-2".to_string(),
-                    template: "ubuntu-22.04".to_string(),
-                    profile: Some("prod".to_string()),
-                    cpu: Some(4),
-                    memory: Some("16Gi".to_string()),
-                    disk_size: Some("100Gi".to_string()),
-                    depends_on: vec!["k8s-control".to_string()],
-                    labels: HashMap::from([
-                        ("role".to_string(), "worker".to_string()),
-                        ("cluster".to_string(), "k8s".to_string()),
-                    ]),
-                },
-            ],
-            tags: vec!["kubernetes".to_string(), "cluster".to_string(), "container".to_string()],
-        });
-
-        // 3-Tier Web App Blueprint
-        blueprints.insert("3tier".to_string(), Blueprint {
-            name: "3tier".to_string(),
-            description: "3-tier web application (Web + App + Database)".to_string(),
-            vms: vec![
-                VMSpec {
-                    name: "postgres-db".to_string(),
-                    template: "almalinux".to_string(),
-                    profile: Some("database".to_string()),
-                    cpu: None,
-                    memory: Some("16Gi".to_string()),
-                    disk_size: Some("200Gi".to_string()),
-                    depends_on: vec![],
-                    labels: HashMap::from([
-                        ("tier".to_string(), "database".to_string()),
-                        ("app".to_string(), "3tier".to_string()),
-                    ]),
-                },
-                VMSpec {
-                    name: "app-server".to_string(),
-                    template: "ubuntu".to_string(),
-                    profile: Some("prod".to_string()),
-                    cpu: Some(4),
-                    memory: Some("8Gi".to_string()),
-                    disk_size: Some("40Gi".to_string()),
-                    depends_on: vec!["postgres-db".to_string()],
-                    labels: HashMap::from([
-                        ("tier".to_string(), "application".to_string()),
-                        ("app".to_string(), "3tier".to_string()),
-                    ]),
-                },
-                VMSpec {
-                    name: "nginx-lb".to_string(),
-                    template: "alpine".to_string(),
-                    profile: Some("web".to_string()),
-                    cpu: Some(2),
-                    memory: Some("4Gi".to_string()),
-                    disk_size: Some("20Gi".to_string()),
-                    depends_on: vec!["app-server".to_string()],
-                    labels: HashMap::from([
-                        ("tier".to_string(), "frontend".to_string()),
-                        ("app".to_string(), "3tier".to_string()),
-                    ]),
-                },
-            ],
-            tags: vec!["web".to_string(), "microservices".to_string(), "production".to_string()],
-        });
-
-        // Development Stack Blueprint
-        blueprints.insert("dev-stack".to_string(), Blueprint {
-            name: "dev-stack".to_string(),
-            description: "Development stack (Code server + DB + Redis)".to_string(),
-            vms: vec![
-                VMSpec {
-                    name: "dev-db".to_string(),
-                    template: "ubuntu".to_string(),
-                    profile: Some("test".to_string()),
-                    cpu: Some(2),
-                    memory: Some("4Gi".to_string()),
-                    disk_size: Some("20Gi".to_string()),
-                    depends_on: vec![],
-                    labels: HashMap::from([
-                        ("env".to_string(), "development".to_string()),
-                        ("type".to_string(), "database".to_string()),
-                    ]),
-                },
-                VMSpec {
-                    name: "dev-cache".to_string(),
-                    template: "alpine".to_string(),
-                    profile: Some("minimal".to_string()),
-                    cpu: Some(1),
-                    memory: Some("2Gi".to_string()),
-                    disk_size: Some("10Gi".to_string()),
-                    depends_on: vec![],
-                    labels: HashMap::from([
-                        ("env".to_string(), "development".to_string()),
-                        ("type".to_string(), "cache".to_string()),
-                    ]),
-                },
-                VMSpec {
-                    name: "dev-workspace".to_string(),
-                    template: "ubuntu".to_string(),
-                    profile: Some("dev".to_string()),
-                    cpu: Some(4),
-                    memory: Some("8Gi".to_string()),
-                    disk_size: Some("40Gi".to_string()),
-                    depends_on: vec!["dev-db".to_string(), "dev-cache".to_string()],
-                    labels: HashMap::from([
-                        ("env".to_string(), "development".to_string()),
-                        ("type".to_string(), "workspace".to_string()),
-                    ]),
-                },
-            ],
-            tags: vec!["development".to_string(), "testing".to_string()],
-        });
-
-        // CI/CD Pipeline Blueprint
-        blueprints.insert("cicd".to_string(), Blueprint {
-            name: "cicd".to_string(),
-            description: "CI/CD Pipeline (Jenkins + GitLab + Artifact Registry)".to_string(),
-            vms: vec![
-                VMSpec {
-                    name: "gitlab-server".to_string(),
-                    template: "ubuntu-22.04".to_string(),
-                    profile: Some("prod".to_string()),
-                    cpu: Some(4),
-                    memory: Some("16Gi".to_string()),
-                    disk_size: Some("100Gi".to_string()),
-                    depends_on: vec![],
-                    labels: HashMap::from([
-                        ("component".to_string(), "scm".to_string()),
-                        ("pipeline".to_string(), "cicd".to_string()),
-                    ]),
-                },
-                VMSpec {
-                    name: "jenkins-server".to_string(),
-                    template: "ubuntu-22.04".to_string(),
-                    profile: Some("prod".to_string()),
-                    cpu: Some(4),
-                    memory: Some("8Gi".to_string()),
-                    disk_size: Some("80Gi".to_string()),
-                    depends_on: vec!["gitlab-server".to_string()],
-                    labels: HashMap::from([
-                        ("component".to_string(), "ci".to_string()),
-                        ("pipeline".to_string(), "cicd".to_string()),
-                    ]),
-                },
-                VMSpec {
-                    name: "artifact-registry".to_string(),
-                    template: "almalinux".to_string(),
-                    profile: Some("prod".to_string()),
-                    cpu: Some(2),
-                    memory: Some("8Gi".to_string()),
-                    disk_size: Some("200Gi".to_string()),
-                    depends_on: vec![],
-                    labels: HashMap::from([
-                        ("component".to_string(), "registry".to_string()),
-                        ("pipeline".to_string(), "cicd".to_string()),
-                    ]),
-                },
-            ],
-            tags: vec!["cicd".to_string(), "automation".to_string(), "devops".to_string()],
-        });
-
-        Self { blueprints }
+        Ok(Self {
+            builtin_blueprints,
+            custom_blueprints,
+            storage,
+        })
     }
 
-    pub fn get(&self, name: &str) -> Option<&Blueprint> {
-        self.blueprints.get(name)
+    /// Get a blueprint by name (checks custom first, then builtin)
+    pub fn get(&self, name: &str) -> Option<Blueprint> {
+        self.custom_blueprints
+            .get(name)
+            .or_else(|| self.builtin_blueprints.get(name))
+            .cloned()
     }
 
-    pub fn list(&self) -> Vec<&Blueprint> {
-        let mut blueprints: Vec<_> = self.blueprints.values().collect();
+    /// List all blueprints (builtin + custom)
+    pub fn list(&self) -> Vec<Blueprint> {
+        let mut blueprints: Vec<_> = self.builtin_blueprints
+            .values()
+            .chain(self.custom_blueprints.values())
+            .cloned()
+            .collect();
+
         blueprints.sort_by(|a, b| a.name.cmp(&b.name));
         blueprints
     }
 
+    /// Check if a blueprint exists
     pub fn exists(&self, name: &str) -> bool {
-        self.blueprints.contains_key(name)
+        self.custom_blueprints.contains_key(name) || self.builtin_blueprints.contains_key(name)
+    }
+
+    /// Check if a blueprint is builtin
+    pub fn is_builtin(&self, name: &str) -> bool {
+        self.builtin_blueprints.contains_key(name)
+    }
+
+    /// Create a custom blueprint
+    pub fn create_custom(&mut self, blueprint: Blueprint) -> Result<()> {
+        // Validate the blueprint
+        validator::validate_blueprint(&blueprint)?;
+
+        // Check if blueprint already exists
+        if self.exists(&blueprint.name) {
+            anyhow::bail!("Blueprint '{}' already exists", blueprint.name);
+        }
+
+        // Save to disk
+        self.storage.save(&blueprint)?;
+
+        // Add to in-memory map
+        self.custom_blueprints.insert(blueprint.name.clone(), blueprint);
+
+        Ok(())
+    }
+
+    /// Update a custom blueprint
+    pub fn update_custom(&mut self, blueprint: Blueprint) -> Result<()> {
+        // Validate the blueprint
+        validator::validate_blueprint(&blueprint)?;
+
+        // Check if it's a builtin blueprint
+        if self.is_builtin(&blueprint.name) {
+            anyhow::bail!("Cannot modify builtin blueprint '{}'", blueprint.name);
+        }
+
+        // Check if blueprint exists
+        if !self.custom_blueprints.contains_key(&blueprint.name) {
+            anyhow::bail!("Custom blueprint '{}' not found", blueprint.name);
+        }
+
+        // Save to disk
+        self.storage.save(&blueprint)?;
+
+        // Update in-memory map
+        self.custom_blueprints.insert(blueprint.name.clone(), blueprint);
+
+        Ok(())
+    }
+
+    /// Delete a custom blueprint
+    pub fn delete_custom(&mut self, name: &str) -> Result<()> {
+        // Check if it's a builtin blueprint
+        if self.is_builtin(name) {
+            anyhow::bail!("Cannot delete builtin blueprint '{}'", name);
+        }
+
+        // Check if blueprint exists
+        if !self.custom_blueprints.contains_key(name) {
+            anyhow::bail!("Custom blueprint '{}' not found", name);
+        }
+
+        // Delete from disk
+        self.storage.delete(name)?;
+
+        // Remove from in-memory map
+        self.custom_blueprints.remove(name);
+
+        Ok(())
     }
 
     /// Search blueprints by tag
-    pub fn search_by_tag(&self, tag: &str) -> Vec<&Blueprint> {
+    pub fn search_by_tag(&self, tag: &str) -> Vec<Blueprint> {
         let tag_lower = tag.to_lowercase();
-        let mut matches: Vec<_> = self.blueprints
-            .values()
+        let mut matches: Vec<_> = self.list()
+            .into_iter()
             .filter(|b| b.tags.iter().any(|t| t.to_lowercase().contains(&tag_lower)))
             .collect();
 
         matches.sort_by(|a, b| a.name.cmp(&b.name));
         matches
     }
+
+    /// Reload custom blueprints from disk
+    pub fn reload(&mut self) -> Result<()> {
+        self.custom_blueprints = self.storage.load_all()?;
+        Ok(())
+    }
 }
 
 impl Default for BlueprintManager {
     fn default() -> Self {
-        Self::new()
+        Self::new().expect("Failed to initialize BlueprintManager")
     }
 }
 
@@ -307,7 +184,7 @@ mod tests {
 
     #[test]
     fn test_blueprint_manager() {
-        let manager = BlueprintManager::new();
+        let manager = BlueprintManager::new().unwrap();
 
         assert!(manager.exists("lamp"));
         assert!(manager.exists("k8s-cluster"));
@@ -320,7 +197,7 @@ mod tests {
 
     #[test]
     fn test_list_blueprints() {
-        let manager = BlueprintManager::new();
+        let manager = BlueprintManager::new().unwrap();
         let blueprints = manager.list();
 
         assert!(blueprints.len() >= 5);
@@ -328,7 +205,7 @@ mod tests {
 
     #[test]
     fn test_search_by_tag() {
-        let manager = BlueprintManager::new();
+        let manager = BlueprintManager::new().unwrap();
 
         let web_blueprints = manager.search_by_tag("web");
         assert!(!web_blueprints.is_empty());
@@ -339,10 +216,52 @@ mod tests {
 
     #[test]
     fn test_vm_dependencies() {
-        let manager = BlueprintManager::new();
+        let manager = BlueprintManager::new().unwrap();
         let lamp = manager.get("lamp").unwrap();
 
         let web_vm = lamp.vms.iter().find(|v| v.name == "web-server").unwrap();
         assert!(web_vm.depends_on.contains(&"mysql-db".to_string()));
+    }
+
+    #[test]
+    fn test_builtin_check() {
+        let manager = BlueprintManager::new().unwrap();
+
+        assert!(manager.is_builtin("lamp"));
+        assert!(manager.is_builtin("k8s-cluster"));
+        assert!(!manager.is_builtin("nonexistent"));
+    }
+
+    #[test]
+    fn test_create_custom() {
+        let mut manager = BlueprintManager::new().unwrap();
+
+        let custom = Blueprint {
+            name: "custom-test".to_string(),
+            description: "Custom test blueprint".to_string(),
+            vms: vec![
+                VMSpec {
+                    name: "test-vm".to_string(),
+                    template: "ubuntu".to_string(),
+                    profile: Some("dev".to_string()),
+                    cpu: None,
+                    memory: None,
+                    disk_size: None,
+                    depends_on: vec![],
+                    labels: HashMap::new(),
+                },
+            ],
+            tags: vec!["test".to_string()],
+        };
+
+        // Should succeed
+        assert!(manager.create_custom(custom.clone()).is_ok());
+
+        // Should exist now
+        assert!(manager.exists("custom-test"));
+        assert!(!manager.is_builtin("custom-test"));
+
+        // Creating again should fail
+        assert!(manager.create_custom(custom).is_err());
     }
 }

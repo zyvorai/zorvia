@@ -1,0 +1,112 @@
+// Snapshots View - List and manage VM snapshots
+
+use crate::tui::{config::TuiConfig, state::AppState};
+use ratatui::{
+    backend::Backend,
+    layout::{Alignment, Constraint, Direction, Layout},
+    style::{Color, Modifier, Style},
+    text::Line,
+    widgets::{Block, Borders, Cell, Paragraph, Row, Table},
+    Frame,
+};
+
+pub fn render(f: &mut Frame, state: &AppState, _config: &TuiConfig) {
+    let size = f.area();
+
+    // Main layout
+    let chunks = Layout::default()
+        .direction(Direction::Vertical)
+        .constraints([
+            Constraint::Length(3),  // Header
+            Constraint::Min(0),     // Snapshot table
+            Constraint::Length(4),  // Help text
+        ])
+        .split(size);
+
+    // Header
+    let header = Paragraph::new(format!("VM Snapshots ({})", state.snapshots.len()))
+        .style(Style::default().fg(Color::Cyan).add_modifier(Modifier::BOLD))
+        .alignment(Alignment::Center)
+        .block(Block::default().borders(Borders::ALL));
+    f.render_widget(header, chunks[0]);
+
+    // Snapshot table
+    render_snapshot_table(f, state, chunks[1]);
+
+    // Help text
+    render_help(f, chunks[2]);
+}
+
+fn render_snapshot_table(f: &mut Frame, state: &AppState, area: ratatui::layout::Rect) {
+    if state.snapshots.is_empty() {
+        let text = Paragraph::new("No snapshots found")
+            .alignment(Alignment::Center)
+            .block(Block::default().borders(Borders::ALL).title("Snapshots"));
+        f.render_widget(text, area);
+        return;
+    }
+
+    let header_cells = ["Name", "VM", "Status", "Age"]
+        .iter()
+        .map(|h| Cell::from(*h).style(Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD)));
+    let header = Row::new(header_cells)
+        .style(Style::default().bg(Color::DarkGray))
+        .height(1);
+
+    let rows = state.snapshots.iter().enumerate().map(|(i, snapshot)| {
+        let is_selected = i == state.selected_index;
+
+        let status_color = if snapshot.ready {
+            Color::Green
+        } else {
+            Color::Yellow
+        };
+
+        let cells = vec![
+            Cell::from(snapshot.name.clone()),
+            Cell::from(snapshot.vm_name.clone()),
+            Cell::from(snapshot.status.clone()).style(Style::default().fg(status_color)),
+            Cell::from(snapshot.age.clone()),
+        ];
+
+        let style = if is_selected {
+            Style::default()
+                .bg(Color::Blue)
+                .fg(Color::White)
+                .add_modifier(Modifier::BOLD)
+        } else {
+            Style::default()
+        };
+
+        Row::new(cells).style(style).height(1)
+    });
+
+    let table = Table::new(
+        rows,
+        [
+            Constraint::Percentage(30),  // Name
+            Constraint::Percentage(30),  // VM
+            Constraint::Percentage(20),  // Status
+            Constraint::Percentage(20),  // Age
+        ],
+    )
+    .header(header)
+    .block(Block::default().borders(Borders::ALL).title("Snapshots"))
+    .column_spacing(1);
+
+    f.render_widget(table, area);
+}
+
+fn render_help(f: &mut Frame, area: ratatui::layout::Rect) {
+    let help_text = vec![
+        Line::from(""),
+        Line::from("↑↓/jk: Navigate | c: Create | d: Delete | r: Restore | q: Quit | ?: Help"),
+    ];
+
+    let help = Paragraph::new(help_text)
+        .style(Style::default().fg(Color::Gray))
+        .alignment(Alignment::Center)
+        .block(Block::default().borders(Borders::ALL));
+
+    f.render_widget(help, area);
+}
