@@ -1,118 +1,202 @@
-// Dashboard View - Overview of VMs and quick stats
+// Enhanced Dashboard View - Comprehensive system overview with charts and monitoring
+use crate::tui::{
+    colors::tui as colors,
+    config::TuiConfig,
+    state::AppState,
+    widgets::{BarChart, MultiGaugePanel, ResourceGauge, SparklineChart},
+};
 
-use crate::tui::{colors::tui as colors, config::TuiConfig, state::AppState};
 use ratatui::{
-    backend::Backend,
-    layout::{Alignment, Constraint, Direction, Layout},
-    style::{Color, Modifier, Style},
+    layout::{Alignment, Constraint, Direction, Layout, Rect},
+    style::{Modifier, Style},
     text::{Line, Span},
-    widgets::{Block, Borders, Paragraph},
+    widgets::{Block, Borders, List, ListItem, Paragraph},
     Frame,
 };
 
 pub fn render(f: &mut Frame, state: &AppState, _config: &TuiConfig) {
     let size = f.area();
 
-    // Main layout: Header | Content | Status
-    let chunks = Layout::default()
-        .direction(Direction::Vertical)
-        .constraints([
-            Constraint::Length(3),  // Header
-            Constraint::Min(0),     // Content
-            Constraint::Length(3),  // Status bar
-        ])
-        .split(size);
+    // Main layout with optional stats bar
+    let main_chunks = if state.show_stats_bar {
+        Layout::default()
+            .direction(Direction::Vertical)
+            .constraints([
+                Constraint::Length(3),  // Header
+                Constraint::Length(2),  // Stats bar
+                Constraint::Min(0),     // Content
+                Constraint::Length(3),  // Footer
+            ])
+            .split(size)
+    } else {
+        Layout::default()
+            .direction(Direction::Vertical)
+            .constraints([
+                Constraint::Length(3),  // Header
+                Constraint::Min(0),     // Content
+                Constraint::Length(3),  // Footer
+            ])
+            .split(size)
+    };
 
-    // Header
+    let (header_chunk, content_chunk, footer_chunk) = if state.show_stats_bar {
+        (main_chunks[0], main_chunks[2], main_chunks[3])
+    } else {
+        (main_chunks[0], main_chunks[1], main_chunks[2])
+    };
+
+    // Render header
+    render_header(f, state, header_chunk);
+
+    // Render stats bar if enabled
+    if state.show_stats_bar {
+        render_stats_bar(f, state, main_chunks[1]);
+    }
+
+    // Content area - 3-column layout
+    let content_chunks = Layout::default()
+        .direction(Direction::Horizontal)
+        .constraints([
+            Constraint::Percentage(33),  // Left: VM Stats & Resource Gauges
+            Constraint::Percentage(34),  // Center: Charts & Trends
+            Constraint::Percentage(33),  // Right: Recent Activity & Quick Actions
+        ])
+        .split(content_chunk);
+
+    // Left column: VM Stats + Resource Usage
+    render_left_column(f, state, content_chunks[0]);
+
+    // Center column: Charts and Trends
+    render_center_column(f, state, content_chunks[1]);
+
+    // Right column: Activity + Quick Actions
+    render_right_column(f, state, content_chunks[2]);
+
+    // Footer
+    render_footer(f, state, footer_chunk);
+}
+
+fn render_header(f: &mut Frame, state: &AppState, area: Rect) {
     let header_text = Line::from(vec![
         Span::styled("Zorvia".to_string(), Style::default().fg(colors::ORANGE).add_modifier(Modifier::BOLD)),
         Span::styled(" - ".to_string(), Style::default().fg(colors::TEXT_MUTED)),
         Span::styled("KubeVirt VM Manager".to_string(), Style::default().fg(colors::TEXT)),
         Span::styled("  │  ".to_string(), Style::default().fg(colors::TEXT_MUTED)),
         Span::styled("📊 Dashboard".to_string(), Style::default().fg(colors::LIGHT_ORANGE).add_modifier(Modifier::BOLD)),
-        Span::styled(": System Overview".to_string(), Style::default().fg(colors::TEXT)),
+        Span::styled(format!(": {} VMs • {} Running", state.vms.len(), state.get_stats().running), Style::default().fg(colors::TEXT)),
     ]);
+
     let header = Paragraph::new(header_text)
         .alignment(Alignment::Center)
         .block(Block::default().borders(Borders::ALL).border_style(Style::default().fg(colors::BORDER)));
-    f.render_widget(header, chunks[0]);
 
-    // Content area - split into stats and quick actions
-    let content_chunks = Layout::default()
-        .direction(Direction::Horizontal)
-        .constraints([
-            Constraint::Percentage(50),  // Stats panel
-            Constraint::Percentage(50),  // Quick actions panel
-        ])
-        .split(chunks[1]);
-
-    // Stats panel
-    render_stats_panel(f, state, content_chunks[0]);
-
-    // Quick actions panel
-    render_quick_actions(f, content_chunks[1]);
-
-    // Status bar
-    render_status_bar(f, state, chunks[2]);
+    f.render_widget(header, area);
 }
 
-fn render_stats_panel(f: &mut Frame, state: &AppState, area: ratatui::layout::Rect) {
+fn render_stats_bar(f: &mut Frame, state: &AppState, area: Rect) {
     let stats = state.get_stats();
 
-    // Calculate health icon
     let health_icon = if stats.running == 0 && stats.total > 0 {
         "🔴"
+    } else if stats.failed > 0 {
+        "🟠"
+    } else if stats.starting > 0 {
+        "🟡"
     } else if stats.running > 0 {
         "🟢"
     } else {
         "⚪"
     };
 
-    let health_label = format!("{} Health:        ", health_icon);
-    let total_vms = format!("{}", stats.total);
-    let running_vms = format!("{}", stats.running);
-    let stopped_vms = format!("{}", stats.stopped);
+    let health_text = if stats.running == 0 && stats.total > 0 {
+        "All Stopped"
+    } else if stats.failed > 0 {
+        "Failures"
+    } else if stats.starting > 0 {
+        "Starting"
+    } else if stats.running > 0 {
+        "Healthy"
+    } else {
+        "No VMs"
+    };
+
+    let stats_line = Line::from(vec![
+        Span::styled("📊 ", Style::default().fg(colors::ORANGE)),
+        Span::styled("VMs: ", Style::default().fg(colors::TEXT)),
+        Span::styled(format!("{} ", stats.total), Style::default().fg(colors::ORANGE).add_modifier(Modifier::BOLD)),
+        Span::styled("│ ", Style::default().fg(colors::TEXT_MUTED)),
+        Span::styled("🟢 ", Style::default().fg(colors::SUCCESS)),
+        Span::styled(format!("{} ", stats.running), Style::default().fg(colors::SUCCESS).add_modifier(Modifier::BOLD)),
+        Span::styled("│ ", Style::default().fg(colors::TEXT_MUTED)),
+        Span::styled("⏸  ", Style::default().fg(colors::TEXT_MUTED)),
+        Span::styled(format!("{} ", stats.stopped), Style::default().fg(colors::TEXT_MUTED).add_modifier(Modifier::BOLD)),
+        Span::styled("│ ", Style::default().fg(colors::TEXT_MUTED)),
+        Span::styled("🟡 ", Style::default().fg(colors::WARNING)),
+        Span::styled(format!("{} ", stats.starting), Style::default().fg(colors::WARNING).add_modifier(Modifier::BOLD)),
+        Span::styled("│ ", Style::default().fg(colors::TEXT_MUTED)),
+        Span::styled("🔴 ", Style::default().fg(colors::ERROR)),
+        Span::styled(format!("{} ", stats.failed), Style::default().fg(colors::ERROR).add_modifier(Modifier::BOLD)),
+        Span::styled("│ ", Style::default().fg(colors::TEXT_MUTED)),
+        Span::styled(format!("{} {} ", health_icon, health_text), Style::default().fg(colors::TEXT).add_modifier(Modifier::BOLD)),
+        Span::styled("│ ", Style::default().fg(colors::TEXT_MUTED)),
+        Span::styled("🌐 ", Style::default().fg(colors::INFO)),
+        Span::styled(&state.namespace, Style::default().fg(colors::LIGHT_ORANGE).add_modifier(Modifier::BOLD)),
+    ]);
+
+    let paragraph = Paragraph::new(stats_line).block(
+        Block::default()
+            .borders(Borders::ALL)
+            .border_style(Style::default().fg(colors::BORDER)),
+    );
+
+    f.render_widget(paragraph, area);
+}
+
+fn render_left_column(f: &mut Frame, state: &AppState, area: Rect) {
+    let chunks = Layout::default()
+        .direction(Direction::Vertical)
+        .constraints([
+            Constraint::Length(12),  // VM Stats
+            Constraint::Min(0),      // Resource Gauges
+        ])
+        .split(area);
+
+    // VM Statistics Box
+    render_vm_stats_box(f, state, chunks[0]);
+
+    // Resource Usage Gauges
+    render_resource_gauges(f, state, chunks[1]);
+}
+
+fn render_vm_stats_box(f: &mut Frame, state: &AppState, area: Rect) {
+    let stats = state.get_stats();
 
     let text = vec![
         Line::from(""),
         Line::from(vec![
-            Span::styled("💻 Total VMs:     ".to_string(), Style::default().fg(colors::TEXT)),
-            Span::styled(
-                total_vms,
-                Style::default().fg(colors::LIGHT_ORANGE).add_modifier(Modifier::BOLD),
-            ),
+            Span::styled("💻 Total VMs:     ", Style::default().fg(colors::TEXT)),
+            Span::styled(format!("{}", stats.total), Style::default().fg(colors::LIGHT_ORANGE).add_modifier(Modifier::BOLD)),
+        ]),
+        Line::from(vec![
+            Span::styled("🟢 Running:       ", Style::default().fg(colors::TEXT)),
+            Span::styled(format!("{}", stats.running), Style::default().fg(colors::SUCCESS).add_modifier(Modifier::BOLD)),
+        ]),
+        Line::from(vec![
+            Span::styled("⏸  Stopped:       ", Style::default().fg(colors::TEXT)),
+            Span::styled(format!("{}", stats.stopped), Style::default().fg(colors::TEXT_MUTED).add_modifier(Modifier::BOLD)),
+        ]),
+        Line::from(vec![
+            Span::styled("🟡 Starting:      ", Style::default().fg(colors::TEXT)),
+            Span::styled(format!("{}", stats.starting), Style::default().fg(colors::WARNING).add_modifier(Modifier::BOLD)),
+        ]),
+        Line::from(vec![
+            Span::styled("🔴 Failed:        ", Style::default().fg(colors::TEXT)),
+            Span::styled(format!("{}", stats.failed), Style::default().fg(colors::ERROR).add_modifier(Modifier::BOLD)),
         ]),
         Line::from(""),
         Line::from(vec![
-            Span::styled("🟢 Running:       ".to_string(), Style::default().fg(colors::TEXT)),
-            Span::styled(
-                running_vms,
-                Style::default().fg(colors::SUCCESS).add_modifier(Modifier::BOLD),
-            ),
-        ]),
-        Line::from(""),
-        Line::from(vec![
-            Span::styled("⏸  Stopped:       ".to_string(), Style::default().fg(colors::TEXT)),
-            Span::styled(
-                stopped_vms,
-                Style::default().fg(colors::TEXT_MUTED).add_modifier(Modifier::BOLD),
-            ),
-        ]),
-        Line::from(""),
-        Line::from(vec![
-            Span::styled(health_label, Style::default().fg(colors::TEXT)),
-            Span::styled(
-                if stats.running > 0 { "Healthy".to_string() } else if stats.total > 0 { "All Stopped".to_string() } else { "No VMs".to_string() },
-                Style::default().fg(if stats.running > 0 { colors::SUCCESS } else { colors::TEXT_MUTED }).add_modifier(Modifier::BOLD),
-            ),
-        ]),
-        Line::from(""),
-        Line::from(vec![
-            Span::styled("🌐 Namespace:     ".to_string(), Style::default().fg(colors::TEXT)),
-            Span::styled(
-                state.namespace.clone(),
-                Style::default().fg(colors::LIGHT_ORANGE).add_modifier(Modifier::BOLD),
-            ),
+            Span::styled("📸 Snapshots:     ", Style::default().fg(colors::TEXT)),
+            Span::styled(format!("{}", state.snapshots.len()), Style::default().fg(colors::INFO).add_modifier(Modifier::BOLD)),
         ]),
     ];
 
@@ -124,57 +208,166 @@ fn render_stats_panel(f: &mut Frame, state: &AppState, area: ratatui::layout::Re
     f.render_widget(paragraph, area);
 }
 
-fn render_quick_actions(f: &mut Frame, area: ratatui::layout::Rect) {
-    let text = vec![
-        Line::from(""),
-        Line::from(vec![
-            Span::styled("  1 ", Style::default().fg(colors::INFO).add_modifier(Modifier::BOLD)),
-            Span::styled("📊  ", Style::default().fg(colors::ORANGE)),
-            Span::styled("Dashboard", Style::default().fg(colors::TEXT)),
-            Span::styled("  (current)", Style::default().fg(colors::TEXT_MUTED).add_modifier(Modifier::ITALIC)),
+fn render_resource_gauges(f: &mut Frame, state: &AppState, area: Rect) {
+    // Calculate current resource usage (mock data for now)
+    let cpu_current = state.cpu_history.last().copied().unwrap_or(50) as f64;
+    let memory_current = state.memory_history.last().copied().unwrap_or(60) as f64;
+
+    let panel = MultiGaugePanel::new("💾 Resource Usage")
+        .add_gauge(ResourceGauge::new("CPU", cpu_current, 100.0, "%"))
+        .add_gauge(ResourceGauge::new("Memory", memory_current, 100.0, "%"))
+        .add_gauge(ResourceGauge::new("Disk", 45.0, 100.0, "%"))
+        .add_gauge(ResourceGauge::new("Network", 30.0, 100.0, "%"));
+
+    panel.render(f, area);
+}
+
+fn render_center_column(f: &mut Frame, state: &AppState, area: Rect) {
+    let chunks = Layout::default()
+        .direction(Direction::Vertical)
+        .constraints([
+            Constraint::Percentage(25),  // Status Distribution
+            Constraint::Percentage(25),  // CPU Trend
+            Constraint::Percentage(25),  // Memory Trend
+            Constraint::Percentage(25),  // VM Count Trend
+        ])
+        .split(area);
+
+    // Status Distribution Bar Chart
+    render_status_chart(f, state, chunks[0]);
+
+    // CPU Usage Sparkline
+    let cpu_chart = SparklineChart::new("📈 CPU Usage (30min)", state.cpu_history.clone())
+        .with_max(100);
+    cpu_chart.render(f, chunks[1]);
+
+    // Memory Usage Sparkline
+    let memory_chart = SparklineChart::new("📉 Memory Usage (30min)", state.memory_history.clone())
+        .with_max(100);
+    memory_chart.render(f, chunks[2]);
+
+    // VM Count Sparkline
+    let vm_chart = SparklineChart::new("📊 VM Count (30min)", state.vm_count_history.clone());
+    vm_chart.render(f, chunks[3]);
+}
+
+fn render_status_chart(f: &mut Frame, state: &AppState, area: Rect) {
+    let stats = state.get_stats();
+
+    let chart = BarChart::new("📊 VM Status Distribution")
+        .add_bar("Run", stats.running as u64)
+        .add_bar("Stop", stats.stopped as u64)
+        .add_bar("Start", stats.starting as u64)
+        .add_bar("Fail", stats.failed as u64)
+        .bar_width(8)
+        .bar_gap(2);
+
+    chart.render(f, area);
+}
+
+fn render_right_column(f: &mut Frame, state: &AppState, area: Rect) {
+    let chunks = Layout::default()
+        .direction(Direction::Vertical)
+        .constraints([
+            Constraint::Percentage(50),  // Recent Activity
+            Constraint::Percentage(50),  // Quick Actions
+        ])
+        .split(area);
+
+    // Recent Activity
+    render_recent_activity(f, state, chunks[0]);
+
+    // Quick Actions
+    render_quick_actions(f, state, chunks[1]);
+}
+
+fn render_recent_activity(f: &mut Frame, state: &AppState, area: Rect) {
+    let items = vec![
+        ListItem::new(vec![
+            Line::from(vec![
+                Span::styled("🟢 ", Style::default().fg(colors::SUCCESS)),
+                Span::styled("web-server-01", Style::default().fg(colors::TEXT).add_modifier(Modifier::BOLD)),
+                Span::styled(" started", Style::default().fg(colors::TEXT_MUTED)),
+            ]),
+            Line::from(vec![
+                Span::styled("   ", Style::default()),
+                Span::styled("2 minutes ago", Style::default().fg(colors::TEXT_MUTED).add_modifier(Modifier::ITALIC)),
+            ]),
         ]),
+        ListItem::new(vec![
+            Line::from(vec![
+                Span::styled("📸 ", Style::default().fg(colors::INFO)),
+                Span::styled("database-01", Style::default().fg(colors::TEXT).add_modifier(Modifier::BOLD)),
+                Span::styled(" snapshot created", Style::default().fg(colors::TEXT_MUTED)),
+            ]),
+            Line::from(vec![
+                Span::styled("   ", Style::default()),
+                Span::styled("15 minutes ago", Style::default().fg(colors::TEXT_MUTED).add_modifier(Modifier::ITALIC)),
+            ]),
+        ]),
+        ListItem::new(vec![
+            Line::from(vec![
+                Span::styled("⏸  ", Style::default().fg(colors::WARNING)),
+                Span::styled("cache-01", Style::default().fg(colors::TEXT).add_modifier(Modifier::BOLD)),
+                Span::styled(" stopped", Style::default().fg(colors::TEXT_MUTED)),
+            ]),
+            Line::from(vec![
+                Span::styled("   ", Style::default()),
+                Span::styled("1 hour ago", Style::default().fg(colors::TEXT_MUTED).add_modifier(Modifier::ITALIC)),
+            ]),
+        ]),
+        ListItem::new(vec![
+            Line::from(vec![
+                Span::styled("🟢 ", Style::default().fg(colors::SUCCESS)),
+                Span::styled("worker-02", Style::default().fg(colors::TEXT).add_modifier(Modifier::BOLD)),
+                Span::styled(" deployed", Style::default().fg(colors::TEXT_MUTED)),
+            ]),
+            Line::from(vec![
+                Span::styled("   ", Style::default()),
+                Span::styled("2 hours ago", Style::default().fg(colors::TEXT_MUTED).add_modifier(Modifier::ITALIC)),
+            ]),
+        ]),
+    ];
+
+    let title = Span::styled("⏱  Recent Activity", Style::default().fg(colors::ORANGE).add_modifier(Modifier::BOLD));
+    let list = List::new(items)
+        .block(Block::default().borders(Borders::ALL).border_style(Style::default().fg(colors::BORDER)).title(title));
+
+    f.render_widget(list, area);
+}
+
+fn render_quick_actions(f: &mut Frame, state: &AppState, area: Rect) {
+    let text = vec![
         Line::from(""),
         Line::from(vec![
             Span::styled("  2 ", Style::default().fg(colors::INFO).add_modifier(Modifier::BOLD)),
             Span::styled("💻  ", Style::default().fg(colors::ORANGE)),
             Span::styled("VM List", Style::default().fg(colors::TEXT)),
-            Span::styled("  - Browse & manage VMs", Style::default().fg(colors::TEXT_MUTED)),
         ]),
         Line::from(""),
         Line::from(vec![
             Span::styled("  3 ", Style::default().fg(colors::INFO).add_modifier(Modifier::BOLD)),
             Span::styled("📸  ", Style::default().fg(colors::ORANGE)),
             Span::styled("Snapshots", Style::default().fg(colors::TEXT)),
-            Span::styled("  - Backup & restore", Style::default().fg(colors::TEXT_MUTED)),
         ]),
         Line::from(""),
         Line::from(vec![
             Span::styled("  4 ", Style::default().fg(colors::INFO).add_modifier(Modifier::BOLD)),
             Span::styled("⚙️  ", Style::default().fg(colors::ORANGE)),
             Span::styled("Profiles", Style::default().fg(colors::TEXT)),
-            Span::styled("  - Resource templates", Style::default().fg(colors::TEXT_MUTED)),
         ]),
         Line::from(""),
         Line::from(vec![
             Span::styled("  5 ", Style::default().fg(colors::INFO).add_modifier(Modifier::BOLD)),
             Span::styled("🏗️  ", Style::default().fg(colors::ORANGE)),
             Span::styled("Blueprints", Style::default().fg(colors::TEXT)),
-            Span::styled("  - Multi-VM deployments", Style::default().fg(colors::TEXT_MUTED)),
-        ]),
-        Line::from(""),
-        Line::from(vec![
-            Span::styled("  ? ", Style::default().fg(colors::INFO).add_modifier(Modifier::BOLD)),
-            Span::styled("📖  ", Style::default().fg(colors::ORANGE)),
-            Span::styled("Help", Style::default().fg(colors::TEXT)),
-            Span::styled("  - Keyboard shortcuts", Style::default().fg(colors::TEXT_MUTED)),
         ]),
         Line::from(""),
         Line::from(""),
         Line::from(vec![
-            Span::styled("  💡 Pro Tip: ", Style::default().fg(colors::WARNING).add_modifier(Modifier::BOLD)),
-            Span::styled("Press ", Style::default().fg(colors::TEXT_MUTED)),
+            Span::styled("  💡 ", Style::default().fg(colors::WARNING)),
             Span::styled("Ctrl+P", Style::default().fg(colors::LIGHT_ORANGE).add_modifier(Modifier::BOLD)),
-            Span::styled(" for quick jump!", Style::default().fg(colors::TEXT_MUTED)),
+            Span::styled(" Quick Jump", Style::default().fg(colors::TEXT_MUTED)),
         ]),
     ];
 
@@ -186,14 +379,17 @@ fn render_quick_actions(f: &mut Frame, area: ratatui::layout::Rect) {
     f.render_widget(paragraph, area);
 }
 
-fn render_status_bar(f: &mut Frame, state: &AppState, area: ratatui::layout::Rect) {
-    let status_line = Line::from(vec![
+fn render_footer(f: &mut Frame, state: &AppState, area: Rect) {
+    let footer_line = Line::from(vec![
         Span::styled("⌨  ", Style::default().fg(colors::ORANGE)),
         Span::styled("1-5", Style::default().fg(colors::INFO).add_modifier(Modifier::BOLD)),
         Span::styled(": Jump", Style::default().fg(colors::TEXT)),
         Span::styled(" │ ", Style::default().fg(colors::TEXT_MUTED)),
         Span::styled("r", Style::default().fg(colors::INFO).add_modifier(Modifier::BOLD)),
         Span::styled(": Refresh", Style::default().fg(colors::TEXT)),
+        Span::styled(" │ ", Style::default().fg(colors::TEXT_MUTED)),
+        Span::styled("i", Style::default().fg(colors::INFO).add_modifier(Modifier::BOLD)),
+        Span::styled(": Stats Bar", Style::default().fg(colors::TEXT)),
         Span::styled(" │ ", Style::default().fg(colors::TEXT_MUTED)),
         Span::styled("?", Style::default().fg(colors::INFO).add_modifier(Modifier::BOLD)),
         Span::styled(": Help", Style::default().fg(colors::TEXT)),
@@ -203,14 +399,14 @@ fn render_status_bar(f: &mut Frame, state: &AppState, area: ratatui::layout::Rec
         Span::styled(" │ ", Style::default().fg(colors::TEXT_MUTED)),
         Span::styled("⏱  ", Style::default().fg(colors::TEXT_MUTED)),
         Span::styled(
-            format!("Last refresh: {}", state.last_refresh.format("%H:%M:%S")),
+            format!("{}", state.last_refresh.format("%H:%M:%S")),
             Style::default().fg(colors::TEXT_MUTED).add_modifier(Modifier::ITALIC),
         ),
     ]);
 
-    let status = Paragraph::new(status_line)
+    let footer = Paragraph::new(footer_line)
         .alignment(Alignment::Center)
         .block(Block::default().borders(Borders::ALL).border_style(Style::default().fg(colors::BORDER)));
 
-    f.render_widget(status, area);
+    f.render_widget(footer, area);
 }

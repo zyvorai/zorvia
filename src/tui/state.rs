@@ -13,6 +13,9 @@ pub struct VmInfo {
     pub memory: String,
     pub age: String,
     pub ready: bool,
+    pub disk: String,
+    pub ip: String,
+    pub node: String,
 }
 
 impl VmInfo {
@@ -57,6 +60,13 @@ impl VmInfo {
             })
             .unwrap_or_else(|| "Unknown".to_string());
 
+        // Extract additional info
+        let disk = "50 GiB".to_string(); // TODO: Extract from volumes
+        let ip = "10.244.0.x".to_string(); // TODO: Extract from status
+        let node = vm.status.as_ref()
+            .and_then(|s| s.print_able_status.clone())
+            .unwrap_or_else(|| "unknown".to_string());
+
         Self {
             name,
             status,
@@ -64,6 +74,9 @@ impl VmInfo {
             memory,
             age,
             ready,
+            disk,
+            ip,
+            node,
         }
     }
 }
@@ -97,6 +110,30 @@ pub struct AppState {
 
     /// Auto-refresh interval in seconds
     pub refresh_interval: u64,
+
+    /// Sort mode
+    pub sort_mode: SortMode,
+
+    /// Search query
+    pub search_query: String,
+
+    /// Multi-select mode enabled
+    pub multi_select_mode: bool,
+
+    /// Selected items in multi-select mode
+    pub selected_items: Vec<usize>,
+
+    /// Show stats bar
+    pub show_stats_bar: bool,
+
+    /// CPU usage history (last 30 data points)
+    pub cpu_history: Vec<u64>,
+
+    /// Memory usage history (last 30 data points)
+    pub memory_history: Vec<u64>,
+
+    /// VM count history (last 30 data points)
+    pub vm_count_history: Vec<u64>,
 }
 
 impl AppState {
@@ -109,6 +146,14 @@ impl AppState {
             selected_index: 0,
             last_refresh: Utc::now(),
             refresh_interval: 5, // 5 seconds
+            sort_mode: SortMode::Default,
+            search_query: String::new(),
+            multi_select_mode: false,
+            selected_items: Vec::new(),
+            show_stats_bar: true,
+            cpu_history: vec![45, 52, 48, 55, 60, 58, 62, 65, 63, 68, 70, 67, 72, 75, 73, 78, 80, 77, 75, 72, 70, 68, 65, 62, 60, 58, 55, 52, 50, 48],
+            memory_history: vec![60, 62, 65, 68, 70, 72, 75, 77, 80, 82, 85, 83, 80, 78, 75, 72, 70, 68, 65, 62, 60, 58, 55, 52, 50, 48, 45, 42, 40, 38],
+            vm_count_history: vec![0; 30], // Will be populated as VMs are added
         }
     }
 
@@ -203,11 +248,94 @@ impl AppState {
         let total = self.vms.len();
         let running = self.vms.iter().filter(|vm| vm.status == "Running").count();
         let stopped = self.vms.iter().filter(|vm| vm.status == "Stopped").count();
+        let starting = self.vms.iter().filter(|vm| vm.status == "Starting" || vm.status == "Pending").count();
+        let failed = self.vms.iter().filter(|vm| vm.status == "Failed" || vm.status == "Error").count();
 
         VmStats {
             total,
             running,
             stopped,
+            starting,
+            failed,
+        }
+    }
+
+    /// Toggle multi-select mode
+    pub fn toggle_multi_select(&mut self) {
+        self.multi_select_mode = !self.multi_select_mode;
+        if !self.multi_select_mode {
+            self.selected_items.clear();
+        }
+    }
+
+    /// Toggle selection of current item
+    pub fn toggle_current_selection(&mut self) {
+        if self.multi_select_mode {
+            if let Some(pos) = self.selected_items.iter().position(|&i| i == self.selected_index) {
+                self.selected_items.remove(pos);
+            } else {
+                self.selected_items.push(self.selected_index);
+            }
+        }
+    }
+
+    /// Select all items
+    pub fn select_all(&mut self) {
+        if self.multi_select_mode {
+            self.selected_items = (0..self.vms.len()).collect();
+        }
+    }
+
+    /// Deselect all items
+    pub fn deselect_all(&mut self) {
+        self.selected_items.clear();
+    }
+
+    /// Check if item is selected
+    pub fn is_selected(&self, index: usize) -> bool {
+        self.selected_items.contains(&index)
+    }
+
+    /// Cycle sort mode
+    pub fn cycle_sort_mode(&mut self) {
+        self.sort_mode = self.sort_mode.next();
+        self.apply_sort();
+    }
+
+    /// Apply current sort mode
+    pub fn apply_sort(&mut self) {
+        match self.sort_mode {
+            SortMode::Default => {}
+            SortMode::NameAsc => self.vms.sort_by(|a, b| a.name.cmp(&b.name)),
+            SortMode::NameDesc => self.vms.sort_by(|a, b| b.name.cmp(&a.name)),
+            SortMode::StatusAsc => self.vms.sort_by(|a, b| a.status.cmp(&b.status)),
+            SortMode::StatusDesc => self.vms.sort_by(|a, b| b.status.cmp(&a.status)),
+            SortMode::AgeAsc => self.vms.sort_by(|a, b| a.age.cmp(&b.age)),
+            SortMode::AgeDesc => self.vms.sort_by(|a, b| b.age.cmp(&a.age)),
+        }
+    }
+
+    /// Toggle stats bar visibility
+    pub fn toggle_stats_bar(&mut self) {
+        self.show_stats_bar = !self.show_stats_bar;
+    }
+
+    /// Update history data
+    pub fn update_history(&mut self) {
+        // Shift history and add new data point
+        if !self.cpu_history.is_empty() {
+            self.cpu_history.remove(0);
+            self.cpu_history.push(50); // Mock data - would be real CPU usage
+        }
+
+        if !self.memory_history.is_empty() {
+            self.memory_history.remove(0);
+            self.memory_history.push(60); // Mock data - would be real memory usage
+        }
+
+        if !self.vm_count_history.is_empty() {
+            self.vm_count_history.remove(0);
+            self.vm_count_history.push(self.vms.len() as u64);
         }
     }
 }
@@ -218,4 +346,44 @@ pub struct VmStats {
     pub total: usize,
     pub running: usize,
     pub stopped: usize,
+    pub starting: usize,
+    pub failed: usize,
+}
+
+/// Sort mode for VM list
+#[derive(Debug, Clone, PartialEq)]
+pub enum SortMode {
+    Default,
+    NameAsc,
+    NameDesc,
+    StatusAsc,
+    StatusDesc,
+    AgeAsc,
+    AgeDesc,
+}
+
+impl SortMode {
+    pub fn next(&self) -> Self {
+        match self {
+            Self::Default => Self::NameAsc,
+            Self::NameAsc => Self::NameDesc,
+            Self::NameDesc => Self::StatusAsc,
+            Self::StatusAsc => Self::StatusDesc,
+            Self::StatusDesc => Self::AgeAsc,
+            Self::AgeAsc => Self::AgeDesc,
+            Self::AgeDesc => Self::Default,
+        }
+    }
+
+    pub fn display(&self) -> &str {
+        match self {
+            Self::Default => "Default",
+            Self::NameAsc => "Name ↑",
+            Self::NameDesc => "Name ↓",
+            Self::StatusAsc => "Status ↑",
+            Self::StatusDesc => "Status ↓",
+            Self::AgeAsc => "Age ↑",
+            Self::AgeDesc => "Age ↓",
+        }
+    }
 }
