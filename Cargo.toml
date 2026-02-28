@@ -5,6 +5,13 @@ edition = "2021"
 description = "Craft VMs for KubeVirt with Rust power"
 license = "Apache-2.0"
 authors = ["Susant Sahani"]
+repository = "https://github.com/zyvorai/zorvia"
+homepage = "https://github.com/zyvorai/zorvia"
+documentation = "https://docs.rs/zorvia"
+readme = "README.md"
+keywords = ["kubevirt", "kubernetes", "virtual-machine", "kvm", "cli"]
+categories = ["command-line-utilities", "virtualization"]
+rust-version = "1.70"
 
 [[bin]]
 name = "zorvia"
