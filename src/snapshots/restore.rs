@@ -231,11 +231,11 @@ mod tests {
         assert!(result.is_err() || result.is_ok());
     }
 
-    #[test]
-    fn test_estimate_restore_time() {
-        let client = Client::try_default();
+    #[tokio::test]
+    async fn test_estimate_restore_time() {
+        let client = Client::try_default().await;
         // Create a manager for testing (won't actually connect)
-        if let Ok(c) = client.await {
+        if let Ok(c) = client {
             let manager = RestoreManager::from_client(c, "default");
 
             assert_eq!(manager.estimate_restore_time(5), "~1 minutes");

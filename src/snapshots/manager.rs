@@ -284,13 +284,13 @@ mod tests {
     // Note: These tests require a Kubernetes cluster with KubeVirt
     // For unit tests without cluster access, use mock tests
 
-    #[test]
-    fn test_snapshot_to_info_conversion() {
+    #[tokio::test]
+    async fn test_snapshot_to_info_conversion() {
         // Test the conversion logic without needing a real cluster
-        let client = Client::try_default();
+        let client = Client::try_default().await;
         // This will fail without a cluster, but that's expected in unit tests
         // Integration tests would be run separately
-        assert!(client.await.is_err() || client.await.is_ok());
+        assert!(client.is_err() || client.is_ok());
     }
 
     #[tokio::test]
