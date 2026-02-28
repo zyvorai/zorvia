@@ -2067,6 +2067,10 @@ pub enum Commands {
         #[arg(long)]
         force: bool,
     },
+
+    /// List all commands grouped by category
+    #[command(name = "commands")]
+    CommandList,
 }
 
 #[cfg(test)]
