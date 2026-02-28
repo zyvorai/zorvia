@@ -39,19 +39,41 @@ pub mod handlers;
 
 use anyhow::Result;
 use cli::{Cli, Commands};
+use config::AppConfig;
 
 /// Main entry point for the library
-pub async fn run(cli: Cli) -> Result<()> {
-    // Initialize logging
-    if cli.verbose {
-        env_logger::Builder::from_default_env()
-            .filter_level(log::LevelFilter::Debug)
-            .init();
-    } else {
-        env_logger::Builder::from_default_env()
-            .filter_level(log::LevelFilter::Info)
-            .init();
+pub async fn run(mut cli: Cli) -> Result<()> {
+    // Load application config file (~/.config/zorvia/config.toml)
+    let app_config = AppConfig::load().unwrap_or_default();
+
+    // Apply config file defaults where CLI didn't override
+    if cli.namespace == "default" {
+        if let Some(ref kc) = app_config.kubeconfig {
+            if cli.kubeconfig.is_none() {
+                cli.kubeconfig = Some(kc.clone());
+            }
+        }
+        if app_config.namespace != "default" {
+            cli.namespace = app_config.namespace.clone();
+        }
     }
+
+    // Initialize logging based on config + CLI
+    let log_level = if cli.verbose {
+        log::LevelFilter::Debug
+    } else {
+        match app_config.logging.level.as_str() {
+            "error" => log::LevelFilter::Error,
+            "warn" => log::LevelFilter::Warn,
+            "debug" => log::LevelFilter::Debug,
+            "trace" => log::LevelFilter::Trace,
+            _ => log::LevelFilter::Info,
+        }
+    };
+
+    env_logger::Builder::from_default_env()
+        .filter_level(log_level)
+        .init();
 
     match cli.command {
         // ========== CORE VM MANAGEMENT ==========
@@ -546,8 +568,17 @@ pub async fn run(cli: Cli) -> Result<()> {
         }
         // ========== API & REST INTERFACE ==========
 
-        Commands::ApiServe { port, host, tls, tls_cert, tls_key, auth, rate_limit } =>
-            handlers::api::handle_api_serve(port, host, tls, tls_cert, tls_key, auth, rate_limit)?,
+        Commands::ApiServe { port, host, tls, tls_cert, tls_key, auth, rate_limit } => {
+            // Merge CLI args with config file (CLI takes priority)
+            let port = if port == 8080 { app_config.api.port } else { port };
+            let host = if host == "0.0.0.0" { app_config.api.host.clone() } else { host };
+            let tls = tls || app_config.api.tls;
+            let tls_cert = tls_cert.or(app_config.api.tls_cert.clone());
+            let tls_key = tls_key.or(app_config.api.tls_key.clone());
+            let auth = if auth == "none" { app_config.api.auth.clone() } else { auth };
+            let rate_limit = if rate_limit == 60 { app_config.api.rate_limit } else { rate_limit };
+            handlers::api::handle_api_serve(port, host, tls, tls_cert, tls_key, auth, rate_limit)?;
+        }
         Commands::ApiStatus { output } =>
             handlers::api::handle_api_status(output)?,
         Commands::ApiRoutes { method, output } =>
@@ -568,6 +599,50 @@ pub async fn run(cli: Cli) -> Result<()> {
             handlers::api::handle_webhook_delete(webhook, yes)?,
         Commands::Tui { no_splash: _, theme, interactive } =>
             handlers::api::handle_tui(cli.namespace.clone(), theme, interactive).await?,
+
+        // ========== CONFIGURATION ==========
+
+        Commands::ConfigShow { path } => {
+            let config_path = AppConfig::default_path()?;
+            if path {
+                println!("{}", config_path.display());
+            } else {
+                use tui::colors::cli as color;
+                println!("{}", color::header("Zorvia Configuration"));
+                println!();
+                println!("  Config file: {}", config_path.display());
+                println!("  Exists:      {}", if config_path.exists() {
+                    color::success("yes")
+                } else {
+                    color::warning("no (using defaults)")
+                });
+                println!();
+
+                let content = toml::to_string_pretty(&app_config)?;
+                println!("{}", content);
+            }
+        }
+
+        Commands::ConfigInit { force } => {
+            use tui::colors::cli as color;
+            let config_path = AppConfig::default_path()?;
+
+            if config_path.exists() && !force {
+                println!("{}", color::warning(&format!(
+                    "Config file already exists: {}", config_path.display()
+                )));
+                println!("  Use --force to overwrite");
+                return Ok(());
+            }
+
+            app_config.save()?;
+            println!("{}", color::success(&format!(
+                "✓ Config file created: {}", config_path.display()
+            )));
+            println!();
+            println!("Edit it to customize defaults:");
+            println!("  namespace, API port/host, logging level, output format, etc.");
+        }
     }
 
     Ok(())

@@ -2065,6 +2065,22 @@ pub enum Commands {
         #[arg(short, long)]
         interactive: bool,
     },
+
+    /// Show current configuration
+    #[command(name = "config-show")]
+    ConfigShow {
+        /// Show config file path only
+        #[arg(long)]
+        path: bool,
+    },
+
+    /// Initialize default configuration file
+    #[command(name = "config-init")]
+    ConfigInit {
+        /// Overwrite existing config file
+        #[arg(long)]
+        force: bool,
+    },
 }
 
 #[cfg(test)]
