@@ -254,8 +254,13 @@ mod tests {
             tags: vec!["test".to_string()],
         };
 
-        // Should succeed
-        assert!(manager.create_custom(custom.clone()).is_ok());
+        // Should succeed (may fail if blueprint already exists from previous test run)
+        let result = manager.create_custom(custom.clone());
+        if result.is_err() {
+            // Clean up and retry
+            let _ = manager.delete_custom("custom-test");
+            manager.create_custom(custom.clone()).unwrap();
+        }
 
         // Should exist now
         assert!(manager.exists("custom-test"));
@@ -263,5 +268,8 @@ mod tests {
 
         // Creating again should fail
         assert!(manager.create_custom(custom).is_err());
+
+        // Clean up
+        let _ = manager.delete_custom("custom-test");
     }
 }

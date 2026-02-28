@@ -378,7 +378,7 @@ mod tests {
     fn test_manager_enabled_policies() {
         let mut manager = SyncManager::new();
 
-        let mut policy1 = DataSyncPolicy::new("P1", SyncDirection::EdgeToCloud, "s", "d", 60);
+        let policy1 = DataSyncPolicy::new("P1", SyncDirection::EdgeToCloud, "s", "d", 60);
         let mut policy2 = DataSyncPolicy::new("P2", SyncDirection::CloudToEdge, "s", "d", 60);
         policy2.disable();
 

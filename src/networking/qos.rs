@@ -549,7 +549,7 @@ mod tests {
     fn test_manager_enabled_policies() {
         let mut manager = QoSManager::new();
 
-        let mut policy1 = QoSPolicy::new("p1", TrafficClass::Priority);
+        let policy1 = QoSPolicy::new("p1", TrafficClass::Priority);
         let mut policy2 = QoSPolicy::new("p2", TrafficClass::BestEffort);
         policy2.disable();
 
@@ -576,7 +576,7 @@ mod tests {
     fn test_manager_enabled_shaping_rules() {
         let mut manager = QoSManager::new();
 
-        let mut rule1 = TrafficShapingRule::new("r1", 100);
+        let rule1 = TrafficShapingRule::new("r1", 100);
         let mut rule2 = TrafficShapingRule::new("r2", 200);
         rule2.disable();
 

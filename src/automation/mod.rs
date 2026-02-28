@@ -413,7 +413,7 @@ mod tests {
 
     #[test]
     fn test_condition_evaluation() {
-        let mut context = AutomationContext::new()
+        let context = AutomationContext::new()
             .with_vm("test-vm")
             .with_namespace("default");
 

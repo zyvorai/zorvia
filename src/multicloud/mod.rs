@@ -452,7 +452,7 @@ mod tests {
     fn test_manager_enabled_regions() {
         let mut manager = MultiCloudManager::new();
 
-        let mut region1 = CloudRegion::new("r1", CloudProvider::AWS, "US", "e1");
+        let region1 = CloudRegion::new("r1", CloudProvider::AWS, "US", "e1");
         let mut region2 = CloudRegion::new("r2", CloudProvider::Azure, "EU", "e2");
         region2.disable();
 

@@ -268,7 +268,7 @@ mod tests {
 
     #[test]
     fn test_inference_metrics() {
-        let mut metrics = InferenceMetrics::new();
+        let metrics = InferenceMetrics::new();
 
         assert_eq!(metrics.total_requests, 0);
         assert_eq!(metrics.successful_requests, 0);

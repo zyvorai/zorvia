@@ -441,7 +441,7 @@ mod tests {
     fn test_manager_connected_deployments() {
         let mut manager = EdgeManager::new();
 
-        let mut deployment1 = EdgeDeployment::new("Site-A", LocationType::EdgeSite, "us-west-1");
+        let deployment1 = EdgeDeployment::new("Site-A", LocationType::EdgeSite, "us-west-1");
         let mut deployment2 = EdgeDeployment::new("Site-B", LocationType::RemoteSite, "us-east-1");
         deployment2.set_connectivity(ConnectivityStatus::Disconnected);
 

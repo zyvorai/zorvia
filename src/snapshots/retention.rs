@@ -156,6 +156,7 @@ impl RetentionEnforcer {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[allow(unused_imports)]
     use crate::snapshots::SnapshotConfig;
 
     #[tokio::test]

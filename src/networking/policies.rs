@@ -585,7 +585,7 @@ mod tests {
     fn test_manager_enabled_rules() {
         let mut manager = PolicyManager::new();
 
-        let mut rule1 = NetworkPolicyRule::new("r1", PolicyAction::Allow, TrafficDirection::Ingress);
+        let rule1 = NetworkPolicyRule::new("r1", PolicyAction::Allow, TrafficDirection::Ingress);
         let mut rule2 = NetworkPolicyRule::new("r2", PolicyAction::Deny, TrafficDirection::Egress);
         rule2.disable();
 

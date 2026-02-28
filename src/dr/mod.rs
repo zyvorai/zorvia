@@ -469,7 +469,7 @@ mod tests {
     fn test_manager_protected_resources() {
         let mut manager = DRManager::new();
 
-        let mut resource1 = ProtectedResource::new("vm-1", "VirtualMachine", "default", "dr-1");
+        let resource1 = ProtectedResource::new("vm-1", "VirtualMachine", "default", "dr-1");
         let mut resource2 = ProtectedResource::new("vm-2", "VirtualMachine", "default", "dr-1");
         resource2.disable_protection();
 

@@ -221,7 +221,9 @@ impl Default for MonitoringReporter {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[allow(unused_imports)]
     use crate::monitoring::analyzer::{Bottleneck, PerformanceStatus};
+    #[allow(unused_imports)]
     use crate::monitoring::metrics::{VMMetrics, CPUMetrics, MemoryMetrics, DiskMetrics, NetworkMetrics};
 
     #[test]

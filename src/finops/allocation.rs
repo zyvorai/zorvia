@@ -412,7 +412,7 @@ mod tests {
     fn test_manager_active_rules() {
         let mut manager = AllocationManager::new();
 
-        let mut rule1 = AllocationRule::new("R1", AllocationMethod::EqualSplit);
+        let rule1 = AllocationRule::new("R1", AllocationMethod::EqualSplit);
         let mut rule2 = AllocationRule::new("R2", AllocationMethod::Proportional);
         rule2.deactivate();
 

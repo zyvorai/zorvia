@@ -296,7 +296,7 @@ mod tests {
     fn test_manager_active_streams() {
         let mut manager = TelemetryManager::new();
 
-        let mut stream1 = TelemetryStream::new("s1", TelemetryType::Metric, "src", "dst");
+        let stream1 = TelemetryStream::new("s1", TelemetryType::Metric, "src", "dst");
         let mut stream2 = TelemetryStream::new("s2", TelemetryType::Log, "src", "dst");
         stream2.deactivate();
 

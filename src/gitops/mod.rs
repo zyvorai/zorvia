@@ -426,7 +426,7 @@ mod tests {
 
     #[test]
     fn test_sync_operation() {
-        let mut operation = SyncOperation::new("app-1", false);
+        let operation = SyncOperation::new("app-1", false);
 
         assert_eq!(operation.app_id, "app-1");
         assert!(!operation.dry_run);

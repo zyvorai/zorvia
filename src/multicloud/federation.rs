@@ -669,7 +669,7 @@ mod tests {
     fn test_manager_enabled_policies() {
         let mut manager = FederationManager::new();
 
-        let mut policy1 = OrchestrationPolicy::new("p1", "fed-1", PolicyType::Placement, SchedulingStrategy::LeastLoaded);
+        let policy1 = OrchestrationPolicy::new("p1", "fed-1", PolicyType::Placement, SchedulingStrategy::LeastLoaded);
         let mut policy2 = OrchestrationPolicy::new("p2", "fed-1", PolicyType::Scaling, SchedulingStrategy::CostOptimized);
         policy2.disable();
 

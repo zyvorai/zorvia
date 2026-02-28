@@ -223,7 +223,7 @@ mod tests {
 
     #[test]
     fn test_validate_duplicate_disk_names() {
-        let mut config = VMConfigBuilder::new("test")
+        let config = VMConfigBuilder::new("test")
             .namespace("default")
             .cpu(2, 1, 1)
             .memory("4Gi")

@@ -273,7 +273,7 @@ mod tests {
     fn test_manager_operational_links() {
         let mut manager = TopologyManager::new();
 
-        let mut link1 = NetworkLink::new("link1", "a", "b", 1000);
+        let link1 = NetworkLink::new("link1", "a", "b", 1000);
         let mut link2 = NetworkLink::new("link2", "b", "c", 1000);
         link2.set_status(LinkStatus::Down);
 

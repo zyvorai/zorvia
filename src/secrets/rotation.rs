@@ -362,7 +362,7 @@ mod tests {
     fn test_manager_enabled_policies() {
         let mut manager = RotationManager::new();
 
-        let mut policy1 = RotationPolicy::new("p1", RotationStrategy::Automatic, 30);
+        let policy1 = RotationPolicy::new("p1", RotationStrategy::Automatic, 30);
         let mut policy2 = RotationPolicy::new("p2", RotationStrategy::Manual, 60);
         policy2.disable();
 

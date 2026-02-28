@@ -454,7 +454,7 @@ mod tests {
     fn test_manager_active_rules() {
         let mut manager = WasteManager::new();
 
-        let mut rule1 = WasteDetectionRule::new("R1", WasteType::Idle, "compute");
+        let rule1 = WasteDetectionRule::new("R1", WasteType::Idle, "compute");
         let mut rule2 = WasteDetectionRule::new("R2", WasteType::Underutilized, "storage");
         rule2.deactivate();
 

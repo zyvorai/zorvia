@@ -491,7 +491,7 @@ mod tests {
     fn test_manager_enabled_configs() {
         let mut manager = ProviderManager::new();
 
-        let mut config1 = ProviderConfig::new("c1", CloudProvider::AWS, "e1", "us-east-1", "cred-1");
+        let config1 = ProviderConfig::new("c1", CloudProvider::AWS, "e1", "us-east-1", "cred-1");
         let mut config2 = ProviderConfig::new("c2", CloudProvider::Azure, "e2", "eastus", "cred-2");
         config2.disable();
 
