@@ -603,19 +603,22 @@ pub async fn run(mut cli: Cli) -> Result<()> {
         // ========== CONFIGURATION ==========
 
         Commands::ConfigShow { path } => {
-            let config_path = AppConfig::default_path()?;
+            let user_path = AppConfig::user_path()?;
+            let system_path = AppConfig::system_path();
             if path {
-                println!("{}", config_path.display());
+                println!("{}", user_path.display());
             } else {
                 use tui::colors::cli as color;
                 println!("{}", color::header("Zorvia Configuration"));
                 println!();
-                println!("  Config file: {}", config_path.display());
-                println!("  Exists:      {}", if config_path.exists() {
-                    color::success("yes")
-                } else {
-                    color::warning("no (using defaults)")
-                });
+                println!("  System config: {}  {}", system_path.display(),
+                    if system_path.exists() { color::success("(loaded)") }
+                    else { color::muted("(not found)") });
+                println!("  User config:   {}  {}", user_path.display(),
+                    if user_path.exists() { color::success("(loaded)") }
+                    else { color::muted("(not found)") });
+                println!();
+                println!("  Priority: CLI args > user config > system config > defaults");
                 println!();
 
                 let content = toml::to_string_pretty(&app_config)?;
