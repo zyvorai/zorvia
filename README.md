@@ -332,7 +332,7 @@ fn main() -> anyhow::Result<()> {
 
 ## 🎯 Roadmap
 
-### Current Status (v0.1.0) ✅
+### Current Status (v0.2.0) ✅
 
 #### Innovative Features ✅
 - ✅ 8 VM resource profiles (minimal, dev, test, web, prod, database, microservice, high-perf)
