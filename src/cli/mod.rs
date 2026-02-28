@@ -2067,3 +2067,263 @@ pub enum Commands {
     },
 }
 
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use clap::Parser;
+
+    fn parse(args: &[&str]) -> Result<Cli, clap::Error> {
+        Cli::try_parse_from(args)
+    }
+
+    #[test]
+    fn test_create_command() {
+        let cli = parse(&["zorvia", "create", "my-vm", "--template", "ubuntu"]).unwrap();
+        match cli.command {
+            Commands::Create { name, template, .. } => {
+                assert_eq!(name, "my-vm");
+                assert_eq!(template, Some("ubuntu".to_string()));
+            }
+            _ => panic!("Expected Create command"),
+        }
+    }
+
+    #[test]
+    fn test_create_with_resources() {
+        let cli = parse(&["zorvia", "create", "test-vm", "--template", "fedora",
+            "--cpus", "4", "--memory", "8Gi", "--disk-size", "100Gi"]).unwrap();
+        match cli.command {
+            Commands::Create { name, cpus, memory, disk_size, .. } => {
+                assert_eq!(name, "test-vm");
+                assert_eq!(cpus, Some(4));
+                assert_eq!(memory, Some("8Gi".to_string()));
+                assert_eq!(disk_size, Some("100Gi".to_string()));
+            }
+            _ => panic!("Expected Create command"),
+        }
+    }
+
+    #[test]
+    fn test_create_dry_run() {
+        let cli = parse(&["zorvia", "create", "my-vm", "--template", "ubuntu", "--dry-run"]).unwrap();
+        match cli.command {
+            Commands::Create { dry_run, .. } => assert!(dry_run),
+            _ => panic!("Expected Create command"),
+        }
+    }
+
+    #[test]
+    fn test_list_command() {
+        let cli = parse(&["zorvia", "list"]).unwrap();
+        match cli.command {
+            Commands::List { all_namespaces, output } => {
+                assert!(!all_namespaces);
+                assert_eq!(output, "table");
+            }
+            _ => panic!("Expected List command"),
+        }
+    }
+
+    #[test]
+    fn test_list_all_namespaces() {
+        let cli = parse(&["zorvia", "list", "-A"]).unwrap();
+        match cli.command {
+            Commands::List { all_namespaces, .. } => assert!(all_namespaces),
+            _ => panic!("Expected List command"),
+        }
+    }
+
+    #[test]
+    fn test_get_command() {
+        let cli = parse(&["zorvia", "get", "my-vm"]).unwrap();
+        match cli.command {
+            Commands::Get { name, .. } => assert_eq!(name, "my-vm"),
+            _ => panic!("Expected Get command"),
+        }
+    }
+
+    #[test]
+    fn test_delete_command() {
+        let cli = parse(&["zorvia", "delete", "my-vm", "--yes"]).unwrap();
+        match cli.command {
+            Commands::Delete { name, yes } => {
+                assert_eq!(name, "my-vm");
+                assert!(yes);
+            }
+            _ => panic!("Expected Delete command"),
+        }
+    }
+
+    #[test]
+    fn test_start_stop_restart() {
+        let cli = parse(&["zorvia", "start", "vm1"]).unwrap();
+        assert!(matches!(cli.command, Commands::Start { name } if name == "vm1"));
+
+        let cli = parse(&["zorvia", "stop", "vm1"]).unwrap();
+        assert!(matches!(cli.command, Commands::Stop { name } if name == "vm1"));
+
+        let cli = parse(&["zorvia", "restart", "vm1"]).unwrap();
+        assert!(matches!(cli.command, Commands::Restart { name } if name == "vm1"));
+    }
+
+    #[test]
+    fn test_namespace_default() {
+        let cli = parse(&["zorvia", "list"]).unwrap();
+        assert_eq!(cli.namespace, "default");
+    }
+
+    #[test]
+    fn test_namespace_override() {
+        let cli = parse(&["zorvia", "--namespace", "prod", "list"]).unwrap();
+        assert_eq!(cli.namespace, "prod");
+    }
+
+    #[test]
+    fn test_verbose_flag() {
+        let cli = parse(&["zorvia", "-v", "list"]).unwrap();
+        assert!(cli.verbose);
+    }
+
+    #[test]
+    fn test_generate_command() {
+        let cli = parse(&["zorvia", "generate", "test-vm", "--template", "ubuntu", "--format", "json"]).unwrap();
+        match cli.command {
+            Commands::Generate { name, template, format, .. } => {
+                assert_eq!(name, "test-vm");
+                assert_eq!(template, Some("ubuntu".to_string()));
+                assert_eq!(format, "json");
+            }
+            _ => panic!("Expected Generate command"),
+        }
+    }
+
+    #[test]
+    fn test_templates_command() {
+        let cli = parse(&["zorvia", "templates"]).unwrap();
+        assert!(matches!(cli.command, Commands::Templates));
+    }
+
+    #[test]
+    fn test_validate_command() {
+        let cli = parse(&["zorvia", "validate", "config.yaml"]).unwrap();
+        match cli.command {
+            Commands::Validate { file } => assert_eq!(file, "config.yaml"),
+            _ => panic!("Expected Validate command"),
+        }
+    }
+
+    #[test]
+    fn test_profiles_command() {
+        let cli = parse(&["zorvia", "profiles", "--details"]).unwrap();
+        match cli.command {
+            Commands::Profiles { details } => assert!(details),
+            _ => panic!("Expected Profiles command"),
+        }
+    }
+
+    #[test]
+    fn test_health_command() {
+        let cli = parse(&["zorvia", "health", "my-vm", "--detailed"]).unwrap();
+        match cli.command {
+            Commands::Health { target, detailed } => {
+                assert_eq!(target, "my-vm");
+                assert!(detailed);
+            }
+            _ => panic!("Expected Health command"),
+        }
+    }
+
+    #[test]
+    fn test_cost_analyze() {
+        let cli = parse(&["zorvia", "cost-analyze", "db-vm", "--period", "weekly"]).unwrap();
+        match cli.command {
+            Commands::CostAnalyze { vm, period, .. } => {
+                assert_eq!(vm, Some("db-vm".to_string()));
+                assert_eq!(period, "weekly");
+            }
+            _ => panic!("Expected CostAnalyze command"),
+        }
+    }
+
+    #[test]
+    fn test_security_scan() {
+        let cli = parse(&["zorvia", "security-scan", "web-vm", "--scan-type", "deep", "--containers"]).unwrap();
+        match cli.command {
+            Commands::SecurityScan { vm, scan_type, containers, .. } => {
+                assert_eq!(vm, "web-vm");
+                assert_eq!(scan_type, "deep");
+                assert!(containers);
+            }
+            _ => panic!("Expected SecurityScan command"),
+        }
+    }
+
+    #[test]
+    fn test_tui_command() {
+        let cli = parse(&["zorvia", "tui", "--interactive"]).unwrap();
+        match cli.command {
+            Commands::Tui { interactive, .. } => assert!(interactive),
+            _ => panic!("Expected Tui command"),
+        }
+    }
+
+    #[test]
+    fn test_unknown_command_fails() {
+        assert!(parse(&["zorvia", "nonexistent"]).is_err());
+    }
+
+    #[test]
+    fn test_missing_required_arg_fails() {
+        assert!(parse(&["zorvia", "create"]).is_err()); // name is required
+    }
+
+    #[test]
+    fn test_clone_command() {
+        let cli = parse(&["zorvia", "clone", "source-vm", "clone-vm"]).unwrap();
+        match cli.command {
+            Commands::Clone { source, target, .. } => {
+                assert_eq!(source, "source-vm");
+                assert_eq!(target, "clone-vm");
+            }
+            _ => panic!("Expected Clone command"),
+        }
+    }
+
+    #[test]
+    fn test_snapshot_create() {
+        let cli = parse(&["zorvia", "snapshot-create", "my-vm", "--name", "snap1"]).unwrap();
+        match cli.command {
+            Commands::SnapshotCreate { vm, name, .. } => {
+                assert_eq!(vm, "my-vm");
+                assert_eq!(name, Some("snap1".to_string()));
+            }
+            _ => panic!("Expected SnapshotCreate command"),
+        }
+    }
+
+    #[test]
+    fn test_backup_create() {
+        let cli = parse(&["zorvia", "backup-create", "db-vm", "--backup-type", "incremental"]).unwrap();
+        match cli.command {
+            Commands::BackupCreate { vm, backup_type, .. } => {
+                assert_eq!(vm, "db-vm");
+                assert_eq!(backup_type, "incremental");
+            }
+            _ => panic!("Expected BackupCreate command"),
+        }
+    }
+
+    #[test]
+    fn test_migrate_command() {
+        let cli = parse(&["zorvia", "migrate", "vm1", "--target-node", "node2", "--plan"]).unwrap();
+        match cli.command {
+            Commands::Migrate { vm, target_node, plan, .. } => {
+                assert_eq!(vm, "vm1");
+                assert_eq!(target_node, Some("node2".to_string()));
+                assert!(plan);
+            }
+            _ => panic!("Expected Migrate command"),
+        }
+    }
+}
+
