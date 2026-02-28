@@ -305,6 +305,49 @@ labels:
   app: my-app
 ```
 
+## ⚙️ Application Configuration
+
+Zorvia supports a layered configuration file for setting defaults:
+
+```bash
+# Create default config file
+zorvia config-init
+
+# View current configuration
+zorvia config-show
+```
+
+**Config file locations** (higher priority wins):
+1. CLI arguments (always win)
+2. `~/.config/zorvia/config.toml` (user)
+3. `/etc/zorvia/config.toml` (system-wide)
+4. Built-in defaults
+
+```toml
+# ~/.config/zorvia/config.toml
+namespace = "production"
+kubeconfig = "/home/user/.kube/production"
+
+[logging]
+level = "info"           # error, warn, info, debug, trace
+format = "text"          # text, json
+
+[api]
+port = 8080
+host = "0.0.0.0"
+tls = false
+auth = "none"            # none, api-key, bearer, basic, oauth2, mtls
+rate_limit = 60          # requests per minute
+
+[output]
+format = "table"         # table, yaml, json
+color = true
+
+[tui]
+refresh_interval = 5     # seconds
+interactive = false
+```
+
 ## 📚 Library Usage
 
 Use zorvia as a library in your Rust projects:
@@ -392,10 +435,17 @@ fn main() -> anyhow::Result<()> {
 
 ## 🧪 Development
 
-### Run tests
+A `Makefile` is provided for common tasks:
 
 ```bash
-cargo test
+make help       # Show all commands
+make test       # Run all tests
+make clippy     # Run linter
+make lint       # Format check + clippy
+make ci         # Full CI pipeline locally
+make release    # Build optimized binary (11MB)
+make install    # Install to ~/.cargo/bin
+make tui        # Launch interactive TUI
 ```
 
 ### Run with debug logging
@@ -408,6 +458,12 @@ zorvia --verbose create my-vm --template ubuntu
 
 ```bash
 cargo doc --open
+```
+
+### Browse all 148 commands
+
+```bash
+zorvia commands
 ```
 
 ## 💡 Usage Examples
