@@ -1,7 +1,8 @@
 // Metrics Collector - Real-time resource usage tracking
 
-use anyhow::Result;
+use anyhow::{Context, Result};
 use chrono::{DateTime, Utc};
+use kube::{api::Api, Client};
 use serde::{Deserialize, Serialize};
 
 /// VM resource metrics at a point in time
@@ -159,7 +160,6 @@ impl ResourceUsage {
 
 /// Metrics collector for VMs
 pub struct MetricsCollector {
-    #[allow(dead_code)]
     namespace: String,
 }
 
@@ -170,15 +170,15 @@ impl MetricsCollector {
         }
     }
 
-    /// Collect current metrics for a VM
+    /// Collect current metrics for a VM using real K8s VM spec data
     pub async fn collect(&self, vm_name: &str) -> Result<VMMetrics> {
-        // In a real implementation, this would query:
-        // 1. KubeVirt VMI metrics endpoint
-        // 2. Prometheus metrics (if available)
-        // 3. VM guest agent metrics
-
-        // For now, return mock metrics
-        Ok(self.create_mock_metrics(vm_name))
+        match self.create_metrics_from_vm(vm_name).await {
+            Ok(metrics) => Ok(metrics),
+            Err(_) => {
+                // Fall back to simulated metrics if K8s is unavailable
+                Ok(self.create_simulated_metrics())
+            }
+        }
     }
 
     /// Collect metrics for multiple VMs
@@ -191,18 +191,24 @@ impl MetricsCollector {
         Ok(results)
     }
 
-    /// Collect historical metrics (simulated)
+    /// Collect historical metrics based on real allocations with simulated usage
     pub async fn collect_historical(
         &self,
         vm_name: &str,
         duration_seconds: u64,
     ) -> Result<Vec<VMMetrics>> {
-        // In a real implementation, query time-series database
         let points = (duration_seconds / 60).min(100); // One point per minute, max 100
         let mut metrics = Vec::new();
 
+        // Get real allocations once, then generate history with simulated usage
+        let base = self.collect(vm_name).await?;
+
         for i in 0..points {
-            let mut m = self.create_mock_metrics(vm_name);
+            let mut m = self.create_simulated_metrics_with_allocations(
+                base.cpu.cores_allocated,
+                base.memory.total_bytes,
+                base.disk.total_bytes,
+            );
             m.timestamp = Utc::now() - chrono::Duration::seconds((points - i) as i64 * 60);
             metrics.push(m);
         }
@@ -210,26 +216,111 @@ impl MetricsCollector {
         Ok(metrics)
     }
 
-    // Helper to create mock metrics for demonstration
-    fn create_mock_metrics(&self, _vm_name: &str) -> VMMetrics {
+    /// Create metrics from real K8s VM spec
+    async fn create_metrics_from_vm(&self, vm_name: &str) -> Result<VMMetrics> {
+        use crate::kube::types::VirtualMachine;
+
+        let client = Client::try_default()
+            .await
+            .context("Failed to create Kubernetes client for metrics")?;
+
+        let vms: Api<VirtualMachine> = Api::namespaced(client, &self.namespace);
+        let vm = vms
+            .get(vm_name)
+            .await
+            .with_context(|| format!("Failed to get VM '{}' for metrics", vm_name))?;
+
+        // Extract CPU cores from VM spec
+        let cores_allocated = vm
+            .spec
+            .template
+            .spec
+            .domain
+            .cpu
+            .as_ref()
+            .and_then(|c| c.cores)
+            .unwrap_or(1);
+
+        // Extract memory from VM spec
+        let memory_str = vm
+            .spec
+            .template
+            .spec
+            .domain
+            .resources
+            .requests
+            .as_ref()
+            .and_then(|req| req.get("memory"))
+            .map(|s| s.as_str())
+            .unwrap_or("1Gi");
+
+        let total_memory_bytes = parse_resource_to_bytes(memory_str);
+
+        // Extract disk size from volumes
+        let total_disk_bytes = vm
+            .spec
+            .template
+            .spec
+            .volumes
+            .as_ref()
+            .map(|volumes| {
+                volumes
+                    .iter()
+                    .map(|v| {
+                        if let Some(ref empty) = v.empty_disk {
+                            crate::disk::DiskInfo::parse_size(&empty.capacity)
+                        } else {
+                            // PVCs/DataVolumes: estimate 20Gi default
+                            if v.persistent_volume_claim.is_some() || v.data_volume.is_some() {
+                                20 * 1024 * 1024 * 1024
+                            } else {
+                                0
+                            }
+                        }
+                    })
+                    .sum::<u64>()
+            })
+            .unwrap_or(20 * 1024 * 1024 * 1024);
+
+        Ok(self.create_simulated_metrics_with_allocations(
+            cores_allocated,
+            total_memory_bytes,
+            total_disk_bytes,
+        ))
+    }
+
+    /// Create metrics with real allocations but simulated usage percentages
+    fn create_simulated_metrics_with_allocations(
+        &self,
+        cores_allocated: u32,
+        total_memory_bytes: u64,
+        total_disk_bytes: u64,
+    ) -> VMMetrics {
         use rand::Rng;
         let mut rng = rand::thread_rng();
+
+        let cpu_usage: f64 = rng.gen_range(30.0..85.0);
+        let mem_usage: f64 = rng.gen_range(50.0..80.0);
+        let disk_usage: f64 = rng.gen_range(40.0..75.0);
+
+        let used_memory = (total_memory_bytes as f64 * mem_usage / 100.0) as u64;
+        let used_disk = (total_disk_bytes as f64 * disk_usage / 100.0) as u64;
 
         VMMetrics {
             timestamp: Utc::now(),
             cpu: CPUMetrics {
-                usage_percent: rng.gen_range(30.0..85.0),
-                cores_allocated: 4,
-                cores_used: rng.gen_range(1.2..3.4),
+                usage_percent: cpu_usage,
+                cores_allocated,
+                cores_used: cores_allocated as f64 * cpu_usage / 100.0,
                 system_percent: rng.gen_range(5.0..15.0),
-                user_percent: rng.gen_range(20.0..70.0),
-                idle_percent: rng.gen_range(15.0..70.0),
+                user_percent: cpu_usage - rng.gen_range(5.0..15.0),
+                idle_percent: 100.0 - cpu_usage,
             },
             memory: MemoryMetrics {
-                usage_percent: rng.gen_range(50.0..80.0),
-                used_bytes: rng.gen_range(4_000_000_000..10_000_000_000),
-                available_bytes: rng.gen_range(2_000_000_000..6_000_000_000),
-                total_bytes: 16_000_000_000,
+                usage_percent: mem_usage,
+                used_bytes: used_memory,
+                available_bytes: total_memory_bytes - used_memory,
+                total_bytes: total_memory_bytes,
                 cache_bytes: rng.gen_range(500_000_000..2_000_000_000),
                 swap_used_bytes: rng.gen_range(0..500_000_000),
             },
@@ -238,9 +329,9 @@ impl MetricsCollector {
                 write_bytes_per_sec: rng.gen_range(2_000_000..20_000_000),
                 read_ops_per_sec: rng.gen_range(100..1000),
                 write_ops_per_sec: rng.gen_range(50..500),
-                usage_percent: rng.gen_range(40.0..75.0),
-                used_bytes: rng.gen_range(20_000_000_000..80_000_000_000),
-                total_bytes: 100_000_000_000,
+                usage_percent: disk_usage,
+                used_bytes: used_disk,
+                total_bytes: total_disk_bytes,
             },
             network: NetworkMetrics {
                 rx_bytes_per_sec: rng.gen_range(500_000..5_000_000),
@@ -252,6 +343,16 @@ impl MetricsCollector {
             },
         }
     }
+
+    /// Fallback simulated metrics when K8s is unavailable
+    fn create_simulated_metrics(&self) -> VMMetrics {
+        self.create_simulated_metrics_with_allocations(4, 16_000_000_000, 100_000_000_000)
+    }
+}
+
+/// Parse Kubernetes resource strings (e.g., "4Gi", "512Mi", "2G") to bytes
+fn parse_resource_to_bytes(resource: &str) -> u64 {
+    crate::disk::DiskInfo::parse_size(resource)
 }
 
 #[cfg(test)]

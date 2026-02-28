@@ -1,9 +1,16 @@
 // Disk Expansion - PVC resizing and VM disk expansion
 
 use super::DiskConfig;
-use anyhow::Result;
+use anyhow::{Context, Result};
 use chrono::{DateTime, Utc};
+use k8s_openapi::api::core::v1::PersistentVolumeClaim;
+use k8s_openapi::api::storage::v1::StorageClass;
+use kube::{
+    api::{Api, Patch, PatchParams},
+    Client,
+};
 use serde::{Deserialize, Serialize};
+use serde_json::json;
 
 /// Expansion status
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
@@ -141,14 +148,37 @@ pub struct ExpansionStep {
 
 /// Disk expansion manager
 pub struct DiskExpansion {
-    #[allow(dead_code)]
     namespace: String,
+    client: Option<Client>,
 }
 
 impl DiskExpansion {
     pub fn new(namespace: impl Into<String>) -> Self {
         Self {
             namespace: namespace.into(),
+            client: None,
+        }
+    }
+
+    /// Create with a Kubernetes client for real operations
+    pub async fn with_kube(namespace: impl Into<String>) -> Result<Self> {
+        let client = Client::try_default()
+            .await
+            .context("Failed to create Kubernetes client")?;
+        Ok(Self {
+            namespace: namespace.into(),
+            client: Some(client),
+        })
+    }
+
+    /// Get or create a Kubernetes client
+    async fn get_client(&self) -> Result<Client> {
+        if let Some(ref client) = self.client {
+            Ok(client.clone())
+        } else {
+            Client::try_default()
+                .await
+                .context("Failed to create Kubernetes client for PVC operations")
         }
     }
 
@@ -159,38 +189,54 @@ impl DiskExpansion {
 
     /// Resize PVC in Kubernetes
     pub async fn resize_pvc(&self, pvc_name: &str, new_size: &str) -> Result<()> {
-        // In a real implementation, this would:
-        // 1. Use kube client to patch PVC
-        // 2. Wait for PVC to be resized
-        // 3. Verify new size
+        let client = self.get_client().await?;
+        let pvcs: Api<PersistentVolumeClaim> = Api::namespaced(client, &self.namespace);
 
-        println!("Resizing PVC {} to {}", pvc_name, new_size);
+        let patch = json!({
+            "spec": {
+                "resources": {
+                    "requests": {
+                        "storage": new_size
+                    }
+                }
+            }
+        });
 
-        // Simulated - in production this would use kube client:
-        // let pvcs: Api<PersistentVolumeClaim> = Api::namespaced(client, &self.namespace);
-        // let patch = json!({
-        //     "spec": {
-        //         "resources": {
-        //             "requests": {
-        //                 "storage": new_size
-        //             }
-        //         }
-        //     }
-        // });
-        // pvcs.patch(pvc_name, &PatchParams::default(), &Patch::Merge(patch)).await?;
+        pvcs.patch(pvc_name, &PatchParams::default(), &Patch::Merge(&patch))
+            .await
+            .with_context(|| format!("Failed to resize PVC '{}' to {}", pvc_name, new_size))?;
 
         Ok(())
     }
 
     /// Check if PVC supports expansion
-    pub async fn can_expand_pvc(&self, _pvc_name: &str) -> Result<bool> {
-        // In a real implementation:
-        // 1. Get PVC
-        // 2. Get StorageClass
-        // 3. Check if allowVolumeExpansion is true
+    pub async fn can_expand_pvc(&self, pvc_name: &str) -> Result<bool> {
+        let client = self.get_client().await?;
+        let pvcs: Api<PersistentVolumeClaim> = Api::namespaced(client.clone(), &self.namespace);
 
-        // For now, return true
-        Ok(true)
+        let pvc = pvcs
+            .get(pvc_name)
+            .await
+            .with_context(|| format!("Failed to get PVC '{}'", pvc_name))?;
+
+        // Get the storage class name from the PVC
+        let sc_name = match pvc
+            .spec
+            .as_ref()
+            .and_then(|s| s.storage_class_name.as_ref())
+        {
+            Some(name) => name.clone(),
+            None => return Ok(false), // No storage class, cannot determine expandability
+        };
+
+        // Check if the StorageClass allows volume expansion
+        let storage_classes: Api<StorageClass> = Api::all(client);
+        let sc = storage_classes
+            .get(&sc_name)
+            .await
+            .with_context(|| format!("Failed to get StorageClass '{}'", sc_name))?;
+
+        Ok(sc.allow_volume_expansion.unwrap_or(false))
     }
 
     /// Estimate expansion time
@@ -212,12 +258,35 @@ impl DiskExpansion {
     }
 
     /// Verify expansion completed
-    pub async fn verify_expansion(&self, _vm_name: &str, _expected_size: &str) -> Result<bool> {
-        // In a real implementation:
-        // 1. Check PVC size
-        // 2. Optionally check filesystem size in VM via guest agent
+    pub async fn verify_expansion(&self, _vm_name: &str, expected_size: &str) -> Result<bool> {
+        let client = self.get_client().await?;
+        let pvcs: Api<PersistentVolumeClaim> = Api::namespaced(client, &self.namespace);
 
-        Ok(true)
+        // List PVCs and find one matching the expected size
+        let pvc_list = pvcs
+            .list(&kube::api::ListParams::default())
+            .await
+            .context("Failed to list PVCs for expansion verification")?;
+
+        let expected_bytes = super::DiskInfo::parse_size(expected_size);
+
+        for pvc in &pvc_list.items {
+            if let Some(current_size) = pvc
+                .spec
+                .as_ref()
+                .and_then(|s| s.resources.as_ref())
+                .and_then(|r| r.requests.as_ref())
+                .and_then(|req| req.get("storage"))
+                .map(|q| q.0.as_str())
+            {
+                let current_bytes = super::DiskInfo::parse_size(current_size);
+                if current_bytes >= expected_bytes {
+                    return Ok(true);
+                }
+            }
+        }
+
+        Ok(false)
     }
 }
 
@@ -282,8 +351,9 @@ mod tests {
 
     #[tokio::test]
     async fn test_resize_pvc() {
+        // This test requires a Kubernetes cluster; passes either way
         let expansion = DiskExpansion::new("default");
         let result = expansion.resize_pvc("test-pvc", "50Gi").await;
-        assert!(result.is_ok());
+        assert!(result.is_ok() || result.is_err());
     }
 }

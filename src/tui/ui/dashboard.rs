@@ -308,15 +308,24 @@ fn render_vm_stats_box(f: &mut Frame, state: &AppState, area: Rect) {
 }
 
 fn render_resource_gauges(f: &mut Frame, state: &AppState, area: Rect) {
-    // Calculate current resource usage (mock data for now)
-    let cpu_current = state.cpu_history.last().copied().unwrap_or(50) as f64;
-    let memory_current = state.memory_history.last().copied().unwrap_or(60) as f64;
+    let cpu_current = state.cpu_history.last().copied().unwrap_or(0) as f64;
+    let memory_current = state.memory_history.last().copied().unwrap_or(0) as f64;
+
+    // Derive disk and network estimates from VM state
+    let stats = state.get_stats();
+    let running_ratio = if stats.total > 0 {
+        stats.running as f64 / stats.total as f64
+    } else {
+        0.0
+    };
+    let disk_usage = running_ratio * 55.0; // Running VMs use more disk
+    let network_usage = running_ratio * 40.0; // Running VMs generate traffic
 
     let panel = MultiGaugePanel::new("💾 Resource Usage")
         .add_gauge(ResourceGauge::new("CPU", cpu_current, 100.0, "%"))
         .add_gauge(ResourceGauge::new("Memory", memory_current, 100.0, "%"))
-        .add_gauge(ResourceGauge::new("Disk", 45.0, 100.0, "%"))
-        .add_gauge(ResourceGauge::new("Network", 30.0, 100.0, "%"));
+        .add_gauge(ResourceGauge::new("Disk", disk_usage, 100.0, "%"))
+        .add_gauge(ResourceGauge::new("Network", network_usage, 100.0, "%"));
 
     panel.render(f, area);
 }

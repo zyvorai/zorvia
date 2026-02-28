@@ -155,13 +155,25 @@ impl RestoreManager {
     }
 
     /// Validate snapshot before restore
-    pub async fn validate_snapshot_for_restore(&self, _snapshot_name: &str) -> Result<bool> {
-        // This would typically check:
-        // 1. Snapshot exists
-        // 2. Snapshot is ready_to_use
-        // 3. Snapshot content is available
-        // For now, we'll implement a basic check
-        Ok(true)
+    pub async fn validate_snapshot_for_restore(&self, snapshot_name: &str) -> Result<bool> {
+        use super::crds::VirtualMachineSnapshot;
+
+        let snapshots: Api<VirtualMachineSnapshot> =
+            Api::namespaced(self.client.clone(), &self.namespace);
+
+        let snapshot = snapshots
+            .get(snapshot_name)
+            .await
+            .with_context(|| format!("Failed to get snapshot '{}' for validation", snapshot_name))?;
+
+        // Check if snapshot is ready to use
+        let ready = snapshot
+            .status
+            .as_ref()
+            .and_then(|s| s.ready_to_use)
+            .unwrap_or(false);
+
+        Ok(ready)
     }
 
     /// Estimate restore time based on snapshot size

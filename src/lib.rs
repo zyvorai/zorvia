@@ -79,7 +79,7 @@ pub async fn run(mut cli: Cli) -> Result<()> {
         .filter_level(log_level)
         .init();
 
-    match cli.command {
+    match *cli.command {
         // ========== CORE VM MANAGEMENT ==========
         Commands::Create {
             name,
@@ -407,7 +407,9 @@ pub async fn run(mut cli: Cli) -> Result<()> {
             plan,
         } => handlers::infra::handle_disk_expand(vm, disk, size, pvc, plan, &cli.namespace).await?,
 
-        Commands::DiskHealth { vm, detailed } => handlers::infra::handle_disk_health(vm, detailed)?,
+        Commands::DiskHealth { vm, detailed } => {
+            handlers::infra::handle_disk_health(vm, detailed, &cli.namespace).await?
+        }
 
         Commands::DiskScript {
             filesystem,
@@ -420,16 +422,18 @@ pub async fn run(mut cli: Cli) -> Result<()> {
             vm,
             sort_by,
             output,
-        } => handlers::infra::handle_disk_usage(vm, sort_by, output)?,
+        } => handlers::infra::handle_disk_usage(vm, sort_by, output, &cli.namespace).await?,
 
         // ========== NETWORK MANAGEMENT ==========
-        Commands::NetworkList { vm, output } => handlers::infra::handle_network_list(vm, output)?,
+        Commands::NetworkList { vm, output } => {
+            handlers::infra::handle_network_list(vm, output, &cli.namespace).await?
+        }
 
         Commands::NetworkGet {
             vm,
             interface,
             output,
-        } => handlers::infra::handle_network_get(vm, interface, output)?,
+        } => handlers::infra::handle_network_get(vm, interface, output, &cli.namespace).await?,
 
         Commands::NetworkBandwidth {
             vm,
@@ -449,7 +453,7 @@ pub async fn run(mut cli: Cli) -> Result<()> {
         Commands::NetworkPolicies {
             all_namespaces,
             output,
-        } => handlers::infra::handle_network_policies(all_namespaces, output)?,
+        } => handlers::infra::handle_network_policies(all_namespaces, output, &cli.namespace).await?,
 
         Commands::NetworkPolicy { name, output } => {
             handlers::infra::handle_network_policy(name, output)?
@@ -469,7 +473,8 @@ pub async fn run(mut cli: Cli) -> Result<()> {
             watch,
             interval,
         } => {
-            handlers::backup::handle_migration_status(vm, watch, interval)?;
+            handlers::backup::handle_migration_status(vm, watch, interval, &cli.namespace)
+                .await?;
         }
 
         Commands::MigrationList {
@@ -477,7 +482,8 @@ pub async fn run(mut cli: Cli) -> Result<()> {
             state,
             output,
         } => {
-            handlers::backup::handle_migration_list(all_namespaces, state, output)?;
+            handlers::backup::handle_migration_list(all_namespaces, state, output, &cli.namespace)
+                .await?;
         }
 
         Commands::HAConfig {
@@ -509,11 +515,12 @@ pub async fn run(mut cli: Cli) -> Result<()> {
                 timeout,
                 force,
                 plan,
-            )?;
+            )
+            .await?;
         }
 
         Commands::EvacuationStatus { node, watch } => {
-            handlers::backup::handle_evacuation_status(node, watch)?;
+            handlers::backup::handle_evacuation_status(node, watch, &cli.namespace).await?;
         }
 
         Commands::BackupCreate {
@@ -533,7 +540,7 @@ pub async fn run(mut cli: Cli) -> Result<()> {
         }
 
         Commands::BackupList { vm, output } => {
-            handlers::backup::handle_backup_list(vm, output)?;
+            handlers::backup::handle_backup_list(vm, output, &cli.namespace).await?;
         }
 
         Commands::BackupGet { name, output } => {

@@ -222,3 +222,48 @@ pub struct Condition {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub last_transition_time: Option<String>,
 }
+
+/// VirtualMachineInstanceMigration CRD for KubeVirt
+#[derive(CustomResource, Debug, Clone, Serialize, Deserialize, JsonSchema)]
+#[kube(
+    group = "kubevirt.io",
+    version = "v1",
+    kind = "VirtualMachineInstanceMigration",
+    plural = "virtualmachineinstancemigrations",
+    shortname = "vmim",
+    namespaced
+)]
+#[kube(status = "VirtualMachineInstanceMigrationStatus")]
+#[serde(rename_all = "camelCase")]
+pub struct VirtualMachineInstanceMigrationSpec {
+    /// Name of the VMI to migrate
+    pub vmi_name: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, Default)]
+#[serde(rename_all = "camelCase")]
+pub struct VirtualMachineInstanceMigrationStatus {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub phase: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub migration_state: Option<MigrationStateInfo>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct MigrationStateInfo {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub start_timestamp: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub end_timestamp: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub source_node: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub target_node: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub completed: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub failed: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub target_node_address: Option<String>,
+}

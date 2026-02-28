@@ -390,17 +390,26 @@ impl AppState {
         self.show_stats_bar = !self.show_stats_bar;
     }
 
-    /// Update history data
+    /// Update history data derived from current VM state
     pub fn update_history(&mut self) {
-        // Shift history and add new data point
+        let stats = self.get_stats();
+        let total = stats.total.max(1) as f64;
+
+        // Derive CPU usage estimate from running VM ratio
+        let running_ratio = stats.running as f64 / total;
+        let cpu_usage = (running_ratio * 75.0).round() as u64; // Running VMs use ~75% capacity
+
+        // Derive memory usage estimate: running VMs consume memory
+        let memory_usage = (running_ratio * 70.0).round() as u64;
+
         if !self.cpu_history.is_empty() {
             self.cpu_history.remove(0);
-            self.cpu_history.push(50); // Mock data - would be real CPU usage
+            self.cpu_history.push(cpu_usage);
         }
 
         if !self.memory_history.is_empty() {
             self.memory_history.remove(0);
-            self.memory_history.push(60); // Mock data - would be real memory usage
+            self.memory_history.push(memory_usage);
         }
 
         if !self.vm_count_history.is_empty() {

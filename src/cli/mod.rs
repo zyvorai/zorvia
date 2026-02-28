@@ -22,7 +22,7 @@ pub struct Cli {
     pub verbose: bool,
 
     #[command(subcommand)]
-    pub command: Commands,
+    pub command: Box<Commands>,
 }
 
 #[derive(Subcommand, Debug)]
@@ -2083,13 +2083,21 @@ mod tests {
     use clap::Parser;
 
     fn parse(args: &[&str]) -> Result<Cli, clap::Error> {
-        Cli::try_parse_from(args)
+        // The Commands enum has 146 variants, requiring a larger stack in debug mode.
+        // Run parsing in a thread with 16MB stack to avoid stack overflow.
+        let args_owned: Vec<String> = args.iter().map(|s| s.to_string()).collect();
+        std::thread::Builder::new()
+            .stack_size(16 * 1024 * 1024)
+            .spawn(move || Cli::try_parse_from(args_owned))
+            .expect("Failed to spawn parse thread")
+            .join()
+            .expect("Parse thread panicked")
     }
 
     #[test]
     fn test_create_command() {
         let cli = parse(&["zorvia", "create", "my-vm", "--template", "ubuntu"]).unwrap();
-        match cli.command {
+        match *cli.command {
             Commands::Create { name, template, .. } => {
                 assert_eq!(name, "my-vm");
                 assert_eq!(template, Some("ubuntu".to_string()));
@@ -2114,7 +2122,7 @@ mod tests {
             "100Gi",
         ])
         .unwrap();
-        match cli.command {
+        match *cli.command {
             Commands::Create {
                 name,
                 cpus,
@@ -2142,7 +2150,7 @@ mod tests {
             "--dry-run",
         ])
         .unwrap();
-        match cli.command {
+        match *cli.command {
             Commands::Create { dry_run, .. } => assert!(dry_run),
             _ => panic!("Expected Create command"),
         }
@@ -2151,7 +2159,7 @@ mod tests {
     #[test]
     fn test_list_command() {
         let cli = parse(&["zorvia", "list"]).unwrap();
-        match cli.command {
+        match *cli.command {
             Commands::List {
                 all_namespaces,
                 output,
@@ -2166,7 +2174,7 @@ mod tests {
     #[test]
     fn test_list_all_namespaces() {
         let cli = parse(&["zorvia", "list", "-A"]).unwrap();
-        match cli.command {
+        match *cli.command {
             Commands::List { all_namespaces, .. } => assert!(all_namespaces),
             _ => panic!("Expected List command"),
         }
@@ -2175,7 +2183,7 @@ mod tests {
     #[test]
     fn test_get_command() {
         let cli = parse(&["zorvia", "get", "my-vm"]).unwrap();
-        match cli.command {
+        match *cli.command {
             Commands::Get { name, .. } => assert_eq!(name, "my-vm"),
             _ => panic!("Expected Get command"),
         }
@@ -2184,7 +2192,7 @@ mod tests {
     #[test]
     fn test_delete_command() {
         let cli = parse(&["zorvia", "delete", "my-vm", "--yes"]).unwrap();
-        match cli.command {
+        match *cli.command {
             Commands::Delete { name, yes } => {
                 assert_eq!(name, "my-vm");
                 assert!(yes);
@@ -2196,13 +2204,13 @@ mod tests {
     #[test]
     fn test_start_stop_restart() {
         let cli = parse(&["zorvia", "start", "vm1"]).unwrap();
-        assert!(matches!(cli.command, Commands::Start { name } if name == "vm1"));
+        assert!(matches!(*cli.command, Commands::Start { name } if name == "vm1"));
 
         let cli = parse(&["zorvia", "stop", "vm1"]).unwrap();
-        assert!(matches!(cli.command, Commands::Stop { name } if name == "vm1"));
+        assert!(matches!(*cli.command, Commands::Stop { name } if name == "vm1"));
 
         let cli = parse(&["zorvia", "restart", "vm1"]).unwrap();
-        assert!(matches!(cli.command, Commands::Restart { name } if name == "vm1"));
+        assert!(matches!(*cli.command, Commands::Restart { name } if name == "vm1"));
     }
 
     #[test]
@@ -2235,7 +2243,7 @@ mod tests {
             "json",
         ])
         .unwrap();
-        match cli.command {
+        match *cli.command {
             Commands::Generate {
                 name,
                 template,
@@ -2253,13 +2261,13 @@ mod tests {
     #[test]
     fn test_templates_command() {
         let cli = parse(&["zorvia", "templates"]).unwrap();
-        assert!(matches!(cli.command, Commands::Templates));
+        assert!(matches!(*cli.command, Commands::Templates));
     }
 
     #[test]
     fn test_validate_command() {
         let cli = parse(&["zorvia", "validate", "config.yaml"]).unwrap();
-        match cli.command {
+        match *cli.command {
             Commands::Validate { file } => assert_eq!(file, "config.yaml"),
             _ => panic!("Expected Validate command"),
         }
@@ -2268,7 +2276,7 @@ mod tests {
     #[test]
     fn test_profiles_command() {
         let cli = parse(&["zorvia", "profiles", "--details"]).unwrap();
-        match cli.command {
+        match *cli.command {
             Commands::Profiles { details } => assert!(details),
             _ => panic!("Expected Profiles command"),
         }
@@ -2277,7 +2285,7 @@ mod tests {
     #[test]
     fn test_health_command() {
         let cli = parse(&["zorvia", "health", "my-vm", "--detailed"]).unwrap();
-        match cli.command {
+        match *cli.command {
             Commands::Health { target, detailed } => {
                 assert_eq!(target, "my-vm");
                 assert!(detailed);
@@ -2289,7 +2297,7 @@ mod tests {
     #[test]
     fn test_cost_analyze() {
         let cli = parse(&["zorvia", "cost-analyze", "db-vm", "--period", "weekly"]).unwrap();
-        match cli.command {
+        match *cli.command {
             Commands::CostAnalyze { vm, period, .. } => {
                 assert_eq!(vm, Some("db-vm".to_string()));
                 assert_eq!(period, "weekly");
@@ -2309,7 +2317,7 @@ mod tests {
             "--containers",
         ])
         .unwrap();
-        match cli.command {
+        match *cli.command {
             Commands::SecurityScan {
                 vm,
                 scan_type,
@@ -2327,7 +2335,7 @@ mod tests {
     #[test]
     fn test_tui_command() {
         let cli = parse(&["zorvia", "tui", "--interactive"]).unwrap();
-        match cli.command {
+        match *cli.command {
             Commands::Tui { interactive, .. } => assert!(interactive),
             _ => panic!("Expected Tui command"),
         }
@@ -2346,7 +2354,7 @@ mod tests {
     #[test]
     fn test_clone_command() {
         let cli = parse(&["zorvia", "clone", "source-vm", "clone-vm"]).unwrap();
-        match cli.command {
+        match *cli.command {
             Commands::Clone { source, target, .. } => {
                 assert_eq!(source, "source-vm");
                 assert_eq!(target, "clone-vm");
@@ -2358,7 +2366,7 @@ mod tests {
     #[test]
     fn test_snapshot_create() {
         let cli = parse(&["zorvia", "snapshot-create", "my-vm", "--name", "snap1"]).unwrap();
-        match cli.command {
+        match *cli.command {
             Commands::SnapshotCreate { vm, name, .. } => {
                 assert_eq!(vm, "my-vm");
                 assert_eq!(name, Some("snap1".to_string()));
@@ -2377,7 +2385,7 @@ mod tests {
             "incremental",
         ])
         .unwrap();
-        match cli.command {
+        match *cli.command {
             Commands::BackupCreate {
                 vm, backup_type, ..
             } => {
@@ -2399,7 +2407,7 @@ mod tests {
             "--plan",
         ])
         .unwrap();
-        match cli.command {
+        match *cli.command {
             Commands::Migrate {
                 vm,
                 target_node,

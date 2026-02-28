@@ -80,24 +80,105 @@ pub fn handle_config_save(
 }
 
 pub fn handle_config_load(name: String, output: Option<String>, format: String) -> Result<()> {
-    use crate::devexp::config_templates::ConfigTemplateManager;
-
     println!(
         "{}",
         color::header(&format!("Loading Configuration: {}", name))
     );
     println!();
 
-    let _manager = ConfigTemplateManager::new();
+    // Load template from ~/.config/zorvia/templates/ directory
+    let templates_dir = dirs::config_dir()
+        .unwrap_or_else(|| std::path::PathBuf::from(".config"))
+        .join("zorvia")
+        .join("templates");
 
-    // In a real implementation, this would load from disk
-    println!("  Template: {}", color::value(&name));
-    println!("  Format:   {}", format);
-    if let Some(ref out_file) = output {
-        println!("  Output:   {}", out_file);
+    // Try loading with the exact name, then with common extensions
+    let candidates = [
+        templates_dir.join(&name),
+        templates_dir.join(format!("{}.yaml", name)),
+        templates_dir.join(format!("{}.yml", name)),
+        templates_dir.join(format!("{}.json", name)),
+        templates_dir.join(format!("{}.toml", name)),
+    ];
+
+    let mut content = None;
+    let mut found_path = None;
+
+    for path in &candidates {
+        if path.exists() {
+            match std::fs::read_to_string(path) {
+                Ok(data) => {
+                    content = Some(data);
+                    found_path = Some(path.clone());
+                    break;
+                }
+                Err(e) => {
+                    return Err(anyhow!(
+                        "Failed to read template file '{}': {}",
+                        path.display(),
+                        e
+                    ));
+                }
+            }
+        }
     }
+
+    let content = match content {
+        Some(c) => c,
+        None => {
+            println!(
+                "{}",
+                color::warning(&format!(
+                    "Template '{}' not found in {}",
+                    name,
+                    templates_dir.display()
+                ))
+            );
+            println!();
+            println!(
+                "{}",
+                color::info("ℹ Save a template first with 'zorvia config-save'")
+            );
+            println!(
+                "  {}",
+                color::muted(&format!("Templates directory: {}", templates_dir.display()))
+            );
+            return Ok(());
+        }
+    };
+
+    println!(
+        "  Template: {}",
+        color::value(&found_path.unwrap().display().to_string())
+    );
+    println!("  Format:   {}", format);
     println!();
-    println!("{}", color::success("✓ Configuration loaded"));
+
+    // Convert format if requested
+    let output_content = match format.as_str() {
+        "json" => {
+            // Try to parse as YAML and convert to JSON
+            match serde_yaml::from_str::<serde_json::Value>(&content) {
+                Ok(value) => serde_json::to_string_pretty(&value)
+                    .unwrap_or_else(|_| content.clone()),
+                Err(_) => content.clone(),
+            }
+        }
+        _ => content.clone(),
+    };
+
+    if let Some(out_file) = output {
+        std::fs::write(&out_file, &output_content)
+            .map_err(|e| anyhow!("Failed to write output file '{}': {}", out_file, e))?;
+        println!(
+            "{}",
+            color::success(&format!("✓ Configuration written to {}", out_file))
+        );
+    } else {
+        println!("{}", output_content);
+        println!();
+        println!("{}", color::success("✓ Configuration loaded"));
+    }
     Ok(())
 }
 

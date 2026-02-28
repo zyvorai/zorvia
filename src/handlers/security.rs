@@ -80,17 +80,58 @@ pub fn handle_security_scan(
 }
 
 pub fn handle_security_assess(vm: String, output: String) -> Result<()> {
-    use crate::security::{SecurityAssessment, Severity, Vulnerability};
+    use crate::security::{SecurityAssessment, Vulnerability};
 
     let mut assessment = SecurityAssessment::new(&vm);
 
-    // Example vulnerabilities
-    assessment.add_vulnerability(
-        Vulnerability::new("VULN-001", "OpenSSL vulnerability", Severity::High).with_cvss(7.5),
-    );
-    assessment.add_vulnerability(
-        Vulnerability::new("VULN-002", "Kernel vulnerability", Severity::Medium).with_cvss(5.0),
-    );
+    // Load vulnerabilities from config directory if available
+    let vuln_dir = dirs::config_dir()
+        .unwrap_or_else(|| std::path::PathBuf::from(".config"))
+        .join("zorvia")
+        .join("vulnerabilities");
+
+    let mut loaded_from_file = false;
+    if vuln_dir.exists() {
+        if let Ok(entries) = std::fs::read_dir(&vuln_dir) {
+            for entry in entries.flatten() {
+                let path = entry.path();
+                if path
+                    .extension()
+                    .map(|e| e == "yaml" || e == "yml" || e == "json")
+                    .unwrap_or(false)
+                {
+                    if let Ok(content) = std::fs::read_to_string(&path) {
+                        if let Ok(vulns) =
+                            serde_yaml::from_str::<Vec<Vulnerability>>(&content)
+                        {
+                            for v in vulns {
+                                assessment.add_vulnerability(v);
+                            }
+                            loaded_from_file = true;
+                        } else if let Ok(vulns) =
+                            serde_json::from_str::<Vec<Vulnerability>>(&content)
+                        {
+                            for v in vulns {
+                                assessment.add_vulnerability(v);
+                            }
+                            loaded_from_file = true;
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    // Run the built-in scanner as baseline if no vulnerabilities loaded from files
+    if !loaded_from_file {
+        use crate::security::scan::{ScanConfig, ScanType, VulnerabilityScanner};
+        let scan_config = ScanConfig::new(&vm, ScanType::Standard);
+        let result = VulnerabilityScanner::scan(&scan_config);
+
+        for vuln in result.vulnerabilities {
+            assessment.add_vulnerability(vuln);
+        }
+    }
 
     assessment.calculate_score();
 
@@ -343,9 +384,7 @@ pub fn handle_audit_list(
     security_only: bool,
     output: String,
 ) -> Result<()> {
-    use crate::security::audit::{AuditEvent, AuditLog, EventSeverity, EventType};
-
-    let _ = (event_type, severity);
+    use crate::security::audit::{AuditEvent, AuditLog, EventSeverity};
 
     println!("{}", color::header("Audit Events"));
     if let Some(ref vm_name) = vm {
@@ -353,37 +392,85 @@ pub fn handle_audit_list(
     }
     println!();
 
-    // Create example audit log
+    // Load audit events from config directory
+    let audit_dir = dirs::config_dir()
+        .unwrap_or_else(|| std::path::PathBuf::from(".config"))
+        .join("zorvia")
+        .join("audit");
+
     let mut log = AuditLog::new(vm.clone());
 
-    // Add example events
-    log.add_event(
-        AuditEvent::new(
-            EventType::Authentication,
-            "user@example.com",
-            "test-vm",
-            "login",
-        )
-        .with_severity(EventSeverity::Info),
-    );
-    log.add_event(
-        AuditEvent::new(EventType::VMOperation, "admin", "test-vm", "start")
-            .with_severity(EventSeverity::Info),
-    );
-    log.add_event(
-        AuditEvent::new(
-            EventType::SecurityViolation,
-            "user",
-            "test-vm",
-            "unauthorized",
-        )
-        .with_severity(EventSeverity::Critical),
-    );
+    if audit_dir.exists() {
+        if let Ok(entries) = std::fs::read_dir(&audit_dir) {
+            for entry in entries.flatten() {
+                let path = entry.path();
+                if path
+                    .extension()
+                    .map(|e| e == "yaml" || e == "yml" || e == "json")
+                    .unwrap_or(false)
+                {
+                    if let Ok(content) = std::fs::read_to_string(&path) {
+                        // Try to load events from file
+                        if let Ok(events) =
+                            serde_yaml::from_str::<Vec<AuditEvent>>(&content)
+                        {
+                            for event in events {
+                                log.add_event(event);
+                            }
+                        } else if let Ok(events) =
+                            serde_json::from_str::<Vec<AuditEvent>>(&content)
+                        {
+                            for event in events {
+                                log.add_event(event);
+                            }
+                        } else if let Ok(event) =
+                            serde_yaml::from_str::<AuditEvent>(&content)
+                        {
+                            log.add_event(event);
+                        }
+                    }
+                }
+            }
+        }
+    }
 
+    if log.events.is_empty() {
+        println!("{}", color::muted("No audit events found"));
+        println!();
+        println!(
+            "{}",
+            color::info(&format!(
+                "ℹ Audit events can be stored in: {}",
+                audit_dir.display()
+            ))
+        );
+        return Ok(());
+    }
+
+    // Apply filters
     let events: Vec<&AuditEvent> = if security_only {
         log.security_events()
     } else {
-        log.events.iter().collect()
+        let mut filtered: Vec<&AuditEvent> = log.events.iter().collect();
+
+        if let Some(ref et) = event_type {
+            filtered.retain(|e| e.event_type.to_string().to_lowercase().contains(&et.to_lowercase()));
+        }
+
+        if let Some(ref sev) = severity {
+            filtered.retain(|e| {
+                let event_sev = match e.severity {
+                    EventSeverity::Critical => "critical",
+                    EventSeverity::High => "high",
+                    EventSeverity::Medium => "medium",
+                    EventSeverity::Low => "low",
+                    EventSeverity::Info => "info",
+                };
+                event_sev == sev.to_lowercase()
+            });
+        }
+
+        filtered
     };
 
     if output == "json" {
