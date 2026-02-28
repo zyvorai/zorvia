@@ -4,7 +4,7 @@ version = "0.2.0"
 edition = "2021"
 description = "Craft VMs for KubeVirt with Rust power"
 license = "Apache-2.0"
-authors = ["Your Name <you@example.com>"]
+authors = ["Susant Sahani"]
 
 [[bin]]
 name = "zorvia"

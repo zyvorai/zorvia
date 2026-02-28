@@ -42,9 +42,11 @@ We welcome feature suggestions! Please create an issue with:
 
 4. **Run tests**
    ```bash
-   cargo test
+   make ci    # runs fmt-check, clippy, and tests
+   # or manually:
+   RUST_MIN_STACK=8388608 cargo test
    cargo fmt --all -- --check
-   cargo clippy --all-targets --all-features -- -D warnings
+   cargo clippy --all-targets -- -D warnings
    ```
 
 5. **Commit your changes**
@@ -140,17 +142,20 @@ Fixes #38
 ### Running Tests
 
 ```bash
-# Run all tests
-cargo test
+# Run all tests (recommended)
+make test
+
+# Or manually (RUST_MIN_STACK needed for large CLI enum)
+RUST_MIN_STACK=8388608 cargo test
 
 # Run specific test
-cargo test test_name
+RUST_MIN_STACK=8388608 cargo test test_name
 
 # Run with output
-cargo test -- --nocapture
+RUST_MIN_STACK=8388608 cargo test -- --nocapture
 
 # Run integration tests only
-cargo test --test integration_tests
+RUST_MIN_STACK=8388608 cargo test --test integration_tests
 ```
 
 ### Writing Tests
@@ -241,24 +246,28 @@ RUST_LOG=debug zorvia --verbose list
 
 ### Useful Commands
 
+A Makefile is provided for common tasks:
+
 ```bash
-# Check for compilation errors
-cargo check
+make help       # Show all available commands
+make build      # Build debug binary
+make release    # Build optimized release binary
+make test       # Run all tests
+make clippy     # Run clippy linter
+make fmt        # Format code
+make lint       # Run fmt-check + clippy
+make ci         # Full CI pipeline locally
+make clean      # Clean build artifacts
+make install    # Install to ~/.cargo/bin
+make tui        # Launch interactive TUI
+```
 
-# Build with optimizations
-cargo build --release
+Or use cargo directly:
 
-# Run clippy
-cargo clippy --all-targets --all-features
-
-# Format code
-cargo fmt --all
-
-# Generate documentation
-cargo doc --open
-
-# Run example
-cargo run --example library_usage
+```bash
+cargo check                          # Check for errors
+cargo doc --open                     # Generate and open docs
+cargo run --example library_usage    # Run example
 ```
 
 ### Debugging
