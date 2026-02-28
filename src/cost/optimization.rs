@@ -1,7 +1,7 @@
 // Cost Optimization - Identify cost-saving opportunities
 
-use serde::{Deserialize, Serialize};
 use chrono::{DateTime, Utc};
+use serde::{Deserialize, Serialize};
 
 /// Optimization recommendation
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -22,7 +22,7 @@ impl OptimizationRecommendation {
     pub fn new(
         vm_name: impl Into<String>,
         recommendation_type: RecommendationType,
-        potential_savings: f64
+        potential_savings: f64,
     ) -> Self {
         let vm = vm_name.into();
         let id = format!("rec-{}-{}", vm, Utc::now().timestamp());
@@ -70,14 +70,14 @@ impl OptimizationRecommendation {
 /// Recommendation type
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub enum RecommendationType {
-    RightSize,          // Reduce CPU/memory to match usage
-    Shutdown,           // Stop idle VMs
-    Schedule,           // Schedule start/stop times
-    Storage,            // Optimize storage (remove unused, compress)
-    InstanceType,       // Switch to cheaper instance type
-    SpotInstance,       // Use spot/preemptible instances
-    ReservedCapacity,   // Purchase reserved capacity
-    SnapshotCleanup,    // Remove old snapshots
+    RightSize,        // Reduce CPU/memory to match usage
+    Shutdown,         // Stop idle VMs
+    Schedule,         // Schedule start/stop times
+    Storage,          // Optimize storage (remove unused, compress)
+    InstanceType,     // Switch to cheaper instance type
+    SpotInstance,     // Use spot/preemptible instances
+    ReservedCapacity, // Purchase reserved capacity
+    SnapshotCleanup,  // Remove old snapshots
 }
 
 impl std::fmt::Display for RecommendationType {
@@ -118,9 +118,9 @@ impl std::fmt::Display for Priority {
 /// Impact level
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub enum Impact {
-    Low,      // Minimal performance impact
-    Medium,   // Noticeable but acceptable
-    High,     // Significant impact, needs testing
+    Low,    // Minimal performance impact
+    Medium, // Noticeable but acceptable
+    High,   // Significant impact, needs testing
 }
 
 /// Waste detection
@@ -161,11 +161,11 @@ impl WasteReport {
 /// Waste type
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub enum WasteType {
-    IdleVM,             // VM with very low utilization
-    OversizedVM,        // CPU/memory much higher than needed
-    UnattachedStorage,  // Storage not attached to any VM
-    OldSnapshots,       // Snapshots older than retention policy
-    ZombieResources,    // Resources from deleted VMs
+    IdleVM,            // VM with very low utilization
+    OversizedVM,       // CPU/memory much higher than needed
+    UnattachedStorage, // Storage not attached to any VM
+    OldSnapshots,      // Snapshots older than retention policy
+    ZombieResources,   // Resources from deleted VMs
 }
 
 /// Waste severity
@@ -191,18 +191,23 @@ impl OptimizationEngine {
     ) -> Option<OptimizationRecommendation> {
         // If CPU usage is < 30% and memory < 40%, recommend right-sizing
         if avg_cpu_usage_percent < 30.0 || avg_memory_usage_percent < 40.0 {
-            let recommended_cpu = ((current_cpu as f64 * avg_cpu_usage_percent / 100.0).ceil() as u32).max(1);
-            let recommended_memory = ((current_memory_gb as f64 * avg_memory_usage_percent / 100.0).ceil() as u32).max(1);
+            let recommended_cpu =
+                ((current_cpu as f64 * avg_cpu_usage_percent / 100.0).ceil() as u32).max(1);
+            let recommended_memory = ((current_memory_gb as f64 * avg_memory_usage_percent / 100.0)
+                .ceil() as u32)
+                .max(1);
 
-            let savings_percent = ((current_cpu - recommended_cpu) as f64 / current_cpu as f64 +
-                                  (current_memory_gb - recommended_memory) as f64 / current_memory_gb as f64) / 2.0 * 100.0;
+            let savings_percent = ((current_cpu - recommended_cpu) as f64 / current_cpu as f64
+                + (current_memory_gb - recommended_memory) as f64 / current_memory_gb as f64)
+                / 2.0
+                * 100.0;
             let potential_savings = current_monthly_cost * (savings_percent / 100.0);
 
             Some(
                 OptimizationRecommendation::new(
                     vm_name,
                     RecommendationType::RightSize,
-                    potential_savings
+                    potential_savings,
                 )
                 .with_priority(Priority::High)
                 .with_savings_percent(savings_percent)
@@ -210,9 +215,15 @@ impl OptimizationEngine {
                     "VM is oversized. Reduce from {}C/{}GB to {}C/{}GB",
                     current_cpu, current_memory_gb, recommended_cpu, recommended_memory
                 ))
-                .add_action(format!("Reduce CPU from {} to {} cores", current_cpu, recommended_cpu))
-                .add_action(format!("Reduce memory from {}GB to {}GB", current_memory_gb, recommended_memory))
-                .with_impact(Impact::Medium)
+                .add_action(format!(
+                    "Reduce CPU from {} to {} cores",
+                    current_cpu, recommended_cpu
+                ))
+                .add_action(format!(
+                    "Reduce memory from {}GB to {}GB",
+                    current_memory_gb, recommended_memory
+                ))
+                .with_impact(Impact::Medium),
             )
         } else {
             None
@@ -232,7 +243,7 @@ impl OptimizationEngine {
                 OptimizationRecommendation::new(
                     vm_name,
                     RecommendationType::Shutdown,
-                    monthly_cost
+                    monthly_cost,
                 )
                 .with_priority(Priority::Critical)
                 .with_savings_percent(100.0)
@@ -243,7 +254,7 @@ impl OptimizationEngine {
                 .add_action("Verify if VM is still needed")
                 .add_action("Shutdown VM if not required")
                 .add_action("Consider scheduled start/stop if periodically needed")
-                .with_impact(Impact::High)
+                .with_impact(Impact::High),
             )
         } else {
             None
@@ -265,7 +276,7 @@ impl OptimizationEngine {
                 OptimizationRecommendation::new(
                     vm_name,
                     RecommendationType::Schedule,
-                    potential_savings
+                    potential_savings,
                 )
                 .with_priority(Priority::Medium)
                 .with_savings_percent(savings_percent)
@@ -273,7 +284,7 @@ impl OptimizationEngine {
                 .add_action("Schedule VM to run only during business hours")
                 .add_action("Auto-shutdown at 6 PM weekdays")
                 .add_action("Auto-shutdown on weekends")
-                .with_impact(Impact::Low)
+                .with_impact(Impact::Low),
             )
         } else {
             None
@@ -282,23 +293,28 @@ impl OptimizationEngine {
 
     /// Detect storage waste
     pub fn detect_storage_waste(storage_gb: u32, monthly_cost: f64) -> WasteReport {
-        WasteReport::new("storage", WasteType::UnattachedStorage, monthly_cost)
-            .with_details(format!("{}GB unattached storage costing ${:.2}/month", storage_gb, monthly_cost))
+        WasteReport::new("storage", WasteType::UnattachedStorage, monthly_cost).with_details(
+            format!(
+                "{}GB unattached storage costing ${:.2}/month",
+                storage_gb, monthly_cost
+            ),
+        )
     }
 
     /// Detect old snapshots
     pub fn detect_old_snapshots(
         snapshot_count: usize,
         days_old: u32,
-        monthly_cost: f64
+        monthly_cost: f64,
     ) -> Option<WasteReport> {
         if days_old > 90 && snapshot_count > 0 {
             Some(
-                WasteReport::new("snapshots", WasteType::OldSnapshots, monthly_cost)
-                    .with_details(format!(
+                WasteReport::new("snapshots", WasteType::OldSnapshots, monthly_cost).with_details(
+                    format!(
                         "{} snapshots older than {} days, costing ${:.2}/month",
                         snapshot_count, days_old, monthly_cost
-                    ))
+                    ),
+                ),
             )
         } else {
             None
@@ -357,17 +373,18 @@ impl OptimizationReport {
     }
 
     pub fn calculate_totals(&mut self) {
-        self.total_potential_savings = self.recommendations.iter()
+        self.total_potential_savings = self
+            .recommendations
+            .iter()
             .map(|r| r.potential_savings)
             .sum();
 
-        self.total_waste = self.waste_reports.iter()
-            .map(|w| w.monthly_waste)
-            .sum();
+        self.total_waste = self.waste_reports.iter().map(|w| w.monthly_waste).sum();
     }
 
     pub fn high_priority_recommendations(&self) -> Vec<&OptimizationRecommendation> {
-        self.recommendations.iter()
+        self.recommendations
+            .iter()
             .filter(|r| r.priority >= Priority::High)
             .collect()
     }
@@ -399,14 +416,7 @@ mod tests {
     #[test]
     fn test_right_sizing_analysis() {
         // VM with 4 cores, 8GB, but only using 25% CPU and 35% memory
-        let rec = OptimizationEngine::analyze_right_sizing(
-            "oversized-vm",
-            4,
-            8,
-            25.0,
-            35.0,
-            100.0
-        );
+        let rec = OptimizationEngine::analyze_right_sizing("oversized-vm", 4, 8, 25.0, 35.0, 100.0);
 
         assert!(rec.is_some());
         let rec = rec.unwrap();
@@ -417,14 +427,7 @@ mod tests {
     #[test]
     fn test_right_sizing_no_recommendation() {
         // VM with good utilization
-        let rec = OptimizationEngine::analyze_right_sizing(
-            "good-vm",
-            4,
-            8,
-            75.0,
-            80.0,
-            100.0
-        );
+        let rec = OptimizationEngine::analyze_right_sizing("good-vm", 4, 8, 75.0, 80.0, 100.0);
 
         assert!(rec.is_none());
     }
@@ -501,12 +504,16 @@ mod tests {
     fn test_optimization_report() {
         let mut report = OptimizationReport::new("test-vm");
 
-        report.add_recommendation(
-            OptimizationRecommendation::new("test-vm", RecommendationType::RightSize, 50.0)
-        );
-        report.add_recommendation(
-            OptimizationRecommendation::new("test-vm", RecommendationType::Schedule, 30.0)
-        );
+        report.add_recommendation(OptimizationRecommendation::new(
+            "test-vm",
+            RecommendationType::RightSize,
+            50.0,
+        ));
+        report.add_recommendation(OptimizationRecommendation::new(
+            "test-vm",
+            RecommendationType::Schedule,
+            30.0,
+        ));
 
         report.calculate_totals();
 
@@ -520,11 +527,11 @@ mod tests {
 
         report.add_recommendation(
             OptimizationRecommendation::new("test-vm", RecommendationType::RightSize, 50.0)
-                .with_priority(Priority::High)
+                .with_priority(Priority::High),
         );
         report.add_recommendation(
             OptimizationRecommendation::new("test-vm", RecommendationType::Schedule, 30.0)
-                .with_priority(Priority::Low)
+                .with_priority(Priority::Low),
         );
 
         let high_priority = report.high_priority_recommendations();
@@ -533,7 +540,10 @@ mod tests {
 
     #[test]
     fn test_recommendation_type_display() {
-        assert_eq!(RecommendationType::RightSize.to_string(), "Right-size Resources");
+        assert_eq!(
+            RecommendationType::RightSize.to_string(),
+            "Right-size Resources"
+        );
         assert_eq!(RecommendationType::Shutdown.to_string(), "Shutdown Idle VM");
     }
 

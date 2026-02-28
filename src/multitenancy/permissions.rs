@@ -94,76 +94,172 @@ impl Permission {
     }
 
     // VM permissions
-    pub fn vm_create() -> Self { Permission::VMCreate }
-    pub fn vm_delete() -> Self { Permission::VMDelete }
-    pub fn vm_update() -> Self { Permission::VMUpdate }
-    pub fn vm_view() -> Self { Permission::VMView }
-    pub fn vm_start() -> Self { Permission::VMStart }
-    pub fn vm_stop() -> Self { Permission::VMStop }
-    pub fn vm_restart() -> Self { Permission::VMRestart }
-    pub fn vm_pause() -> Self { Permission::VMPause }
-    pub fn vm_unpause() -> Self { Permission::VMUnpause }
-    pub fn vm_migrate() -> Self { Permission::VMMigrate }
+    pub fn vm_create() -> Self {
+        Permission::VMCreate
+    }
+    pub fn vm_delete() -> Self {
+        Permission::VMDelete
+    }
+    pub fn vm_update() -> Self {
+        Permission::VMUpdate
+    }
+    pub fn vm_view() -> Self {
+        Permission::VMView
+    }
+    pub fn vm_start() -> Self {
+        Permission::VMStart
+    }
+    pub fn vm_stop() -> Self {
+        Permission::VMStop
+    }
+    pub fn vm_restart() -> Self {
+        Permission::VMRestart
+    }
+    pub fn vm_pause() -> Self {
+        Permission::VMPause
+    }
+    pub fn vm_unpause() -> Self {
+        Permission::VMUnpause
+    }
+    pub fn vm_migrate() -> Self {
+        Permission::VMMigrate
+    }
 
     // Snapshot permissions
-    pub fn snapshot_create() -> Self { Permission::SnapshotCreate }
-    pub fn snapshot_delete() -> Self { Permission::SnapshotDelete }
-    pub fn snapshot_restore() -> Self { Permission::SnapshotRestore }
-    pub fn snapshot_view() -> Self { Permission::SnapshotView }
+    pub fn snapshot_create() -> Self {
+        Permission::SnapshotCreate
+    }
+    pub fn snapshot_delete() -> Self {
+        Permission::SnapshotDelete
+    }
+    pub fn snapshot_restore() -> Self {
+        Permission::SnapshotRestore
+    }
+    pub fn snapshot_view() -> Self {
+        Permission::SnapshotView
+    }
 
     // Backup permissions
-    pub fn backup_create() -> Self { Permission::BackupCreate }
-    pub fn backup_delete() -> Self { Permission::BackupDelete }
-    pub fn backup_restore() -> Self { Permission::BackupRestore }
-    pub fn backup_view() -> Self { Permission::BackupView }
+    pub fn backup_create() -> Self {
+        Permission::BackupCreate
+    }
+    pub fn backup_delete() -> Self {
+        Permission::BackupDelete
+    }
+    pub fn backup_restore() -> Self {
+        Permission::BackupRestore
+    }
+    pub fn backup_view() -> Self {
+        Permission::BackupView
+    }
 
     // Network permissions
-    pub fn network_create() -> Self { Permission::NetworkCreate }
-    pub fn network_delete() -> Self { Permission::NetworkDelete }
-    pub fn network_update() -> Self { Permission::NetworkUpdate }
-    pub fn network_view() -> Self { Permission::NetworkView }
+    pub fn network_create() -> Self {
+        Permission::NetworkCreate
+    }
+    pub fn network_delete() -> Self {
+        Permission::NetworkDelete
+    }
+    pub fn network_update() -> Self {
+        Permission::NetworkUpdate
+    }
+    pub fn network_view() -> Self {
+        Permission::NetworkView
+    }
 
     // Storage permissions
-    pub fn storage_create() -> Self { Permission::StorageCreate }
-    pub fn storage_delete() -> Self { Permission::StorageDelete }
-    pub fn storage_update() -> Self { Permission::StorageUpdate }
-    pub fn storage_view() -> Self { Permission::StorageView }
+    pub fn storage_create() -> Self {
+        Permission::StorageCreate
+    }
+    pub fn storage_delete() -> Self {
+        Permission::StorageDelete
+    }
+    pub fn storage_update() -> Self {
+        Permission::StorageUpdate
+    }
+    pub fn storage_view() -> Self {
+        Permission::StorageView
+    }
 
     // Security permissions
-    pub fn security_scan() -> Self { Permission::SecurityScan }
-    pub fn security_harden() -> Self { Permission::SecurityHarden }
-    pub fn compliance_view() -> Self { Permission::ComplianceView }
-    pub fn audit_view() -> Self { Permission::AuditView }
+    pub fn security_scan() -> Self {
+        Permission::SecurityScan
+    }
+    pub fn security_harden() -> Self {
+        Permission::SecurityHarden
+    }
+    pub fn compliance_view() -> Self {
+        Permission::ComplianceView
+    }
+    pub fn audit_view() -> Self {
+        Permission::AuditView
+    }
 
     // Cost permissions
-    pub fn cost_view() -> Self { Permission::CostView }
-    pub fn budget_manage() -> Self { Permission::BudgetManage }
+    pub fn cost_view() -> Self {
+        Permission::CostView
+    }
+    pub fn budget_manage() -> Self {
+        Permission::BudgetManage
+    }
 
     // Automation permissions
-    pub fn automation_create() -> Self { Permission::AutomationCreate }
-    pub fn automation_delete() -> Self { Permission::AutomationDelete }
-    pub fn automation_execute() -> Self { Permission::AutomationExecute }
-    pub fn automation_view() -> Self { Permission::AutomationView }
+    pub fn automation_create() -> Self {
+        Permission::AutomationCreate
+    }
+    pub fn automation_delete() -> Self {
+        Permission::AutomationDelete
+    }
+    pub fn automation_execute() -> Self {
+        Permission::AutomationExecute
+    }
+    pub fn automation_view() -> Self {
+        Permission::AutomationView
+    }
 
     // Observability permissions
-    pub fn logs_view() -> Self { Permission::LogsView }
-    pub fn metrics_view() -> Self { Permission::MetricsView }
-    pub fn alerts_manage() -> Self { Permission::AlertsManage }
+    pub fn logs_view() -> Self {
+        Permission::LogsView
+    }
+    pub fn metrics_view() -> Self {
+        Permission::MetricsView
+    }
+    pub fn alerts_manage() -> Self {
+        Permission::AlertsManage
+    }
 
     // Tenant permissions
-    pub fn tenant_create() -> Self { Permission::TenantCreate }
-    pub fn tenant_delete() -> Self { Permission::TenantDelete }
-    pub fn tenant_update() -> Self { Permission::TenantUpdate }
-    pub fn tenant_view() -> Self { Permission::TenantView }
+    pub fn tenant_create() -> Self {
+        Permission::TenantCreate
+    }
+    pub fn tenant_delete() -> Self {
+        Permission::TenantDelete
+    }
+    pub fn tenant_update() -> Self {
+        Permission::TenantUpdate
+    }
+    pub fn tenant_view() -> Self {
+        Permission::TenantView
+    }
 
     // Role permissions
-    pub fn role_create() -> Self { Permission::RoleCreate }
-    pub fn role_delete() -> Self { Permission::RoleDelete }
-    pub fn role_assign() -> Self { Permission::RoleAssign }
-    pub fn role_view() -> Self { Permission::RoleView }
+    pub fn role_create() -> Self {
+        Permission::RoleCreate
+    }
+    pub fn role_delete() -> Self {
+        Permission::RoleDelete
+    }
+    pub fn role_assign() -> Self {
+        Permission::RoleAssign
+    }
+    pub fn role_view() -> Self {
+        Permission::RoleView
+    }
 
     // Super admin
-    pub fn all() -> Self { Permission::All }
+    pub fn all() -> Self {
+        Permission::All
+    }
 }
 
 impl std::fmt::Display for Permission {
@@ -249,7 +345,9 @@ impl PermissionChecker {
         user_permissions: &std::collections::HashSet<Permission>,
         required: &[Permission],
     ) -> bool {
-        required.iter().all(|req| Self::has_permission(user_permissions, req))
+        required
+            .iter()
+            .all(|req| Self::has_permission(user_permissions, req))
     }
 
     /// Check if user has any of the required permissions
@@ -257,7 +355,9 @@ impl PermissionChecker {
         user_permissions: &std::collections::HashSet<Permission>,
         required: &[Permission],
     ) -> bool {
-        required.iter().any(|req| Self::has_permission(user_permissions, req))
+        required
+            .iter()
+            .any(|req| Self::has_permission(user_permissions, req))
     }
 }
 
@@ -307,9 +407,18 @@ mod tests {
         perms.insert(Permission::VMCreate);
         perms.insert(Permission::VMView);
 
-        assert!(PermissionChecker::has_permission(&perms, &Permission::VMCreate));
-        assert!(PermissionChecker::has_permission(&perms, &Permission::VMView));
-        assert!(!PermissionChecker::has_permission(&perms, &Permission::VMDelete));
+        assert!(PermissionChecker::has_permission(
+            &perms,
+            &Permission::VMCreate
+        ));
+        assert!(PermissionChecker::has_permission(
+            &perms,
+            &Permission::VMView
+        ));
+        assert!(!PermissionChecker::has_permission(
+            &perms,
+            &Permission::VMDelete
+        ));
     }
 
     #[test]
@@ -317,9 +426,18 @@ mod tests {
         let mut perms = HashSet::new();
         perms.insert(Permission::All);
 
-        assert!(PermissionChecker::has_permission(&perms, &Permission::VMCreate));
-        assert!(PermissionChecker::has_permission(&perms, &Permission::VMDelete));
-        assert!(PermissionChecker::has_permission(&perms, &Permission::SnapshotCreate));
+        assert!(PermissionChecker::has_permission(
+            &perms,
+            &Permission::VMCreate
+        ));
+        assert!(PermissionChecker::has_permission(
+            &perms,
+            &Permission::VMDelete
+        ));
+        assert!(PermissionChecker::has_permission(
+            &perms,
+            &Permission::SnapshotCreate
+        ));
     }
 
     #[test]
@@ -384,9 +502,18 @@ mod tests {
 
     #[test]
     fn test_automation_permissions() {
-        assert_eq!(Permission::automation_create(), Permission::AutomationCreate);
-        assert_eq!(Permission::automation_delete(), Permission::AutomationDelete);
-        assert_eq!(Permission::automation_execute(), Permission::AutomationExecute);
+        assert_eq!(
+            Permission::automation_create(),
+            Permission::AutomationCreate
+        );
+        assert_eq!(
+            Permission::automation_delete(),
+            Permission::AutomationDelete
+        );
+        assert_eq!(
+            Permission::automation_execute(),
+            Permission::AutomationExecute
+        );
         assert_eq!(Permission::automation_view(), Permission::AutomationView);
     }
 

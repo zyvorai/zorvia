@@ -5,17 +5,16 @@ mod builtin;
 mod storage;
 mod validator;
 
-pub use validator::{validate_profile, validate_name};
+pub use validator::{validate_name, validate_profile};
 
+use anyhow::Result;
+use once_cell::sync::Lazy;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::sync::RwLock;
-use once_cell::sync::Lazy;
-use anyhow::Result;
 
-pub static PROFILES: Lazy<RwLock<ProfileManager>> = Lazy::new(|| {
-    RwLock::new(ProfileManager::new().expect("Failed to initialize ProfileManager"))
-});
+pub static PROFILES: Lazy<RwLock<ProfileManager>> =
+    Lazy::new(|| RwLock::new(ProfileManager::new().expect("Failed to initialize ProfileManager")));
 
 /// Profile represents a pre-configured resource allocation template
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -61,7 +60,8 @@ impl ProfileManager {
 
     /// List all profiles (builtin + custom)
     pub fn list(&self) -> Vec<Profile> {
-        let mut profiles: Vec<_> = self.builtin_profiles
+        let mut profiles: Vec<_> = self
+            .builtin_profiles
             .values()
             .chain(self.custom_profiles.values())
             .cloned()
@@ -148,13 +148,14 @@ impl ProfileManager {
     /// Get profile recommendation based on use case keywords
     pub fn recommend(&self, use_case: &str) -> Vec<Profile> {
         let use_case_lower = use_case.to_lowercase();
-        let mut matches: Vec<_> = self.list()
+        let mut matches: Vec<_> = self
+            .list()
             .into_iter()
             .filter(|p| {
-                p.use_cases.iter().any(|uc|
-                    uc.to_lowercase().contains(&use_case_lower) ||
-                    use_case_lower.contains(&uc.to_lowercase())
-                )
+                p.use_cases.iter().any(|uc| {
+                    uc.to_lowercase().contains(&use_case_lower)
+                        || use_case_lower.contains(&uc.to_lowercase())
+                })
             })
             .collect();
 

@@ -1,7 +1,7 @@
 // Snapshots View - List and manage VM snapshots
 
-use crate::tui::{config::TuiConfig, state::AppState};
 use crate::tui::colors::tui as colors;
+use crate::tui::{config::TuiConfig, state::AppState};
 use ratatui::{
     layout::{Alignment, Constraint, Direction, Layout},
     style::{Modifier, Style},
@@ -17,17 +17,25 @@ pub fn render(f: &mut Frame, state: &AppState, _config: &TuiConfig) {
     let chunks = Layout::default()
         .direction(Direction::Vertical)
         .constraints([
-            Constraint::Length(3),  // Header
-            Constraint::Min(0),     // Snapshot table
-            Constraint::Length(4),  // Help text
+            Constraint::Length(3), // Header
+            Constraint::Min(0),    // Snapshot table
+            Constraint::Length(4), // Help text
         ])
         .split(size);
 
     // Header
     let header = Paragraph::new(format!("VM Snapshots ({})", state.snapshots.len()))
-        .style(Style::default().fg(colors::ORANGE).add_modifier(Modifier::BOLD))
+        .style(
+            Style::default()
+                .fg(colors::ORANGE)
+                .add_modifier(Modifier::BOLD),
+        )
         .alignment(Alignment::Center)
-        .block(Block::default().borders(Borders::ALL).border_style(Style::default().fg(colors::BORDER)));
+        .block(
+            Block::default()
+                .borders(Borders::ALL)
+                .border_style(Style::default().fg(colors::BORDER)),
+        );
     f.render_widget(header, chunks[0]);
 
     // Snapshot table
@@ -41,14 +49,23 @@ fn render_snapshot_table(f: &mut Frame, state: &AppState, area: ratatui::layout:
     if state.snapshots.is_empty() {
         let text = Paragraph::new("No snapshots found")
             .alignment(Alignment::Center)
-            .block(Block::default().borders(Borders::ALL).border_style(Style::default().fg(colors::BORDER)).title("Snapshots"));
+            .block(
+                Block::default()
+                    .borders(Borders::ALL)
+                    .border_style(Style::default().fg(colors::BORDER))
+                    .title("Snapshots"),
+            );
         f.render_widget(text, area);
         return;
     }
 
-    let header_cells = ["Name", "VM", "Status", "Age"]
-        .iter()
-        .map(|h| Cell::from(*h).style(Style::default().fg(colors::WARNING).add_modifier(Modifier::BOLD)));
+    let header_cells = ["Name", "VM", "Status", "Age"].iter().map(|h| {
+        Cell::from(*h).style(
+            Style::default()
+                .fg(colors::WARNING)
+                .add_modifier(Modifier::BOLD),
+        )
+    });
     let header = Row::new(header_cells)
         .style(Style::default().bg(colors::DARK_ORANGE))
         .height(1);
@@ -84,14 +101,19 @@ fn render_snapshot_table(f: &mut Frame, state: &AppState, area: ratatui::layout:
     let table = Table::new(
         rows,
         [
-            Constraint::Percentage(30),  // Name
-            Constraint::Percentage(30),  // VM
-            Constraint::Percentage(20),  // Status
-            Constraint::Percentage(20),  // Age
+            Constraint::Percentage(30), // Name
+            Constraint::Percentage(30), // VM
+            Constraint::Percentage(20), // Status
+            Constraint::Percentage(20), // Age
         ],
     )
     .header(header)
-    .block(Block::default().borders(Borders::ALL).border_style(Style::default().fg(colors::BORDER)).title("Snapshots"))
+    .block(
+        Block::default()
+            .borders(Borders::ALL)
+            .border_style(Style::default().fg(colors::BORDER))
+            .title("Snapshots"),
+    )
     .column_spacing(1);
 
     f.render_widget(table, area);
@@ -106,7 +128,11 @@ fn render_help(f: &mut Frame, area: ratatui::layout::Rect) {
     let help = Paragraph::new(help_text)
         .style(Style::default().fg(colors::TEXT_MUTED))
         .alignment(Alignment::Center)
-        .block(Block::default().borders(Borders::ALL).border_style(Style::default().fg(colors::BORDER)));
+        .block(
+            Block::default()
+                .borders(Borders::ALL)
+                .border_style(Style::default().fg(colors::BORDER)),
+        );
 
     f.render_widget(help, area);
 }

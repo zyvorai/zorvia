@@ -1,7 +1,7 @@
 // Backup Verification - Verify backup integrity and restorability
 
-use serde::{Deserialize, Serialize};
 use chrono::{DateTime, Utc};
+use serde::{Deserialize, Serialize};
 
 /// Verification report
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -52,8 +52,12 @@ impl VerificationReport {
 
     pub fn duration_secs(&self) -> i64 {
         match self.completed_at {
-            Some(completed) => completed.signed_duration_since(self.started_at).num_seconds(),
-            None => Utc::now().signed_duration_since(self.started_at).num_seconds(),
+            Some(completed) => completed
+                .signed_duration_since(self.started_at)
+                .num_seconds(),
+            None => Utc::now()
+                .signed_duration_since(self.started_at)
+                .num_seconds(),
         }
     }
 
@@ -61,7 +65,9 @@ impl VerificationReport {
         if self.checks.is_empty() {
             return 100.0;
         }
-        let passed = self.checks.iter()
+        let passed = self
+            .checks
+            .iter()
             .filter(|c| c.result == CheckResult::Passed)
             .count();
         (passed as f64 / self.checks.len() as f64) * 100.0
@@ -71,9 +77,9 @@ impl VerificationReport {
 /// Verification type
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub enum VerificationType {
-    Quick,       // Fast integrity checks
-    Standard,    // Checksum + basic restore test
-    Full,        // Complete restore test
+    Quick,    // Fast integrity checks
+    Standard, // Checksum + basic restore test
+    Full,     // Complete restore test
 }
 
 /// Verification status
@@ -153,27 +159,18 @@ impl VerificationRunner {
         let mut report = VerificationReport::new(backup_name, verification_type.clone());
 
         // File existence check
-        report.add_check(
-            VerificationCheck::new("file-exists", "Verify backup file exists")
-                .passed()
-        );
+        report
+            .add_check(VerificationCheck::new("file-exists", "Verify backup file exists").passed());
 
         // Checksum verification
-        report.add_check(
-            VerificationCheck::new("checksum", "Verify backup checksum")
-                .passed()
-        );
+        report.add_check(VerificationCheck::new("checksum", "Verify backup checksum").passed());
 
         // Metadata check
-        report.add_check(
-            VerificationCheck::new("metadata", "Verify backup metadata")
-                .passed()
-        );
+        report.add_check(VerificationCheck::new("metadata", "Verify backup metadata").passed());
 
         // Compression check
         report.add_check(
-            VerificationCheck::new("compression", "Verify compression integrity")
-                .passed()
+            VerificationCheck::new("compression", "Verify compression integrity").passed(),
         );
 
         match verification_type {
@@ -182,22 +179,16 @@ impl VerificationRunner {
             }
             VerificationType::Standard => {
                 // Add decompression test
-                report.add_check(
-                    VerificationCheck::new("decompress", "Test decompression")
-                        .passed()
-                );
+                report
+                    .add_check(VerificationCheck::new("decompress", "Test decompression").passed());
             }
             VerificationType::Full => {
                 // Add full restore test
                 report.add_check(
-                    VerificationCheck::new("restore-test", "Full restore test")
-                        .passed()
+                    VerificationCheck::new("restore-test", "Full restore test").passed(),
                 );
-                
-                report.add_check(
-                    VerificationCheck::new("boot-test", "VM boot test")
-                        .passed()
-                );
+
+                report.add_check(VerificationCheck::new("boot-test", "VM boot test").passed());
             }
         }
 
@@ -222,15 +213,9 @@ mod tests {
         assert_eq!(report.error_count, 0);
         assert_eq!(report.warning_count, 0);
 
-        report.add_check(
-            VerificationCheck::new("test1", "Test check 1").passed()
-        );
-        report.add_check(
-            VerificationCheck::new("test2", "Test check 2").warning("Minor issue")
-        );
-        report.add_check(
-            VerificationCheck::new("test3", "Test check 3").failed("Critical error")
-        );
+        report.add_check(VerificationCheck::new("test1", "Test check 1").passed());
+        report.add_check(VerificationCheck::new("test2", "Test check 2").warning("Minor issue"));
+        report.add_check(VerificationCheck::new("test3", "Test check 3").failed("Critical error"));
 
         assert_eq!(report.error_count, 1);
         assert_eq!(report.warning_count, 1);
@@ -247,9 +232,7 @@ mod tests {
         assert!(report.completed_at.is_some());
 
         let mut report_with_error = VerificationReport::new("backup-002", VerificationType::Quick);
-        report_with_error.add_check(
-            VerificationCheck::new("test", "Test").failed("Error")
-        );
+        report_with_error.add_check(VerificationCheck::new("test", "Test").failed("Error"));
         report_with_error.finalize();
 
         assert_eq!(report_with_error.status, VerificationStatus::Failed);
@@ -257,14 +240,12 @@ mod tests {
 
     #[test]
     fn test_verification_check() {
-        let check = VerificationCheck::new("checksum", "Verify checksum")
-            .passed();
+        let check = VerificationCheck::new("checksum", "Verify checksum").passed();
 
         assert_eq!(check.check_name, "checksum");
         assert_eq!(check.result, CheckResult::Passed);
 
-        let failed = VerificationCheck::new("restore", "Restore test")
-            .failed("Restore failed");
+        let failed = VerificationCheck::new("restore", "Restore test").failed("Restore failed");
 
         assert_eq!(failed.result, CheckResult::Failed);
         assert_eq!(failed.message, "Restore failed");
@@ -282,7 +263,7 @@ mod tests {
     #[test]
     fn test_pass_rate() {
         let mut report = VerificationReport::new("backup", VerificationType::Standard);
-        
+
         report.add_check(VerificationCheck::new("test1", "Test 1").passed());
         report.add_check(VerificationCheck::new("test2", "Test 2").passed());
         report.add_check(VerificationCheck::new("test3", "Test 3").failed("Error"));

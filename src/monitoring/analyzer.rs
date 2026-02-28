@@ -1,6 +1,6 @@
 // Performance Analyzer - Bottleneck detection and performance scoring
 
-use super::metrics::{VMMetrics, ResourceUsage};
+use super::metrics::{ResourceUsage, VMMetrics};
 use super::AlertThresholds;
 use serde::{Deserialize, Serialize};
 
@@ -39,10 +39,10 @@ pub struct PerformanceReport {
 /// Performance status
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub enum PerformanceStatus {
-    Excellent,  // 90-100
-    Good,       // 70-89
-    Fair,       // 50-69
-    Poor,       // 0-49
+    Excellent, // 90-100
+    Good,      // 70-89
+    Fair,      // 50-69
+    Poor,      // 0-49
 }
 
 impl PerformanceStatus {
@@ -200,9 +200,12 @@ impl PerformanceAnalyzer {
         // Overall usage recommendation
         let overall = usage.overall_usage();
         if overall > 80.0 {
-            recommendations.push("Overall resource usage is high. Consider scaling up resources".to_string());
+            recommendations
+                .push("Overall resource usage is high. Consider scaling up resources".to_string());
         } else if overall < 30.0 {
-            recommendations.push("Overall resource usage is low. Consider downsizing to save costs".to_string());
+            recommendations.push(
+                "Overall resource usage is low. Consider downsizing to save costs".to_string(),
+            );
         }
 
         recommendations
@@ -218,9 +221,8 @@ impl PerformanceAnalyzer {
         let disk_score = Self::resource_score(usage.disk_percent, 75.0);
 
         // Weighted average: CPU 40%, Memory 35%, Disk 25%
-        let total_score = (cpu_score as f64 * 0.4)
-            + (memory_score as f64 * 0.35)
-            + (disk_score as f64 * 0.25);
+        let total_score =
+            (cpu_score as f64 * 0.4) + (memory_score as f64 * 0.35) + (disk_score as f64 * 0.25);
 
         total_score.round() as u8
     }
@@ -248,7 +250,13 @@ impl PerformanceAnalyzer {
     pub fn compare(&self, reports: Vec<PerformanceReport>) -> Vec<(String, u8, String)> {
         let mut comparison: Vec<_> = reports
             .into_iter()
-            .map(|r| (r.vm_name, r.performance_score, r.status.as_str().to_string()))
+            .map(|r| {
+                (
+                    r.vm_name,
+                    r.performance_score,
+                    r.status.as_str().to_string(),
+                )
+            })
             .collect();
 
         comparison.sort_by(|a, b| b.1.cmp(&a.1)); // Sort by score descending
@@ -259,11 +267,14 @@ impl PerformanceAnalyzer {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::monitoring::metrics::{VMMetrics, CPUMetrics, MemoryMetrics, DiskMetrics};
+    use crate::monitoring::metrics::{CPUMetrics, DiskMetrics, MemoryMetrics, VMMetrics};
 
     #[test]
     fn test_performance_status_from_score() {
-        assert_eq!(PerformanceStatus::from_score(95), PerformanceStatus::Excellent);
+        assert_eq!(
+            PerformanceStatus::from_score(95),
+            PerformanceStatus::Excellent
+        );
         assert_eq!(PerformanceStatus::from_score(75), PerformanceStatus::Good);
         assert_eq!(PerformanceStatus::from_score(55), PerformanceStatus::Fair);
         assert_eq!(PerformanceStatus::from_score(30), PerformanceStatus::Poor);
@@ -283,7 +294,9 @@ mod tests {
 
         let bottlenecks = analyzer.detect_bottlenecks(&usage);
         assert!(!bottlenecks.is_empty());
-        assert!(bottlenecks.iter().any(|b| b.bottleneck_type == BottleneckType::CPU));
+        assert!(bottlenecks
+            .iter()
+            .any(|b| b.bottleneck_type == BottleneckType::CPU));
     }
 
     #[test]

@@ -1,13 +1,13 @@
 // Automation & Orchestration - Workflow engine and event-driven automation
 
+use chrono::{DateTime, Datelike, Timelike, Utc};
 use serde::{Deserialize, Serialize};
-use chrono::{DateTime, Utc, Timelike, Datelike};
 use std::collections::HashMap;
 
-pub mod workflows;
-pub mod triggers;
 pub mod actions;
 pub mod schedules;
+pub mod triggers;
+pub mod workflows;
 
 /// Automation rule
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -27,7 +27,11 @@ pub struct AutomationRule {
 impl AutomationRule {
     pub fn new(name: impl Into<String>, trigger: Trigger) -> Self {
         let name_str = name.into();
-        let id = format!("rule-{}-{}", name_str.to_lowercase().replace(' ', "-"), Utc::now().timestamp());
+        let id = format!(
+            "rule-{}-{}",
+            name_str.to_lowercase().replace(' ', "-"),
+            Utc::now().timestamp()
+        );
 
         Self {
             id,
@@ -69,9 +73,9 @@ impl AutomationRule {
             return true;
         }
 
-        self.conditions.iter().all(|condition| {
-            condition.evaluate(context)
-        })
+        self.conditions
+            .iter()
+            .all(|condition| condition.evaluate(context))
     }
 
     pub fn record_execution(&mut self) {
@@ -83,12 +87,24 @@ impl AutomationRule {
 /// Automation trigger
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub enum Trigger {
-    VMStateChange { state: String },              // VM state changed to specific state
-    MetricThreshold { metric: String, threshold: f64, operator: Operator },
-    Schedule { cron: String },                    // Cron-based schedule
-    Event { event_type: String },                 // Custom event
-    Manual,                                        // Manually triggered
-    Webhook { url: String },                      // Webhook trigger
+    VMStateChange {
+        state: String,
+    }, // VM state changed to specific state
+    MetricThreshold {
+        metric: String,
+        threshold: f64,
+        operator: Operator,
+    },
+    Schedule {
+        cron: String,
+    }, // Cron-based schedule
+    Event {
+        event_type: String,
+    }, // Custom event
+    Manual, // Manually triggered
+    Webhook {
+        url: String,
+    }, // Webhook trigger
 }
 
 /// Comparison operator
@@ -106,7 +122,7 @@ pub enum Operator {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Condition {
     pub condition_type: ConditionType,
-    pub negate: bool,  // If true, condition is negated
+    pub negate: bool, // If true, condition is negated
 }
 
 impl Condition {
@@ -124,13 +140,12 @@ impl Condition {
 
     pub fn evaluate(&self, context: &AutomationContext) -> bool {
         let result = match &self.condition_type {
-            ConditionType::VMExists { vm_name } => {
-                context.vm_exists(vm_name)
-            }
-            ConditionType::VMState { vm_name, state } => {
-                context.vm_state_matches(vm_name, state)
-            }
-            ConditionType::TimeRange { start_hour, end_hour } => {
+            ConditionType::VMExists { vm_name } => context.vm_exists(vm_name),
+            ConditionType::VMState { vm_name, state } => context.vm_state_matches(vm_name, state),
+            ConditionType::TimeRange {
+                start_hour,
+                end_hour,
+            } => {
                 let current_hour = Utc::now().hour();
                 current_hour >= *start_hour && current_hour < *end_hour
             }
@@ -138,15 +153,15 @@ impl Condition {
                 let current_day = Utc::now().weekday().number_from_monday();
                 days.contains(&current_day)
             }
-            ConditionType::Label { key, value } => {
-                context.has_label(key, value)
-            }
-            ConditionType::Namespace { namespace } => {
-                context.namespace_matches(namespace)
-            }
+            ConditionType::Label { key, value } => context.has_label(key, value),
+            ConditionType::Namespace { namespace } => context.namespace_matches(namespace),
         };
 
-        if self.negate { !result } else { result }
+        if self.negate {
+            !result
+        } else {
+            result
+        }
     }
 }
 
@@ -156,7 +171,7 @@ pub enum ConditionType {
     VMExists { vm_name: String },
     VMState { vm_name: String, state: String },
     TimeRange { start_hour: u32, end_hour: u32 },
-    DayOfWeek { days: Vec<u32> },  // 1=Monday, 7=Sunday
+    DayOfWeek { days: Vec<u32> }, // 1=Monday, 7=Sunday
     Label { key: String, value: String },
     Namespace { namespace: String },
 }
@@ -185,24 +200,51 @@ impl Action {
 /// Action type
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum ActionType {
-    StartVM { vm_name: String },
-    StopVM { vm_name: String },
-    RestartVM { vm_name: String },
-    CreateSnapshot { vm_name: String, snapshot_name: Option<String> },
-    DeleteSnapshot { snapshot_name: String },
-    ScaleResources { vm_name: String, cpu: Option<u32>, memory: Option<String> },
-    SendNotification { channel: String, message: String },
-    RunScript { script: String },
-    Webhook { url: String, payload: HashMap<String, String> },
-    CreateBackup { vm_name: String },
-    DeleteVM { vm_name: String },
+    StartVM {
+        vm_name: String,
+    },
+    StopVM {
+        vm_name: String,
+    },
+    RestartVM {
+        vm_name: String,
+    },
+    CreateSnapshot {
+        vm_name: String,
+        snapshot_name: Option<String>,
+    },
+    DeleteSnapshot {
+        snapshot_name: String,
+    },
+    ScaleResources {
+        vm_name: String,
+        cpu: Option<u32>,
+        memory: Option<String>,
+    },
+    SendNotification {
+        channel: String,
+        message: String,
+    },
+    RunScript {
+        script: String,
+    },
+    Webhook {
+        url: String,
+        payload: HashMap<String, String>,
+    },
+    CreateBackup {
+        vm_name: String,
+    },
+    DeleteVM {
+        vm_name: String,
+    },
 }
 
 /// Failure policy
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub enum FailurePolicy {
-    Continue,  // Continue with next action
-    Abort,     // Stop execution
+    Continue, // Continue with next action
+    Abort,    // Stop execution
     Retry { max_attempts: u32 },
 }
 
@@ -257,8 +299,7 @@ impl AutomationContext {
     }
 
     fn vm_state_matches(&self, vm_name: &str, state: &str) -> bool {
-        self.vm_name.as_deref() == Some(vm_name) &&
-        self.vm_state.as_deref() == Some(state)
+        self.vm_name.as_deref() == Some(vm_name) && self.vm_state.as_deref() == Some(state)
     }
 
     fn has_label(&self, key: &str, value: &str) -> bool {
@@ -310,21 +351,21 @@ impl ExecutionResult {
 
     pub fn duration_secs(&self) -> i64 {
         match self.completed_at {
-            Some(completed) => completed.signed_duration_since(self.started_at).num_seconds(),
-            None => Utc::now().signed_duration_since(self.started_at).num_seconds(),
+            Some(completed) => completed
+                .signed_duration_since(self.started_at)
+                .num_seconds(),
+            None => Utc::now()
+                .signed_duration_since(self.started_at)
+                .num_seconds(),
         }
     }
 
     pub fn success_count(&self) -> usize {
-        self.action_results.iter()
-            .filter(|r| r.success)
-            .count()
+        self.action_results.iter().filter(|r| r.success).count()
     }
 
     pub fn failure_count(&self) -> usize {
-        self.action_results.iter()
-            .filter(|r| !r.success)
-            .count()
+        self.action_results.iter().filter(|r| !r.success).count()
     }
 }
 
@@ -385,12 +426,13 @@ mod tests {
     fn test_automation_rule() {
         let rule = AutomationRule::new("Auto Stop Idle VMs", Trigger::Manual)
             .with_description("Stop VMs with low CPU usage")
-            .add_condition(Condition::new(
-                ConditionType::TimeRange { start_hour: 18, end_hour: 8 }
-            ))
-            .add_action(Action::new(
-                ActionType::StopVM { vm_name: "test-vm".to_string() }
-            ));
+            .add_condition(Condition::new(ConditionType::TimeRange {
+                start_hour: 18,
+                end_hour: 8,
+            }))
+            .add_action(Action::new(ActionType::StopVM {
+                vm_name: "test-vm".to_string(),
+            }));
 
         assert_eq!(rule.name, "Auto Stop Idle VMs");
         assert!(rule.enabled);
@@ -400,7 +442,9 @@ mod tests {
 
     #[test]
     fn test_trigger_types() {
-        let state_trigger = Trigger::VMStateChange { state: "Running".to_string() };
+        let state_trigger = Trigger::VMStateChange {
+            state: "Running".to_string(),
+        };
         assert!(matches!(state_trigger, Trigger::VMStateChange { .. }));
 
         let metric_trigger = Trigger::MetricThreshold {
@@ -417,9 +461,9 @@ mod tests {
             .with_vm("test-vm")
             .with_namespace("default");
 
-        let condition = Condition::new(
-            ConditionType::VMExists { vm_name: "test-vm".to_string() }
-        );
+        let condition = Condition::new(ConditionType::VMExists {
+            vm_name: "test-vm".to_string(),
+        });
 
         assert!(condition.evaluate(&context));
 
@@ -429,9 +473,10 @@ mod tests {
 
     #[test]
     fn test_time_range_condition() {
-        let condition = Condition::new(
-            ConditionType::TimeRange { start_hour: 0, end_hour: 24 }
-        );
+        let condition = Condition::new(ConditionType::TimeRange {
+            start_hour: 0,
+            end_hour: 24,
+        });
 
         let context = AutomationContext::new();
         assert!(condition.evaluate(&context)); // Should always be true for 0-24 range
@@ -442,49 +487,45 @@ mod tests {
         let mut context = AutomationContext::new();
         context.add_label("env", "production");
 
-        let condition = Condition::new(
-            ConditionType::Label {
-                key: "env".to_string(),
-                value: "production".to_string()
-            }
-        );
+        let condition = Condition::new(ConditionType::Label {
+            key: "env".to_string(),
+            value: "production".to_string(),
+        });
 
         assert!(condition.evaluate(&context));
 
-        let wrong_condition = Condition::new(
-            ConditionType::Label {
-                key: "env".to_string(),
-                value: "development".to_string()
-            }
-        );
+        let wrong_condition = Condition::new(ConditionType::Label {
+            key: "env".to_string(),
+            value: "development".to_string(),
+        });
 
         assert!(!wrong_condition.evaluate(&context));
     }
 
     #[test]
     fn test_action_types() {
-        let start_action = Action::new(
-            ActionType::StartVM { vm_name: "test-vm".to_string() }
-        );
+        let start_action = Action::new(ActionType::StartVM {
+            vm_name: "test-vm".to_string(),
+        });
         assert_eq!(start_action.on_failure, FailurePolicy::Continue);
 
-        let action_with_retry = Action::new(
-            ActionType::RestartVM { vm_name: "test-vm".to_string() }
-        ).with_failure_policy(FailurePolicy::Retry { max_attempts: 3 });
+        let action_with_retry = Action::new(ActionType::RestartVM {
+            vm_name: "test-vm".to_string(),
+        })
+        .with_failure_policy(FailurePolicy::Retry { max_attempts: 3 });
 
-        assert!(matches!(action_with_retry.on_failure, FailurePolicy::Retry { .. }));
+        assert!(matches!(
+            action_with_retry.on_failure,
+            FailurePolicy::Retry { .. }
+        ));
     }
 
     #[test]
     fn test_execution_result() {
         let mut result = ExecutionResult::new("rule-123");
 
-        result.add_action_result(
-            ActionResult::success("start-vm", "VM started successfully")
-        );
-        result.add_action_result(
-            ActionResult::failure("stop-vm", "VM not found")
-        );
+        result.add_action_result(ActionResult::success("start-vm", "VM started successfully"));
+        result.add_action_result(ActionResult::failure("stop-vm", "VM not found"));
 
         assert_eq!(result.success_count(), 1);
         assert_eq!(result.failure_count(), 1);

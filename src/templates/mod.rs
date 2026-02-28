@@ -54,7 +54,10 @@ impl TemplateManager {
         // OpenSUSE
         templates.insert("opensuse".to_string(), opensuse_leap_template());
         templates.insert("opensuse-leap".to_string(), opensuse_leap_template());
-        templates.insert("opensuse-tumbleweed".to_string(), opensuse_tumbleweed_template());
+        templates.insert(
+            "opensuse-tumbleweed".to_string(),
+            opensuse_tumbleweed_template(),
+        );
 
         // Alpine Linux
         templates.insert("alpine".to_string(), alpine_template());
@@ -142,7 +145,8 @@ impl TemplateManager {
                 "Other"
             };
 
-            families.entry(family.to_string())
+            families
+                .entry(family.to_string())
                 .or_default()
                 .push(name.clone());
         }
@@ -171,11 +175,7 @@ fn ubuntu_2404_template() -> VMConfig {
         .namespace("default")
         .cpu(2, 1, 1)
         .memory("4Gi")
-        .add_container_disk(
-            "rootdisk",
-            "quay.io/containerdisks/ubuntu:24.04",
-            1,
-        )
+        .add_container_disk("rootdisk", "quay.io/containerdisks/ubuntu:24.04", 1)
         .add_blank_disk("datadisk", "20Gi", 2)
         .add_pod_network("default")
         .label("os", "ubuntu")
@@ -189,11 +189,7 @@ fn ubuntu_2204_template() -> VMConfig {
         .namespace("default")
         .cpu(2, 1, 1)
         .memory("4Gi")
-        .add_container_disk(
-            "rootdisk",
-            "quay.io/containerdisks/ubuntu:22.04",
-            1,
-        )
+        .add_container_disk("rootdisk", "quay.io/containerdisks/ubuntu:22.04", 1)
         .add_blank_disk("datadisk", "20Gi", 2)
         .add_pod_network("default")
         .label("os", "ubuntu")
@@ -207,11 +203,7 @@ fn ubuntu_2004_template() -> VMConfig {
         .namespace("default")
         .cpu(2, 1, 1)
         .memory("4Gi")
-        .add_container_disk(
-            "rootdisk",
-            "quay.io/containerdisks/ubuntu:20.04",
-            1,
-        )
+        .add_container_disk("rootdisk", "quay.io/containerdisks/ubuntu:20.04", 1)
         .add_blank_disk("datadisk", "20Gi", 2)
         .add_pod_network("default")
         .label("os", "ubuntu")
@@ -225,11 +217,7 @@ fn ubuntu_1804_template() -> VMConfig {
         .namespace("default")
         .cpu(2, 1, 1)
         .memory("4Gi")
-        .add_container_disk(
-            "rootdisk",
-            "quay.io/containerdisks/ubuntu:18.04",
-            1,
-        )
+        .add_container_disk("rootdisk", "quay.io/containerdisks/ubuntu:18.04", 1)
         .add_blank_disk("datadisk", "20Gi", 2)
         .add_pod_network("default")
         .label("os", "ubuntu")
@@ -247,11 +235,7 @@ fn fedora_41_template() -> VMConfig {
         .namespace("default")
         .cpu(2, 1, 1)
         .memory("4Gi")
-        .add_container_disk(
-            "rootdisk",
-            "quay.io/containerdisks/fedora:41",
-            1,
-        )
+        .add_container_disk("rootdisk", "quay.io/containerdisks/fedora:41", 1)
         .add_blank_disk("datadisk", "20Gi", 2)
         .add_pod_network("default")
         .label("os", "fedora")
@@ -265,11 +249,7 @@ fn fedora_40_template() -> VMConfig {
         .namespace("default")
         .cpu(2, 1, 1)
         .memory("4Gi")
-        .add_container_disk(
-            "rootdisk",
-            "quay.io/containerdisks/fedora:40",
-            1,
-        )
+        .add_container_disk("rootdisk", "quay.io/containerdisks/fedora:40", 1)
         .add_blank_disk("datadisk", "20Gi", 2)
         .add_pod_network("default")
         .label("os", "fedora")
@@ -283,11 +263,7 @@ fn fedora_39_template() -> VMConfig {
         .namespace("default")
         .cpu(2, 1, 1)
         .memory("4Gi")
-        .add_container_disk(
-            "rootdisk",
-            "quay.io/containerdisks/fedora:39",
-            1,
-        )
+        .add_container_disk("rootdisk", "quay.io/containerdisks/fedora:39", 1)
         .add_blank_disk("datadisk", "20Gi", 2)
         .add_pod_network("default")
         .label("os", "fedora")
@@ -305,11 +281,7 @@ fn centos_stream9_template() -> VMConfig {
         .namespace("default")
         .cpu(2, 1, 1)
         .memory("4Gi")
-        .add_container_disk(
-            "rootdisk",
-            "quay.io/containerdisks/centos-stream:9",
-            1,
-        )
+        .add_container_disk("rootdisk", "quay.io/containerdisks/centos-stream:9", 1)
         .add_blank_disk("datadisk", "20Gi", 2)
         .add_pod_network("default")
         .label("os", "centos")
@@ -323,11 +295,7 @@ fn centos_stream8_template() -> VMConfig {
         .namespace("default")
         .cpu(2, 1, 1)
         .memory("4Gi")
-        .add_container_disk(
-            "rootdisk",
-            "quay.io/containerdisks/centos-stream:8",
-            1,
-        )
+        .add_container_disk("rootdisk", "quay.io/containerdisks/centos-stream:8", 1)
         .add_blank_disk("datadisk", "20Gi", 2)
         .add_pod_network("default")
         .label("os", "centos")
@@ -345,11 +313,7 @@ fn debian_12_template() -> VMConfig {
         .namespace("default")
         .cpu(2, 1, 1)
         .memory("4Gi")
-        .add_container_disk(
-            "rootdisk",
-            "quay.io/containerdisks/debian:12",
-            1,
-        )
+        .add_container_disk("rootdisk", "quay.io/containerdisks/debian:12", 1)
         .add_blank_disk("datadisk", "20Gi", 2)
         .add_pod_network("default")
         .label("os", "debian")
@@ -363,11 +327,7 @@ fn debian_11_template() -> VMConfig {
         .namespace("default")
         .cpu(2, 1, 1)
         .memory("4Gi")
-        .add_container_disk(
-            "rootdisk",
-            "quay.io/containerdisks/debian:11",
-            1,
-        )
+        .add_container_disk("rootdisk", "quay.io/containerdisks/debian:11", 1)
         .add_blank_disk("datadisk", "20Gi", 2)
         .add_pod_network("default")
         .label("os", "debian")
@@ -415,11 +375,7 @@ fn almalinux_9_template() -> VMConfig {
         .namespace("default")
         .cpu(2, 1, 1)
         .memory("4Gi")
-        .add_container_disk(
-            "rootdisk",
-            "quay.io/containerdisks/almalinux:9",
-            1,
-        )
+        .add_container_disk("rootdisk", "quay.io/containerdisks/almalinux:9", 1)
         .add_blank_disk("datadisk", "20Gi", 2)
         .add_pod_network("default")
         .label("os", "almalinux")
@@ -433,11 +389,7 @@ fn almalinux_8_template() -> VMConfig {
         .namespace("default")
         .cpu(2, 1, 1)
         .memory("4Gi")
-        .add_container_disk(
-            "rootdisk",
-            "quay.io/containerdisks/almalinux:8",
-            1,
-        )
+        .add_container_disk("rootdisk", "quay.io/containerdisks/almalinux:8", 1)
         .add_blank_disk("datadisk", "20Gi", 2)
         .add_pod_network("default")
         .label("os", "almalinux")
@@ -455,11 +407,7 @@ fn rocky_9_template() -> VMConfig {
         .namespace("default")
         .cpu(2, 1, 1)
         .memory("4Gi")
-        .add_container_disk(
-            "rootdisk",
-            "quay.io/containerdisks/rockylinux:9",
-            1,
-        )
+        .add_container_disk("rootdisk", "quay.io/containerdisks/rockylinux:9", 1)
         .add_blank_disk("datadisk", "20Gi", 2)
         .add_pod_network("default")
         .label("os", "rocky")
@@ -473,11 +421,7 @@ fn rocky_8_template() -> VMConfig {
         .namespace("default")
         .cpu(2, 1, 1)
         .memory("4Gi")
-        .add_container_disk(
-            "rootdisk",
-            "quay.io/containerdisks/rockylinux:8",
-            1,
-        )
+        .add_container_disk("rootdisk", "quay.io/containerdisks/rockylinux:8", 1)
         .add_blank_disk("datadisk", "20Gi", 2)
         .add_pod_network("default")
         .label("os", "rocky")
@@ -525,11 +469,7 @@ fn alpine_template() -> VMConfig {
         .namespace("default")
         .cpu(1, 1, 1)
         .memory("512Mi")
-        .add_container_disk(
-            "rootdisk",
-            "quay.io/containerdisks/alpine:3.19",
-            1,
-        )
+        .add_container_disk("rootdisk", "quay.io/containerdisks/alpine:3.19", 1)
         .add_blank_disk("datadisk", "10Gi", 2)
         .add_pod_network("default")
         .label("os", "alpine")

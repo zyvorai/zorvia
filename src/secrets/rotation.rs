@@ -35,13 +35,13 @@ pub struct RotationPolicy {
 }
 
 impl RotationPolicy {
-    pub fn new(
-        name: impl Into<String>,
-        strategy: RotationStrategy,
-        interval_days: u32,
-    ) -> Self {
+    pub fn new(name: impl Into<String>, strategy: RotationStrategy, interval_days: u32) -> Self {
         let name_str = name.into();
-        let id = format!("rotpolicy-{}-{}", name_str.to_lowercase().replace(' ', "-"), Utc::now().timestamp());
+        let id = format!(
+            "rotpolicy-{}-{}",
+            name_str.to_lowercase().replace(' ', "-"),
+            Utc::now().timestamp()
+        );
 
         Self {
             id,
@@ -107,7 +107,11 @@ impl RotationEvent {
     ) -> Self {
         let policy_id_str = policy_id.into();
         let secret_id_str = secret_id.into();
-        let id = format!("rotevent-{}-{}", secret_id_str, Utc::now().timestamp_micros());
+        let id = format!(
+            "rotevent-{}-{}",
+            secret_id_str,
+            Utc::now().timestamp_micros()
+        );
 
         Self {
             id,
@@ -124,7 +128,10 @@ impl RotationEvent {
 
     pub fn set_status(&mut self, status: RotationStatus) {
         self.status = status;
-        if matches!(self.status, RotationStatus::Completed | RotationStatus::Failed) {
+        if matches!(
+            self.status,
+            RotationStatus::Completed | RotationStatus::Failed
+        ) {
             self.completed_at = Some(Utc::now());
         }
     }
@@ -253,8 +260,8 @@ mod tests {
 
     #[test]
     fn test_policy_enable_auto_delete() {
-        let policy = RotationPolicy::new("test", RotationStrategy::Automatic, 30)
-            .enable_auto_delete(5);
+        let policy =
+            RotationPolicy::new("test", RotationStrategy::Automatic, 30).enable_auto_delete(5);
 
         assert!(policy.auto_delete_old);
         assert_eq!(policy.retain_versions, 5);
@@ -262,8 +269,8 @@ mod tests {
 
     #[test]
     fn test_policy_disable_notifications() {
-        let policy = RotationPolicy::new("test", RotationStrategy::Automatic, 30)
-            .disable_notifications();
+        let policy =
+            RotationPolicy::new("test", RotationStrategy::Automatic, 30).disable_notifications();
 
         assert!(!policy.notification_enabled);
     }
@@ -312,7 +319,10 @@ mod tests {
         event.set_error("Rotation failed due to timeout");
 
         assert_eq!(event.status, RotationStatus::Failed);
-        assert_eq!(event.error_message, Some("Rotation failed due to timeout".to_string()));
+        assert_eq!(
+            event.error_message,
+            Some("Rotation failed due to timeout".to_string())
+        );
         assert!(event.completed_at.is_some());
     }
 

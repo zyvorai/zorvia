@@ -40,7 +40,9 @@ runcmd:
     ubuntu_vm.namespace = "production".to_string();
     ubuntu_vm.cpu.cores = 8;
     ubuntu_vm.memory.size = "16Gi".to_string();
-    ubuntu_vm.labels.insert("app".to_string(), "postgresql".to_string());
+    ubuntu_vm
+        .labels
+        .insert("app".to_string(), "postgresql".to_string());
 
     let yaml = to_yaml(&ubuntu_vm)?;
     println!("{}\n", yaml);
@@ -51,11 +53,7 @@ runcmd:
         .namespace("development")
         .cpu(2, 1, 1)
         .memory("4Gi")
-        .add_container_disk(
-            "containerdisk",
-            "quay.io/containerdisks/fedora:39",
-            1,
-        )
+        .add_container_disk("containerdisk", "quay.io/containerdisks/fedora:39", 1)
         .add_blank_disk("workspace", "50Gi", 2)
         .add_pod_network("default")
         .label("environment", "dev")

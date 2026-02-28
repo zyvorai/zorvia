@@ -2,11 +2,11 @@ use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
-pub mod traffic;
-pub mod security;
+pub mod mesh;
 pub mod observability;
 pub mod policies;
-pub mod mesh;
+pub mod security;
+pub mod traffic;
 
 /// Service mesh provider types
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -14,7 +14,7 @@ pub enum MeshProvider {
     Istio,
     Linkerd,
     Consul,
-    OSM,      // Open Service Mesh
+    OSM, // Open Service Mesh
     Kuma,
 }
 
@@ -120,7 +120,11 @@ pub struct ServiceEndpoint {
 impl ServiceEntry {
     pub fn new(name: impl Into<String>, namespace: impl Into<String>) -> Self {
         let name_str = name.into();
-        let id = format!("se-{}-{}", name_str.to_lowercase().replace(' ', "-"), Utc::now().timestamp());
+        let id = format!(
+            "se-{}-{}",
+            name_str.to_lowercase().replace(' ', "-"),
+            Utc::now().timestamp()
+        );
 
         Self {
             id,
@@ -237,7 +241,11 @@ pub struct TCPRouteDestination {
 impl VirtualService {
     pub fn new(name: impl Into<String>, namespace: impl Into<String>) -> Self {
         let name_str = name.into();
-        let id = format!("vs-{}-{}", name_str.to_lowercase().replace(' ', "-"), Utc::now().timestamp());
+        let id = format!(
+            "vs-{}-{}",
+            name_str.to_lowercase().replace(' ', "-"),
+            Utc::now().timestamp()
+        );
 
         Self {
             id,
@@ -396,12 +404,10 @@ mod tests {
 
     #[test]
     fn test_tracing_rate_clamping() {
-        let config1 = MeshConfig::new(MeshProvider::Istio, "test")
-            .with_tracing_rate(1.5);
+        let config1 = MeshConfig::new(MeshProvider::Istio, "test").with_tracing_rate(1.5);
         assert_eq!(config1.tracing_sample_rate, 1.0);
 
-        let config2 = MeshConfig::new(MeshProvider::Istio, "test")
-            .with_tracing_rate(-0.5);
+        let config2 = MeshConfig::new(MeshProvider::Istio, "test").with_tracing_rate(-0.5);
         assert_eq!(config2.tracing_sample_rate, 0.0);
     }
 
@@ -561,9 +567,7 @@ mod tests {
             fault_injection: None,
         });
 
-        vs.add_tcp_route(TCPRoute {
-            route: vec![],
-        });
+        vs.add_tcp_route(TCPRoute { route: vec![] });
 
         assert_eq!(vs.route_count(), 2);
     }

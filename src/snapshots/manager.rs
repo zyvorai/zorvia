@@ -1,15 +1,16 @@
 // Snapshot Manager - Create, list, delete, and manage VM snapshots
 // Real KubeVirt CRD integration
 
+use super::crds::{SnapshotSource, VirtualMachineSnapshot, VirtualMachineSnapshotSpec};
 use super::types::{SnapshotInfo, SnapshotStatus};
-use super::crds::{
-    VirtualMachineSnapshot, VirtualMachineSnapshotSpec, SnapshotSource,
-};
 use super::SnapshotConfig;
 use anyhow::{Context, Result};
 use chrono::{DateTime, Utc};
-use kube::{Api, Client, api::{PostParams, ListParams, DeleteParams}};
 use k8s_openapi::apimachinery::pkg::apis::meta::v1::ObjectMeta;
+use kube::{
+    api::{DeleteParams, ListParams, PostParams},
+    Api, Client,
+};
 use std::collections::BTreeMap;
 
 /// Snapshot Manager for VM snapshot operations
@@ -47,7 +48,10 @@ impl SnapshotManager {
         // Build labels
         let mut labels = BTreeMap::new();
         labels.insert("zorvia.io/vm".to_string(), config.vm_name.clone());
-        labels.insert("zorvia.io/created-by".to_string(), "zorvia".to_string());
+        labels.insert(
+            "zorvia.io/created-by".to_string(),
+            "zorvia".to_string(),
+        );
 
         for (k, v) in &config.labels {
             labels.insert(k.clone(), v.clone());
@@ -65,7 +69,11 @@ impl SnapshotManager {
                 name: Some(config.snapshot_name.clone()),
                 namespace: Some(self.namespace.clone()),
                 labels: Some(labels.clone()),
-                annotations: if annotations.is_empty() { None } else { Some(annotations.clone()) },
+                annotations: if annotations.is_empty() {
+                    None
+                } else {
+                    Some(annotations.clone())
+                },
                 ..Default::default()
             },
             spec: VirtualMachineSnapshotSpec {
@@ -172,9 +180,7 @@ impl SnapshotManager {
             self.list_all_snapshots().await?
         };
 
-        snapshots.sort_by(|a, b| {
-            b.created_at.cmp(&a.created_at)
-        });
+        snapshots.sort_by(|a, b| b.created_at.cmp(&a.created_at));
 
         Ok(snapshots)
     }
@@ -206,17 +212,24 @@ impl SnapshotManager {
     /// Convert VirtualMachineSnapshot CRD to SnapshotInfo
     fn snapshot_to_info(&self, snapshot: VirtualMachineSnapshot) -> SnapshotInfo {
         let name = snapshot.metadata.name.unwrap_or_default();
-        let namespace = snapshot.metadata.namespace.unwrap_or_else(|| self.namespace.clone());
+        let namespace = snapshot
+            .metadata
+            .namespace
+            .unwrap_or_else(|| self.namespace.clone());
 
         // Extract VM name from labels or spec
-        let vm_name = snapshot.metadata.labels
+        let vm_name = snapshot
+            .metadata
+            .labels
             .as_ref()
             .and_then(|l| l.get("zorvia.io/vm"))
             .cloned()
             .unwrap_or_else(|| snapshot.spec.source.name.clone());
 
         // Extract description from annotations
-        let description = snapshot.metadata.annotations
+        let description = snapshot
+            .metadata
+            .annotations
             .as_ref()
             .and_then(|a| a.get("zorvia.io/description"))
             .cloned();
@@ -233,30 +246,37 @@ impl SnapshotManager {
             SnapshotStatus::Unknown
         };
 
-        let ready_to_use = snapshot.status
+        let ready_to_use = snapshot
+            .status
             .as_ref()
             .and_then(|s| s.ready_to_use)
             .unwrap_or(false);
 
-        let created_at = snapshot.status
+        let created_at = snapshot
+            .status
             .as_ref()
             .and_then(|s| s.creation_time.as_ref())
-            .and_then(|t| DateTime::parse_from_rfc3339(t)
-                .ok()
-                .map(|dt| dt.with_timezone(&Utc)));
+            .and_then(|t| {
+                DateTime::parse_from_rfc3339(t)
+                    .ok()
+                    .map(|dt| dt.with_timezone(&Utc))
+            });
 
         let completed_at = if ready_to_use {
-            created_at  // Use creation time as completion for now
+            created_at // Use creation time as completion for now
         } else {
             None
         };
 
-        let error = snapshot.status
+        let error = snapshot
+            .status
             .as_ref()
             .and_then(|s| s.error.as_ref())
             .and_then(|e| e.message.clone());
 
-        let labels = snapshot.metadata.labels
+        let labels = snapshot
+            .metadata
+            .labels
             .unwrap_or_default()
             .into_iter()
             .collect();
@@ -269,7 +289,7 @@ impl SnapshotManager {
             created_at,
             completed_at,
             description,
-            size: None,  // Size not directly available in status
+            size: None, // Size not directly available in status
             labels,
             ready_to_use,
             error,

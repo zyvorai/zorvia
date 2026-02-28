@@ -206,10 +206,7 @@ impl ConfigTemplateManager {
     }
 
     pub fn find_by_tag(&self, tag: &str) -> Vec<&ConfigTemplate> {
-        self.templates
-            .values()
-            .filter(|t| t.has_tag(tag))
-            .collect()
+        self.templates.values().filter(|t| t.has_tag(tag)).collect()
     }
 
     pub fn most_used(&self, limit: usize) -> Vec<&ConfigTemplate> {
@@ -220,7 +217,8 @@ impl ConfigTemplateManager {
     }
 
     pub fn recently_used(&self, limit: usize) -> Vec<&ConfigTemplate> {
-        let mut templates: Vec<&ConfigTemplate> = self.templates
+        let mut templates: Vec<&ConfigTemplate> = self
+            .templates
             .values()
             .filter(|t| t.last_used.is_some())
             .collect();
@@ -234,10 +232,7 @@ impl ConfigTemplateManager {
     }
 
     pub fn categories(&self) -> Vec<&ConfigCategory> {
-        let mut cats: Vec<&ConfigCategory> = self.templates
-            .values()
-            .map(|t| &t.category)
-            .collect();
+        let mut cats: Vec<&ConfigCategory> = self.templates.values().map(|t| &t.category).collect();
         cats.dedup();
         cats
     }
@@ -255,7 +250,8 @@ mod tests {
 
     #[test]
     fn test_config_template_new() {
-        let template = ConfigTemplate::new("test-template", "A test template", "cpu: 2\nmemory: 4Gi");
+        let template =
+            ConfigTemplate::new("test-template", "A test template", "cpu: 2\nmemory: 4Gi");
         assert_eq!(template.name, "test-template");
         assert_eq!(template.description, "A test template");
         assert_eq!(template.version, 1);
@@ -272,15 +268,13 @@ mod tests {
 
     #[test]
     fn test_config_template_with_format() {
-        let template = ConfigTemplate::new("test", "Test", "data")
-            .with_format(ConfigFormat::Json);
+        let template = ConfigTemplate::new("test", "Test", "data").with_format(ConfigFormat::Json);
         assert_eq!(template.format, ConfigFormat::Json);
     }
 
     #[test]
     fn test_config_template_with_author() {
-        let template = ConfigTemplate::new("test", "Test", "data")
-            .with_author("admin");
+        let template = ConfigTemplate::new("test", "Test", "data").with_author("admin");
         assert_eq!(template.author, Some("admin".to_string()));
     }
 
@@ -334,14 +328,20 @@ mod tests {
     #[test]
     fn test_config_category_from_str() {
         assert_eq!(ConfigCategory::parse("dev"), ConfigCategory::Development);
-        assert_eq!(ConfigCategory::parse("development"), ConfigCategory::Development);
+        assert_eq!(
+            ConfigCategory::parse("development"),
+            ConfigCategory::Development
+        );
         assert_eq!(ConfigCategory::parse("test"), ConfigCategory::Testing);
         assert_eq!(ConfigCategory::parse("prod"), ConfigCategory::Production);
         assert_eq!(ConfigCategory::parse("db"), ConfigCategory::Database);
         assert_eq!(ConfigCategory::parse("web"), ConfigCategory::WebServer);
         assert_eq!(ConfigCategory::parse("cicd"), ConfigCategory::CICDRunner);
         assert_eq!(ConfigCategory::parse("ml"), ConfigCategory::MachineLearning);
-        assert_eq!(ConfigCategory::parse("custom"), ConfigCategory::Custom("custom".to_string()));
+        assert_eq!(
+            ConfigCategory::parse("custom"),
+            ConfigCategory::Custom("custom".to_string())
+        );
     }
 
     #[test]
@@ -349,7 +349,10 @@ mod tests {
         assert_eq!(ConfigCategory::Development.to_string(), "development");
         assert_eq!(ConfigCategory::Production.to_string(), "production");
         assert_eq!(ConfigCategory::Database.to_string(), "database");
-        assert_eq!(ConfigCategory::Custom("mycat".to_string()).to_string(), "mycat");
+        assert_eq!(
+            ConfigCategory::Custom("mycat".to_string()).to_string(),
+            "mycat"
+        );
     }
 
     #[test]
@@ -400,16 +403,13 @@ mod tests {
     fn test_template_manager_find_by_category() {
         let mut manager = ConfigTemplateManager::new();
         manager.save_template(
-            ConfigTemplate::new("t1", "Test", "data")
-                .with_category(ConfigCategory::Production)
+            ConfigTemplate::new("t1", "Test", "data").with_category(ConfigCategory::Production),
         );
         manager.save_template(
-            ConfigTemplate::new("t2", "Test", "data")
-                .with_category(ConfigCategory::Development)
+            ConfigTemplate::new("t2", "Test", "data").with_category(ConfigCategory::Development),
         );
         manager.save_template(
-            ConfigTemplate::new("t3", "Test", "data")
-                .with_category(ConfigCategory::Production)
+            ConfigTemplate::new("t3", "Test", "data").with_category(ConfigCategory::Production),
         );
 
         let prod = manager.find_by_category(&ConfigCategory::Production);

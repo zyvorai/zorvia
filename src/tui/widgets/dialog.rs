@@ -26,7 +26,11 @@ pub struct Dialog {
 }
 
 impl Dialog {
-    pub fn new(title: impl Into<String>, message: impl Into<String>, dialog_type: DialogType) -> Self {
+    pub fn new(
+        title: impl Into<String>,
+        message: impl Into<String>,
+        dialog_type: DialogType,
+    ) -> Self {
         Self {
             title: title.into(),
             message: message.into(),
@@ -75,7 +79,9 @@ impl Dialog {
             .border_style(Style::default().fg(border_color))
             .title(Span::styled(
                 &self.title,
-                Style::default().fg(title_color).add_modifier(Modifier::BOLD),
+                Style::default()
+                    .fg(title_color)
+                    .add_modifier(Modifier::BOLD),
             ))
             .title_alignment(Alignment::Center);
 
@@ -86,8 +92,8 @@ impl Dialog {
         let chunks = Layout::default()
             .direction(Direction::Vertical)
             .constraints([
-                Constraint::Min(3),     // Message
-                Constraint::Length(3),  // Buttons
+                Constraint::Min(3),    // Message
+                Constraint::Length(3), // Buttons
             ])
             .split(inner);
 

@@ -1,7 +1,7 @@
 // Node Evacuation - Drain nodes for maintenance
 
-use serde::{Deserialize, Serialize};
 use chrono::{DateTime, Utc};
+use serde::{Deserialize, Serialize};
 
 /// Node evacuation request
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -109,8 +109,12 @@ impl EvacuationStatus {
 
     pub fn duration_secs(&self) -> i64 {
         match self.completed_at {
-            Some(completed) => completed.signed_duration_since(self.started_at).num_seconds(),
-            None => Utc::now().signed_duration_since(self.started_at).num_seconds(),
+            Some(completed) => completed
+                .signed_duration_since(self.started_at)
+                .num_seconds(),
+            None => Utc::now()
+                .signed_duration_since(self.started_at)
+                .num_seconds(),
         }
     }
 
@@ -279,15 +283,13 @@ mod tests {
 
     #[test]
     fn test_vm_evacuation_status() {
-        let status = VMEvacuationStatus::new("test-vm")
-            .migrating_to("node2");
+        let status = VMEvacuationStatus::new("test-vm").migrating_to("node2");
 
         assert_eq!(status.vm_name, "test-vm");
         assert_eq!(status.state, VMEvacuationState::InProgress);
         assert_eq!(status.target_node, Some("node2".to_string()));
 
-        let failed_status = VMEvacuationStatus::new("failed-vm")
-            .failed("No suitable nodes");
+        let failed_status = VMEvacuationStatus::new("failed-vm").failed("No suitable nodes");
 
         assert_eq!(failed_status.state, VMEvacuationState::Failed);
         assert!(failed_status.error_message.is_some());

@@ -1,7 +1,7 @@
 // VM Migration - Live migration and high availability
 
-use serde::{Deserialize, Serialize};
 use chrono::{DateTime, Utc};
+use serde::{Deserialize, Serialize};
 
 /// Migration request
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -45,9 +45,9 @@ impl MigrationRequest {
 /// Migration type
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub enum MigrationType {
-    Live,        // Live migration (no downtime)
-    Offline,     // VM must be stopped
-    PostCopy,    // Post-copy live migration
+    Live,     // Live migration (no downtime)
+    Offline,  // VM must be stopped
+    PostCopy, // Post-copy live migration
 }
 
 impl MigrationType {
@@ -65,8 +65,8 @@ impl MigrationType {
 pub struct MigrationPolicy {
     pub allow_auto_converge: bool,
     pub allow_post_copy: bool,
-    pub bandwidth_limit: Option<String>,  // e.g., "100Mi"
-    pub completion_timeout: u64,          // seconds
+    pub bandwidth_limit: Option<String>, // e.g., "100Mi"
+    pub completion_timeout: u64,         // seconds
     pub parallelism: u32,
 }
 
@@ -97,7 +97,11 @@ pub struct MigrationStatus {
 }
 
 impl MigrationStatus {
-    pub fn new(vm_name: impl Into<String>, source: impl Into<String>, target: impl Into<String>) -> Self {
+    pub fn new(
+        vm_name: impl Into<String>,
+        source: impl Into<String>,
+        target: impl Into<String>,
+    ) -> Self {
         Self {
             vm_name: vm_name.into(),
             state: MigrationState::Pending,
@@ -113,13 +117,20 @@ impl MigrationStatus {
 
     pub fn duration_secs(&self) -> i64 {
         match self.completed_at {
-            Some(completed) => completed.signed_duration_since(self.started_at).num_seconds(),
-            None => Utc::now().signed_duration_since(self.started_at).num_seconds(),
+            Some(completed) => completed
+                .signed_duration_since(self.started_at)
+                .num_seconds(),
+            None => Utc::now()
+                .signed_duration_since(self.started_at)
+                .num_seconds(),
         }
     }
 
     pub fn is_complete(&self) -> bool {
-        matches!(self.state, MigrationState::Succeeded | MigrationState::Failed)
+        matches!(
+            self.state,
+            MigrationState::Succeeded | MigrationState::Failed
+        )
     }
 
     pub fn is_running(&self) -> bool {
@@ -177,9 +188,9 @@ impl std::fmt::Display for MigrationPhase {
     }
 }
 
-pub mod strategy;
-pub mod ha;
 pub mod evacuation;
+pub mod ha;
+pub mod strategy;
 
 #[cfg(test)]
 mod tests {
@@ -236,7 +247,10 @@ mod tests {
     #[test]
     fn test_migration_phase_display() {
         assert_eq!(MigrationPhase::Preparing.to_string(), "Preparing");
-        assert_eq!(MigrationPhase::MemoryTransfer.to_string(), "Transferring Memory");
+        assert_eq!(
+            MigrationPhase::MemoryTransfer.to_string(),
+            "Transferring Memory"
+        );
         assert_eq!(MigrationPhase::Succeeded.to_string(), "Succeeded");
     }
 }

@@ -66,7 +66,11 @@ impl FailoverEvent {
         reason: impl Into<String>,
     ) -> Self {
         let name_str = name.into();
-        let id = format!("failover-{}-{}", name_str.to_lowercase().replace(' ', "-"), Utc::now().timestamp());
+        let id = format!(
+            "failover-{}-{}",
+            name_str.to_lowercase().replace(' ', "-"),
+            Utc::now().timestamp()
+        );
 
         Self {
             id,
@@ -103,7 +107,11 @@ impl FailoverEvent {
     }
 
     pub fn complete(&mut self, success: bool) {
-        self.status = if success { FailoverStatus::Completed } else { FailoverStatus::Failed };
+        self.status = if success {
+            FailoverStatus::Completed
+        } else {
+            FailoverStatus::Failed
+        };
         self.completed_at = Some(Utc::now());
         self.duration_seconds = Some((Utc::now() - self.started_at).num_seconds() as u64);
         self.success = success;
@@ -169,7 +177,11 @@ impl FailbackEvent {
     }
 
     pub fn complete(&mut self, success: bool) {
-        self.status = if success { FailoverStatus::Completed } else { FailoverStatus::Failed };
+        self.status = if success {
+            FailoverStatus::Completed
+        } else {
+            FailoverStatus::Failed
+        };
         self.completed_at = Some(Utc::now());
         self.success = success;
     }
@@ -233,24 +245,15 @@ impl FailoverManager {
     }
 
     pub fn completed_failovers(&self) -> Vec<&FailoverEvent> {
-        self.events
-            .values()
-            .filter(|e| e.is_completed())
-            .collect()
+        self.events.values().filter(|e| e.is_completed()).collect()
     }
 
     pub fn failed_failovers(&self) -> Vec<&FailoverEvent> {
-        self.events
-            .values()
-            .filter(|e| e.is_failed())
-            .collect()
+        self.events.values().filter(|e| e.is_failed()).collect()
     }
 
     pub fn test_failovers(&self) -> Vec<&FailoverEvent> {
-        self.events
-            .values()
-            .filter(|e| e.is_test())
-            .collect()
+        self.events.values().filter(|e| e.is_test()).collect()
     }
 
     pub fn by_target_site(&self, site: &DRSite) -> Vec<&FailoverEvent> {
@@ -458,10 +461,24 @@ mod tests {
     fn test_manager_active_failovers() {
         let mut manager = FailoverManager::new();
 
-        let mut event1 = FailoverEvent::new("E1", FailoverType::Test, DRSite::Primary, DRSite::Secondary, "u", "t");
+        let mut event1 = FailoverEvent::new(
+            "E1",
+            FailoverType::Test,
+            DRSite::Primary,
+            DRSite::Secondary,
+            "u",
+            "t",
+        );
         event1.start();
 
-        let mut event2 = FailoverEvent::new("E2", FailoverType::Test, DRSite::Primary, DRSite::Secondary, "u", "t");
+        let mut event2 = FailoverEvent::new(
+            "E2",
+            FailoverType::Test,
+            DRSite::Primary,
+            DRSite::Secondary,
+            "u",
+            "t",
+        );
         event2.complete(true);
 
         manager.add_event(event1);
@@ -475,13 +492,34 @@ mod tests {
     fn test_manager_completed_failovers() {
         let mut manager = FailoverManager::new();
 
-        let mut event1 = FailoverEvent::new("E1", FailoverType::Test, DRSite::Primary, DRSite::Secondary, "u", "t");
+        let mut event1 = FailoverEvent::new(
+            "E1",
+            FailoverType::Test,
+            DRSite::Primary,
+            DRSite::Secondary,
+            "u",
+            "t",
+        );
         event1.complete(true);
 
-        let mut event2 = FailoverEvent::new("E2", FailoverType::Test, DRSite::Primary, DRSite::Secondary, "u", "t");
+        let mut event2 = FailoverEvent::new(
+            "E2",
+            FailoverType::Test,
+            DRSite::Primary,
+            DRSite::Secondary,
+            "u",
+            "t",
+        );
         event2.complete(true);
 
-        let event3 = FailoverEvent::new("E3", FailoverType::Test, DRSite::Primary, DRSite::Secondary, "u", "t");
+        let event3 = FailoverEvent::new(
+            "E3",
+            FailoverType::Test,
+            DRSite::Primary,
+            DRSite::Secondary,
+            "u",
+            "t",
+        );
 
         manager.add_event(event1);
         manager.add_event(event2);
@@ -495,10 +533,24 @@ mod tests {
     fn test_manager_failed_failovers() {
         let mut manager = FailoverManager::new();
 
-        let mut event1 = FailoverEvent::new("E1", FailoverType::Test, DRSite::Primary, DRSite::Secondary, "u", "t");
+        let mut event1 = FailoverEvent::new(
+            "E1",
+            FailoverType::Test,
+            DRSite::Primary,
+            DRSite::Secondary,
+            "u",
+            "t",
+        );
         event1.complete(false);
 
-        let mut event2 = FailoverEvent::new("E2", FailoverType::Test, DRSite::Primary, DRSite::Secondary, "u", "t");
+        let mut event2 = FailoverEvent::new(
+            "E2",
+            FailoverType::Test,
+            DRSite::Primary,
+            DRSite::Secondary,
+            "u",
+            "t",
+        );
         event2.complete(true);
 
         manager.add_event(event1);
@@ -512,9 +564,30 @@ mod tests {
     fn test_manager_test_failovers() {
         let mut manager = FailoverManager::new();
 
-        manager.add_event(FailoverEvent::new("E1", FailoverType::Test, DRSite::Primary, DRSite::Secondary, "u", "t"));
-        manager.add_event(FailoverEvent::new("E2", FailoverType::Planned, DRSite::Primary, DRSite::Secondary, "u", "p"));
-        manager.add_event(FailoverEvent::new("E3", FailoverType::Test, DRSite::Primary, DRSite::Secondary, "u", "t"));
+        manager.add_event(FailoverEvent::new(
+            "E1",
+            FailoverType::Test,
+            DRSite::Primary,
+            DRSite::Secondary,
+            "u",
+            "t",
+        ));
+        manager.add_event(FailoverEvent::new(
+            "E2",
+            FailoverType::Planned,
+            DRSite::Primary,
+            DRSite::Secondary,
+            "u",
+            "p",
+        ));
+        manager.add_event(FailoverEvent::new(
+            "E3",
+            FailoverType::Test,
+            DRSite::Primary,
+            DRSite::Secondary,
+            "u",
+            "t",
+        ));
 
         let tests = manager.test_failovers();
         assert_eq!(tests.len(), 2);
@@ -524,9 +597,30 @@ mod tests {
     fn test_manager_by_target_site() {
         let mut manager = FailoverManager::new();
 
-        manager.add_event(FailoverEvent::new("E1", FailoverType::Test, DRSite::Primary, DRSite::Secondary, "u", "t"));
-        manager.add_event(FailoverEvent::new("E2", FailoverType::Test, DRSite::Primary, DRSite::Tertiary, "u", "t"));
-        manager.add_event(FailoverEvent::new("E3", FailoverType::Test, DRSite::Primary, DRSite::Secondary, "u", "t"));
+        manager.add_event(FailoverEvent::new(
+            "E1",
+            FailoverType::Test,
+            DRSite::Primary,
+            DRSite::Secondary,
+            "u",
+            "t",
+        ));
+        manager.add_event(FailoverEvent::new(
+            "E2",
+            FailoverType::Test,
+            DRSite::Primary,
+            DRSite::Tertiary,
+            "u",
+            "t",
+        ));
+        manager.add_event(FailoverEvent::new(
+            "E3",
+            FailoverType::Test,
+            DRSite::Primary,
+            DRSite::Secondary,
+            "u",
+            "t",
+        ));
 
         let secondary = manager.by_target_site(&DRSite::Secondary);
         assert_eq!(secondary.len(), 2);
@@ -536,7 +630,14 @@ mod tests {
     fn test_manager_get_event_mut() {
         let mut manager = FailoverManager::new();
 
-        let event = FailoverEvent::new("Test", FailoverType::Test, DRSite::Primary, DRSite::Secondary, "user", "test");
+        let event = FailoverEvent::new(
+            "Test",
+            FailoverType::Test,
+            DRSite::Primary,
+            DRSite::Secondary,
+            "user",
+            "test",
+        );
         let id = manager.add_event(event);
 
         if let Some(event_mut) = manager.get_event_mut(&id) {

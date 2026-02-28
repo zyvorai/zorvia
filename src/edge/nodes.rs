@@ -36,7 +36,11 @@ impl EdgeNode {
         memory_gb: u32,
     ) -> Self {
         let name_str = name.into();
-        let id = format!("node-{}-{}", name_str.to_lowercase().replace(' ', "-"), Utc::now().timestamp_micros());
+        let id = format!(
+            "node-{}-{}",
+            name_str.to_lowercase().replace(' ', "-"),
+            Utc::now().timestamp_micros()
+        );
 
         Self {
             id,
@@ -162,16 +166,14 @@ mod tests {
 
     #[test]
     fn test_node_with_storage() {
-        let node = EdgeNode::new("edge-1", "deploy-1", 4, 16)
-            .with_storage(500);
+        let node = EdgeNode::new("edge-1", "deploy-1", 4, 16).with_storage(500);
 
         assert_eq!(node.storage_gb, 500);
     }
 
     #[test]
     fn test_node_with_gpu() {
-        let node = EdgeNode::new("edge-1", "deploy-1", 4, 16)
-            .with_gpu();
+        let node = EdgeNode::new("edge-1", "deploy-1", 4, 16).with_gpu();
 
         assert!(node.gpu_available);
     }

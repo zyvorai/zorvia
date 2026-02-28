@@ -1,7 +1,7 @@
 // Manifest Management - Kubernetes/KubeVirt manifest operations
 
-use serde::{Deserialize, Serialize};
 use chrono::{DateTime, Utc};
+use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
 /// Manifest format
@@ -22,7 +22,11 @@ pub struct Manifest {
 }
 
 impl Manifest {
-    pub fn new(api_version: impl Into<String>, kind: impl Into<String>, name: impl Into<String>) -> Self {
+    pub fn new(
+        api_version: impl Into<String>,
+        kind: impl Into<String>,
+        name: impl Into<String>,
+    ) -> Self {
         Self {
             api_version: api_version.into(),
             kind: kind.into(),
@@ -112,24 +116,22 @@ impl ManifestCollection {
     }
 
     pub fn by_namespace(&self, namespace: &str) -> Vec<&Manifest> {
-        self.manifests.iter()
+        self.manifests
+            .iter()
             .filter(|m| m.metadata.namespace.as_deref() == Some(namespace))
             .collect()
     }
 
     pub fn get(&self, kind: &str, namespace: Option<&str>, name: &str) -> Option<&Manifest> {
-        self.manifests.iter()
-            .find(|m| {
-                m.kind == kind &&
-                m.metadata.name == name &&
-                m.metadata.namespace.as_deref() == namespace
-            })
+        self.manifests.iter().find(|m| {
+            m.kind == kind
+                && m.metadata.name == name
+                && m.metadata.namespace.as_deref() == namespace
+        })
     }
 
     pub fn kinds(&self) -> Vec<String> {
-        let mut kinds: Vec<String> = self.manifests.iter()
-            .map(|m| m.kind.clone())
-            .collect();
+        let mut kinds: Vec<String> = self.manifests.iter().map(|m| m.kind.clone()).collect();
         kinds.sort();
         kinds.dedup();
         kinds
@@ -178,7 +180,8 @@ impl ManifestValidator {
         }
 
         // Simple validation - alphanumeric and hyphens
-        name.chars().all(|c| c.is_alphanumeric() || c == '-' || c == '.')
+        name.chars()
+            .all(|c| c.is_alphanumeric() || c == '-' || c == '.')
     }
 
     /// Validate collection
@@ -226,9 +229,19 @@ impl ManifestDiff {
 /// Diff change type
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum DiffChange {
-    Added { field: String, value: String },
-    Modified { field: String, old_value: String, new_value: String },
-    Removed { field: String, value: String },
+    Added {
+        field: String,
+        value: String,
+    },
+    Modified {
+        field: String,
+        old_value: String,
+        new_value: String,
+    },
+    Removed {
+        field: String,
+        value: String,
+    },
 }
 
 #[cfg(test)]
@@ -237,8 +250,8 @@ mod tests {
 
     #[test]
     fn test_manifest_creation() {
-        let manifest = Manifest::new("kubevirt.io/v1", "VirtualMachine", "test-vm")
-            .with_namespace("default");
+        let manifest =
+            Manifest::new("kubevirt.io/v1", "VirtualMachine", "test-vm").with_namespace("default");
 
         assert_eq!(manifest.api_version, "kubevirt.io/v1");
         assert_eq!(manifest.kind, "VirtualMachine");
@@ -254,7 +267,10 @@ mod tests {
         manifest.add_label("env", "production");
 
         assert_eq!(manifest.metadata.labels.len(), 2);
-        assert_eq!(manifest.metadata.labels.get("app"), Some(&"web".to_string()));
+        assert_eq!(
+            manifest.metadata.labels.get("app"),
+            Some(&"web".to_string())
+        );
     }
 
     #[test]
@@ -269,8 +285,7 @@ mod tests {
 
     #[test]
     fn test_manifest_namespaced() {
-        let namespaced = Manifest::new("v1", "Pod", "test")
-            .with_namespace("default");
+        let namespaced = Manifest::new("v1", "Pod", "test").with_namespace("default");
 
         assert!(namespaced.is_namespaced());
 
@@ -280,8 +295,7 @@ mod tests {
 
     #[test]
     fn test_manifest_full_name() {
-        let namespaced = Manifest::new("v1", "Pod", "test-pod")
-            .with_namespace("default");
+        let namespaced = Manifest::new("v1", "Pod", "test-pod").with_namespace("default");
 
         assert_eq!(namespaced.full_name(), "Pod/default/test-pod");
 
@@ -329,9 +343,7 @@ mod tests {
     fn test_collection_get() {
         let mut collection = ManifestCollection::new("/path");
 
-        collection.add_manifest(
-            Manifest::new("v1", "Pod", "test-pod").with_namespace("default")
-        );
+        collection.add_manifest(Manifest::new("v1", "Pod", "test-pod").with_namespace("default"));
 
         let found = collection.get("Pod", Some("default"), "test-pod");
         assert!(found.is_some());

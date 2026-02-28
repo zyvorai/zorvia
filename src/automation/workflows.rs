@@ -1,8 +1,8 @@
 // Workflows - Multi-step automation workflows
 
-use serde::{Deserialize, Serialize};
-use chrono::{DateTime, Utc};
 use super::{Action, ExecutionStatus};
+use chrono::{DateTime, Utc};
+use serde::{Deserialize, Serialize};
 
 /// Workflow definition
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -18,7 +18,11 @@ pub struct Workflow {
 impl Workflow {
     pub fn new(name: impl Into<String>) -> Self {
         let name_str = name.into();
-        let id = format!("wf-{}-{}", name_str.to_lowercase().replace(' ', "-"), Utc::now().timestamp());
+        let id = format!(
+            "wf-{}-{}",
+            name_str.to_lowercase().replace(' ', "-"),
+            Utc::now().timestamp()
+        );
 
         Self {
             id,
@@ -52,7 +56,7 @@ pub struct WorkflowStep {
     pub step_number: u32,
     pub name: String,
     pub action: Action,
-    pub dependencies: Vec<u32>,  // Step numbers that must complete first
+    pub dependencies: Vec<u32>, // Step numbers that must complete first
     pub timeout_seconds: Option<u64>,
     pub continue_on_failure: bool,
 }
@@ -85,7 +89,9 @@ impl WorkflowStep {
     }
 
     pub fn can_execute(&self, completed_steps: &[u32]) -> bool {
-        self.dependencies.iter().all(|dep| completed_steps.contains(dep))
+        self.dependencies
+            .iter()
+            .all(|dep| completed_steps.contains(dep))
     }
 }
 
@@ -130,22 +136,25 @@ impl WorkflowExecution {
 
     pub fn duration_secs(&self) -> i64 {
         match self.completed_at {
-            Some(completed) => completed.signed_duration_since(self.started_at).num_seconds(),
-            None => Utc::now().signed_duration_since(self.started_at).num_seconds(),
+            Some(completed) => completed
+                .signed_duration_since(self.started_at)
+                .num_seconds(),
+            None => Utc::now()
+                .signed_duration_since(self.started_at)
+                .num_seconds(),
         }
     }
 
     pub fn completed_steps(&self) -> Vec<u32> {
-        self.step_results.iter()
+        self.step_results
+            .iter()
             .filter(|r| r.success)
             .map(|r| r.step_number)
             .collect()
     }
 
     pub fn failed_steps(&self) -> Vec<&StepResult> {
-        self.step_results.iter()
-            .filter(|r| !r.success)
-            .collect()
+        self.step_results.iter().filter(|r| !r.success).collect()
     }
 
     pub fn success_rate(&self) -> f64 {
@@ -153,9 +162,7 @@ impl WorkflowExecution {
             return 0.0;
         }
 
-        let successful = self.step_results.iter()
-            .filter(|r| r.success)
-            .count();
+        let successful = self.step_results.iter().filter(|r| r.success).count();
 
         (successful as f64 / self.step_results.len() as f64) * 100.0
     }
@@ -174,7 +181,12 @@ pub struct StepResult {
 }
 
 impl StepResult {
-    pub fn new(step_number: u32, step_name: impl Into<String>, success: bool, message: impl Into<String>) -> Self {
+    pub fn new(
+        step_number: u32,
+        step_name: impl Into<String>,
+        success: bool,
+        message: impl Into<String>,
+    ) -> Self {
         let started = Utc::now();
         let completed = Utc::now();
         let duration = completed.signed_duration_since(started).num_seconds();
@@ -213,12 +225,8 @@ impl WorkflowExecutor {
 
             // Check if dependencies are met
             if !step.can_execute(&completed_steps) {
-                let result = StepResult::new(
-                    step.step_number,
-                    &step.name,
-                    false,
-                    "Dependencies not met"
-                );
+                let result =
+                    StepResult::new(step.step_number, &step.name, false, "Dependencies not met");
                 execution.add_step_result(result);
                 continue;
             }
@@ -228,7 +236,7 @@ impl WorkflowExecutor {
                 step.step_number,
                 &step.name,
                 true,
-                format!("Step {} executed successfully", step.step_number)
+                format!("Step {} executed successfully", step.step_number),
             );
 
             execution.add_step_result(result);
@@ -294,24 +302,30 @@ impl WorkflowTemplates {
                 1,
                 "Create VM",
                 Action::new(super::ActionType::StartVM {
-                    vm_name: "new-vm".to_string()
-                })
-            ))
-            .add_step(WorkflowStep::new(
-                2,
-                "Configure Network",
-                Action::new(super::ActionType::RunScript {
-                    script: "configure-network.sh".to_string()
-                })
-            ).depends_on(1))
-            .add_step(WorkflowStep::new(
-                3,
-                "Create Snapshot",
-                Action::new(super::ActionType::CreateSnapshot {
                     vm_name: "new-vm".to_string(),
-                    snapshot_name: Some("initial-snapshot".to_string())
-                })
-            ).depends_on(2))
+                }),
+            ))
+            .add_step(
+                WorkflowStep::new(
+                    2,
+                    "Configure Network",
+                    Action::new(super::ActionType::RunScript {
+                        script: "configure-network.sh".to_string(),
+                    }),
+                )
+                .depends_on(1),
+            )
+            .add_step(
+                WorkflowStep::new(
+                    3,
+                    "Create Snapshot",
+                    Action::new(super::ActionType::CreateSnapshot {
+                        vm_name: "new-vm".to_string(),
+                        snapshot_name: Some("initial-snapshot".to_string()),
+                    }),
+                )
+                .depends_on(2),
+            )
     }
 
     /// Disaster recovery workflow
@@ -322,23 +336,29 @@ impl WorkflowTemplates {
                 1,
                 "Stop Running VMs",
                 Action::new(super::ActionType::StopVM {
-                    vm_name: "old-vm".to_string()
-                })
+                    vm_name: "old-vm".to_string(),
+                }),
             ))
-            .add_step(WorkflowStep::new(
-                2,
-                "Restore from Backup",
-                Action::new(super::ActionType::CreateBackup {
-                    vm_name: "restored-vm".to_string()
-                })
-            ).depends_on(1))
-            .add_step(WorkflowStep::new(
-                3,
-                "Start Restored VM",
-                Action::new(super::ActionType::StartVM {
-                    vm_name: "restored-vm".to_string()
-                })
-            ).depends_on(2))
+            .add_step(
+                WorkflowStep::new(
+                    2,
+                    "Restore from Backup",
+                    Action::new(super::ActionType::CreateBackup {
+                        vm_name: "restored-vm".to_string(),
+                    }),
+                )
+                .depends_on(1),
+            )
+            .add_step(
+                WorkflowStep::new(
+                    3,
+                    "Start Restored VM",
+                    Action::new(super::ActionType::StartVM {
+                        vm_name: "restored-vm".to_string(),
+                    }),
+                )
+                .depends_on(2),
+            )
     }
 
     /// Maintenance workflow
@@ -350,23 +370,30 @@ impl WorkflowTemplates {
                 "Create Pre-Maintenance Snapshot",
                 Action::new(super::ActionType::CreateSnapshot {
                     vm_name: "prod-vm".to_string(),
-                    snapshot_name: Some("pre-maintenance".to_string())
-                })
+                    snapshot_name: Some("pre-maintenance".to_string()),
+                }),
             ))
-            .add_step(WorkflowStep::new(
-                2,
-                "Run Maintenance Script",
-                Action::new(super::ActionType::RunScript {
-                    script: "maintenance.sh".to_string()
-                })
-            ).depends_on(1).with_timeout(3600))
-            .add_step(WorkflowStep::new(
-                3,
-                "Restart VM",
-                Action::new(super::ActionType::RestartVM {
-                    vm_name: "prod-vm".to_string()
-                })
-            ).depends_on(2))
+            .add_step(
+                WorkflowStep::new(
+                    2,
+                    "Run Maintenance Script",
+                    Action::new(super::ActionType::RunScript {
+                        script: "maintenance.sh".to_string(),
+                    }),
+                )
+                .depends_on(1)
+                .with_timeout(3600),
+            )
+            .add_step(
+                WorkflowStep::new(
+                    3,
+                    "Restart VM",
+                    Action::new(super::ActionType::RestartVM {
+                        vm_name: "prod-vm".to_string(),
+                    }),
+                )
+                .depends_on(2),
+            )
     }
 }
 
@@ -382,8 +409,8 @@ mod tests {
                 1,
                 "Step 1",
                 Action::new(super::super::ActionType::StartVM {
-                    vm_name: "test-vm".to_string()
-                })
+                    vm_name: "test-vm".to_string(),
+                }),
             ));
 
         assert_eq!(workflow.name, "Test Workflow");
@@ -396,9 +423,10 @@ mod tests {
             2,
             "Dependent Step",
             Action::new(super::super::ActionType::StopVM {
-                vm_name: "test-vm".to_string()
-            })
-        ).depends_on(1);
+                vm_name: "test-vm".to_string(),
+            }),
+        )
+        .depends_on(1);
 
         assert_eq!(step.dependencies, vec![1]);
         assert!(step.can_execute(&vec![1]));
@@ -409,12 +437,8 @@ mod tests {
     fn test_workflow_execution() {
         let mut execution = WorkflowExecution::new("wf-123", "Test Workflow");
 
-        execution.add_step_result(
-            StepResult::new(1, "Step 1", true, "Success")
-        );
-        execution.add_step_result(
-            StepResult::new(2, "Step 2", false, "Failed")
-        );
+        execution.add_step_result(StepResult::new(1, "Step 1", true, "Success"));
+        execution.add_step_result(StepResult::new(2, "Step 2", false, "Failed"));
 
         assert_eq!(execution.step_results.len(), 2);
         assert_eq!(execution.completed_steps(), vec![1]);
@@ -429,16 +453,19 @@ mod tests {
                 1,
                 "First",
                 Action::new(super::super::ActionType::StartVM {
-                    vm_name: "vm1".to_string()
-                })
+                    vm_name: "vm1".to_string(),
+                }),
             ))
-            .add_step(WorkflowStep::new(
-                2,
-                "Second",
-                Action::new(super::super::ActionType::StopVM {
-                    vm_name: "vm1".to_string()
-                })
-            ).depends_on(1));
+            .add_step(
+                WorkflowStep::new(
+                    2,
+                    "Second",
+                    Action::new(super::super::ActionType::StopVM {
+                        vm_name: "vm1".to_string(),
+                    }),
+                )
+                .depends_on(1),
+            );
 
         let execution = WorkflowExecutor::execute(&workflow);
 
@@ -453,16 +480,19 @@ mod tests {
                 1,
                 "Step 1",
                 Action::new(super::super::ActionType::StartVM {
-                    vm_name: "vm1".to_string()
-                })
+                    vm_name: "vm1".to_string(),
+                }),
             ))
-            .add_step(WorkflowStep::new(
-                2,
-                "Step 2",
-                Action::new(super::super::ActionType::StopVM {
-                    vm_name: "vm1".to_string()
-                })
-            ).depends_on(99)); // Invalid dependency
+            .add_step(
+                WorkflowStep::new(
+                    2,
+                    "Step 2",
+                    Action::new(super::super::ActionType::StopVM {
+                        vm_name: "vm1".to_string(),
+                    }),
+                )
+                .depends_on(99),
+            ); // Invalid dependency
 
         let errors = WorkflowExecutor::validate(&workflow);
         assert!(!errors.is_empty());
@@ -475,15 +505,15 @@ mod tests {
                 1,
                 "Step 1",
                 Action::new(super::super::ActionType::StartVM {
-                    vm_name: "vm1".to_string()
-                })
+                    vm_name: "vm1".to_string(),
+                }),
             ))
             .add_step(WorkflowStep::new(
                 1,
                 "Step 1 Duplicate",
                 Action::new(super::super::ActionType::StopVM {
-                    vm_name: "vm1".to_string()
-                })
+                    vm_name: "vm1".to_string(),
+                }),
             ));
 
         let errors = WorkflowExecutor::validate(&workflow);
@@ -509,8 +539,7 @@ mod tests {
         std::thread::sleep(std::time::Duration::from_millis(10));
         let completed = Utc::now();
 
-        let result = StepResult::new(1, "Test", true, "Success")
-            .with_timing(started, completed);
+        let result = StepResult::new(1, "Test", true, "Success").with_timing(started, completed);
 
         assert!(result.duration_secs >= 0);
     }

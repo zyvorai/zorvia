@@ -158,12 +158,10 @@ impl OpenApiSpec {
                     url: None,
                 }),
             },
-            servers: vec![
-                ServerInfo {
-                    url: "http://localhost:8080".to_string(),
-                    description: "Local development server".to_string(),
-                },
-            ],
+            servers: vec![ServerInfo {
+                url: "http://localhost:8080".to_string(),
+                description: "Local development server".to_string(),
+            }],
             paths: HashMap::new(),
             components: Components {
                 schemas: HashMap::new(),
@@ -196,7 +194,9 @@ impl OpenApiSpec {
     }
 
     pub fn add_security_scheme(&mut self, name: &str, scheme: SecurityScheme) {
-        self.components.security_schemes.insert(name.to_string(), scheme);
+        self.components
+            .security_schemes
+            .insert(name.to_string(), scheme);
     }
 
     pub fn path_count(&self) -> usize {
@@ -235,106 +235,152 @@ pub fn generate_default_spec() -> OpenApiSpec {
     spec.add_tag("health", "Health check endpoints");
 
     // Add security scheme
-    spec.add_security_scheme("bearerAuth", SecurityScheme {
-        scheme_type: "http".to_string(),
-        scheme: Some("bearer".to_string()),
-        bearer_format: Some("JWT".to_string()),
-        description: "Bearer token authentication".to_string(),
-    });
+    spec.add_security_scheme(
+        "bearerAuth",
+        SecurityScheme {
+            scheme_type: "http".to_string(),
+            scheme: Some("bearer".to_string()),
+            bearer_format: Some("JWT".to_string()),
+            description: "Bearer token authentication".to_string(),
+        },
+    );
 
-    spec.add_security_scheme("apiKey", SecurityScheme {
-        scheme_type: "apiKey".to_string(),
-        scheme: None,
-        bearer_format: None,
-        description: "API key authentication via X-API-Key header".to_string(),
-    });
+    spec.add_security_scheme(
+        "apiKey",
+        SecurityScheme {
+            scheme_type: "apiKey".to_string(),
+            scheme: None,
+            bearer_format: None,
+            description: "API key authentication via X-API-Key header".to_string(),
+        },
+    );
 
     // Add VM schema
     let mut vm_props = HashMap::new();
-    vm_props.insert("name".to_string(), PropertyDef {
-        prop_type: "string".to_string(),
-        description: "VM name".to_string(),
-        example: Some("my-vm".to_string()),
-    });
-    vm_props.insert("namespace".to_string(), PropertyDef {
-        prop_type: "string".to_string(),
-        description: "Kubernetes namespace".to_string(),
-        example: Some("default".to_string()),
-    });
-    vm_props.insert("cpu_cores".to_string(), PropertyDef {
-        prop_type: "integer".to_string(),
-        description: "Number of CPU cores".to_string(),
-        example: Some("4".to_string()),
-    });
-    vm_props.insert("memory".to_string(), PropertyDef {
-        prop_type: "string".to_string(),
-        description: "Memory size".to_string(),
-        example: Some("8Gi".to_string()),
-    });
-    vm_props.insert("status".to_string(), PropertyDef {
-        prop_type: "string".to_string(),
-        description: "VM status".to_string(),
-        example: Some("Running".to_string()),
-    });
+    vm_props.insert(
+        "name".to_string(),
+        PropertyDef {
+            prop_type: "string".to_string(),
+            description: "VM name".to_string(),
+            example: Some("my-vm".to_string()),
+        },
+    );
+    vm_props.insert(
+        "namespace".to_string(),
+        PropertyDef {
+            prop_type: "string".to_string(),
+            description: "Kubernetes namespace".to_string(),
+            example: Some("default".to_string()),
+        },
+    );
+    vm_props.insert(
+        "cpu_cores".to_string(),
+        PropertyDef {
+            prop_type: "integer".to_string(),
+            description: "Number of CPU cores".to_string(),
+            example: Some("4".to_string()),
+        },
+    );
+    vm_props.insert(
+        "memory".to_string(),
+        PropertyDef {
+            prop_type: "string".to_string(),
+            description: "Memory size".to_string(),
+            example: Some("8Gi".to_string()),
+        },
+    );
+    vm_props.insert(
+        "status".to_string(),
+        PropertyDef {
+            prop_type: "string".to_string(),
+            description: "VM status".to_string(),
+            example: Some("Running".to_string()),
+        },
+    );
 
-    spec.add_schema("VirtualMachine", SchemaDefinition {
-        schema_type: "object".to_string(),
-        description: "A KubeVirt virtual machine".to_string(),
-        properties: vm_props,
-        required: vec!["name".to_string(), "namespace".to_string()],
-    });
+    spec.add_schema(
+        "VirtualMachine",
+        SchemaDefinition {
+            schema_type: "object".to_string(),
+            description: "A KubeVirt virtual machine".to_string(),
+            properties: vm_props,
+            required: vec!["name".to_string(), "namespace".to_string()],
+        },
+    );
 
     // Add VM list path
     let mut list_ops = HashMap::new();
-    list_ops.insert("get".to_string(), Operation {
-        summary: "List virtual machines".to_string(),
-        description: Some("Returns a list of all virtual machines in the namespace".to_string()),
-        operation_id: "listVMs".to_string(),
-        tags: vec!["vms".to_string()],
-        parameters: vec![
-            Parameter {
+    list_ops.insert(
+        "get".to_string(),
+        Operation {
+            summary: "List virtual machines".to_string(),
+            description: Some(
+                "Returns a list of all virtual machines in the namespace".to_string(),
+            ),
+            operation_id: "listVMs".to_string(),
+            tags: vec!["vms".to_string()],
+            parameters: vec![Parameter {
                 name: "namespace".to_string(),
                 location: ParameterLocation::Query,
                 required: false,
                 description: "Filter by namespace".to_string(),
                 schema_type: "string".to_string(),
+            }],
+            responses: {
+                let mut r = HashMap::new();
+                r.insert(
+                    "200".to_string(),
+                    ResponseSpec {
+                        description: "List of VMs".to_string(),
+                        content_type: Some("application/json".to_string()),
+                        schema_ref: Some("#/components/schemas/VirtualMachine".to_string()),
+                    },
+                );
+                r
             },
-        ],
-        responses: {
-            let mut r = HashMap::new();
-            r.insert("200".to_string(), ResponseSpec {
-                description: "List of VMs".to_string(),
-                content_type: Some("application/json".to_string()),
-                schema_ref: Some("#/components/schemas/VirtualMachine".to_string()),
-            });
-            r
+            security: Vec::new(),
         },
-        security: Vec::new(),
-    });
+    );
 
-    spec.add_path("/api/v1/vms", PathItem { operations: list_ops });
+    spec.add_path(
+        "/api/v1/vms",
+        PathItem {
+            operations: list_ops,
+        },
+    );
 
     // Add health path
     let mut health_ops = HashMap::new();
-    health_ops.insert("get".to_string(), Operation {
-        summary: "Health check".to_string(),
-        description: Some("Returns the health status of the API".to_string()),
-        operation_id: "healthCheck".to_string(),
-        tags: vec!["health".to_string()],
-        parameters: Vec::new(),
-        responses: {
-            let mut r = HashMap::new();
-            r.insert("200".to_string(), ResponseSpec {
-                description: "API is healthy".to_string(),
-                content_type: Some("application/json".to_string()),
-                schema_ref: None,
-            });
-            r
+    health_ops.insert(
+        "get".to_string(),
+        Operation {
+            summary: "Health check".to_string(),
+            description: Some("Returns the health status of the API".to_string()),
+            operation_id: "healthCheck".to_string(),
+            tags: vec!["health".to_string()],
+            parameters: Vec::new(),
+            responses: {
+                let mut r = HashMap::new();
+                r.insert(
+                    "200".to_string(),
+                    ResponseSpec {
+                        description: "API is healthy".to_string(),
+                        content_type: Some("application/json".to_string()),
+                        schema_ref: None,
+                    },
+                );
+                r
+            },
+            security: Vec::new(),
         },
-        security: Vec::new(),
-    });
+    );
 
-    spec.add_path("/api/v1/health", PathItem { operations: health_ops });
+    spec.add_path(
+        "/api/v1/health",
+        PathItem {
+            operations: health_ops,
+        },
+    );
 
     spec
 }
@@ -368,21 +414,27 @@ mod tests {
     #[test]
     fn test_openapi_spec_add_path() {
         let mut spec = OpenApiSpec::new();
-        spec.add_path("/api/v1/test", PathItem {
-            operations: HashMap::new(),
-        });
+        spec.add_path(
+            "/api/v1/test",
+            PathItem {
+                operations: HashMap::new(),
+            },
+        );
         assert_eq!(spec.path_count(), 1);
     }
 
     #[test]
     fn test_openapi_spec_add_schema() {
         let mut spec = OpenApiSpec::new();
-        spec.add_schema("TestSchema", SchemaDefinition {
-            schema_type: "object".to_string(),
-            description: "Test".to_string(),
-            properties: HashMap::new(),
-            required: Vec::new(),
-        });
+        spec.add_schema(
+            "TestSchema",
+            SchemaDefinition {
+                schema_type: "object".to_string(),
+                description: "Test".to_string(),
+                properties: HashMap::new(),
+                required: Vec::new(),
+            },
+        );
         assert_eq!(spec.schema_count(), 1);
     }
 
@@ -391,24 +443,30 @@ mod tests {
         let mut spec = OpenApiSpec::new();
 
         let mut ops = HashMap::new();
-        ops.insert("get".to_string(), Operation {
-            summary: "Get".to_string(),
-            description: None,
-            operation_id: "get".to_string(),
-            tags: Vec::new(),
-            parameters: Vec::new(),
-            responses: HashMap::new(),
-            security: Vec::new(),
-        });
-        ops.insert("post".to_string(), Operation {
-            summary: "Post".to_string(),
-            description: None,
-            operation_id: "post".to_string(),
-            tags: Vec::new(),
-            parameters: Vec::new(),
-            responses: HashMap::new(),
-            security: Vec::new(),
-        });
+        ops.insert(
+            "get".to_string(),
+            Operation {
+                summary: "Get".to_string(),
+                description: None,
+                operation_id: "get".to_string(),
+                tags: Vec::new(),
+                parameters: Vec::new(),
+                responses: HashMap::new(),
+                security: Vec::new(),
+            },
+        );
+        ops.insert(
+            "post".to_string(),
+            Operation {
+                summary: "Post".to_string(),
+                description: None,
+                operation_id: "post".to_string(),
+                tags: Vec::new(),
+                parameters: Vec::new(),
+                responses: HashMap::new(),
+                security: Vec::new(),
+            },
+        );
 
         spec.add_path("/test", PathItem { operations: ops });
         assert_eq!(spec.operation_count(), 2);

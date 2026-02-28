@@ -51,13 +51,13 @@ pub struct Budget {
 }
 
 impl Budget {
-    pub fn new(
-        name: impl Into<String>,
-        amount: f64,
-        period: BudgetPeriod,
-    ) -> Self {
+    pub fn new(name: impl Into<String>, amount: f64, period: BudgetPeriod) -> Self {
         let name_str = name.into();
-        let id = format!("budget-{}-{}", name_str.to_lowercase().replace(' ', "-"), Utc::now().timestamp());
+        let id = format!(
+            "budget-{}-{}",
+            name_str.to_lowercase().replace(' ', "-"),
+            Utc::now().timestamp()
+        );
 
         Self {
             id,
@@ -223,17 +223,11 @@ impl BudgetManager {
     }
 
     pub fn exceeded_budgets(&self) -> Vec<&Budget> {
-        self.budgets
-            .values()
-            .filter(|b| b.is_exceeded())
-            .collect()
+        self.budgets.values().filter(|b| b.is_exceeded()).collect()
     }
 
     pub fn budgets_needing_alerts(&self) -> Vec<&Budget> {
-        self.budgets
-            .values()
-            .filter(|b| b.needs_alert())
-            .collect()
+        self.budgets.values().filter(|b| b.needs_alert()).collect()
     }
 
     pub fn by_cost_center(&self, cost_center_id: &str) -> Vec<&Budget> {
@@ -282,8 +276,7 @@ mod tests {
 
     #[test]
     fn test_budget_with_currency() {
-        let budget = Budget::new("Dev Budget", 5000.0, BudgetPeriod::Monthly)
-            .with_currency("EUR");
+        let budget = Budget::new("Dev Budget", 5000.0, BudgetPeriod::Monthly).with_currency("EUR");
 
         assert_eq!(budget.currency, "EUR");
     }
@@ -298,20 +291,18 @@ mod tests {
 
     #[test]
     fn test_budget_with_warning_threshold() {
-        let budget = Budget::new("Test Budget", 1000.0, BudgetPeriod::Monthly)
-            .with_warning_threshold(0.75);
+        let budget =
+            Budget::new("Test Budget", 1000.0, BudgetPeriod::Monthly).with_warning_threshold(0.75);
 
         assert_eq!(budget.warning_threshold, 0.75);
     }
 
     #[test]
     fn test_budget_warning_threshold_clamping() {
-        let budget1 = Budget::new("B1", 1000.0, BudgetPeriod::Monthly)
-            .with_warning_threshold(1.5);
+        let budget1 = Budget::new("B1", 1000.0, BudgetPeriod::Monthly).with_warning_threshold(1.5);
         assert_eq!(budget1.warning_threshold, 1.0);
 
-        let budget2 = Budget::new("B2", 1000.0, BudgetPeriod::Monthly)
-            .with_warning_threshold(-0.5);
+        let budget2 = Budget::new("B2", 1000.0, BudgetPeriod::Monthly).with_warning_threshold(-0.5);
         assert_eq!(budget2.warning_threshold, 0.0);
     }
 
@@ -356,8 +347,8 @@ mod tests {
 
     #[test]
     fn test_budget_status_transitions() {
-        let mut budget = Budget::new("Test Budget", 1000.0, BudgetPeriod::Monthly)
-            .with_warning_threshold(0.8);
+        let mut budget =
+            Budget::new("Test Budget", 1000.0, BudgetPeriod::Monthly).with_warning_threshold(0.8);
 
         assert_eq!(budget.status, BudgetStatus::Active);
 
@@ -489,12 +480,9 @@ mod tests {
     fn test_manager_by_cost_center() {
         let mut manager = BudgetManager::new();
 
-        let budget1 = Budget::new("B1", 1000.0, BudgetPeriod::Monthly)
-            .with_cost_center("cc-eng");
-        let budget2 = Budget::new("B2", 2000.0, BudgetPeriod::Monthly)
-            .with_cost_center("cc-sales");
-        let budget3 = Budget::new("B3", 1500.0, BudgetPeriod::Monthly)
-            .with_cost_center("cc-eng");
+        let budget1 = Budget::new("B1", 1000.0, BudgetPeriod::Monthly).with_cost_center("cc-eng");
+        let budget2 = Budget::new("B2", 2000.0, BudgetPeriod::Monthly).with_cost_center("cc-sales");
+        let budget3 = Budget::new("B3", 1500.0, BudgetPeriod::Monthly).with_cost_center("cc-eng");
 
         manager.add_budget(budget1);
         manager.add_budget(budget2);

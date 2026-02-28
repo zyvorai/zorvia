@@ -132,7 +132,11 @@ impl WasteDetectionRule {
         resource_type: impl Into<String>,
     ) -> Self {
         let name_str = name.into();
-        let id = format!("rule-{}-{}", name_str.to_lowercase().replace(' ', "-"), Utc::now().timestamp());
+        let id = format!(
+            "rule-{}-{}",
+            name_str.to_lowercase().replace(' ', "-"),
+            Utc::now().timestamp()
+        );
 
         Self {
             id,
@@ -246,7 +250,10 @@ impl WasteManager {
     }
 
     pub fn total_monthly_waste(&self) -> f64 {
-        self.wasteful_resources.values().map(|r| r.monthly_waste).sum()
+        self.wasteful_resources
+            .values()
+            .map(|r| r.monthly_waste)
+            .sum()
     }
 
     pub fn total_annual_waste(&self) -> f64 {
@@ -262,7 +269,11 @@ impl WasteManager {
 
     pub fn top_wasteful_resources(&self, limit: usize) -> Vec<&WastefulResource> {
         let mut resources: Vec<_> = self.wasteful_resources.values().collect();
-        resources.sort_by(|a, b| b.monthly_waste.partial_cmp(&a.monthly_waste).unwrap_or(std::cmp::Ordering::Equal));
+        resources.sort_by(|a, b| {
+            b.monthly_waste
+                .partial_cmp(&a.monthly_waste)
+                .unwrap_or(std::cmp::Ordering::Equal)
+        });
         resources.truncate(limit);
         resources
     }
@@ -325,8 +336,8 @@ mod tests {
 
     #[test]
     fn test_resource_with_age() {
-        let resource = WastefulResource::new("vm-1", "compute", WasteType::Idle, 100.0)
-            .with_age(120);
+        let resource =
+            WastefulResource::new("vm-1", "compute", WasteType::Idle, 100.0).with_age(120);
 
         assert_eq!(resource.age_days, 120);
     }
@@ -361,12 +372,12 @@ mod tests {
 
     #[test]
     fn test_resource_is_old() {
-        let resource1 = WastefulResource::new("vm-1", "compute", WasteType::Idle, 100.0)
-            .with_age(100);
+        let resource1 =
+            WastefulResource::new("vm-1", "compute", WasteType::Idle, 100.0).with_age(100);
         assert!(resource1.is_old());
 
-        let resource2 = WastefulResource::new("vm-2", "compute", WasteType::Idle, 100.0)
-            .with_age(30);
+        let resource2 =
+            WastefulResource::new("vm-2", "compute", WasteType::Idle, 100.0).with_age(30);
         assert!(!resource2.is_old());
     }
 
@@ -469,9 +480,24 @@ mod tests {
     fn test_manager_by_waste_type() {
         let mut manager = WasteManager::new();
 
-        manager.add_wasteful_resource(WastefulResource::new("vm-1", "compute", WasteType::Idle, 100.0));
-        manager.add_wasteful_resource(WastefulResource::new("vol-1", "storage", WasteType::Unattached, 50.0));
-        manager.add_wasteful_resource(WastefulResource::new("vm-2", "compute", WasteType::Idle, 150.0));
+        manager.add_wasteful_resource(WastefulResource::new(
+            "vm-1",
+            "compute",
+            WasteType::Idle,
+            100.0,
+        ));
+        manager.add_wasteful_resource(WastefulResource::new(
+            "vol-1",
+            "storage",
+            WasteType::Unattached,
+            50.0,
+        ));
+        manager.add_wasteful_resource(WastefulResource::new(
+            "vm-2",
+            "compute",
+            WasteType::Idle,
+            150.0,
+        ));
 
         let idle = manager.by_waste_type(&WasteType::Idle);
         assert_eq!(idle.len(), 2);
@@ -483,11 +509,11 @@ mod tests {
 
         manager.add_wasteful_resource(
             WastefulResource::new("vm-1", "compute", WasteType::Idle, 100.0)
-                .with_severity(WasteSeverity::High)
+                .with_severity(WasteSeverity::High),
         );
         manager.add_wasteful_resource(
             WastefulResource::new("vm-2", "compute", WasteType::Idle, 50.0)
-                .with_severity(WasteSeverity::Low)
+                .with_severity(WasteSeverity::Low),
         );
 
         let high = manager.by_severity(&WasteSeverity::High);
@@ -498,12 +524,22 @@ mod tests {
     fn test_manager_critical_waste() {
         let mut manager = WasteManager::new();
 
-        manager.add_wasteful_resource(WastefulResource::new("vm-1", "compute", WasteType::Idle, 1500.0));
+        manager.add_wasteful_resource(WastefulResource::new(
+            "vm-1",
+            "compute",
+            WasteType::Idle,
+            1500.0,
+        ));
         manager.add_wasteful_resource(
             WastefulResource::new("vm-2", "compute", WasteType::Idle, 200.0)
-                .with_severity(WasteSeverity::Critical)
+                .with_severity(WasteSeverity::Critical),
         );
-        manager.add_wasteful_resource(WastefulResource::new("vm-3", "compute", WasteType::Idle, 100.0));
+        manager.add_wasteful_resource(WastefulResource::new(
+            "vm-3",
+            "compute",
+            WasteType::Idle,
+            100.0,
+        ));
 
         let critical = manager.critical_waste();
         assert_eq!(critical.len(), 2);
@@ -514,12 +550,10 @@ mod tests {
         let mut manager = WasteManager::new();
 
         manager.add_wasteful_resource(
-            WastefulResource::new("vm-1", "compute", WasteType::Idle, 100.0)
-                .with_age(120)
+            WastefulResource::new("vm-1", "compute", WasteType::Idle, 100.0).with_age(120),
         );
         manager.add_wasteful_resource(
-            WastefulResource::new("vm-2", "compute", WasteType::Idle, 100.0)
-                .with_age(30)
+            WastefulResource::new("vm-2", "compute", WasteType::Idle, 100.0).with_age(30),
         );
 
         let old = manager.old_resources();
@@ -530,9 +564,24 @@ mod tests {
     fn test_manager_total_waste() {
         let mut manager = WasteManager::new();
 
-        manager.add_wasteful_resource(WastefulResource::new("vm-1", "compute", WasteType::Idle, 100.0));
-        manager.add_wasteful_resource(WastefulResource::new("vm-2", "compute", WasteType::Idle, 150.0));
-        manager.add_wasteful_resource(WastefulResource::new("vol-1", "storage", WasteType::Unattached, 50.0));
+        manager.add_wasteful_resource(WastefulResource::new(
+            "vm-1",
+            "compute",
+            WasteType::Idle,
+            100.0,
+        ));
+        manager.add_wasteful_resource(WastefulResource::new(
+            "vm-2",
+            "compute",
+            WasteType::Idle,
+            150.0,
+        ));
+        manager.add_wasteful_resource(WastefulResource::new(
+            "vol-1",
+            "storage",
+            WasteType::Unattached,
+            50.0,
+        ));
 
         assert_eq!(manager.total_monthly_waste(), 300.0);
         assert_eq!(manager.total_annual_waste(), 3600.0);
@@ -542,9 +591,24 @@ mod tests {
     fn test_manager_by_resource_type() {
         let mut manager = WasteManager::new();
 
-        manager.add_wasteful_resource(WastefulResource::new("vm-1", "compute", WasteType::Idle, 100.0));
-        manager.add_wasteful_resource(WastefulResource::new("vol-1", "storage", WasteType::Unattached, 50.0));
-        manager.add_wasteful_resource(WastefulResource::new("vm-2", "compute", WasteType::Idle, 150.0));
+        manager.add_wasteful_resource(WastefulResource::new(
+            "vm-1",
+            "compute",
+            WasteType::Idle,
+            100.0,
+        ));
+        manager.add_wasteful_resource(WastefulResource::new(
+            "vol-1",
+            "storage",
+            WasteType::Unattached,
+            50.0,
+        ));
+        manager.add_wasteful_resource(WastefulResource::new(
+            "vm-2",
+            "compute",
+            WasteType::Idle,
+            150.0,
+        ));
 
         let compute = manager.by_resource_type("compute");
         assert_eq!(compute.len(), 2);
@@ -554,10 +618,30 @@ mod tests {
     fn test_manager_top_wasteful_resources() {
         let mut manager = WasteManager::new();
 
-        manager.add_wasteful_resource(WastefulResource::new("vm-1", "compute", WasteType::Idle, 300.0));
-        manager.add_wasteful_resource(WastefulResource::new("vm-2", "compute", WasteType::Idle, 150.0));
-        manager.add_wasteful_resource(WastefulResource::new("vm-3", "compute", WasteType::Idle, 500.0));
-        manager.add_wasteful_resource(WastefulResource::new("vm-4", "compute", WasteType::Idle, 75.0));
+        manager.add_wasteful_resource(WastefulResource::new(
+            "vm-1",
+            "compute",
+            WasteType::Idle,
+            300.0,
+        ));
+        manager.add_wasteful_resource(WastefulResource::new(
+            "vm-2",
+            "compute",
+            WasteType::Idle,
+            150.0,
+        ));
+        manager.add_wasteful_resource(WastefulResource::new(
+            "vm-3",
+            "compute",
+            WasteType::Idle,
+            500.0,
+        ));
+        manager.add_wasteful_resource(WastefulResource::new(
+            "vm-4",
+            "compute",
+            WasteType::Idle,
+            75.0,
+        ));
 
         let top = manager.top_wasteful_resources(2);
         assert_eq!(top.len(), 2);

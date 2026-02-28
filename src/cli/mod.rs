@@ -252,7 +252,6 @@ pub enum Commands {
     },
 
     // ========== INNOVATIVE FEATURES ==========
-
     /// List VM resource profiles (dev, prod, high-perf, etc.)
     Profiles {
         /// Show detailed information
@@ -464,7 +463,6 @@ pub enum Commands {
     },
 
     // ========== VM SNAPSHOTS & BACKUP ==========
-
     /// Create a VM snapshot
     SnapshotCreate {
         /// VM name
@@ -532,7 +530,6 @@ pub enum Commands {
     },
 
     // ========== PERFORMANCE MONITORING ==========
-
     /// Show live performance monitoring for a VM
     MonitorLive {
         /// VM name
@@ -583,7 +580,6 @@ pub enum Commands {
     },
 
     // ========== DISK MANAGEMENT ==========
-
     /// Expand VM disk size
     DiskExpand {
         /// VM name
@@ -648,7 +644,6 @@ pub enum Commands {
     },
 
     // ========== NETWORK MANAGEMENT ==========
-
     /// List network interfaces for a VM
     NetworkList {
         /// VM name
@@ -734,7 +729,6 @@ pub enum Commands {
     },
 
     // ========== VM MIGRATION & HIGH AVAILABILITY ==========
-
     /// Migrate a VM to another node
     Migrate {
         /// VM name
@@ -851,7 +845,6 @@ pub enum Commands {
     },
 
     // ========== BACKUP & DISASTER RECOVERY ==========
-
     /// Create a VM backup
     BackupCreate {
         /// VM name
@@ -970,7 +963,6 @@ pub enum Commands {
     },
 
     // ========== SECURITY & COMPLIANCE ==========
-
     /// Scan VM for security vulnerabilities
     SecurityScan {
         /// VM name
@@ -1095,7 +1087,6 @@ pub enum Commands {
     },
 
     // ========== COST MANAGEMENT & OPTIMIZATION ==========
-
     /// Show VM cost analysis
     CostAnalyze {
         /// VM name (optional, shows all if not provided)
@@ -1228,7 +1219,6 @@ pub enum Commands {
     },
 
     // ========== AUTOMATION & ORCHESTRATION ==========
-
     /// List automation rules
     AutomationList {
         /// Show only enabled rules
@@ -1363,7 +1353,6 @@ pub enum Commands {
     },
 
     // ========== OBSERVABILITY & ANALYTICS ==========
-
     /// Query logs
     LogsQuery {
         /// Start time (RFC3339 format)
@@ -1560,7 +1549,6 @@ pub enum Commands {
     },
 
     // ========== MULTI-TENANCY & RBAC ==========
-
     /// List tenants
     TenantsList {
         /// Show only active tenants
@@ -1773,7 +1761,6 @@ pub enum Commands {
     },
 
     // ========== DEVELOPER EXPERIENCE & TOOLING ==========
-
     /// Generate shell completions
     Completions {
         /// Shell type (bash, zsh, fish, powershell, elvish)
@@ -1916,7 +1903,6 @@ pub enum Commands {
     },
 
     // ========== API & REST INTERFACE ==========
-
     /// Start the REST API server
     ApiServe {
         /// Port to listen on
@@ -2106,10 +2092,28 @@ mod tests {
 
     #[test]
     fn test_create_with_resources() {
-        let cli = parse(&["zorvia", "create", "test-vm", "--template", "fedora",
-            "--cpus", "4", "--memory", "8Gi", "--disk-size", "100Gi"]).unwrap();
+        let cli = parse(&[
+            "zorvia",
+            "create",
+            "test-vm",
+            "--template",
+            "fedora",
+            "--cpus",
+            "4",
+            "--memory",
+            "8Gi",
+            "--disk-size",
+            "100Gi",
+        ])
+        .unwrap();
         match cli.command {
-            Commands::Create { name, cpus, memory, disk_size, .. } => {
+            Commands::Create {
+                name,
+                cpus,
+                memory,
+                disk_size,
+                ..
+            } => {
                 assert_eq!(name, "test-vm");
                 assert_eq!(cpus, Some(4));
                 assert_eq!(memory, Some("8Gi".to_string()));
@@ -2121,7 +2125,15 @@ mod tests {
 
     #[test]
     fn test_create_dry_run() {
-        let cli = parse(&["zorvia", "create", "my-vm", "--template", "ubuntu", "--dry-run"]).unwrap();
+        let cli = parse(&[
+            "zorvia",
+            "create",
+            "my-vm",
+            "--template",
+            "ubuntu",
+            "--dry-run",
+        ])
+        .unwrap();
         match cli.command {
             Commands::Create { dry_run, .. } => assert!(dry_run),
             _ => panic!("Expected Create command"),
@@ -2132,7 +2144,10 @@ mod tests {
     fn test_list_command() {
         let cli = parse(&["zorvia", "list"]).unwrap();
         match cli.command {
-            Commands::List { all_namespaces, output } => {
+            Commands::List {
+                all_namespaces,
+                output,
+            } => {
                 assert!(!all_namespaces);
                 assert_eq!(output, "table");
             }
@@ -2202,9 +2217,23 @@ mod tests {
 
     #[test]
     fn test_generate_command() {
-        let cli = parse(&["zorvia", "generate", "test-vm", "--template", "ubuntu", "--format", "json"]).unwrap();
+        let cli = parse(&[
+            "zorvia",
+            "generate",
+            "test-vm",
+            "--template",
+            "ubuntu",
+            "--format",
+            "json",
+        ])
+        .unwrap();
         match cli.command {
-            Commands::Generate { name, template, format, .. } => {
+            Commands::Generate {
+                name,
+                template,
+                format,
+                ..
+            } => {
                 assert_eq!(name, "test-vm");
                 assert_eq!(template, Some("ubuntu".to_string()));
                 assert_eq!(format, "json");
@@ -2263,9 +2292,22 @@ mod tests {
 
     #[test]
     fn test_security_scan() {
-        let cli = parse(&["zorvia", "security-scan", "web-vm", "--scan-type", "deep", "--containers"]).unwrap();
+        let cli = parse(&[
+            "zorvia",
+            "security-scan",
+            "web-vm",
+            "--scan-type",
+            "deep",
+            "--containers",
+        ])
+        .unwrap();
         match cli.command {
-            Commands::SecurityScan { vm, scan_type, containers, .. } => {
+            Commands::SecurityScan {
+                vm,
+                scan_type,
+                containers,
+                ..
+            } => {
                 assert_eq!(vm, "web-vm");
                 assert_eq!(scan_type, "deep");
                 assert!(containers);
@@ -2319,9 +2361,18 @@ mod tests {
 
     #[test]
     fn test_backup_create() {
-        let cli = parse(&["zorvia", "backup-create", "db-vm", "--backup-type", "incremental"]).unwrap();
+        let cli = parse(&[
+            "zorvia",
+            "backup-create",
+            "db-vm",
+            "--backup-type",
+            "incremental",
+        ])
+        .unwrap();
         match cli.command {
-            Commands::BackupCreate { vm, backup_type, .. } => {
+            Commands::BackupCreate {
+                vm, backup_type, ..
+            } => {
                 assert_eq!(vm, "db-vm");
                 assert_eq!(backup_type, "incremental");
             }
@@ -2331,9 +2382,22 @@ mod tests {
 
     #[test]
     fn test_migrate_command() {
-        let cli = parse(&["zorvia", "migrate", "vm1", "--target-node", "node2", "--plan"]).unwrap();
+        let cli = parse(&[
+            "zorvia",
+            "migrate",
+            "vm1",
+            "--target-node",
+            "node2",
+            "--plan",
+        ])
+        .unwrap();
         match cli.command {
-            Commands::Migrate { vm, target_node, plan, .. } => {
+            Commands::Migrate {
+                vm,
+                target_node,
+                plan,
+                ..
+            } => {
                 assert_eq!(vm, "vm1");
                 assert_eq!(target_node, Some("node2".to_string()));
                 assert!(plan);
@@ -2342,4 +2406,3 @@ mod tests {
         }
     }
 }
-

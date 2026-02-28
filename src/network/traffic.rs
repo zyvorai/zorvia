@@ -1,7 +1,7 @@
 // Traffic Analysis - Network traffic analysis and flow monitoring
 
-use serde::{Deserialize, Serialize};
 use chrono::{DateTime, Utc};
+use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
 /// Traffic flow information
@@ -41,7 +41,9 @@ impl TrafficFlow {
 
     /// Get flow duration in seconds
     pub fn duration_secs(&self) -> i64 {
-        self.last_seen.signed_duration_since(self.start_time).num_seconds()
+        self.last_seen
+            .signed_duration_since(self.start_time)
+            .num_seconds()
     }
 
     /// Calculate average bytes per second
@@ -409,7 +411,9 @@ mod tests {
 
         let mut tcp_stats = ProtocolStats::new("TCP");
         tcp_stats.bytes = 600;
-        summary.protocol_breakdown.insert("TCP".to_string(), tcp_stats);
+        summary
+            .protocol_breakdown
+            .insert("TCP".to_string(), tcp_stats);
 
         assert_eq!(summary.protocol_percent("TCP"), 60.0);
         assert_eq!(summary.protocol_percent("UDP"), 0.0);

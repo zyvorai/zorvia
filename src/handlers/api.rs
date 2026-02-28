@@ -1,5 +1,5 @@
-use anyhow::Result;
 use crate::tui::colors::cli as color;
+use anyhow::Result;
 
 pub fn handle_api_serve(
     port: u16,
@@ -10,8 +10,8 @@ pub fn handle_api_serve(
     auth: String,
     rate_limit: u32,
 ) -> Result<()> {
+    use crate::api::server::{default_endpoints, ApiServer};
     use crate::api::{ApiConfig, AuthMethod, RateLimitConfig};
-    use crate::api::server::{ApiServer, default_endpoints};
 
     let mut config = ApiConfig::new(port).with_host(&host);
 
@@ -19,12 +19,13 @@ pub fn handle_api_serve(
         if let (Some(cert), Some(key)) = (tls_cert, tls_key) {
             config = config.with_tls(cert, key);
         } else {
-            return Err(anyhow::anyhow!("TLS requires both --tls-cert and --tls-key"));
+            return Err(anyhow::anyhow!(
+                "TLS requires both --tls-cert and --tls-key"
+            ));
         }
     }
 
-    let auth_method = AuthMethod::parse(&auth)
-        .unwrap_or(AuthMethod::None);
+    let auth_method = AuthMethod::parse(&auth).unwrap_or(AuthMethod::None);
     config = config.with_auth(auth_method.clone());
 
     if rate_limit > 0 {
@@ -40,17 +41,23 @@ pub fn handle_api_serve(
     println!();
     println!("  Address:     {}", color::value(&config.address()));
     println!("  Base URL:    {}", color::value(&config.base_url()));
-    println!("  TLS:         {}", if config.tls_enabled {
-        color::success("Enabled")
-    } else {
-        color::muted("Disabled")
-    });
+    println!(
+        "  TLS:         {}",
+        if config.tls_enabled {
+            color::success("Enabled")
+        } else {
+            color::muted("Disabled")
+        }
+    );
     println!("  Auth:        {}", color::value(&auth_method.to_string()));
-    println!("  Rate Limit:  {}", if rate_limit > 0 {
-        color::value(&format!("{} req/min", rate_limit))
-    } else {
-        color::muted("Disabled")
-    });
+    println!(
+        "  Rate Limit:  {}",
+        if rate_limit > 0 {
+            color::value(&format!("{} req/min", rate_limit))
+        } else {
+            color::muted("Disabled")
+        }
+    );
     println!();
 
     let endpoints = default_endpoints();
@@ -66,8 +73,8 @@ pub fn handle_api_serve(
 }
 
 pub fn handle_api_status(output: String) -> Result<()> {
-    use crate::api::ApiConfig;
     use crate::api::server::ApiServer;
+    use crate::api::ApiConfig;
 
     let config = ApiConfig::new(8080);
     let server = ApiServer::new(config);
@@ -88,11 +95,14 @@ pub fn handle_api_status(output: String) -> Result<()> {
             println!();
 
             let health = server.health_status();
-            println!("  Status:    {}", if health.is_healthy() {
-                color::success(&health.status)
-            } else {
-                color::warning(&health.status)
-            });
+            println!(
+                "  Status:    {}",
+                if health.is_healthy() {
+                    color::success(&health.status)
+                } else {
+                    color::warning(&health.status)
+                }
+            );
             println!("  Version:   {}", health.version);
             println!("  Uptime:    {} seconds", health.uptime_secs);
             println!();
@@ -134,7 +144,8 @@ pub fn handle_api_routes(method: Option<String>, output: String) -> Result<()> {
             }
             println!();
 
-            println!("  {:<8} {:<40} {:<20} {}",
+            println!(
+                "  {:<8} {:<40} {:<20} {}",
                 color::label("METHOD"),
                 color::label("PATH"),
                 color::label("HANDLER"),
@@ -149,7 +160,8 @@ pub fn handle_api_routes(method: Option<String>, output: String) -> Result<()> {
                     route.middleware.join(", ")
                 };
 
-                println!("  {:<8} {:<40} {:<20} {}",
+                println!(
+                    "  {:<8} {:<40} {:<20} {}",
                     color::value(&route.method),
                     route.full_path(),
                     route.handler,
@@ -158,7 +170,8 @@ pub fn handle_api_routes(method: Option<String>, output: String) -> Result<()> {
             }
 
             println!();
-            println!("  {} routes across {} groups",
+            println!(
+                "  {} routes across {} groups",
                 router.total_routes(),
                 router.group_count(),
             );
@@ -179,10 +192,13 @@ pub fn handle_api_spec(format: String, output: Option<String>) -> Result<()> {
 
     if let Some(output_file) = output {
         std::fs::write(&output_file, &content)?;
-        println!("{}", color::success(&format!(
-            "✓ OpenAPI specification written to {}",
-            output_file
-        )));
+        println!(
+            "{}",
+            color::success(&format!(
+                "✓ OpenAPI specification written to {}",
+                output_file
+            ))
+        );
         println!("  Paths:   {}", spec.path_count());
         println!("  Schemas: {}", spec.schema_count());
         println!("  Tags:    {}", spec.tag_count());
@@ -211,7 +227,10 @@ pub fn handle_api_key_list(active_only: bool, output: String) -> Result<()> {
     if keys.is_empty() {
         println!();
         println!("  {}", color::muted("No API keys found"));
-        println!("  {}", color::muted("Use 'zorvia api-key-create' to create one"));
+        println!(
+            "  {}",
+            color::muted("Use 'zorvia api-key-create' to create one")
+        );
     }
 
     println!();
@@ -219,14 +238,19 @@ pub fn handle_api_key_list(active_only: bool, output: String) -> Result<()> {
     Ok(())
 }
 
-pub fn handle_api_key_create(name: String, permissions: String, rate_limit: Option<u32>) -> Result<()> {
+pub fn handle_api_key_create(
+    name: String,
+    permissions: String,
+    rate_limit: Option<u32>,
+) -> Result<()> {
     use crate::api::ApiKey;
     use chrono::Utc;
 
     println!("{}", color::header(&format!("Creating API Key: {}", name)));
     println!();
 
-    let perms: Vec<String> = permissions.split(',')
+    let perms: Vec<String> = permissions
+        .split(',')
         .map(|p| p.trim().to_string())
         .collect();
 
@@ -253,12 +277,18 @@ pub fn handle_api_key_delete(key: String, yes: bool) -> Result<()> {
     println!();
 
     if !yes {
-        println!("  {}", color::warning("This will permanently revoke the API key"));
+        println!(
+            "  {}",
+            color::warning("This will permanently revoke the API key")
+        );
         println!("  Use --yes to skip confirmation");
     }
 
     println!();
-    println!("{}", color::success(&format!("✓ API key '{}' deleted", key)));
+    println!(
+        "{}",
+        color::success(&format!("✓ API key '{}' deleted", key))
+    );
     Ok(())
 }
 
@@ -281,7 +311,10 @@ pub fn handle_webhook_list(active_only: bool, output: String) -> Result<()> {
     if webhooks.is_empty() {
         println!();
         println!("  {}", color::muted("No webhooks registered"));
-        println!("  {}", color::muted("Use 'zorvia webhook-create' to register one"));
+        println!(
+            "  {}",
+            color::muted("Use 'zorvia webhook-create' to register one")
+        );
     }
 
     println!();
@@ -289,10 +322,18 @@ pub fn handle_webhook_list(active_only: bool, output: String) -> Result<()> {
     Ok(())
 }
 
-pub fn handle_webhook_create(name: String, url: String, events: String, secret: Option<String>) -> Result<()> {
+pub fn handle_webhook_create(
+    name: String,
+    url: String,
+    events: String,
+    secret: Option<String>,
+) -> Result<()> {
     use crate::api::webhooks::{WebhookConfig, WebhookEvent};
 
-    println!("{}", color::header(&format!("Registering Webhook: {}", name)));
+    println!(
+        "{}",
+        color::header(&format!("Registering Webhook: {}", name))
+    );
     println!();
 
     let mut webhook = WebhookConfig::new(&name, &url);
@@ -328,16 +369,25 @@ pub fn handle_webhook_create(name: String, url: String, events: String, secret: 
 }
 
 pub fn handle_webhook_delete(webhook: String, yes: bool) -> Result<()> {
-    println!("{}", color::header(&format!("Deleting Webhook: {}", webhook)));
+    println!(
+        "{}",
+        color::header(&format!("Deleting Webhook: {}", webhook))
+    );
     println!();
 
     if !yes {
-        println!("  {}", color::warning("This will permanently remove the webhook"));
+        println!(
+            "  {}",
+            color::warning("This will permanently remove the webhook")
+        );
         println!("  Use --yes to skip confirmation");
     }
 
     println!();
-    println!("{}", color::success(&format!("✓ Webhook '{}' deleted", webhook)));
+    println!(
+        "{}",
+        color::success(&format!("✓ Webhook '{}' deleted", webhook))
+    );
     Ok(())
 }
 

@@ -46,76 +46,112 @@ impl SplashScreen {
         let logo = vec![
             Line::from(Span::styled(
                 "╔═══════════════════════════════════════╗",
-                Style::default().fg(colors::ORANGE).add_modifier(Modifier::BOLD),
+                Style::default()
+                    .fg(colors::ORANGE)
+                    .add_modifier(Modifier::BOLD),
             )),
             Line::from(Span::styled(
                 "║                                       ║",
-                Style::default().fg(colors::ORANGE).add_modifier(Modifier::BOLD),
+                Style::default()
+                    .fg(colors::ORANGE)
+                    .add_modifier(Modifier::BOLD),
             )),
             Line::from(Span::styled(
                 "║   ██╗   ██╗██╗██████╗ ████████╗      ║",
-                Style::default().fg(colors::LIGHT_ORANGE).add_modifier(Modifier::BOLD),
+                Style::default()
+                    .fg(colors::LIGHT_ORANGE)
+                    .add_modifier(Modifier::BOLD),
             )),
             Line::from(Span::styled(
                 "║   ██║   ██║██║██╔══██╗╚══██╔══╝      ║",
-                Style::default().fg(colors::LIGHT_ORANGE).add_modifier(Modifier::BOLD),
+                Style::default()
+                    .fg(colors::LIGHT_ORANGE)
+                    .add_modifier(Modifier::BOLD),
             )),
             Line::from(Span::styled(
                 "║   ██║   ██║██║██████╔╝   ██║         ║",
-                Style::default().fg(colors::ORANGE).add_modifier(Modifier::BOLD),
+                Style::default()
+                    .fg(colors::ORANGE)
+                    .add_modifier(Modifier::BOLD),
             )),
             Line::from(Span::styled(
                 "║   ╚██╗ ██╔╝██║██╔══██╗   ██║         ║",
-                Style::default().fg(colors::ORANGE).add_modifier(Modifier::BOLD),
+                Style::default()
+                    .fg(colors::ORANGE)
+                    .add_modifier(Modifier::BOLD),
             )),
             Line::from(Span::styled(
                 "║    ╚████╔╝ ██║██║  ██║   ██║         ║",
-                Style::default().fg(colors::DARK_ORANGE).add_modifier(Modifier::BOLD),
+                Style::default()
+                    .fg(colors::DARK_ORANGE)
+                    .add_modifier(Modifier::BOLD),
             )),
             Line::from(Span::styled(
                 "║     ╚═══╝  ╚═╝╚═╝  ╚═╝   ╚═╝         ║",
-                Style::default().fg(colors::DARK_ORANGE).add_modifier(Modifier::BOLD),
+                Style::default()
+                    .fg(colors::DARK_ORANGE)
+                    .add_modifier(Modifier::BOLD),
             )),
             Line::from(Span::styled(
                 "║                                       ║",
-                Style::default().fg(colors::ORANGE).add_modifier(Modifier::BOLD),
+                Style::default()
+                    .fg(colors::ORANGE)
+                    .add_modifier(Modifier::BOLD),
             )),
             Line::from(Span::styled(
                 "║   ██████╗██████╗  █████╗ ███████╗████████╗  ║",
-                Style::default().fg(colors::LIGHT_ORANGE).add_modifier(Modifier::BOLD),
+                Style::default()
+                    .fg(colors::LIGHT_ORANGE)
+                    .add_modifier(Modifier::BOLD),
             )),
             Line::from(Span::styled(
                 "║  ██╔════╝██╔══██╗██╔══██╗██╔════╝╚══██╔══╝  ║",
-                Style::default().fg(colors::LIGHT_ORANGE).add_modifier(Modifier::BOLD),
+                Style::default()
+                    .fg(colors::LIGHT_ORANGE)
+                    .add_modifier(Modifier::BOLD),
             )),
             Line::from(Span::styled(
                 "║  ██║     ██████╔╝███████║█████╗     ██║     ║",
-                Style::default().fg(colors::ORANGE).add_modifier(Modifier::BOLD),
+                Style::default()
+                    .fg(colors::ORANGE)
+                    .add_modifier(Modifier::BOLD),
             )),
             Line::from(Span::styled(
                 "║  ██║     ██╔══██╗██╔══██║██╔══╝     ██║     ║",
-                Style::default().fg(colors::ORANGE).add_modifier(Modifier::BOLD),
+                Style::default()
+                    .fg(colors::ORANGE)
+                    .add_modifier(Modifier::BOLD),
             )),
             Line::from(Span::styled(
                 "║  ╚██████╗██║  ██║██║  ██║██║        ██║     ║",
-                Style::default().fg(colors::DARK_ORANGE).add_modifier(Modifier::BOLD),
+                Style::default()
+                    .fg(colors::DARK_ORANGE)
+                    .add_modifier(Modifier::BOLD),
             )),
             Line::from(Span::styled(
                 "║   ╚═════╝╚═╝  ╚═╝╚═╝  ╚═╝╚═╝        ╚═╝     ║",
-                Style::default().fg(colors::DARK_ORANGE).add_modifier(Modifier::BOLD),
+                Style::default()
+                    .fg(colors::DARK_ORANGE)
+                    .add_modifier(Modifier::BOLD),
             )),
             Line::from(Span::styled(
                 "║                                       ║",
-                Style::default().fg(colors::ORANGE).add_modifier(Modifier::BOLD),
+                Style::default()
+                    .fg(colors::ORANGE)
+                    .add_modifier(Modifier::BOLD),
             )),
             Line::from(Span::styled(
                 "╚═══════════════════════════════════════╝",
-                Style::default().fg(colors::ORANGE).add_modifier(Modifier::BOLD),
+                Style::default()
+                    .fg(colors::ORANGE)
+                    .add_modifier(Modifier::BOLD),
             )),
             Line::from(""),
             Line::from(Span::styled(
                 "KubeVirt VM Management & Orchestration",
-                Style::default().fg(colors::TEXT).add_modifier(Modifier::ITALIC),
+                Style::default()
+                    .fg(colors::TEXT)
+                    .add_modifier(Modifier::ITALIC),
             )),
         ];
 

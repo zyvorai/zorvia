@@ -124,9 +124,7 @@ impl KubeClient {
         });
 
         let pp = PatchParams::default();
-        let patched = vms
-            .patch(name, &pp, &Patch::Merge(&patch))
-            .await?;
+        let patched = vms.patch(name, &pp, &Patch::Merge(&patch)).await?;
 
         Ok(patched)
     }
@@ -147,9 +145,7 @@ impl KubeClient {
         });
 
         let pp = PatchParams::default();
-        let patched = vms
-            .patch(name, &pp, &Patch::Merge(&patch))
-            .await?;
+        let patched = vms.patch(name, &pp, &Patch::Merge(&patch)).await?;
 
         Ok(patched)
     }

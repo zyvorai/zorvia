@@ -1,14 +1,21 @@
-use anyhow::{anyhow, Result};
 use crate::tui::colors::cli as color;
+use anyhow::{anyhow, Result};
 
 pub fn handle_completions(shell: String, output: Option<String>, install: bool) -> Result<()> {
     use crate::devexp::completions::{CompletionGenerator, CompletionShell};
 
-    let shell_type = CompletionShell::parse(&shell)
-        .ok_or_else(|| anyhow!("Unknown shell: {}. Supported: bash, zsh, fish, powershell, elvish", shell))?;
+    let shell_type = CompletionShell::parse(&shell).ok_or_else(|| {
+        anyhow!(
+            "Unknown shell: {}. Supported: bash, zsh, fish, powershell, elvish",
+            shell
+        )
+    })?;
 
     if install {
-        println!("{}", color::header(&format!("Install Instructions for {}", shell_type)));
+        println!(
+            "{}",
+            color::header(&format!("Install Instructions for {}", shell_type))
+        );
         println!();
         println!("{}", shell_type.install_instructions());
         return Ok(());
@@ -19,10 +26,10 @@ pub fn handle_completions(shell: String, output: Option<String>, install: bool) 
 
     if let Some(output_file) = output {
         std::fs::write(&output_file, &completions)?;
-        println!("{}", color::success(&format!(
-            "✓ Shell completions written to {}",
-            output_file
-        )));
+        println!(
+            "{}",
+            color::success(&format!("✓ Shell completions written to {}", output_file))
+        );
         println!();
         println!("Install instructions:");
         println!("{}", shell_type.install_instructions());
@@ -39,9 +46,12 @@ pub fn handle_config_save(
     category: String,
     tags: Option<String>,
 ) -> Result<()> {
-    use crate::devexp::config_templates::{ConfigTemplate, ConfigCategory, ConfigTemplateManager};
+    use crate::devexp::config_templates::{ConfigCategory, ConfigTemplate, ConfigTemplateManager};
 
-    println!("{}", color::header(&format!("Saving Configuration: {}", name)));
+    println!(
+        "{}",
+        color::header(&format!("Saving Configuration: {}", name))
+    );
     println!();
 
     let config_data = std::fs::read_to_string(&file)
@@ -72,7 +82,10 @@ pub fn handle_config_save(
 pub fn handle_config_load(name: String, output: Option<String>, format: String) -> Result<()> {
     use crate::devexp::config_templates::ConfigTemplateManager;
 
-    println!("{}", color::header(&format!("Loading Configuration: {}", name)));
+    println!(
+        "{}",
+        color::header(&format!("Loading Configuration: {}", name))
+    );
     println!();
 
     let _manager = ConfigTemplateManager::new();
@@ -115,7 +128,10 @@ pub fn handle_config_list(
 
     if templates.is_empty() {
         println!("  {}", color::muted("No saved configurations found"));
-        println!("  {}", color::muted("Use 'zorvia config-save' to save a configuration"));
+        println!(
+            "  {}",
+            color::muted("Use 'zorvia config-save' to save a configuration")
+        );
     }
 
     println!();
@@ -124,16 +140,25 @@ pub fn handle_config_list(
 }
 
 pub fn handle_config_delete(name: String, yes: bool) -> Result<()> {
-    println!("{}", color::header(&format!("Deleting Configuration: {}", name)));
+    println!(
+        "{}",
+        color::header(&format!("Deleting Configuration: {}", name))
+    );
     println!();
 
     if !yes {
-        println!("  {}", color::warning("This will permanently delete the saved configuration"));
+        println!(
+            "  {}",
+            color::warning("This will permanently delete the saved configuration")
+        );
         println!("  Use --yes to skip confirmation");
     }
 
     println!();
-    println!("{}", color::success(&format!("✓ Configuration '{}' deleted", name)));
+    println!(
+        "{}",
+        color::success(&format!("✓ Configuration '{}' deleted", name))
+    );
     Ok(())
 }
 
@@ -199,11 +224,13 @@ pub fn handle_init(
 ) -> Result<()> {
     use crate::devexp::init::{ProjectInit, ProjectType};
 
-    println!("{}", color::header(&format!("Initializing Project: {}", name)));
+    println!(
+        "{}",
+        color::header(&format!("Initializing Project: {}", name))
+    );
     println!();
 
-    let pt = ProjectType::parse(&project_type)
-        .unwrap_or(ProjectType::Basic);
+    let pt = ProjectType::parse(&project_type).unwrap_or(ProjectType::Basic);
 
     let mut init = ProjectInit::new(&name, pt.clone())
         .with_examples(!no_examples)
@@ -238,10 +265,14 @@ pub fn handle_init(
     }
 
     println!();
-    println!("{}", color::success(&format!(
-        "✓ Project '{}' initialized ({} files)",
-        name, init.file_count()
-    )));
+    println!(
+        "{}",
+        color::success(&format!(
+            "✓ Project '{}' initialized ({} files)",
+            name,
+            init.file_count()
+        ))
+    );
     Ok(())
 }
 
@@ -251,7 +282,7 @@ pub fn handle_info(
     output: String,
     cli_namespace: &str,
 ) -> Result<()> {
-    use crate::devexp::info::{EnvironmentInfo, run_diagnostics, DiagnosticStatus};
+    use crate::devexp::info::{run_diagnostics, DiagnosticStatus, EnvironmentInfo};
 
     let info = EnvironmentInfo::collect(cli_namespace);
 
@@ -276,12 +307,18 @@ pub fn handle_info(
             println!("{}", color::label("Kubernetes:"));
             println!("  Kubeconfig:  {}", info.kubernetes.kubeconfig);
             println!("  Context:     {}", info.kubernetes.context);
-            println!("  Namespace:   {}", color::namespace(&info.kubernetes.namespace));
-            println!("  Connected:   {}", if info.kubernetes.connected {
-                color::success("Yes")
-            } else {
-                color::warning("No")
-            });
+            println!(
+                "  Namespace:   {}",
+                color::namespace(&info.kubernetes.namespace)
+            );
+            println!(
+                "  Connected:   {}",
+                if info.kubernetes.connected {
+                    color::success("Yes")
+                } else {
+                    color::warning("No")
+                }
+            );
             println!();
 
             println!("{}", color::label("Paths:"));
@@ -324,9 +361,14 @@ pub fn handle_info(
                 let passed = checks.iter().filter(|c| c.is_pass()).count();
                 let failed = checks.iter().filter(|c| c.is_fail()).count();
                 println!();
-                println!("  {} passed, {} failed, {} total",
+                println!(
+                    "  {} passed, {} failed, {} total",
                     color::success(&passed.to_string()),
-                    if failed > 0 { color::error(&failed.to_string()) } else { color::success("0") },
+                    if failed > 0 {
+                        color::error(&failed.to_string())
+                    } else {
+                        color::success("0")
+                    },
                     checks.len()
                 );
             }

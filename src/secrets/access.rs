@@ -31,7 +31,11 @@ impl AccessPolicy {
         secret_id: impl Into<String>,
     ) -> Self {
         let name_str = name.into();
-        let id = format!("policy-{}-{}", name_str.to_lowercase().replace(' ', "-"), Utc::now().timestamp_micros());
+        let id = format!(
+            "policy-{}-{}",
+            name_str.to_lowercase().replace(' ', "-"),
+            Utc::now().timestamp_micros()
+        );
 
         Self {
             id,
@@ -162,7 +166,10 @@ impl AccessManager {
     }
 
     pub fn logs_for_secret(&self, secret_id: &str) -> Vec<&AccessLogEntry> {
-        self.logs.iter().filter(|l| l.secret_id == secret_id).collect()
+        self.logs
+            .iter()
+            .filter(|l| l.secret_id == secret_id)
+            .collect()
     }
 
     pub fn failed_access_attempts(&self) -> Vec<&AccessLogEntry> {
@@ -192,8 +199,7 @@ mod tests {
     #[test]
     fn test_policy_with_expiry() {
         let expiry = Utc::now() + chrono::Duration::days(30);
-        let policy = AccessPolicy::new("temp-access", "user-1", "secret-1")
-            .with_expiry(expiry);
+        let policy = AccessPolicy::new("temp-access", "user-1", "secret-1").with_expiry(expiry);
 
         assert_eq!(policy.expires_at, Some(expiry));
     }
@@ -233,13 +239,11 @@ mod tests {
     #[test]
     fn test_policy_is_expired() {
         let past = Utc::now() - chrono::Duration::days(1);
-        let policy1 = AccessPolicy::new("expired", "user-1", "secret-1")
-            .with_expiry(past);
+        let policy1 = AccessPolicy::new("expired", "user-1", "secret-1").with_expiry(past);
         assert!(policy1.is_expired());
 
         let future = Utc::now() + chrono::Duration::days(30);
-        let policy2 = AccessPolicy::new("active", "user-1", "secret-1")
-            .with_expiry(future);
+        let policy2 = AccessPolicy::new("active", "user-1", "secret-1").with_expiry(future);
         assert!(!policy2.is_expired());
     }
 
@@ -253,8 +257,7 @@ mod tests {
         assert!(!policy2.is_valid()); // No permissions
 
         let past = Utc::now() - chrono::Duration::days(1);
-        let mut policy3 = AccessPolicy::new("expired", "user-1", "secret-1")
-            .with_expiry(past);
+        let mut policy3 = AccessPolicy::new("expired", "user-1", "secret-1").with_expiry(past);
         policy3.add_permission(Permission::Read);
         assert!(!policy3.is_valid()); // Expired
     }

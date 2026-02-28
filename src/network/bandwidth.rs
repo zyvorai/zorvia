@@ -1,20 +1,20 @@
 // Bandwidth Monitoring - Network bandwidth usage and monitoring
 
-use serde::{Deserialize, Serialize};
 use chrono::{DateTime, Utc};
+use serde::{Deserialize, Serialize};
 
 /// Bandwidth metrics for a network interface
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct BandwidthMetrics {
     pub interface_name: String,
-    pub rx_bytes: u64,       // Received bytes
-    pub tx_bytes: u64,       // Transmitted bytes
-    pub rx_packets: u64,     // Received packets
-    pub tx_packets: u64,     // Transmitted packets
-    pub rx_errors: u64,      // Receive errors
-    pub tx_errors: u64,      // Transmit errors
-    pub rx_dropped: u64,     // Dropped receive packets
-    pub tx_dropped: u64,     // Dropped transmit packets
+    pub rx_bytes: u64,   // Received bytes
+    pub tx_bytes: u64,   // Transmitted bytes
+    pub rx_packets: u64, // Received packets
+    pub tx_packets: u64, // Transmitted packets
+    pub rx_errors: u64,  // Receive errors
+    pub tx_errors: u64,  // Transmit errors
+    pub rx_dropped: u64, // Dropped receive packets
+    pub tx_dropped: u64, // Dropped transmit packets
     pub timestamp: DateTime<Utc>,
 }
 
@@ -118,12 +118,12 @@ pub struct BandwidthStats {
     pub interface_name: String,
     pub period_start: DateTime<Utc>,
     pub period_end: DateTime<Utc>,
-    pub rx_rate: u64,        // Bytes per second
-    pub tx_rate: u64,        // Bytes per second
-    pub peak_rx_rate: u64,   // Peak receive rate
-    pub peak_tx_rate: u64,   // Peak transmit rate
-    pub avg_rx_rate: u64,    // Average receive rate
-    pub avg_tx_rate: u64,    // Average transmit rate
+    pub rx_rate: u64,      // Bytes per second
+    pub tx_rate: u64,      // Bytes per second
+    pub peak_rx_rate: u64, // Peak receive rate
+    pub peak_tx_rate: u64, // Peak transmit rate
+    pub avg_rx_rate: u64,  // Average receive rate
+    pub avg_tx_rate: u64,  // Average transmit rate
     pub total_rx_bytes: u64,
     pub total_tx_bytes: u64,
 }
@@ -200,7 +200,8 @@ impl BandwidthMonitor {
 
     /// Calculate bandwidth statistics between two samples
     pub fn calculate_stats(&self, start_idx: usize, end_idx: usize) -> Option<BandwidthStats> {
-        if start_idx >= self.samples.len() || end_idx >= self.samples.len() || start_idx >= end_idx {
+        if start_idx >= self.samples.len() || end_idx >= self.samples.len() || start_idx >= end_idx
+        {
             return None;
         }
 
@@ -232,7 +233,10 @@ impl BandwidthMonitor {
                 let curr = &self.samples[i];
                 let next = &self.samples[i + 1];
 
-                let dur = next.timestamp.signed_duration_since(curr.timestamp).num_seconds() as u64;
+                let dur = next
+                    .timestamp
+                    .signed_duration_since(curr.timestamp)
+                    .num_seconds() as u64;
                 if dur > 0 {
                     let rx = next.rx_bytes.saturating_sub(curr.rx_bytes) / dur;
                     let tx = next.tx_bytes.saturating_sub(curr.tx_bytes) / dur;
@@ -378,8 +382,8 @@ mod tests {
         monitor.add_sample(metrics1);
 
         let mut metrics2 = BandwidthMetrics::new("eth0");
-        metrics2.rx_bytes = 2000;  // +1000 bytes
-        metrics2.tx_bytes = 4000;  // +2000 bytes
+        metrics2.rx_bytes = 2000; // +1000 bytes
+        metrics2.tx_bytes = 4000; // +2000 bytes
         metrics2.timestamp = Utc::now() + Duration::seconds(1);
         monitor.add_sample(metrics2);
 

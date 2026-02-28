@@ -1,5 +1,5 @@
-use anyhow::Result;
 use crate::tui::colors::cli as color;
+use anyhow::Result;
 
 pub fn handle_tenants_list(active_only: bool, output: String) -> Result<()> {
     use crate::multitenancy::tenants::TenantManager;
@@ -211,11 +211,7 @@ pub fn handle_roles_create(
     Ok(())
 }
 
-pub fn handle_quotas_list(
-    namespace: Option<String>,
-    exceeded: bool,
-    output: String,
-) -> Result<()> {
+pub fn handle_quotas_list(namespace: Option<String>, exceeded: bool, output: String) -> Result<()> {
     use crate::multitenancy::quotas::QuotaManager;
 
     println!("{}", color::header("Resource Quotas"));

@@ -69,7 +69,9 @@ impl InputDialog {
     }
 
     pub fn current_value_mut(&mut self) -> Option<&mut String> {
-        self.fields.get_mut(self.current_field).map(|f| &mut f.value)
+        self.fields
+            .get_mut(self.current_field)
+            .map(|f| &mut f.value)
     }
 
     pub fn add_char(&mut self, c: char) {
@@ -108,7 +110,9 @@ impl InputDialog {
             .border_style(Style::default().fg(colors::ORANGE))
             .title(Span::styled(
                 &self.title,
-                Style::default().fg(colors::ORANGE).add_modifier(Modifier::BOLD),
+                Style::default()
+                    .fg(colors::ORANGE)
+                    .add_modifier(Modifier::BOLD),
             ))
             .title_alignment(Alignment::Center);
 
@@ -155,7 +159,10 @@ impl InputDialog {
         let cursor = if is_active { "█" } else { "" };
 
         let text = vec![
-            Line::from(Span::styled(&field.label, Style::default().fg(Color::White))),
+            Line::from(Span::styled(
+                &field.label,
+                Style::default().fg(Color::White),
+            )),
             Line::from(vec![
                 Span::styled("  ", style),
                 Span::styled(display_value, style),
@@ -190,7 +197,11 @@ impl InputDialog {
 
         // Cancel button
         let cancel_btn = Paragraph::new("[ Cancel ]")
-            .style(Style::default().fg(colors::ERROR).add_modifier(Modifier::BOLD))
+            .style(
+                Style::default()
+                    .fg(colors::ERROR)
+                    .add_modifier(Modifier::BOLD),
+            )
             .alignment(Alignment::Center);
         f.render_widget(cancel_btn, button_chunks[2]);
 

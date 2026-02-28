@@ -1,9 +1,9 @@
 // Cost Reports - Generate cost reports and analytics
 
+use super::{CostSummary, VMCost};
+use chrono::{DateTime, Duration, Utc};
 use serde::{Deserialize, Serialize};
-use chrono::{DateTime, Utc, Duration};
 use std::collections::HashMap;
-use super::{VMCost, CostSummary};
 
 /// Cost report
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -19,7 +19,11 @@ pub struct CostReport {
 }
 
 impl CostReport {
-    pub fn new(report_type: ReportType, period_start: DateTime<Utc>, period_end: DateTime<Utc>) -> Self {
+    pub fn new(
+        report_type: ReportType,
+        period_start: DateTime<Utc>,
+        period_end: DateTime<Utc>,
+    ) -> Self {
         let report_id = format!("report-{}", Utc::now().format("%Y%m%d-%H%M%S"));
 
         Self {
@@ -45,7 +49,11 @@ impl CostReport {
 
     pub fn top_vms(&self, n: usize) -> Vec<&VMCost> {
         let mut vms = self.vm_costs.iter().collect::<Vec<_>>();
-        vms.sort_by(|a, b| b.total_cost.partial_cmp(&a.total_cost).unwrap_or(std::cmp::Ordering::Equal));
+        vms.sort_by(|a, b| {
+            b.total_cost
+                .partial_cmp(&a.total_cost)
+                .unwrap_or(std::cmp::Ordering::Equal)
+        });
         vms.truncate(n);
         vms
     }
@@ -92,7 +100,7 @@ impl std::fmt::Display for ReportType {
 /// Cost breakdown
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CostBreakdown {
-    pub dimension: String,  // "namespace", "team", "project", "region", etc.
+    pub dimension: String, // "namespace", "team", "project", "region", etc.
     pub values: HashMap<String, f64>,
 }
 
@@ -109,9 +117,7 @@ impl CostBreakdown {
     }
 
     pub fn get_sorted_values(&self) -> Vec<(String, f64)> {
-        let mut values: Vec<_> = self.values.iter()
-            .map(|(k, v)| (k.clone(), *v))
-            .collect();
+        let mut values: Vec<_> = self.values.iter().map(|(k, v)| (k.clone(), *v)).collect();
         values.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap_or(std::cmp::Ordering::Equal));
         values
     }
@@ -133,7 +139,7 @@ impl CostComparison {
         current_period: impl Into<String>,
         previous_period: impl Into<String>,
         current_cost: f64,
-        previous_cost: f64
+        previous_cost: f64,
     ) -> Self {
         let change_amount = current_cost - previous_cost;
         let change_percent = if previous_cost > 0.0 {
@@ -168,7 +174,7 @@ pub struct CostAnalytics {
     pub average_daily_spend: f64,
     pub highest_day_spend: f64,
     pub lowest_day_spend: f64,
-    pub cost_trend: f64,  // Percent change from previous period
+    pub cost_trend: f64, // Percent change from previous period
     pub top_cost_drivers: Vec<CostDriver>,
 }
 
@@ -192,10 +198,13 @@ impl CostAnalytics {
             0.0
         };
 
-        let highest_day_spend = daily_costs.iter()
+        let highest_day_spend = daily_costs
+            .iter()
             .fold(0.0, |max, &cost| if cost > max { cost } else { max });
-        let lowest_day_spend = daily_costs.iter()
-            .fold(f64::MAX, |min, &cost| if cost < min { cost } else { min });
+        let lowest_day_spend =
+            daily_costs
+                .iter()
+                .fold(f64::MAX, |min, &cost| if cost < min { cost } else { min });
 
         let cost_trend = if previous_period_total > 0.0 {
             ((total_spend - previous_period_total) / previous_period_total) * 100.0
@@ -287,13 +296,13 @@ impl ReportGenerator {
     /// Create comparison report
     pub fn comparison_report(
         current_report: &CostReport,
-        previous_report: &CostReport
+        previous_report: &CostReport,
     ) -> CostComparison {
         CostComparison::new(
             format!("{:?}", current_report.report_type),
             format!("{:?}", previous_report.report_type),
             current_report.summary.total_cost,
-            previous_report.summary.total_cost
+            previous_report.summary.total_cost,
         )
     }
 }
@@ -318,7 +327,9 @@ impl ReportExporter {
 
     /// Export to CSV format (simplified)
     pub fn to_csv(report: &CostReport) -> String {
-        let mut csv = String::from("VM Name,Namespace,CPU Cost,Memory Cost,Storage Cost,Network Cost,Total Cost\n");
+        let mut csv = String::from(
+            "VM Name,Namespace,CPU Cost,Memory Cost,Storage Cost,Network Cost,Total Cost\n",
+        );
 
         for vm_cost in &report.vm_costs {
             csv.push_str(&format!(

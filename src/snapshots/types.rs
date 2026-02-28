@@ -42,7 +42,11 @@ pub struct SnapshotInfo {
 }
 
 impl SnapshotInfo {
-    pub fn new(name: impl Into<String>, vm_name: impl Into<String>, namespace: impl Into<String>) -> Self {
+    pub fn new(
+        name: impl Into<String>,
+        vm_name: impl Into<String>,
+        namespace: impl Into<String>,
+    ) -> Self {
         Self {
             name: name.into(),
             vm_name: vm_name.into(),

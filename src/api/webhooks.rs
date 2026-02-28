@@ -69,7 +69,11 @@ impl WebhookConfig {
     pub fn new(name: impl Into<String>, url: impl Into<String>) -> Self {
         let name_str = name.into();
         Self {
-            id: format!("wh-{}-{}", name_str.to_lowercase().replace(' ', "-"), Utc::now().timestamp()),
+            id: format!(
+                "wh-{}-{}",
+                name_str.to_lowercase().replace(' ', "-"),
+                Utc::now().timestamp()
+            ),
             name: name_str,
             url: url.into(),
             events: Vec::new(),
@@ -238,9 +242,15 @@ mod tests {
         assert_eq!(WebhookEvent::VMCreated.to_string(), "vm.created");
         assert_eq!(WebhookEvent::VMDeleted.to_string(), "vm.deleted");
         assert_eq!(WebhookEvent::VMStarted.to_string(), "vm.started");
-        assert_eq!(WebhookEvent::BackupCompleted.to_string(), "backup.completed");
+        assert_eq!(
+            WebhookEvent::BackupCompleted.to_string(),
+            "backup.completed"
+        );
         assert_eq!(WebhookEvent::AlertTriggered.to_string(), "alert.triggered");
-        assert_eq!(WebhookEvent::Custom("deploy".to_string()).to_string(), "custom.deploy");
+        assert_eq!(
+            WebhookEvent::Custom("deploy".to_string()).to_string(),
+            "custom.deploy"
+        );
     }
 
     #[test]
@@ -276,8 +286,7 @@ mod tests {
 
     #[test]
     fn test_webhook_with_secret() {
-        let wh = WebhookConfig::new("test", "https://example.com")
-            .with_secret("my-secret");
+        let wh = WebhookConfig::new("test", "https://example.com").with_secret("my-secret");
         assert_eq!(wh.secret, Some("my-secret".to_string()));
     }
 
@@ -290,8 +299,7 @@ mod tests {
 
     #[test]
     fn test_webhook_with_retry() {
-        let wh = WebhookConfig::new("test", "https://example.com")
-            .with_retry(5, 30);
+        let wh = WebhookConfig::new("test", "https://example.com").with_retry(5, 30);
         assert_eq!(wh.retry_count, 5);
         assert_eq!(wh.retry_delay_secs, 30);
     }

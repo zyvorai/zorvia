@@ -92,7 +92,10 @@ impl InteractiveApp {
     }
 
     /// Run the TUI application event loop
-    pub async fn run<B: ratatui::backend::Backend>(&mut self, terminal: &mut Terminal<B>) -> Result<()> {
+    pub async fn run<B: ratatui::backend::Backend>(
+        &mut self,
+        terminal: &mut Terminal<B>,
+    ) -> Result<()> {
         // Initial data load
         self.refresh_data().await?;
 
@@ -238,79 +241,73 @@ impl InteractiveApp {
     /// Handle keys in interactive mode
     async fn handle_interactive_key(&mut self, key: KeyEvent) -> Result<()> {
         match &mut self.mode {
-            InteractiveMode::Dialog(dialog) => {
-                match key.code {
-                    KeyCode::Left | KeyCode::Right | KeyCode::Tab => {
-                        dialog.toggle_selection();
-                    }
-                    KeyCode::Enter => {
-                        let confirmed = dialog.selected;
-                        let dialog_clone = dialog.clone();
-                        self.mode = InteractiveMode::Normal;
+            InteractiveMode::Dialog(dialog) => match key.code {
+                KeyCode::Left | KeyCode::Right | KeyCode::Tab => {
+                    dialog.toggle_selection();
+                }
+                KeyCode::Enter => {
+                    let confirmed = dialog.selected;
+                    let dialog_clone = dialog.clone();
+                    self.mode = InteractiveMode::Normal;
 
-                        if confirmed {
-                            self.handle_dialog_confirm(&dialog_clone).await?;
-                        }
+                    if confirmed {
+                        self.handle_dialog_confirm(&dialog_clone).await?;
                     }
-                    KeyCode::Esc => {
-                        self.mode = InteractiveMode::Normal;
-                    }
-                    _ => {}
                 }
-            }
-            InteractiveMode::Input(input) => {
-                match key.code {
-                    KeyCode::Char(c) => {
-                        input.add_char(c);
-                    }
-                    KeyCode::Backspace => {
-                        input.delete_char();
-                    }
-                    KeyCode::Tab => {
-                        input.next_field();
-                    }
-                    KeyCode::BackTab => {
-                        input.prev_field();
-                    }
-                    KeyCode::Enter => {
-                        input.submit();
-                        let input_clone = input.clone();
-                        self.mode = InteractiveMode::Normal;
-                        self.handle_input_submit(&input_clone).await?;
-                    }
-                    KeyCode::Esc => {
-                        self.mode = InteractiveMode::Normal;
-                    }
-                    _ => {}
+                KeyCode::Esc => {
+                    self.mode = InteractiveMode::Normal;
                 }
-            }
-            InteractiveMode::Menu(menu) => {
-                match key.code {
-                    KeyCode::Up | KeyCode::Char('k') => {
-                        menu.previous();
-                    }
-                    KeyCode::Down | KeyCode::Char('j') => {
-                        menu.next();
-                    }
-                    KeyCode::Enter => {
-                        if let Some(item) = menu.selected_item() {
-                            let key_char = item.key;
-                            self.mode = InteractiveMode::Normal;
-                            self.handle_menu_selection(key_char).await?;
-                        }
-                    }
-                    KeyCode::Char(c) => {
-                        if menu.select_by_key(c).is_some() {
-                            self.mode = InteractiveMode::Normal;
-                            self.handle_menu_selection(c).await?;
-                        }
-                    }
-                    KeyCode::Esc => {
-                        self.mode = InteractiveMode::Normal;
-                    }
-                    _ => {}
+                _ => {}
+            },
+            InteractiveMode::Input(input) => match key.code {
+                KeyCode::Char(c) => {
+                    input.add_char(c);
                 }
-            }
+                KeyCode::Backspace => {
+                    input.delete_char();
+                }
+                KeyCode::Tab => {
+                    input.next_field();
+                }
+                KeyCode::BackTab => {
+                    input.prev_field();
+                }
+                KeyCode::Enter => {
+                    input.submit();
+                    let input_clone = input.clone();
+                    self.mode = InteractiveMode::Normal;
+                    self.handle_input_submit(&input_clone).await?;
+                }
+                KeyCode::Esc => {
+                    self.mode = InteractiveMode::Normal;
+                }
+                _ => {}
+            },
+            InteractiveMode::Menu(menu) => match key.code {
+                KeyCode::Up | KeyCode::Char('k') => {
+                    menu.previous();
+                }
+                KeyCode::Down | KeyCode::Char('j') => {
+                    menu.next();
+                }
+                KeyCode::Enter => {
+                    if let Some(item) = menu.selected_item() {
+                        let key_char = item.key;
+                        self.mode = InteractiveMode::Normal;
+                        self.handle_menu_selection(key_char).await?;
+                    }
+                }
+                KeyCode::Char(c) => {
+                    if menu.select_by_key(c).is_some() {
+                        self.mode = InteractiveMode::Normal;
+                        self.handle_menu_selection(c).await?;
+                    }
+                }
+                KeyCode::Esc => {
+                    self.mode = InteractiveMode::Normal;
+                }
+                _ => {}
+            },
             InteractiveMode::Progress(_) => {
                 // Progress bars don't accept input
                 if matches!(key.code, KeyCode::Esc) {
@@ -380,10 +377,8 @@ impl InteractiveApp {
                 if let Some(vm) = self.state.selected_vm() {
                     if vm.status != "Running" {
                         let vm_name = vm.name.clone();
-                        let dialog = Dialog::confirm(
-                            "Start VM",
-                            format!("Start VM '{}'?", vm_name),
-                        );
+                        let dialog =
+                            Dialog::confirm("Start VM", format!("Start VM '{}'?", vm_name));
                         self.mode = InteractiveMode::Dialog(dialog);
                     }
                 }
@@ -393,10 +388,7 @@ impl InteractiveApp {
                 if let Some(vm) = self.state.selected_vm() {
                     if vm.status == "Running" {
                         let vm_name = vm.name.clone();
-                        let dialog = Dialog::confirm(
-                            "Stop VM",
-                            format!("Stop VM '{}'?", vm_name),
-                        );
+                        let dialog = Dialog::confirm("Stop VM", format!("Stop VM '{}'?", vm_name));
                         self.mode = InteractiveMode::Dialog(dialog);
                     }
                 }
@@ -407,7 +399,10 @@ impl InteractiveApp {
                     let vm_name = vm.name.clone();
                     let dialog = Dialog::confirm(
                         "Delete VM",
-                        format!("⚠ Permanently delete VM '{}'? This cannot be undone!", vm_name),
+                        format!(
+                            "⚠ Permanently delete VM '{}'? This cannot be undone!",
+                            vm_name
+                        ),
                     );
                     self.mode = InteractiveMode::Dialog(dialog);
                 }
@@ -534,16 +529,19 @@ impl InteractiveApp {
         let profile_name = input.get_value(2).unwrap_or("dev");
 
         if name.is_empty() {
-            self.notifications.error("VM name cannot be empty".to_string());
+            self.notifications
+                .error("VM name cannot be empty".to_string());
             return Ok(());
         }
 
-        self.notifications.info(format!("Creating VM '{}'...", name));
+        self.notifications
+            .info(format!("Creating VM '{}'...", name));
 
         // Look up template
         let template = crate::templates::TEMPLATES.get(template_name);
         if template.is_none() {
-            self.notifications.error(format!("Unknown template: {}", template_name));
+            self.notifications
+                .error(format!("Unknown template: {}", template_name));
             return Ok(());
         }
         let mut config = template.unwrap();
@@ -552,7 +550,8 @@ impl InteractiveApp {
 
         // Apply profile overrides (drop lock before await)
         {
-            let profiles = crate::profiles::PROFILES.read()
+            let profiles = crate::profiles::PROFILES
+                .read()
                 .map_err(|e| anyhow::anyhow!("Failed to lock profiles: {}", e))?;
             if let Some(profile) = profiles.get(profile_name) {
                 config.cpu.cores = profile.cpu_cores;
@@ -567,17 +566,20 @@ impl InteractiveApp {
             Ok(client) => {
                 match client.create_vm(&config).await {
                     Ok(_) => {
-                        self.notifications.success(format!("VM '{}' created successfully", name));
+                        self.notifications
+                            .success(format!("VM '{}' created successfully", name));
                         // Refresh VM list
                         let _ = self.state.refresh_vms().await;
                     }
                     Err(e) => {
-                        self.notifications.error(format!("Failed to create VM: {}", e));
+                        self.notifications
+                            .error(format!("Failed to create VM: {}", e));
                     }
                 }
             }
             Err(e) => {
-                self.notifications.error(format!("Failed to connect to cluster: {}", e));
+                self.notifications
+                    .error(format!("Failed to connect to cluster: {}", e));
             }
         }
 
@@ -590,11 +592,13 @@ impl InteractiveApp {
         let snapshot_name = input.get_value(1).unwrap_or("");
 
         if vm_name.is_empty() || snapshot_name.is_empty() {
-            self.notifications.error("VM name and snapshot name are required".to_string());
+            self.notifications
+                .error("VM name and snapshot name are required".to_string());
             return Ok(());
         }
 
-        self.notifications.info(format!("Creating snapshot '{}'...", snapshot_name));
+        self.notifications
+            .info(format!("Creating snapshot '{}'...", snapshot_name));
 
         // Create snapshot via KubeVirt API
         match crate::snapshots::SnapshotManager::new(&self.state.namespace).await {
@@ -602,16 +606,19 @@ impl InteractiveApp {
                 let config = crate::snapshots::SnapshotConfig::new(vm_name, snapshot_name);
                 match manager.create_snapshot(&config).await {
                     Ok(_) => {
-                        self.notifications.success(format!("Snapshot '{}' created", snapshot_name));
+                        self.notifications
+                            .success(format!("Snapshot '{}' created", snapshot_name));
                         let _ = self.state.refresh_snapshots().await;
                     }
                     Err(e) => {
-                        self.notifications.error(format!("Failed to create snapshot: {}", e));
+                        self.notifications
+                            .error(format!("Failed to create snapshot: {}", e));
                     }
                 }
             }
             Err(e) => {
-                self.notifications.error(format!("Failed to connect to cluster: {}", e));
+                self.notifications
+                    .error(format!("Failed to connect to cluster: {}", e));
             }
         }
 
@@ -637,7 +644,8 @@ impl InteractiveApp {
     async fn start_vm(&mut self, vm_name: &str) -> Result<()> {
         use crate::kube::KubeClient;
 
-        self.notifications.info(format!("Starting VM '{}'...", vm_name));
+        self.notifications
+            .info(format!("Starting VM '{}'...", vm_name));
 
         match KubeClient::new().await {
             Ok(client) => match client.start_vm(&self.state.namespace, vm_name).await {
@@ -663,7 +671,8 @@ impl InteractiveApp {
     async fn stop_vm(&mut self, vm_name: &str) -> Result<()> {
         use crate::kube::KubeClient;
 
-        self.notifications.info(format!("Stopping VM '{}'...", vm_name));
+        self.notifications
+            .info(format!("Stopping VM '{}'...", vm_name));
 
         match KubeClient::new().await {
             Ok(client) => match client.stop_vm(&self.state.namespace, vm_name).await {

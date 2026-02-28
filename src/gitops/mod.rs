@@ -1,13 +1,13 @@
 // GitOps Integration - Git-based declarative VM management
 
-use serde::{Deserialize, Serialize};
 use chrono::{DateTime, Utc};
+use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
-pub mod repository;
-pub mod sync;
 pub mod manifests;
 pub mod reconciliation;
+pub mod repository;
+pub mod sync;
 
 /// GitOps configuration
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -70,16 +70,9 @@ impl GitOpsConfig {
 /// Git credentials
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum GitCredentials {
-    SSH {
-        private_key_path: String,
-    },
-    HTTPS {
-        username: String,
-        password: String,
-    },
-    Token {
-        token: String,
-    },
+    SSH { private_key_path: String },
+    HTTPS { username: String, password: String },
+    Token { token: String },
 }
 
 /// GitOps application
@@ -97,9 +90,17 @@ pub struct GitOpsApplication {
 }
 
 impl GitOpsApplication {
-    pub fn new(name: impl Into<String>, namespace: impl Into<String>, config: GitOpsConfig) -> Self {
+    pub fn new(
+        name: impl Into<String>,
+        namespace: impl Into<String>,
+        config: GitOpsConfig,
+    ) -> Self {
         let name_str = name.into();
-        let id = format!("app-{}-{}", name_str.to_lowercase().replace(' ', "-"), Utc::now().timestamp());
+        let id = format!(
+            "app-{}-{}",
+            name_str.to_lowercase().replace(' ', "-"),
+            Utc::now().timestamp()
+        );
 
         Self {
             id,
@@ -221,8 +222,12 @@ impl SyncOperation {
 
     pub fn duration_seconds(&self) -> i64 {
         match self.completed_at {
-            Some(completed) => completed.signed_duration_since(self.started_at).num_seconds(),
-            None => Utc::now().signed_duration_since(self.started_at).num_seconds(),
+            Some(completed) => completed
+                .signed_duration_since(self.started_at)
+                .num_seconds(),
+            None => Utc::now()
+                .signed_duration_since(self.started_at)
+                .num_seconds(),
         }
     }
 }
@@ -271,15 +276,24 @@ impl GitOpsManager {
     }
 
     pub fn synced_applications(&self) -> Vec<&GitOpsApplication> {
-        self.applications.values().filter(|a| a.is_synced()).collect()
+        self.applications
+            .values()
+            .filter(|a| a.is_synced())
+            .collect()
     }
 
     pub fn out_of_sync_applications(&self) -> Vec<&GitOpsApplication> {
-        self.applications.values().filter(|a| !a.is_synced()).collect()
+        self.applications
+            .values()
+            .filter(|a| !a.is_synced())
+            .collect()
     }
 
     pub fn healthy_applications(&self) -> Vec<&GitOpsApplication> {
-        self.applications.values().filter(|a| a.is_healthy()).collect()
+        self.applications
+            .values()
+            .filter(|a| a.is_healthy())
+            .collect()
     }
 
     pub fn start_sync(&mut self, app_id: &str, dry_run: bool) -> Option<String> {
@@ -414,7 +428,11 @@ mod tests {
     fn test_sync_status_display() {
         assert_eq!(SyncStatus::Synced.to_string(), "Synced");
         assert_eq!(SyncStatus::OutOfSync.to_string(), "OutOfSync");
-        assert!(SyncStatus::Failed { error: "test".to_string() }.to_string().contains("Failed"));
+        assert!(SyncStatus::Failed {
+            error: "test".to_string()
+        }
+        .to_string()
+        .contains("Failed"));
     }
 
     #[test]

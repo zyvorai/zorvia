@@ -22,19 +22,19 @@ pub fn render(f: &mut Frame, state: &AppState, _config: &TuiConfig) {
         Layout::default()
             .direction(Direction::Vertical)
             .constraints([
-                Constraint::Length(3),  // Header
-                Constraint::Length(2),  // Stats bar
-                Constraint::Min(0),     // Content
-                Constraint::Length(3),  // Footer
+                Constraint::Length(3), // Header
+                Constraint::Length(2), // Stats bar
+                Constraint::Min(0),    // Content
+                Constraint::Length(3), // Footer
             ])
             .split(size)
     } else {
         Layout::default()
             .direction(Direction::Vertical)
             .constraints([
-                Constraint::Length(3),  // Header
-                Constraint::Min(0),     // Content
-                Constraint::Length(3),  // Footer
+                Constraint::Length(3), // Header
+                Constraint::Min(0),    // Content
+                Constraint::Length(3), // Footer
             ])
             .split(size)
     };
@@ -57,9 +57,9 @@ pub fn render(f: &mut Frame, state: &AppState, _config: &TuiConfig) {
     let content_chunks = Layout::default()
         .direction(Direction::Horizontal)
         .constraints([
-            Constraint::Percentage(33),  // Left: VM Stats & Resource Gauges
-            Constraint::Percentage(34),  // Center: Charts & Trends
-            Constraint::Percentage(33),  // Right: Recent Activity & Quick Actions
+            Constraint::Percentage(33), // Left: VM Stats & Resource Gauges
+            Constraint::Percentage(34), // Center: Charts & Trends
+            Constraint::Percentage(33), // Right: Recent Activity & Quick Actions
         ])
         .split(content_chunk);
 
@@ -78,17 +78,41 @@ pub fn render(f: &mut Frame, state: &AppState, _config: &TuiConfig) {
 
 fn render_header(f: &mut Frame, state: &AppState, area: Rect) {
     let header_text = Line::from(vec![
-        Span::styled("Zorvia".to_string(), Style::default().fg(colors::ORANGE).add_modifier(Modifier::BOLD)),
+        Span::styled(
+            "Zorvia".to_string(),
+            Style::default()
+                .fg(colors::ORANGE)
+                .add_modifier(Modifier::BOLD),
+        ),
         Span::styled(" - ".to_string(), Style::default().fg(colors::TEXT_MUTED)),
-        Span::styled("KubeVirt VM Manager".to_string(), Style::default().fg(colors::TEXT)),
+        Span::styled(
+            "KubeVirt VM Manager".to_string(),
+            Style::default().fg(colors::TEXT),
+        ),
         Span::styled("  │  ".to_string(), Style::default().fg(colors::TEXT_MUTED)),
-        Span::styled("📊 Dashboard".to_string(), Style::default().fg(colors::LIGHT_ORANGE).add_modifier(Modifier::BOLD)),
-        Span::styled(format!(": {} VMs • {} Running", state.vms.len(), state.get_stats().running), Style::default().fg(colors::TEXT)),
+        Span::styled(
+            "📊 Dashboard".to_string(),
+            Style::default()
+                .fg(colors::LIGHT_ORANGE)
+                .add_modifier(Modifier::BOLD),
+        ),
+        Span::styled(
+            format!(
+                ": {} VMs • {} Running",
+                state.vms.len(),
+                state.get_stats().running
+            ),
+            Style::default().fg(colors::TEXT),
+        ),
     ]);
 
     let header = Paragraph::new(header_text)
         .alignment(Alignment::Center)
-        .block(Block::default().borders(Borders::ALL).border_style(Style::default().fg(colors::BORDER)));
+        .block(
+            Block::default()
+                .borders(Borders::ALL)
+                .border_style(Style::default().fg(colors::BORDER)),
+        );
 
     f.render_widget(header, area);
 }
@@ -123,24 +147,59 @@ fn render_stats_bar(f: &mut Frame, state: &AppState, area: Rect) {
     let stats_line = Line::from(vec![
         Span::styled("📊 ", Style::default().fg(colors::ORANGE)),
         Span::styled("VMs: ", Style::default().fg(colors::TEXT)),
-        Span::styled(format!("{} ", stats.total), Style::default().fg(colors::ORANGE).add_modifier(Modifier::BOLD)),
+        Span::styled(
+            format!("{} ", stats.total),
+            Style::default()
+                .fg(colors::ORANGE)
+                .add_modifier(Modifier::BOLD),
+        ),
         Span::styled("│ ", Style::default().fg(colors::TEXT_MUTED)),
         Span::styled("🟢 ", Style::default().fg(colors::SUCCESS)),
-        Span::styled(format!("{} ", stats.running), Style::default().fg(colors::SUCCESS).add_modifier(Modifier::BOLD)),
+        Span::styled(
+            format!("{} ", stats.running),
+            Style::default()
+                .fg(colors::SUCCESS)
+                .add_modifier(Modifier::BOLD),
+        ),
         Span::styled("│ ", Style::default().fg(colors::TEXT_MUTED)),
         Span::styled("⏸  ", Style::default().fg(colors::TEXT_MUTED)),
-        Span::styled(format!("{} ", stats.stopped), Style::default().fg(colors::TEXT_MUTED).add_modifier(Modifier::BOLD)),
+        Span::styled(
+            format!("{} ", stats.stopped),
+            Style::default()
+                .fg(colors::TEXT_MUTED)
+                .add_modifier(Modifier::BOLD),
+        ),
         Span::styled("│ ", Style::default().fg(colors::TEXT_MUTED)),
         Span::styled("🟡 ", Style::default().fg(colors::WARNING)),
-        Span::styled(format!("{} ", stats.starting), Style::default().fg(colors::WARNING).add_modifier(Modifier::BOLD)),
+        Span::styled(
+            format!("{} ", stats.starting),
+            Style::default()
+                .fg(colors::WARNING)
+                .add_modifier(Modifier::BOLD),
+        ),
         Span::styled("│ ", Style::default().fg(colors::TEXT_MUTED)),
         Span::styled("🔴 ", Style::default().fg(colors::ERROR)),
-        Span::styled(format!("{} ", stats.failed), Style::default().fg(colors::ERROR).add_modifier(Modifier::BOLD)),
+        Span::styled(
+            format!("{} ", stats.failed),
+            Style::default()
+                .fg(colors::ERROR)
+                .add_modifier(Modifier::BOLD),
+        ),
         Span::styled("│ ", Style::default().fg(colors::TEXT_MUTED)),
-        Span::styled(format!("{} {} ", health_icon, health_text), Style::default().fg(colors::TEXT).add_modifier(Modifier::BOLD)),
+        Span::styled(
+            format!("{} {} ", health_icon, health_text),
+            Style::default()
+                .fg(colors::TEXT)
+                .add_modifier(Modifier::BOLD),
+        ),
         Span::styled("│ ", Style::default().fg(colors::TEXT_MUTED)),
         Span::styled("🌐 ", Style::default().fg(colors::INFO)),
-        Span::styled(&state.namespace, Style::default().fg(colors::LIGHT_ORANGE).add_modifier(Modifier::BOLD)),
+        Span::styled(
+            &state.namespace,
+            Style::default()
+                .fg(colors::LIGHT_ORANGE)
+                .add_modifier(Modifier::BOLD),
+        ),
     ]);
 
     let paragraph = Paragraph::new(stats_line).block(
@@ -156,8 +215,8 @@ fn render_left_column(f: &mut Frame, state: &AppState, area: Rect) {
     let chunks = Layout::default()
         .direction(Direction::Vertical)
         .constraints([
-            Constraint::Length(12),  // VM Stats
-            Constraint::Min(0),      // Resource Gauges
+            Constraint::Length(12), // VM Stats
+            Constraint::Min(0),     // Resource Gauges
         ])
         .split(area);
 
@@ -175,34 +234,74 @@ fn render_vm_stats_box(f: &mut Frame, state: &AppState, area: Rect) {
         Line::from(""),
         Line::from(vec![
             Span::styled("💻 Total VMs:     ", Style::default().fg(colors::TEXT)),
-            Span::styled(format!("{}", stats.total), Style::default().fg(colors::LIGHT_ORANGE).add_modifier(Modifier::BOLD)),
+            Span::styled(
+                format!("{}", stats.total),
+                Style::default()
+                    .fg(colors::LIGHT_ORANGE)
+                    .add_modifier(Modifier::BOLD),
+            ),
         ]),
         Line::from(vec![
             Span::styled("🟢 Running:       ", Style::default().fg(colors::TEXT)),
-            Span::styled(format!("{}", stats.running), Style::default().fg(colors::SUCCESS).add_modifier(Modifier::BOLD)),
+            Span::styled(
+                format!("{}", stats.running),
+                Style::default()
+                    .fg(colors::SUCCESS)
+                    .add_modifier(Modifier::BOLD),
+            ),
         ]),
         Line::from(vec![
             Span::styled("⏸  Stopped:       ", Style::default().fg(colors::TEXT)),
-            Span::styled(format!("{}", stats.stopped), Style::default().fg(colors::TEXT_MUTED).add_modifier(Modifier::BOLD)),
+            Span::styled(
+                format!("{}", stats.stopped),
+                Style::default()
+                    .fg(colors::TEXT_MUTED)
+                    .add_modifier(Modifier::BOLD),
+            ),
         ]),
         Line::from(vec![
             Span::styled("🟡 Starting:      ", Style::default().fg(colors::TEXT)),
-            Span::styled(format!("{}", stats.starting), Style::default().fg(colors::WARNING).add_modifier(Modifier::BOLD)),
+            Span::styled(
+                format!("{}", stats.starting),
+                Style::default()
+                    .fg(colors::WARNING)
+                    .add_modifier(Modifier::BOLD),
+            ),
         ]),
         Line::from(vec![
             Span::styled("🔴 Failed:        ", Style::default().fg(colors::TEXT)),
-            Span::styled(format!("{}", stats.failed), Style::default().fg(colors::ERROR).add_modifier(Modifier::BOLD)),
+            Span::styled(
+                format!("{}", stats.failed),
+                Style::default()
+                    .fg(colors::ERROR)
+                    .add_modifier(Modifier::BOLD),
+            ),
         ]),
         Line::from(""),
         Line::from(vec![
             Span::styled("📸 Snapshots:     ", Style::default().fg(colors::TEXT)),
-            Span::styled(format!("{}", state.snapshots.len()), Style::default().fg(colors::INFO).add_modifier(Modifier::BOLD)),
+            Span::styled(
+                format!("{}", state.snapshots.len()),
+                Style::default()
+                    .fg(colors::INFO)
+                    .add_modifier(Modifier::BOLD),
+            ),
         ]),
     ];
 
-    let title = Span::styled("📊 VM Statistics", Style::default().fg(colors::ORANGE).add_modifier(Modifier::BOLD));
+    let title = Span::styled(
+        "📊 VM Statistics",
+        Style::default()
+            .fg(colors::ORANGE)
+            .add_modifier(Modifier::BOLD),
+    );
     let paragraph = Paragraph::new(text)
-        .block(Block::default().borders(Borders::ALL).border_style(Style::default().fg(colors::BORDER)).title(title))
+        .block(
+            Block::default()
+                .borders(Borders::ALL)
+                .border_style(Style::default().fg(colors::BORDER))
+                .title(title),
+        )
         .alignment(Alignment::Left);
 
     f.render_widget(paragraph, area);
@@ -226,10 +325,10 @@ fn render_center_column(f: &mut Frame, state: &AppState, area: Rect) {
     let chunks = Layout::default()
         .direction(Direction::Vertical)
         .constraints([
-            Constraint::Percentage(25),  // Status Distribution
-            Constraint::Percentage(25),  // CPU Trend
-            Constraint::Percentage(25),  // Memory Trend
-            Constraint::Percentage(25),  // VM Count Trend
+            Constraint::Percentage(25), // Status Distribution
+            Constraint::Percentage(25), // CPU Trend
+            Constraint::Percentage(25), // Memory Trend
+            Constraint::Percentage(25), // VM Count Trend
         ])
         .split(area);
 
@@ -237,13 +336,13 @@ fn render_center_column(f: &mut Frame, state: &AppState, area: Rect) {
     render_status_chart(f, state, chunks[0]);
 
     // CPU Usage Sparkline
-    let cpu_chart = SparklineChart::new("📈 CPU Usage (30min)", state.cpu_history.clone())
-        .with_max(100);
+    let cpu_chart =
+        SparklineChart::new("📈 CPU Usage (30min)", state.cpu_history.clone()).with_max(100);
     cpu_chart.render(f, chunks[1]);
 
     // Memory Usage Sparkline
-    let memory_chart = SparklineChart::new("📉 Memory Usage (30min)", state.memory_history.clone())
-        .with_max(100);
+    let memory_chart =
+        SparklineChart::new("📉 Memory Usage (30min)", state.memory_history.clone()).with_max(100);
     memory_chart.render(f, chunks[2]);
 
     // VM Count Sparkline
@@ -269,8 +368,8 @@ fn render_right_column(f: &mut Frame, state: &AppState, area: Rect) {
     let chunks = Layout::default()
         .direction(Direction::Vertical)
         .constraints([
-            Constraint::Percentage(50),  // Recent Activity
-            Constraint::Percentage(50),  // Quick Actions
+            Constraint::Percentage(50), // Recent Activity
+            Constraint::Percentage(50), // Quick Actions
         ])
         .split(area);
 
@@ -286,52 +385,101 @@ fn render_recent_activity(f: &mut Frame, _state: &AppState, area: Rect) {
         ListItem::new(vec![
             Line::from(vec![
                 Span::styled("🟢 ", Style::default().fg(colors::SUCCESS)),
-                Span::styled("web-server-01", Style::default().fg(colors::TEXT).add_modifier(Modifier::BOLD)),
+                Span::styled(
+                    "web-server-01",
+                    Style::default()
+                        .fg(colors::TEXT)
+                        .add_modifier(Modifier::BOLD),
+                ),
                 Span::styled(" started", Style::default().fg(colors::TEXT_MUTED)),
             ]),
             Line::from(vec![
                 Span::styled("   ", Style::default()),
-                Span::styled("2 minutes ago", Style::default().fg(colors::TEXT_MUTED).add_modifier(Modifier::ITALIC)),
+                Span::styled(
+                    "2 minutes ago",
+                    Style::default()
+                        .fg(colors::TEXT_MUTED)
+                        .add_modifier(Modifier::ITALIC),
+                ),
             ]),
         ]),
         ListItem::new(vec![
             Line::from(vec![
                 Span::styled("📸 ", Style::default().fg(colors::INFO)),
-                Span::styled("database-01", Style::default().fg(colors::TEXT).add_modifier(Modifier::BOLD)),
+                Span::styled(
+                    "database-01",
+                    Style::default()
+                        .fg(colors::TEXT)
+                        .add_modifier(Modifier::BOLD),
+                ),
                 Span::styled(" snapshot created", Style::default().fg(colors::TEXT_MUTED)),
             ]),
             Line::from(vec![
                 Span::styled("   ", Style::default()),
-                Span::styled("15 minutes ago", Style::default().fg(colors::TEXT_MUTED).add_modifier(Modifier::ITALIC)),
+                Span::styled(
+                    "15 minutes ago",
+                    Style::default()
+                        .fg(colors::TEXT_MUTED)
+                        .add_modifier(Modifier::ITALIC),
+                ),
             ]),
         ]),
         ListItem::new(vec![
             Line::from(vec![
                 Span::styled("⏸  ", Style::default().fg(colors::WARNING)),
-                Span::styled("cache-01", Style::default().fg(colors::TEXT).add_modifier(Modifier::BOLD)),
+                Span::styled(
+                    "cache-01",
+                    Style::default()
+                        .fg(colors::TEXT)
+                        .add_modifier(Modifier::BOLD),
+                ),
                 Span::styled(" stopped", Style::default().fg(colors::TEXT_MUTED)),
             ]),
             Line::from(vec![
                 Span::styled("   ", Style::default()),
-                Span::styled("1 hour ago", Style::default().fg(colors::TEXT_MUTED).add_modifier(Modifier::ITALIC)),
+                Span::styled(
+                    "1 hour ago",
+                    Style::default()
+                        .fg(colors::TEXT_MUTED)
+                        .add_modifier(Modifier::ITALIC),
+                ),
             ]),
         ]),
         ListItem::new(vec![
             Line::from(vec![
                 Span::styled("🟢 ", Style::default().fg(colors::SUCCESS)),
-                Span::styled("worker-02", Style::default().fg(colors::TEXT).add_modifier(Modifier::BOLD)),
+                Span::styled(
+                    "worker-02",
+                    Style::default()
+                        .fg(colors::TEXT)
+                        .add_modifier(Modifier::BOLD),
+                ),
                 Span::styled(" deployed", Style::default().fg(colors::TEXT_MUTED)),
             ]),
             Line::from(vec![
                 Span::styled("   ", Style::default()),
-                Span::styled("2 hours ago", Style::default().fg(colors::TEXT_MUTED).add_modifier(Modifier::ITALIC)),
+                Span::styled(
+                    "2 hours ago",
+                    Style::default()
+                        .fg(colors::TEXT_MUTED)
+                        .add_modifier(Modifier::ITALIC),
+                ),
             ]),
         ]),
     ];
 
-    let title = Span::styled("⏱  Recent Activity", Style::default().fg(colors::ORANGE).add_modifier(Modifier::BOLD));
-    let list = List::new(items)
-        .block(Block::default().borders(Borders::ALL).border_style(Style::default().fg(colors::BORDER)).title(title));
+    let title = Span::styled(
+        "⏱  Recent Activity",
+        Style::default()
+            .fg(colors::ORANGE)
+            .add_modifier(Modifier::BOLD),
+    );
+    let list = List::new(items).block(
+        Block::default()
+            .borders(Borders::ALL)
+            .border_style(Style::default().fg(colors::BORDER))
+            .title(title),
+    );
 
     f.render_widget(list, area);
 }
@@ -340,25 +488,45 @@ fn render_quick_actions(f: &mut Frame, _state: &AppState, area: Rect) {
     let text = vec![
         Line::from(""),
         Line::from(vec![
-            Span::styled("  2 ", Style::default().fg(colors::INFO).add_modifier(Modifier::BOLD)),
+            Span::styled(
+                "  2 ",
+                Style::default()
+                    .fg(colors::INFO)
+                    .add_modifier(Modifier::BOLD),
+            ),
             Span::styled("💻  ", Style::default().fg(colors::ORANGE)),
             Span::styled("VM List", Style::default().fg(colors::TEXT)),
         ]),
         Line::from(""),
         Line::from(vec![
-            Span::styled("  3 ", Style::default().fg(colors::INFO).add_modifier(Modifier::BOLD)),
+            Span::styled(
+                "  3 ",
+                Style::default()
+                    .fg(colors::INFO)
+                    .add_modifier(Modifier::BOLD),
+            ),
             Span::styled("📸  ", Style::default().fg(colors::ORANGE)),
             Span::styled("Snapshots", Style::default().fg(colors::TEXT)),
         ]),
         Line::from(""),
         Line::from(vec![
-            Span::styled("  4 ", Style::default().fg(colors::INFO).add_modifier(Modifier::BOLD)),
+            Span::styled(
+                "  4 ",
+                Style::default()
+                    .fg(colors::INFO)
+                    .add_modifier(Modifier::BOLD),
+            ),
             Span::styled("⚙️  ", Style::default().fg(colors::ORANGE)),
             Span::styled("Profiles", Style::default().fg(colors::TEXT)),
         ]),
         Line::from(""),
         Line::from(vec![
-            Span::styled("  5 ", Style::default().fg(colors::INFO).add_modifier(Modifier::BOLD)),
+            Span::styled(
+                "  5 ",
+                Style::default()
+                    .fg(colors::INFO)
+                    .add_modifier(Modifier::BOLD),
+            ),
             Span::styled("🏗️  ", Style::default().fg(colors::ORANGE)),
             Span::styled("Blueprints", Style::default().fg(colors::TEXT)),
         ]),
@@ -366,14 +534,29 @@ fn render_quick_actions(f: &mut Frame, _state: &AppState, area: Rect) {
         Line::from(""),
         Line::from(vec![
             Span::styled("  💡 ", Style::default().fg(colors::WARNING)),
-            Span::styled("Ctrl+P", Style::default().fg(colors::LIGHT_ORANGE).add_modifier(Modifier::BOLD)),
+            Span::styled(
+                "Ctrl+P",
+                Style::default()
+                    .fg(colors::LIGHT_ORANGE)
+                    .add_modifier(Modifier::BOLD),
+            ),
             Span::styled(" Quick Jump", Style::default().fg(colors::TEXT_MUTED)),
         ]),
     ];
 
-    let title = Span::styled("🚀 Quick Navigation", Style::default().fg(colors::ORANGE).add_modifier(Modifier::BOLD));
+    let title = Span::styled(
+        "🚀 Quick Navigation",
+        Style::default()
+            .fg(colors::ORANGE)
+            .add_modifier(Modifier::BOLD),
+    );
     let paragraph = Paragraph::new(text)
-        .block(Block::default().borders(Borders::ALL).border_style(Style::default().fg(colors::BORDER)).title(title))
+        .block(
+            Block::default()
+                .borders(Borders::ALL)
+                .border_style(Style::default().fg(colors::BORDER))
+                .title(title),
+        )
         .alignment(Alignment::Left);
 
     f.render_widget(paragraph, area);
@@ -382,31 +565,62 @@ fn render_quick_actions(f: &mut Frame, _state: &AppState, area: Rect) {
 fn render_footer(f: &mut Frame, state: &AppState, area: Rect) {
     let footer_line = Line::from(vec![
         Span::styled("⌨  ", Style::default().fg(colors::ORANGE)),
-        Span::styled("1-5", Style::default().fg(colors::INFO).add_modifier(Modifier::BOLD)),
+        Span::styled(
+            "1-5",
+            Style::default()
+                .fg(colors::INFO)
+                .add_modifier(Modifier::BOLD),
+        ),
         Span::styled(": Jump", Style::default().fg(colors::TEXT)),
         Span::styled(" │ ", Style::default().fg(colors::TEXT_MUTED)),
-        Span::styled("r", Style::default().fg(colors::INFO).add_modifier(Modifier::BOLD)),
+        Span::styled(
+            "r",
+            Style::default()
+                .fg(colors::INFO)
+                .add_modifier(Modifier::BOLD),
+        ),
         Span::styled(": Refresh", Style::default().fg(colors::TEXT)),
         Span::styled(" │ ", Style::default().fg(colors::TEXT_MUTED)),
-        Span::styled("i", Style::default().fg(colors::INFO).add_modifier(Modifier::BOLD)),
+        Span::styled(
+            "i",
+            Style::default()
+                .fg(colors::INFO)
+                .add_modifier(Modifier::BOLD),
+        ),
         Span::styled(": Stats Bar", Style::default().fg(colors::TEXT)),
         Span::styled(" │ ", Style::default().fg(colors::TEXT_MUTED)),
-        Span::styled("?", Style::default().fg(colors::INFO).add_modifier(Modifier::BOLD)),
+        Span::styled(
+            "?",
+            Style::default()
+                .fg(colors::INFO)
+                .add_modifier(Modifier::BOLD),
+        ),
         Span::styled(": Help", Style::default().fg(colors::TEXT)),
         Span::styled(" │ ", Style::default().fg(colors::TEXT_MUTED)),
-        Span::styled("q", Style::default().fg(colors::INFO).add_modifier(Modifier::BOLD)),
+        Span::styled(
+            "q",
+            Style::default()
+                .fg(colors::INFO)
+                .add_modifier(Modifier::BOLD),
+        ),
         Span::styled(": Quit", Style::default().fg(colors::TEXT)),
         Span::styled(" │ ", Style::default().fg(colors::TEXT_MUTED)),
         Span::styled("⏱  ", Style::default().fg(colors::TEXT_MUTED)),
         Span::styled(
             format!("{}", state.last_refresh.format("%H:%M:%S")),
-            Style::default().fg(colors::TEXT_MUTED).add_modifier(Modifier::ITALIC),
+            Style::default()
+                .fg(colors::TEXT_MUTED)
+                .add_modifier(Modifier::ITALIC),
         ),
     ]);
 
     let footer = Paragraph::new(footer_line)
         .alignment(Alignment::Center)
-        .block(Block::default().borders(Borders::ALL).border_style(Style::default().fg(colors::BORDER)));
+        .block(
+            Block::default()
+                .borders(Borders::ALL)
+                .border_style(Style::default().fg(colors::BORDER)),
+        );
 
     f.render_widget(footer, area);
 }

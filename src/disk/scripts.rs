@@ -8,8 +8,8 @@ pub enum FilesystemType {
     Ext4,
     Xfs,
     Btrfs,
-    LVM,      // LVM with ext4
-    LVMXfs,   // LVM with xfs
+    LVM,    // LVM with ext4
+    LVMXfs, // LVM with xfs
 }
 
 impl FilesystemType {
@@ -132,14 +132,16 @@ df -h
 echo ""
 lsblk
 echo ""
-"#.to_string()
+"#
+        .to_string()
     }
 
     /// Generate disk rescan
     fn generate_rescan(device: &str) -> String {
         let device_name = device.trim_start_matches("/dev/");
 
-        format!(r#"echo "=== Rescanning disk: {} ==="
+        format!(
+            r#"echo "=== Rescanning disk: {} ==="
 if [ -z "$DRY_RUN" ]; then
     echo 1 | tee /sys/class/block/{}/device/rescan
     sleep 2
@@ -147,7 +149,9 @@ if [ -z "$DRY_RUN" ]; then
 else
     echo "[DRY RUN] Would rescan {}"
 fi
-"#, device, device_name, device)
+"#,
+            device, device_name, device
+        )
     }
 
     /// Generate LVM expansion commands
@@ -166,7 +170,8 @@ fi
             _ => &format!("resize2fs /dev/mapper/{}-{}", vg, lv),
         };
 
-        format!(r#"echo "=== LVM Expansion ==="
+        format!(
+            r#"echo "=== LVM Expansion ==="
 
 # Extend partition if needed
 if [ -z "$DRY_RUN" ]; then
@@ -209,8 +214,25 @@ if [ -z "$DRY_RUN" ]; then
 else
     echo "[DRY RUN] Would run: {}"
 fi
-"#, device, partition, device, partition, partition, partition, partition,
-   vg, vg, vg, lv, vg, lv, vg, lv, resize_cmd, resize_cmd)
+"#,
+            device,
+            partition,
+            device,
+            partition,
+            partition,
+            partition,
+            partition,
+            vg,
+            vg,
+            vg,
+            lv,
+            vg,
+            lv,
+            vg,
+            lv,
+            resize_cmd,
+            resize_cmd
+        )
     }
 
     /// Generate partition expansion commands
@@ -225,7 +247,8 @@ fi
             _ => &format!("resize2fs {}", partition),
         };
 
-        format!(r#"echo "=== Partition Expansion ==="
+        format!(
+            r#"echo "=== Partition Expansion ==="
 
 # Extend partition
 echo "Extending partition {}..."
@@ -242,8 +265,16 @@ if [ -z "$DRY_RUN" ]; then
 else
     echo "[DRY RUN] Would run: {}"
 fi
-"#, partition, device, partition_num, device, partition_num,
-   config.filesystem_type.as_str(), resize_cmd, resize_cmd)
+"#,
+            partition,
+            device,
+            partition_num,
+            device,
+            partition_num,
+            config.filesystem_type.as_str(),
+            resize_cmd,
+            resize_cmd
+        )
     }
 
     /// Generate verification commands
@@ -256,7 +287,8 @@ echo ""
 lsblk
 echo ""
 echo "=== Expansion Complete ==="
-"#.to_string()
+"#
+        .to_string()
     }
 
     /// Generate one-liner script for quick execution
@@ -341,8 +373,8 @@ mod tests {
 
     #[test]
     fn test_script_generation_ext4() {
-        let script_config = ExpansionScript::new(FilesystemType::Ext4, "/dev/sda")
-            .with_partition(1);
+        let script_config =
+            ExpansionScript::new(FilesystemType::Ext4, "/dev/sda").with_partition(1);
 
         let script = ScriptGenerator::generate(&script_config);
 
@@ -352,8 +384,7 @@ mod tests {
 
     #[test]
     fn test_dry_run_script() {
-        let script_config = ExpansionScript::new(FilesystemType::LVM, "/dev/vda")
-            .dry_run(true);
+        let script_config = ExpansionScript::new(FilesystemType::LVM, "/dev/vda").dry_run(true);
 
         let script = ScriptGenerator::generate(&script_config);
 

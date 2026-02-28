@@ -2,11 +2,11 @@ use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
-pub mod plans;
 pub mod failover;
-pub mod replication;
-pub mod recovery;
 pub mod ha;
+pub mod plans;
+pub mod recovery;
+pub mod replication;
 
 /// Recovery Point Objective - maximum acceptable data loss
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -20,11 +20,15 @@ impl RPO {
     }
 
     pub fn minutes(minutes: u64) -> Self {
-        Self { seconds: minutes * 60 }
+        Self {
+            seconds: minutes * 60,
+        }
     }
 
     pub fn hours(hours: u64) -> Self {
-        Self { seconds: hours * 3600 }
+        Self {
+            seconds: hours * 3600,
+        }
     }
 
     pub fn as_minutes(&self) -> u64 {
@@ -48,11 +52,15 @@ impl RTO {
     }
 
     pub fn minutes(minutes: u64) -> Self {
-        Self { seconds: minutes * 60 }
+        Self {
+            seconds: minutes * 60,
+        }
     }
 
     pub fn hours(hours: u64) -> Self {
-        Self { seconds: hours * 3600 }
+        Self {
+            seconds: hours * 3600,
+        }
     }
 
     pub fn as_minutes(&self) -> u64 {
@@ -122,9 +130,17 @@ pub struct DRConfig {
 }
 
 impl DRConfig {
-    pub fn new(name: impl Into<String>, primary: impl Into<String>, secondary: impl Into<String>) -> Self {
+    pub fn new(
+        name: impl Into<String>,
+        primary: impl Into<String>,
+        secondary: impl Into<String>,
+    ) -> Self {
         let name_str = name.into();
-        let id = format!("dr-{}-{}", name_str.to_lowercase().replace(' ', "-"), Utc::now().timestamp());
+        let id = format!(
+            "dr-{}-{}",
+            name_str.to_lowercase().replace(' ', "-"),
+            Utc::now().timestamp()
+        );
 
         Self {
             id,
@@ -187,7 +203,11 @@ impl ProtectedResource {
         dr_config_id: impl Into<String>,
     ) -> Self {
         let name_str = name.into();
-        let id = format!("res-{}-{}", name_str.to_lowercase().replace(' ', "-"), Utc::now().timestamp());
+        let id = format!(
+            "res-{}-{}",
+            name_str.to_lowercase().replace(' ', "-"),
+            Utc::now().timestamp()
+        );
 
         Self {
             id,
@@ -300,10 +320,7 @@ impl DRManager {
     }
 
     pub fn auto_failover_configs(&self) -> Vec<&DRConfig> {
-        self.configs
-            .values()
-            .filter(|c| c.auto_failover)
-            .collect()
+        self.configs.values().filter(|c| c.auto_failover).collect()
     }
 
     pub fn active_active_configs(&self) -> Vec<&DRConfig> {
@@ -529,9 +546,12 @@ mod tests {
     fn test_manager_active_active_configs() {
         let mut manager = DRManager::new();
 
-        manager.add_config(DRConfig::new("dr-1", "s1", "s2").with_strategy(DRStrategy::ActiveActive));
-        manager.add_config(DRConfig::new("dr-2", "s1", "s2").with_strategy(DRStrategy::ActivePassive));
-        manager.add_config(DRConfig::new("dr-3", "s1", "s2").with_strategy(DRStrategy::ActiveActive));
+        manager
+            .add_config(DRConfig::new("dr-1", "s1", "s2").with_strategy(DRStrategy::ActiveActive));
+        manager
+            .add_config(DRConfig::new("dr-2", "s1", "s2").with_strategy(DRStrategy::ActivePassive));
+        manager
+            .add_config(DRConfig::new("dr-3", "s1", "s2").with_strategy(DRStrategy::ActiveActive));
 
         let active = manager.active_active_configs();
         assert_eq!(active.len(), 2);

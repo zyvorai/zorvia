@@ -2,7 +2,7 @@
 // Run with: cargo run --example demo_theme
 
 use zorvia::tui::colors::cli;
-use zorvia::tui::colors::{vm_status_symbol, resource_bar};
+use zorvia::tui::colors::{resource_bar, vm_status_symbol};
 
 fn main() {
     println!("\n{}", cli::header("🎨 Zorvia CLI Theme Demonstration"));
@@ -29,10 +29,16 @@ fn main() {
     // Section 3: VM Status
     println!("{}", cli::header("3. VM Status Indicators"));
     let statuses = vec![
-        "running", "pending", "stopped", "failed", "migrating", "paused"
+        "running",
+        "pending",
+        "stopped",
+        "failed",
+        "migrating",
+        "paused",
     ];
     for status in statuses {
-        println!("   {} {:<12} {}",
+        println!(
+            "   {} {:<12} {}",
             vm_status_symbol(status),
             status.to_uppercase(),
             cli::vm_status(status)
@@ -71,7 +77,8 @@ fn main() {
     // Section 7: Sample VM List
     println!("{}", cli::header("7. Sample VM List (Themed Table)"));
     println!();
-    println!("   {:<25} {:<20} {:<20}",
+    println!(
+        "   {:<25} {:<20} {:<20}",
         cli::header("NAME"),
         cli::header("NAMESPACE"),
         cli::header("STATUS")
@@ -88,7 +95,8 @@ fn main() {
     ];
 
     for (name, namespace, status) in vms {
-        println!("   {:<25} {:<30} {}",
+        println!(
+            "   {:<25} {:<30} {}",
             cli::vm_name(name),
             cli::namespace(namespace),
             format!("{} {}", vm_status_symbol(status), cli::vm_status(status))
@@ -99,18 +107,47 @@ fn main() {
     // Section 8: Wizard-style output
     println!("{}", cli::header("8. Wizard-Style Configuration Display"));
     println!();
-    println!("   {}", cli::info("Creating VM with the following configuration:"));
-    println!("     {:<12} {}", cli::label("Name:"), cli::value("production-db"));
-    println!("     {:<12} {}", cli::label("Template:"), cli::value("ubuntu"));
-    println!("     {:<12} {}", cli::label("CPU:"), cli::resource("8 cores", "cpu"));
-    println!("     {:<12} {}", cli::label("Memory:"), cli::resource("32Gi", "memory"));
-    println!("     {:<12} {}", cli::label("Disk:"), cli::resource("500Gi", "disk"));
+    println!(
+        "   {}",
+        cli::info("Creating VM with the following configuration:")
+    );
+    println!(
+        "     {:<12} {}",
+        cli::label("Name:"),
+        cli::value("production-db")
+    );
+    println!(
+        "     {:<12} {}",
+        cli::label("Template:"),
+        cli::value("ubuntu")
+    );
+    println!(
+        "     {:<12} {}",
+        cli::label("CPU:"),
+        cli::resource("8 cores", "cpu")
+    );
+    println!(
+        "     {:<12} {}",
+        cli::label("Memory:"),
+        cli::resource("32Gi", "memory")
+    );
+    println!(
+        "     {:<12} {}",
+        cli::label("Disk:"),
+        cli::resource("500Gi", "disk")
+    );
     println!();
     println!("   {}", cli::success("VM created successfully"));
     println!();
 
     // Footer
     println!("{}", cli::muted(&"=".repeat(60)));
-    println!("{}", cli::info("Theme colors based on GuestKit design patterns"));
-    println!("{}\n", cli::muted("Run 'cargo run --example demo_theme' to see this demo"));
+    println!(
+        "{}",
+        cli::info("Theme colors based on GuestKit design patterns")
+    );
+    println!(
+        "{}\n",
+        cli::muted("Run 'cargo run --example demo_theme' to see this demo")
+    );
 }

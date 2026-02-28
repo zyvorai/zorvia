@@ -130,10 +130,7 @@ impl Default for MiddlewareChain {
 pub fn build_default_chain() -> MiddlewareChain {
     let mut chain = MiddlewareChain::new();
 
-    chain.add(
-        MiddlewareConfig::new("request-id", MiddlewareType::RequestId)
-            .with_priority(10),
-    );
+    chain.add(MiddlewareConfig::new("request-id", MiddlewareType::RequestId).with_priority(10));
 
     chain.add(
         MiddlewareConfig::new("logging", MiddlewareType::Logging)
@@ -192,13 +189,7 @@ pub struct RequestLog {
 }
 
 impl RequestLog {
-    pub fn new(
-        request_id: &str,
-        method: &str,
-        path: &str,
-        status: u16,
-        duration_ms: f64,
-    ) -> Self {
+    pub fn new(request_id: &str, method: &str, path: &str, status: u16, duration_ms: f64) -> Self {
         Self {
             request_id: request_id.to_string(),
             method: method.to_string(),
@@ -245,7 +236,10 @@ mod tests {
         assert_eq!(MiddlewareType::RateLimit.to_string(), "rate-limit");
         assert_eq!(MiddlewareType::Cors.to_string(), "cors");
         assert_eq!(MiddlewareType::Logging.to_string(), "logging");
-        assert_eq!(MiddlewareType::Custom("my-mw".to_string()).to_string(), "my-mw");
+        assert_eq!(
+            MiddlewareType::Custom("my-mw".to_string()).to_string(),
+            "my-mw"
+        );
     }
 
     #[test]
@@ -258,15 +252,13 @@ mod tests {
 
     #[test]
     fn test_middleware_config_with_priority() {
-        let mw = MiddlewareConfig::new("auth", MiddlewareType::Authentication)
-            .with_priority(10);
+        let mw = MiddlewareConfig::new("auth", MiddlewareType::Authentication).with_priority(10);
         assert_eq!(mw.priority, 10);
     }
 
     #[test]
     fn test_middleware_config_with_config() {
-        let mw = MiddlewareConfig::new("cors", MiddlewareType::Cors)
-            .with_config("origins", "*");
+        let mw = MiddlewareConfig::new("cors", MiddlewareType::Cors).with_config("origins", "*");
         assert_eq!(mw.config.get("origins"), Some(&"*".to_string()));
     }
 
@@ -291,7 +283,10 @@ mod tests {
     #[test]
     fn test_middleware_chain_add() {
         let mut chain = MiddlewareChain::new();
-        chain.add(MiddlewareConfig::new("auth", MiddlewareType::Authentication));
+        chain.add(MiddlewareConfig::new(
+            "auth",
+            MiddlewareType::Authentication,
+        ));
         chain.add(MiddlewareConfig::new("cors", MiddlewareType::Cors));
 
         assert_eq!(chain.count(), 2);
@@ -311,7 +306,10 @@ mod tests {
     #[test]
     fn test_middleware_chain_remove() {
         let mut chain = MiddlewareChain::new();
-        chain.add(MiddlewareConfig::new("auth", MiddlewareType::Authentication));
+        chain.add(MiddlewareConfig::new(
+            "auth",
+            MiddlewareType::Authentication,
+        ));
 
         assert!(chain.remove("auth"));
         assert!(!chain.remove("auth"));
@@ -321,7 +319,10 @@ mod tests {
     #[test]
     fn test_middleware_chain_get() {
         let mut chain = MiddlewareChain::new();
-        chain.add(MiddlewareConfig::new("auth", MiddlewareType::Authentication));
+        chain.add(MiddlewareConfig::new(
+            "auth",
+            MiddlewareType::Authentication,
+        ));
 
         assert!(chain.get("auth").is_some());
         assert!(chain.get("nonexistent").is_none());
@@ -334,7 +335,10 @@ mod tests {
         let mut disabled = MiddlewareConfig::new("disabled", MiddlewareType::Cache);
         disabled.disable();
 
-        chain.add(MiddlewareConfig::new("auth", MiddlewareType::Authentication));
+        chain.add(MiddlewareConfig::new(
+            "auth",
+            MiddlewareType::Authentication,
+        ));
         chain.add(disabled);
 
         assert_eq!(chain.count(), 2);
@@ -344,7 +348,10 @@ mod tests {
     #[test]
     fn test_middleware_chain_has_middleware() {
         let mut chain = MiddlewareChain::new();
-        chain.add(MiddlewareConfig::new("auth", MiddlewareType::Authentication));
+        chain.add(MiddlewareConfig::new(
+            "auth",
+            MiddlewareType::Authentication,
+        ));
 
         assert!(chain.has_middleware("auth"));
         assert!(!chain.has_middleware("cors"));

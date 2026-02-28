@@ -3,12 +3,12 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::net::IpAddr;
 
-pub mod policies;
-pub mod topology;
-pub mod ipam;
-pub mod qos;
 pub mod bgp;
 pub mod dns;
+pub mod ipam;
+pub mod policies;
+pub mod qos;
+pub mod topology;
 
 /// Network protocol
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -242,10 +242,7 @@ impl NetworkManager {
     }
 
     pub fn isolated_namespaces(&self) -> Vec<&NetworkNamespace> {
-        self.namespaces
-            .values()
-            .filter(|n| n.isolated)
-            .collect()
+        self.namespaces.values().filter(|n| n.isolated).collect()
     }
 }
 
@@ -281,8 +278,7 @@ mod tests {
     #[test]
     fn test_vlan_with_gateway() {
         let gateway = IpAddr::V4(Ipv4Addr::new(10, 0, 100, 1));
-        let vlan = VLANConfig::new(100, "prod", "10.0.100.0/24")
-            .with_gateway(gateway);
+        let vlan = VLANConfig::new(100, "prod", "10.0.100.0/24").with_gateway(gateway);
 
         assert_eq!(vlan.gateway, Some(gateway));
     }
@@ -310,8 +306,8 @@ mod tests {
 
     #[test]
     fn test_attachment_with_vlan() {
-        let attachment = NetworkAttachment::new("eth0", InterfaceType::Bridge, "net1")
-            .with_vlan(100);
+        let attachment =
+            NetworkAttachment::new("eth0", InterfaceType::Bridge, "net1").with_vlan(100);
 
         assert_eq!(attachment.vlan_id, Some(100));
     }
@@ -319,8 +315,7 @@ mod tests {
     #[test]
     fn test_attachment_with_ip() {
         let ip = IpAddr::V4(Ipv4Addr::new(192, 168, 1, 10));
-        let attachment = NetworkAttachment::new("eth0", InterfaceType::Bridge, "net1")
-            .with_ip(ip);
+        let attachment = NetworkAttachment::new("eth0", InterfaceType::Bridge, "net1").with_ip(ip);
 
         assert_eq!(attachment.ip_address, Some(ip));
     }
@@ -330,13 +325,16 @@ mod tests {
         let attachment = NetworkAttachment::new("eth0", InterfaceType::Bridge, "net1")
             .with_mac("00:11:22:33:44:55");
 
-        assert_eq!(attachment.mac_address, Some("00:11:22:33:44:55".to_string()));
+        assert_eq!(
+            attachment.mac_address,
+            Some("00:11:22:33:44:55".to_string())
+        );
     }
 
     #[test]
     fn test_attachment_with_bandwidth() {
-        let attachment = NetworkAttachment::new("eth0", InterfaceType::Bridge, "net1")
-            .with_bandwidth(1000);
+        let attachment =
+            NetworkAttachment::new("eth0", InterfaceType::Bridge, "net1").with_bandwidth(1000);
 
         assert_eq!(attachment.bandwidth_mbps, Some(1000));
     }
@@ -344,13 +342,13 @@ mod tests {
     #[test]
     fn test_attachment_is_ipv6() {
         let ipv4 = IpAddr::V4(Ipv4Addr::new(192, 168, 1, 10));
-        let attachment1 = NetworkAttachment::new("eth0", InterfaceType::Bridge, "net1")
-            .with_ip(ipv4);
+        let attachment1 =
+            NetworkAttachment::new("eth0", InterfaceType::Bridge, "net1").with_ip(ipv4);
         assert!(!attachment1.is_ipv6());
 
         let ipv6 = IpAddr::V6(Ipv6Addr::new(0x2001, 0xdb8, 0, 0, 0, 0, 0, 1));
-        let attachment2 = NetworkAttachment::new("eth1", InterfaceType::Bridge, "net1")
-            .with_ip(ipv6);
+        let attachment2 =
+            NetworkAttachment::new("eth1", InterfaceType::Bridge, "net1").with_ip(ipv6);
         assert!(attachment2.is_ipv6());
     }
 
@@ -417,9 +415,21 @@ mod tests {
     fn test_manager_attachments_by_network() {
         let mut manager = NetworkManager::new();
 
-        manager.add_attachment(NetworkAttachment::new("eth0", InterfaceType::Bridge, "net1"));
-        manager.add_attachment(NetworkAttachment::new("eth1", InterfaceType::Bridge, "net2"));
-        manager.add_attachment(NetworkAttachment::new("eth2", InterfaceType::Bridge, "net1"));
+        manager.add_attachment(NetworkAttachment::new(
+            "eth0",
+            InterfaceType::Bridge,
+            "net1",
+        ));
+        manager.add_attachment(NetworkAttachment::new(
+            "eth1",
+            InterfaceType::Bridge,
+            "net2",
+        ));
+        manager.add_attachment(NetworkAttachment::new(
+            "eth2",
+            InterfaceType::Bridge,
+            "net1",
+        ));
 
         let net1_attachments = manager.attachments_by_network("net1");
         assert_eq!(net1_attachments.len(), 2);
@@ -430,16 +440,13 @@ mod tests {
         let mut manager = NetworkManager::new();
 
         manager.add_attachment(
-            NetworkAttachment::new("eth0", InterfaceType::Bridge, "net1")
-                .with_vlan(100)
+            NetworkAttachment::new("eth0", InterfaceType::Bridge, "net1").with_vlan(100),
         );
         manager.add_attachment(
-            NetworkAttachment::new("eth1", InterfaceType::Bridge, "net1")
-                .with_vlan(200)
+            NetworkAttachment::new("eth1", InterfaceType::Bridge, "net1").with_vlan(200),
         );
         manager.add_attachment(
-            NetworkAttachment::new("eth2", InterfaceType::Bridge, "net1")
-                .with_vlan(100)
+            NetworkAttachment::new("eth2", InterfaceType::Bridge, "net1").with_vlan(100),
         );
 
         let vlan100 = manager.attachments_by_vlan(100);

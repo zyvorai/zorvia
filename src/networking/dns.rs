@@ -36,7 +36,11 @@ impl DNSRecord {
         ttl: u32,
     ) -> Self {
         let name_str = name.into();
-        let id = format!("dns-{}-{}", name_str.replace('.', "-"), Utc::now().timestamp_micros());
+        let id = format!(
+            "dns-{}-{}",
+            name_str.replace('.', "-"),
+            Utc::now().timestamp_micros()
+        );
 
         Self {
             id,
@@ -88,7 +92,11 @@ impl DNSZone {
         admin_email: impl Into<String>,
     ) -> Self {
         let name_str = name.into();
-        let id = format!("zone-{}-{}", name_str.replace('.', "-"), Utc::now().timestamp());
+        let id = format!(
+            "zone-{}-{}",
+            name_str.replace('.', "-"),
+            Utc::now().timestamp()
+        );
 
         Self {
             id,
@@ -177,10 +185,7 @@ impl DNSManager {
     }
 
     pub fn find_record_by_name(&self, name: &str) -> Vec<&DNSRecord> {
-        self.records
-            .values()
-            .filter(|r| r.name == name)
-            .collect()
+        self.records.values().filter(|r| r.name == name).collect()
     }
 }
 
@@ -284,9 +289,24 @@ mod tests {
     fn test_manager_records_by_type() {
         let mut manager = DNSManager::new();
 
-        manager.add_record(DNSRecord::new("example.com", RecordType::A, "192.168.1.1", 300));
-        manager.add_record(DNSRecord::new("mail.example.com", RecordType::MX, "mail.example.com", 300));
-        manager.add_record(DNSRecord::new("www.example.com", RecordType::A, "192.168.1.2", 300));
+        manager.add_record(DNSRecord::new(
+            "example.com",
+            RecordType::A,
+            "192.168.1.1",
+            300,
+        ));
+        manager.add_record(DNSRecord::new(
+            "mail.example.com",
+            RecordType::MX,
+            "mail.example.com",
+            300,
+        ));
+        manager.add_record(DNSRecord::new(
+            "www.example.com",
+            RecordType::A,
+            "192.168.1.2",
+            300,
+        ));
 
         let a_records = manager.records_by_type(&RecordType::A);
         assert_eq!(a_records.len(), 2);
@@ -296,9 +316,24 @@ mod tests {
     fn test_manager_find_record_by_name() {
         let mut manager = DNSManager::new();
 
-        manager.add_record(DNSRecord::new("example.com", RecordType::A, "192.168.1.1", 300));
-        manager.add_record(DNSRecord::new("example.com", RecordType::AAAA, "2001:db8::1", 300));
-        manager.add_record(DNSRecord::new("www.example.com", RecordType::A, "192.168.1.2", 300));
+        manager.add_record(DNSRecord::new(
+            "example.com",
+            RecordType::A,
+            "192.168.1.1",
+            300,
+        ));
+        manager.add_record(DNSRecord::new(
+            "example.com",
+            RecordType::AAAA,
+            "2001:db8::1",
+            300,
+        ));
+        manager.add_record(DNSRecord::new(
+            "www.example.com",
+            RecordType::A,
+            "192.168.1.2",
+            300,
+        ));
 
         let records = manager.find_record_by_name("example.com");
         assert_eq!(records.len(), 2);

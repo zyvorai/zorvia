@@ -46,7 +46,11 @@ impl CloudFederation {
         primary_provider: CloudProvider,
     ) -> Self {
         let name_str = name.into();
-        let id = format!("fed-{}-{}", name_str.to_lowercase().replace(' ', "-"), Utc::now().timestamp());
+        let id = format!(
+            "fed-{}-{}",
+            name_str.to_lowercase().replace(' ', "-"),
+            Utc::now().timestamp()
+        );
 
         Self {
             id,
@@ -149,7 +153,11 @@ impl OrchestrationPolicy {
         scheduling_strategy: SchedulingStrategy,
     ) -> Self {
         let name_str = name.into();
-        let id = format!("policy-{}-{}", name_str.to_lowercase().replace(' ', "-"), Utc::now().timestamp());
+        let id = format!(
+            "policy-{}-{}",
+            name_str.to_lowercase().replace(' ', "-"),
+            Utc::now().timestamp()
+        );
 
         Self {
             id,
@@ -236,7 +244,11 @@ impl FederationEvent {
         severity: EventSeverity,
     ) -> Self {
         let federation_id_str = federation_id.into();
-        let id = format!("event-{}-{}", federation_id_str, Utc::now().timestamp_micros());
+        let id = format!(
+            "event-{}-{}",
+            federation_id_str,
+            Utc::now().timestamp_micros()
+        );
 
         Self {
             id,
@@ -254,7 +266,10 @@ impl FederationEvent {
     }
 
     pub fn is_error(&self) -> bool {
-        matches!(self.severity, EventSeverity::Error | EventSeverity::Critical)
+        matches!(
+            self.severity,
+            EventSeverity::Error | EventSeverity::Critical
+        )
     }
 }
 
@@ -319,7 +334,10 @@ impl FederationManager {
     }
 
     pub fn active_federations(&self) -> Vec<&CloudFederation> {
-        self.federations.values().filter(|f| f.is_active()).collect()
+        self.federations
+            .values()
+            .filter(|f| f.is_active())
+            .collect()
     }
 
     pub fn multi_provider_federations(&self) -> Vec<&CloudFederation> {
@@ -390,7 +408,8 @@ mod tests {
 
     #[test]
     fn test_federation_add_member() {
-        let mut federation = CloudFederation::new("fed", FederationType::Distributed, CloudProvider::AWS);
+        let mut federation =
+            CloudFederation::new("fed", FederationType::Distributed, CloudProvider::AWS);
 
         federation.add_member(CloudProvider::Azure);
         federation.add_member(CloudProvider::GCP);
@@ -401,31 +420,35 @@ mod tests {
 
     #[test]
     fn test_federation_enable_load_balancing() {
-        let federation = CloudFederation::new("fed", FederationType::ActiveActive, CloudProvider::AWS)
-            .enable_load_balancing();
+        let federation =
+            CloudFederation::new("fed", FederationType::ActiveActive, CloudProvider::AWS)
+                .enable_load_balancing();
 
         assert!(federation.load_balancing_enabled);
     }
 
     #[test]
     fn test_federation_enable_auto_failover() {
-        let federation = CloudFederation::new("fed", FederationType::ActivePassive, CloudProvider::Azure)
-            .enable_auto_failover();
+        let federation =
+            CloudFederation::new("fed", FederationType::ActivePassive, CloudProvider::Azure)
+                .enable_auto_failover();
 
         assert!(federation.auto_failover_enabled);
     }
 
     #[test]
     fn test_federation_enable_data_sync() {
-        let federation = CloudFederation::new("fed", FederationType::Hierarchical, CloudProvider::GCP)
-            .enable_data_sync();
+        let federation =
+            CloudFederation::new("fed", FederationType::Hierarchical, CloudProvider::GCP)
+                .enable_data_sync();
 
         assert!(federation.data_sync_enabled);
     }
 
     #[test]
     fn test_federation_set_status() {
-        let mut federation = CloudFederation::new("fed", FederationType::ActiveActive, CloudProvider::AWS);
+        let mut federation =
+            CloudFederation::new("fed", FederationType::ActiveActive, CloudProvider::AWS);
 
         federation.set_status(FederationStatus::Active);
         assert_eq!(federation.status, FederationStatus::Active);
@@ -433,7 +456,8 @@ mod tests {
 
     #[test]
     fn test_federation_record_sync() {
-        let mut federation = CloudFederation::new("fed", FederationType::Distributed, CloudProvider::AWS);
+        let mut federation =
+            CloudFederation::new("fed", FederationType::Distributed, CloudProvider::AWS);
 
         federation.record_sync();
         assert!(federation.last_sync.is_some());
@@ -441,7 +465,8 @@ mod tests {
 
     #[test]
     fn test_federation_is_active() {
-        let mut federation = CloudFederation::new("fed", FederationType::ActiveActive, CloudProvider::Azure);
+        let mut federation =
+            CloudFederation::new("fed", FederationType::ActiveActive, CloudProvider::Azure);
 
         assert!(!federation.is_active());
 
@@ -451,7 +476,8 @@ mod tests {
 
     #[test]
     fn test_federation_is_multi_provider() {
-        let mut federation = CloudFederation::new("fed", FederationType::ActiveActive, CloudProvider::AWS);
+        let mut federation =
+            CloudFederation::new("fed", FederationType::ActiveActive, CloudProvider::AWS);
 
         assert!(!federation.is_multi_provider());
 
@@ -555,22 +581,52 @@ mod tests {
 
     #[test]
     fn test_event_is_critical() {
-        let event1 = FederationEvent::new("fed-1", EventType::Error, CloudProvider::AWS, "Critical error", EventSeverity::Critical);
+        let event1 = FederationEvent::new(
+            "fed-1",
+            EventType::Error,
+            CloudProvider::AWS,
+            "Critical error",
+            EventSeverity::Critical,
+        );
         assert!(event1.is_critical());
 
-        let event2 = FederationEvent::new("fed-1", EventType::Error, CloudProvider::Azure, "Minor error", EventSeverity::Error);
+        let event2 = FederationEvent::new(
+            "fed-1",
+            EventType::Error,
+            CloudProvider::Azure,
+            "Minor error",
+            EventSeverity::Error,
+        );
         assert!(!event2.is_critical());
     }
 
     #[test]
     fn test_event_is_error() {
-        let event1 = FederationEvent::new("fed-1", EventType::Error, CloudProvider::AWS, "Error occurred", EventSeverity::Error);
+        let event1 = FederationEvent::new(
+            "fed-1",
+            EventType::Error,
+            CloudProvider::AWS,
+            "Error occurred",
+            EventSeverity::Error,
+        );
         assert!(event1.is_error());
 
-        let event2 = FederationEvent::new("fed-1", EventType::Error, CloudProvider::Azure, "Critical error", EventSeverity::Critical);
+        let event2 = FederationEvent::new(
+            "fed-1",
+            EventType::Error,
+            CloudProvider::Azure,
+            "Critical error",
+            EventSeverity::Critical,
+        );
         assert!(event2.is_error());
 
-        let event3 = FederationEvent::new("fed-1", EventType::DataSync, CloudProvider::GCP, "Data synced", EventSeverity::Info);
+        let event3 = FederationEvent::new(
+            "fed-1",
+            EventType::DataSync,
+            CloudProvider::GCP,
+            "Data synced",
+            EventSeverity::Info,
+        );
         assert!(!event3.is_error());
     }
 
@@ -578,7 +634,8 @@ mod tests {
     fn test_federation_manager() {
         let mut manager = FederationManager::new();
 
-        let federation = CloudFederation::new("fed", FederationType::ActiveActive, CloudProvider::AWS);
+        let federation =
+            CloudFederation::new("fed", FederationType::ActiveActive, CloudProvider::AWS);
         let id = manager.add_federation(federation);
 
         assert_eq!(manager.federation_count(), 1);
@@ -589,7 +646,12 @@ mod tests {
     fn test_manager_add_policy() {
         let mut manager = FederationManager::new();
 
-        let policy = OrchestrationPolicy::new("policy", "fed-1", PolicyType::Placement, SchedulingStrategy::LeastLoaded);
+        let policy = OrchestrationPolicy::new(
+            "policy",
+            "fed-1",
+            PolicyType::Placement,
+            SchedulingStrategy::LeastLoaded,
+        );
         let id = manager.add_policy(policy);
 
         assert_eq!(manager.policy_count(), 1);
@@ -600,7 +662,13 @@ mod tests {
     fn test_manager_add_event() {
         let mut manager = FederationManager::new();
 
-        let event = FederationEvent::new("fed-1", EventType::MemberJoined, CloudProvider::AWS, "Member joined", EventSeverity::Info);
+        let event = FederationEvent::new(
+            "fed-1",
+            EventType::MemberJoined,
+            CloudProvider::AWS,
+            "Member joined",
+            EventSeverity::Info,
+        );
         manager.add_event(event);
 
         assert_eq!(manager.event_count(), 1);
@@ -610,10 +678,12 @@ mod tests {
     fn test_manager_active_federations() {
         let mut manager = FederationManager::new();
 
-        let mut federation1 = CloudFederation::new("f1", FederationType::ActiveActive, CloudProvider::AWS);
+        let mut federation1 =
+            CloudFederation::new("f1", FederationType::ActiveActive, CloudProvider::AWS);
         federation1.set_status(FederationStatus::Active);
 
-        let federation2 = CloudFederation::new("f2", FederationType::ActivePassive, CloudProvider::Azure);
+        let federation2 =
+            CloudFederation::new("f2", FederationType::ActivePassive, CloudProvider::Azure);
 
         manager.add_federation(federation1);
         manager.add_federation(federation2);
@@ -626,10 +696,12 @@ mod tests {
     fn test_manager_multi_provider_federations() {
         let mut manager = FederationManager::new();
 
-        let mut federation1 = CloudFederation::new("f1", FederationType::Distributed, CloudProvider::AWS);
+        let mut federation1 =
+            CloudFederation::new("f1", FederationType::Distributed, CloudProvider::AWS);
         federation1.add_member(CloudProvider::Azure);
 
-        let federation2 = CloudFederation::new("f2", FederationType::Hierarchical, CloudProvider::GCP);
+        let federation2 =
+            CloudFederation::new("f2", FederationType::Hierarchical, CloudProvider::GCP);
 
         manager.add_federation(federation1);
         manager.add_federation(federation2);
@@ -642,9 +714,11 @@ mod tests {
     fn test_manager_federations_with_failover() {
         let mut manager = FederationManager::new();
 
-        let federation1 = CloudFederation::new("f1", FederationType::ActivePassive, CloudProvider::AWS)
-            .enable_auto_failover();
-        let federation2 = CloudFederation::new("f2", FederationType::ActiveActive, CloudProvider::Azure);
+        let federation1 =
+            CloudFederation::new("f1", FederationType::ActivePassive, CloudProvider::AWS)
+                .enable_auto_failover();
+        let federation2 =
+            CloudFederation::new("f2", FederationType::ActiveActive, CloudProvider::Azure);
 
         manager.add_federation(federation1);
         manager.add_federation(federation2);
@@ -657,9 +731,24 @@ mod tests {
     fn test_manager_policies_for_federation() {
         let mut manager = FederationManager::new();
 
-        manager.add_policy(OrchestrationPolicy::new("p1", "fed-1", PolicyType::Placement, SchedulingStrategy::LeastLoaded));
-        manager.add_policy(OrchestrationPolicy::new("p2", "fed-2", PolicyType::Scaling, SchedulingStrategy::CostOptimized));
-        manager.add_policy(OrchestrationPolicy::new("p3", "fed-1", PolicyType::Migration, SchedulingStrategy::AffinityBased));
+        manager.add_policy(OrchestrationPolicy::new(
+            "p1",
+            "fed-1",
+            PolicyType::Placement,
+            SchedulingStrategy::LeastLoaded,
+        ));
+        manager.add_policy(OrchestrationPolicy::new(
+            "p2",
+            "fed-2",
+            PolicyType::Scaling,
+            SchedulingStrategy::CostOptimized,
+        ));
+        manager.add_policy(OrchestrationPolicy::new(
+            "p3",
+            "fed-1",
+            PolicyType::Migration,
+            SchedulingStrategy::AffinityBased,
+        ));
 
         let policies = manager.policies_for_federation("fed-1");
         assert_eq!(policies.len(), 2);
@@ -669,8 +758,18 @@ mod tests {
     fn test_manager_enabled_policies() {
         let mut manager = FederationManager::new();
 
-        let policy1 = OrchestrationPolicy::new("p1", "fed-1", PolicyType::Placement, SchedulingStrategy::LeastLoaded);
-        let mut policy2 = OrchestrationPolicy::new("p2", "fed-1", PolicyType::Scaling, SchedulingStrategy::CostOptimized);
+        let policy1 = OrchestrationPolicy::new(
+            "p1",
+            "fed-1",
+            PolicyType::Placement,
+            SchedulingStrategy::LeastLoaded,
+        );
+        let mut policy2 = OrchestrationPolicy::new(
+            "p2",
+            "fed-1",
+            PolicyType::Scaling,
+            SchedulingStrategy::CostOptimized,
+        );
         policy2.disable();
 
         manager.add_policy(policy1);
@@ -684,9 +783,27 @@ mod tests {
     fn test_manager_events_for_federation() {
         let mut manager = FederationManager::new();
 
-        manager.add_event(FederationEvent::new("fed-1", EventType::MemberJoined, CloudProvider::AWS, "Joined", EventSeverity::Info));
-        manager.add_event(FederationEvent::new("fed-2", EventType::DataSync, CloudProvider::Azure, "Synced", EventSeverity::Info));
-        manager.add_event(FederationEvent::new("fed-1", EventType::Failover, CloudProvider::GCP, "Failover", EventSeverity::Warning));
+        manager.add_event(FederationEvent::new(
+            "fed-1",
+            EventType::MemberJoined,
+            CloudProvider::AWS,
+            "Joined",
+            EventSeverity::Info,
+        ));
+        manager.add_event(FederationEvent::new(
+            "fed-2",
+            EventType::DataSync,
+            CloudProvider::Azure,
+            "Synced",
+            EventSeverity::Info,
+        ));
+        manager.add_event(FederationEvent::new(
+            "fed-1",
+            EventType::Failover,
+            CloudProvider::GCP,
+            "Failover",
+            EventSeverity::Warning,
+        ));
 
         let events = manager.events_for_federation("fed-1");
         assert_eq!(events.len(), 2);
@@ -696,9 +813,27 @@ mod tests {
     fn test_manager_critical_events() {
         let mut manager = FederationManager::new();
 
-        manager.add_event(FederationEvent::new("fed-1", EventType::Error, CloudProvider::AWS, "Critical error", EventSeverity::Critical));
-        manager.add_event(FederationEvent::new("fed-1", EventType::Error, CloudProvider::Azure, "Minor error", EventSeverity::Error));
-        manager.add_event(FederationEvent::new("fed-1", EventType::DataSync, CloudProvider::GCP, "Synced", EventSeverity::Info));
+        manager.add_event(FederationEvent::new(
+            "fed-1",
+            EventType::Error,
+            CloudProvider::AWS,
+            "Critical error",
+            EventSeverity::Critical,
+        ));
+        manager.add_event(FederationEvent::new(
+            "fed-1",
+            EventType::Error,
+            CloudProvider::Azure,
+            "Minor error",
+            EventSeverity::Error,
+        ));
+        manager.add_event(FederationEvent::new(
+            "fed-1",
+            EventType::DataSync,
+            CloudProvider::GCP,
+            "Synced",
+            EventSeverity::Info,
+        ));
 
         let critical = manager.critical_events();
         assert_eq!(critical.len(), 1);
@@ -708,9 +843,27 @@ mod tests {
     fn test_manager_error_events() {
         let mut manager = FederationManager::new();
 
-        manager.add_event(FederationEvent::new("fed-1", EventType::Error, CloudProvider::AWS, "Critical error", EventSeverity::Critical));
-        manager.add_event(FederationEvent::new("fed-1", EventType::Error, CloudProvider::Azure, "Error", EventSeverity::Error));
-        manager.add_event(FederationEvent::new("fed-1", EventType::DataSync, CloudProvider::GCP, "Synced", EventSeverity::Info));
+        manager.add_event(FederationEvent::new(
+            "fed-1",
+            EventType::Error,
+            CloudProvider::AWS,
+            "Critical error",
+            EventSeverity::Critical,
+        ));
+        manager.add_event(FederationEvent::new(
+            "fed-1",
+            EventType::Error,
+            CloudProvider::Azure,
+            "Error",
+            EventSeverity::Error,
+        ));
+        manager.add_event(FederationEvent::new(
+            "fed-1",
+            EventType::DataSync,
+            CloudProvider::GCP,
+            "Synced",
+            EventSeverity::Info,
+        ));
 
         let errors = manager.error_events();
         assert_eq!(errors.len(), 2);
@@ -736,8 +889,14 @@ mod tests {
 
     #[test]
     fn test_scheduling_strategy_equality() {
-        assert_eq!(SchedulingStrategy::RoundRobin, SchedulingStrategy::RoundRobin);
-        assert_ne!(SchedulingStrategy::RoundRobin, SchedulingStrategy::LeastLoaded);
+        assert_eq!(
+            SchedulingStrategy::RoundRobin,
+            SchedulingStrategy::RoundRobin
+        );
+        assert_ne!(
+            SchedulingStrategy::RoundRobin,
+            SchedulingStrategy::LeastLoaded
+        );
     }
 
     #[test]

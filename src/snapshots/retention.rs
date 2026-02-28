@@ -1,7 +1,7 @@
 // Retention Policy Enforcement
 // Automatically delete old snapshots based on retention policies
 
-use super::{SnapshotManager, RetentionPolicy};
+use super::{RetentionPolicy, SnapshotManager};
 use anyhow::Result;
 use chrono::{Duration, Utc};
 
@@ -83,7 +83,8 @@ impl RetentionEnforcer {
         let mut deleted = Vec::new();
 
         // Group by VM name
-        let mut vm_snapshots: std::collections::HashMap<String, Vec<_>> = std::collections::HashMap::new();
+        let mut vm_snapshots: std::collections::HashMap<String, Vec<_>> =
+            std::collections::HashMap::new();
         for snapshot in snapshots {
             vm_snapshots
                 .entry(snapshot.vm_name.clone())

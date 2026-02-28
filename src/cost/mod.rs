@@ -1,13 +1,13 @@
 // Cost Management & Optimization - Track and optimize VM resource costs
 
+use chrono::{DateTime, Duration, Utc};
 use serde::{Deserialize, Serialize};
-use chrono::{DateTime, Utc, Duration};
 use std::collections::HashMap;
 
-pub mod tracking;
 pub mod budgets;
 pub mod optimization;
 pub mod reports;
+pub mod tracking;
 
 /// Cost configuration
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -46,41 +46,41 @@ impl Default for CostConfig {
 /// Resource pricing rates
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ResourceRates {
-    pub cpu_per_core_hour: f64,      // Cost per CPU core per hour
-    pub memory_per_gb_hour: f64,     // Cost per GB memory per hour
-    pub storage_per_gb_month: f64,   // Cost per GB storage per month
-    pub network_per_gb: f64,          // Cost per GB network transfer
-    pub snapshot_per_gb_month: f64,   // Cost per GB snapshot per month
+    pub cpu_per_core_hour: f64,     // Cost per CPU core per hour
+    pub memory_per_gb_hour: f64,    // Cost per GB memory per hour
+    pub storage_per_gb_month: f64,  // Cost per GB storage per month
+    pub network_per_gb: f64,        // Cost per GB network transfer
+    pub snapshot_per_gb_month: f64, // Cost per GB snapshot per month
 }
 
 impl ResourceRates {
     pub fn aws_like() -> Self {
         Self {
-            cpu_per_core_hour: 0.0416,        // ~$30/month per core
-            memory_per_gb_hour: 0.0052,       // ~$3.75/month per GB
-            storage_per_gb_month: 0.10,       // $0.10 per GB/month
-            network_per_gb: 0.09,             // $0.09 per GB transfer
-            snapshot_per_gb_month: 0.05,      // $0.05 per GB/month
+            cpu_per_core_hour: 0.0416,   // ~$30/month per core
+            memory_per_gb_hour: 0.0052,  // ~$3.75/month per GB
+            storage_per_gb_month: 0.10,  // $0.10 per GB/month
+            network_per_gb: 0.09,        // $0.09 per GB transfer
+            snapshot_per_gb_month: 0.05, // $0.05 per GB/month
         }
     }
 
     pub fn gcp_like() -> Self {
         Self {
-            cpu_per_core_hour: 0.0330,        // ~$24/month per core
-            memory_per_gb_hour: 0.0044,       // ~$3.20/month per GB
-            storage_per_gb_month: 0.04,       // $0.04 per GB/month
-            network_per_gb: 0.12,             // $0.12 per GB transfer
-            snapshot_per_gb_month: 0.026,     // $0.026 per GB/month
+            cpu_per_core_hour: 0.0330,    // ~$24/month per core
+            memory_per_gb_hour: 0.0044,   // ~$3.20/month per GB
+            storage_per_gb_month: 0.04,   // $0.04 per GB/month
+            network_per_gb: 0.12,         // $0.12 per GB transfer
+            snapshot_per_gb_month: 0.026, // $0.026 per GB/month
         }
     }
 
     pub fn azure_like() -> Self {
         Self {
-            cpu_per_core_hour: 0.0380,        // ~$27.50/month per core
-            memory_per_gb_hour: 0.0048,       // ~$3.50/month per GB
-            storage_per_gb_month: 0.045,      // $0.045 per GB/month
-            network_per_gb: 0.087,            // $0.087 per GB transfer
-            snapshot_per_gb_month: 0.03,      // $0.03 per GB/month
+            cpu_per_core_hour: 0.0380,   // ~$27.50/month per core
+            memory_per_gb_hour: 0.0048,  // ~$3.50/month per GB
+            storage_per_gb_month: 0.045, // $0.045 per GB/month
+            network_per_gb: 0.087,       // $0.087 per GB transfer
+            snapshot_per_gb_month: 0.03, // $0.03 per GB/month
         }
     }
 }
@@ -158,7 +158,9 @@ impl VMCost {
     }
 
     pub fn period_days(&self) -> i64 {
-        self.period_end.signed_duration_since(self.period_start).num_days()
+        self.period_end
+            .signed_duration_since(self.period_start)
+            .num_days()
     }
 }
 
@@ -185,11 +187,13 @@ impl CostCalculator {
         let mut vm_cost = VMCost::new(vm_name, namespace);
 
         vm_cost.cpu_cost = cpu_cores as f64 * self.config.rates.cpu_per_core_hour * runtime_hours;
-        vm_cost.memory_cost = memory_gb as f64 * self.config.rates.memory_per_gb_hour * runtime_hours;
+        vm_cost.memory_cost =
+            memory_gb as f64 * self.config.rates.memory_per_gb_hour * runtime_hours;
 
         // Storage is charged monthly, convert to hours
         let storage_hours = runtime_hours / 730.0; // ~730 hours per month
-        vm_cost.storage_cost = storage_gb as f64 * self.config.rates.storage_per_gb_month * storage_hours;
+        vm_cost.storage_cost =
+            storage_gb as f64 * self.config.rates.storage_per_gb_month * storage_hours;
 
         vm_cost.runtime_hours = runtime_hours;
         vm_cost.calculate_total();

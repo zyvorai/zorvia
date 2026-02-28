@@ -44,7 +44,11 @@ impl EncryptionConfig {
         key_id: impl Into<String>,
     ) -> Self {
         let name_str = name.into();
-        let id = format!("enc-{}-{}", name_str.to_lowercase().replace(' ', "-"), Utc::now().timestamp());
+        let id = format!(
+            "enc-{}-{}",
+            name_str.to_lowercase().replace(' ', "-"),
+            Utc::now().timestamp()
+        );
 
         Self {
             id,
@@ -164,7 +168,10 @@ impl EncryptionManager {
     }
 
     pub fn configs_with_rotation(&self) -> Vec<&EncryptionConfig> {
-        self.configs.values().filter(|c| c.rotation_enabled).collect()
+        self.configs
+            .values()
+            .filter(|c| c.rotation_enabled)
+            .collect()
     }
 }
 
@@ -268,9 +275,24 @@ mod tests {
     fn test_manager_configs_by_provider() {
         let mut manager = EncryptionManager::new();
 
-        manager.add_config(EncryptionConfig::new("c1", EncryptionAlgorithm::AES256GCM, EncryptionProvider::AwsKms, "k1"));
-        manager.add_config(EncryptionConfig::new("c2", EncryptionAlgorithm::AES256GCM, EncryptionProvider::Local, "k2"));
-        manager.add_config(EncryptionConfig::new("c3", EncryptionAlgorithm::AES256GCM, EncryptionProvider::AwsKms, "k3"));
+        manager.add_config(EncryptionConfig::new(
+            "c1",
+            EncryptionAlgorithm::AES256GCM,
+            EncryptionProvider::AwsKms,
+            "k1",
+        ));
+        manager.add_config(EncryptionConfig::new(
+            "c2",
+            EncryptionAlgorithm::AES256GCM,
+            EncryptionProvider::Local,
+            "k2",
+        ));
+        manager.add_config(EncryptionConfig::new(
+            "c3",
+            EncryptionAlgorithm::AES256GCM,
+            EncryptionProvider::AwsKms,
+            "k3",
+        ));
 
         let aws_configs = manager.configs_by_provider(&EncryptionProvider::AwsKms);
         assert_eq!(aws_configs.len(), 2);
@@ -280,9 +302,24 @@ mod tests {
     fn test_manager_configs_by_algorithm() {
         let mut manager = EncryptionManager::new();
 
-        manager.add_config(EncryptionConfig::new("c1", EncryptionAlgorithm::AES256GCM, EncryptionProvider::Local, "k1"));
-        manager.add_config(EncryptionConfig::new("c2", EncryptionAlgorithm::RSA2048, EncryptionProvider::Local, "k2"));
-        manager.add_config(EncryptionConfig::new("c3", EncryptionAlgorithm::AES256GCM, EncryptionProvider::Local, "k3"));
+        manager.add_config(EncryptionConfig::new(
+            "c1",
+            EncryptionAlgorithm::AES256GCM,
+            EncryptionProvider::Local,
+            "k1",
+        ));
+        manager.add_config(EncryptionConfig::new(
+            "c2",
+            EncryptionAlgorithm::RSA2048,
+            EncryptionProvider::Local,
+            "k2",
+        ));
+        manager.add_config(EncryptionConfig::new(
+            "c3",
+            EncryptionAlgorithm::AES256GCM,
+            EncryptionProvider::Local,
+            "k3",
+        ));
 
         let aes_configs = manager.configs_by_algorithm(&EncryptionAlgorithm::AES256GCM);
         assert_eq!(aes_configs.len(), 2);
@@ -293,10 +330,20 @@ mod tests {
         let mut manager = EncryptionManager::new();
 
         manager.add_config(
-            EncryptionConfig::new("c1", EncryptionAlgorithm::AES256GCM, EncryptionProvider::Local, "k1")
-                .enable_rotation(30)
+            EncryptionConfig::new(
+                "c1",
+                EncryptionAlgorithm::AES256GCM,
+                EncryptionProvider::Local,
+                "k1",
+            )
+            .enable_rotation(30),
         );
-        manager.add_config(EncryptionConfig::new("c2", EncryptionAlgorithm::AES256GCM, EncryptionProvider::Local, "k2"));
+        manager.add_config(EncryptionConfig::new(
+            "c2",
+            EncryptionAlgorithm::AES256GCM,
+            EncryptionProvider::Local,
+            "k2",
+        ));
 
         let with_rotation = manager.configs_with_rotation();
         assert_eq!(with_rotation.len(), 1);
@@ -304,7 +351,10 @@ mod tests {
 
     #[test]
     fn test_encryption_algorithm_equality() {
-        assert_eq!(EncryptionAlgorithm::AES256GCM, EncryptionAlgorithm::AES256GCM);
+        assert_eq!(
+            EncryptionAlgorithm::AES256GCM,
+            EncryptionAlgorithm::AES256GCM
+        );
         assert_ne!(EncryptionAlgorithm::AES256GCM, EncryptionAlgorithm::RSA2048);
     }
 

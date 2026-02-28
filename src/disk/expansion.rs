@@ -2,8 +2,8 @@
 
 use super::DiskConfig;
 use anyhow::Result;
-use serde::{Deserialize, Serialize};
 use chrono::{DateTime, Utc};
+use serde::{Deserialize, Serialize};
 
 /// Expansion status
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
@@ -203,7 +203,11 @@ impl DiskExpansion {
         if total_minutes < 60 {
             format!("~{} minutes", total_minutes)
         } else {
-            format!("~{} hours {} minutes", total_minutes / 60, total_minutes % 60)
+            format!(
+                "~{} hours {} minutes",
+                total_minutes / 60,
+                total_minutes % 60
+            )
         }
     }
 
@@ -223,8 +227,7 @@ mod tests {
 
     #[test]
     fn test_expansion_plan_creation() {
-        let config = DiskConfig::new("disk1", "my-pvc")
-            .with_sizes("20Gi", "40Gi");
+        let config = DiskConfig::new("disk1", "my-pvc").with_sizes("20Gi", "40Gi");
 
         let plan = ExpansionPlan::new("test-vm", &config);
 
@@ -237,8 +240,7 @@ mod tests {
 
     #[test]
     fn test_expansion_progress() {
-        let config = DiskConfig::new("disk1", "my-pvc")
-            .with_sizes("20Gi", "40Gi");
+        let config = DiskConfig::new("disk1", "my-pvc").with_sizes("20Gi", "40Gi");
 
         let mut plan = ExpansionPlan::new("test-vm", &config);
 

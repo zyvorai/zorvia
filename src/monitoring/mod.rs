@@ -1,12 +1,12 @@
 // VM Performance Monitoring & Analytics - Real-time resource tracking
 // This feature provides operational insights and capacity planning
 
-pub mod metrics;
 pub mod analyzer;
+pub mod metrics;
 pub mod reporter;
 
-pub use metrics::{VMMetrics, MetricsCollector, ResourceUsage};
-pub use analyzer::{PerformanceAnalyzer, PerformanceReport, Bottleneck};
+pub use analyzer::{Bottleneck, PerformanceAnalyzer, PerformanceReport};
+pub use metrics::{MetricsCollector, ResourceUsage, VMMetrics};
 pub use reporter::{MonitoringReporter, ReportFormat};
 
 use serde::{Deserialize, Serialize};
@@ -76,12 +76,12 @@ impl Default for MonitoringConfig {
 /// Alert thresholds for resource usage
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AlertThresholds {
-    pub cpu_warning: f64,      // Percentage
-    pub cpu_critical: f64,     // Percentage
-    pub memory_warning: f64,   // Percentage
-    pub memory_critical: f64,  // Percentage
-    pub disk_warning: f64,     // Percentage
-    pub disk_critical: f64,    // Percentage
+    pub cpu_warning: f64,     // Percentage
+    pub cpu_critical: f64,    // Percentage
+    pub memory_warning: f64,  // Percentage
+    pub memory_critical: f64, // Percentage
+    pub disk_warning: f64,    // Percentage
+    pub disk_critical: f64,   // Percentage
 }
 
 impl Default for AlertThresholds {

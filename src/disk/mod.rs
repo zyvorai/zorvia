@@ -2,12 +2,12 @@
 // This feature provides comprehensive disk management for VMs
 
 pub mod expansion;
-pub mod scripts;
 pub mod health;
+pub mod scripts;
 
 pub use expansion::{DiskExpansion, ExpansionPlan, ExpansionStatus};
-pub use scripts::{ExpansionScript, ScriptGenerator, FilesystemType};
 pub use health::{DiskHealth, DiskHealthCheck, DiskUsageAlert};
+pub use scripts::{ExpansionScript, FilesystemType, ScriptGenerator};
 
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;

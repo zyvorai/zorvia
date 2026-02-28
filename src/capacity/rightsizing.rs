@@ -129,7 +129,10 @@ impl RightsizingManager {
             .collect()
     }
 
-    pub fn by_resource_type(&self, resource_type: &ResourceType) -> Vec<&RightsizingRecommendation> {
+    pub fn by_resource_type(
+        &self,
+        resource_type: &ResourceType,
+    ) -> Vec<&RightsizingRecommendation> {
         self.recommendations
             .values()
             .filter(|r| &r.resource_type == resource_type)
@@ -144,7 +147,10 @@ impl RightsizingManager {
     }
 
     pub fn total_monthly_savings(&self) -> f64 {
-        self.recommendations.values().map(|r| r.monthly_savings).sum()
+        self.recommendations
+            .values()
+            .map(|r| r.monthly_savings)
+            .sum()
     }
 
     pub fn total_annual_savings(&self) -> f64 {
@@ -240,7 +246,8 @@ mod tests {
         let rec1 = RightsizingRecommendation::new("vm-9", ResourceType::CPU, 8.0, 4.0, 25.0);
         assert!(rec1.is_significant()); // 50% change
 
-        let rec2 = RightsizingRecommendation::new("vm-10", ResourceType::Memory, 100.0, 105.0, 60.0);
+        let rec2 =
+            RightsizingRecommendation::new("vm-10", ResourceType::Memory, 100.0, 105.0, 60.0);
         assert!(!rec2.is_significant()); // 5% change
     }
 
@@ -274,9 +281,27 @@ mod tests {
     fn test_manager_by_action() {
         let mut manager = RightsizingManager::new();
 
-        manager.add_recommendation(RightsizingRecommendation::new("vm-1", ResourceType::CPU, 8.0, 4.0, 30.0));
-        manager.add_recommendation(RightsizingRecommendation::new("vm-2", ResourceType::Memory, 16.0, 32.0, 85.0));
-        manager.add_recommendation(RightsizingRecommendation::new("vm-3", ResourceType::CPU, 4.0, 2.0, 25.0));
+        manager.add_recommendation(RightsizingRecommendation::new(
+            "vm-1",
+            ResourceType::CPU,
+            8.0,
+            4.0,
+            30.0,
+        ));
+        manager.add_recommendation(RightsizingRecommendation::new(
+            "vm-2",
+            ResourceType::Memory,
+            16.0,
+            32.0,
+            85.0,
+        ));
+        manager.add_recommendation(RightsizingRecommendation::new(
+            "vm-3",
+            ResourceType::CPU,
+            4.0,
+            2.0,
+            25.0,
+        ));
 
         let downsize = manager.by_action(&RightsizingAction::Downsize);
         assert_eq!(downsize.len(), 2);
@@ -289,9 +314,27 @@ mod tests {
     fn test_manager_by_resource_type() {
         let mut manager = RightsizingManager::new();
 
-        manager.add_recommendation(RightsizingRecommendation::new("vm-1", ResourceType::CPU, 8.0, 4.0, 30.0));
-        manager.add_recommendation(RightsizingRecommendation::new("vm-2", ResourceType::Memory, 16.0, 8.0, 40.0));
-        manager.add_recommendation(RightsizingRecommendation::new("vm-3", ResourceType::CPU, 4.0, 2.0, 25.0));
+        manager.add_recommendation(RightsizingRecommendation::new(
+            "vm-1",
+            ResourceType::CPU,
+            8.0,
+            4.0,
+            30.0,
+        ));
+        manager.add_recommendation(RightsizingRecommendation::new(
+            "vm-2",
+            ResourceType::Memory,
+            16.0,
+            8.0,
+            40.0,
+        ));
+        manager.add_recommendation(RightsizingRecommendation::new(
+            "vm-3",
+            ResourceType::CPU,
+            4.0,
+            2.0,
+            25.0,
+        ));
 
         let cpu = manager.by_resource_type(&ResourceType::CPU);
         assert_eq!(cpu.len(), 2);
@@ -301,9 +344,27 @@ mod tests {
     fn test_manager_significant_changes() {
         let mut manager = RightsizingManager::new();
 
-        manager.add_recommendation(RightsizingRecommendation::new("vm-1", ResourceType::CPU, 8.0, 4.0, 30.0)); // 50% change
-        manager.add_recommendation(RightsizingRecommendation::new("vm-2", ResourceType::Memory, 100.0, 102.0, 60.0)); // 2% change
-        manager.add_recommendation(RightsizingRecommendation::new("vm-3", ResourceType::Storage, 1000.0, 800.0, 55.0)); // 20% change
+        manager.add_recommendation(RightsizingRecommendation::new(
+            "vm-1",
+            ResourceType::CPU,
+            8.0,
+            4.0,
+            30.0,
+        )); // 50% change
+        manager.add_recommendation(RightsizingRecommendation::new(
+            "vm-2",
+            ResourceType::Memory,
+            100.0,
+            102.0,
+            60.0,
+        )); // 2% change
+        manager.add_recommendation(RightsizingRecommendation::new(
+            "vm-3",
+            ResourceType::Storage,
+            1000.0,
+            800.0,
+            55.0,
+        )); // 20% change
 
         let significant = manager.significant_changes();
         assert_eq!(significant.len(), 2);
@@ -334,8 +395,20 @@ mod tests {
     fn test_manager_downsize_recommendations() {
         let mut manager = RightsizingManager::new();
 
-        manager.add_recommendation(RightsizingRecommendation::new("vm-1", ResourceType::CPU, 8.0, 4.0, 30.0));
-        manager.add_recommendation(RightsizingRecommendation::new("vm-2", ResourceType::Memory, 16.0, 32.0, 85.0));
+        manager.add_recommendation(RightsizingRecommendation::new(
+            "vm-1",
+            ResourceType::CPU,
+            8.0,
+            4.0,
+            30.0,
+        ));
+        manager.add_recommendation(RightsizingRecommendation::new(
+            "vm-2",
+            ResourceType::Memory,
+            16.0,
+            32.0,
+            85.0,
+        ));
 
         let downsize = manager.downsize_recommendations();
         assert_eq!(downsize.len(), 1);
@@ -345,9 +418,27 @@ mod tests {
     fn test_manager_upsize_recommendations() {
         let mut manager = RightsizingManager::new();
 
-        manager.add_recommendation(RightsizingRecommendation::new("vm-1", ResourceType::CPU, 8.0, 4.0, 30.0));
-        manager.add_recommendation(RightsizingRecommendation::new("vm-2", ResourceType::Memory, 16.0, 32.0, 85.0));
-        manager.add_recommendation(RightsizingRecommendation::new("vm-3", ResourceType::CPU, 2.0, 4.0, 95.0));
+        manager.add_recommendation(RightsizingRecommendation::new(
+            "vm-1",
+            ResourceType::CPU,
+            8.0,
+            4.0,
+            30.0,
+        ));
+        manager.add_recommendation(RightsizingRecommendation::new(
+            "vm-2",
+            ResourceType::Memory,
+            16.0,
+            32.0,
+            85.0,
+        ));
+        manager.add_recommendation(RightsizingRecommendation::new(
+            "vm-3",
+            ResourceType::CPU,
+            2.0,
+            4.0,
+            95.0,
+        ));
 
         let upsize = manager.upsize_recommendations();
         assert_eq!(upsize.len(), 2);

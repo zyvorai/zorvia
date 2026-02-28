@@ -16,9 +16,17 @@ pub struct TimeoutPolicy {
 }
 
 impl TimeoutPolicy {
-    pub fn new(name: impl Into<String>, namespace: impl Into<String>, service: impl Into<String>) -> Self {
+    pub fn new(
+        name: impl Into<String>,
+        namespace: impl Into<String>,
+        service: impl Into<String>,
+    ) -> Self {
         let name_str = name.into();
-        let id = format!("tp-{}-{}", name_str.to_lowercase().replace(' ', "-"), Utc::now().timestamp());
+        let id = format!(
+            "tp-{}-{}",
+            name_str.to_lowercase().replace(' ', "-"),
+            Utc::now().timestamp()
+        );
 
         Self {
             id,
@@ -99,9 +107,17 @@ impl std::fmt::Display for RetryCondition {
 }
 
 impl RetryPolicy {
-    pub fn new(name: impl Into<String>, namespace: impl Into<String>, service: impl Into<String>) -> Self {
+    pub fn new(
+        name: impl Into<String>,
+        namespace: impl Into<String>,
+        service: impl Into<String>,
+    ) -> Self {
         let name_str = name.into();
-        let id = format!("rp-{}-{}", name_str.to_lowercase().replace(' ', "-"), Utc::now().timestamp());
+        let id = format!(
+            "rp-{}-{}",
+            name_str.to_lowercase().replace(' ', "-"),
+            Utc::now().timestamp()
+        );
 
         Self {
             id,
@@ -148,9 +164,17 @@ pub struct RateLimitPolicy {
 }
 
 impl RateLimitPolicy {
-    pub fn new(name: impl Into<String>, namespace: impl Into<String>, service: impl Into<String>) -> Self {
+    pub fn new(
+        name: impl Into<String>,
+        namespace: impl Into<String>,
+        service: impl Into<String>,
+    ) -> Self {
         let name_str = name.into();
-        let id = format!("rl-{}-{}", name_str.to_lowercase().replace(' ', "-"), Utc::now().timestamp());
+        let id = format!(
+            "rl-{}-{}",
+            name_str.to_lowercase().replace(' ', "-"),
+            Utc::now().timestamp()
+        );
 
         Self {
             id,
@@ -186,9 +210,17 @@ pub struct ConnectionPoolPolicy {
 }
 
 impl ConnectionPoolPolicy {
-    pub fn new(name: impl Into<String>, namespace: impl Into<String>, service: impl Into<String>) -> Self {
+    pub fn new(
+        name: impl Into<String>,
+        namespace: impl Into<String>,
+        service: impl Into<String>,
+    ) -> Self {
         let name_str = name.into();
-        let id = format!("cp-{}-{}", name_str.to_lowercase().replace(' ', "-"), Utc::now().timestamp());
+        let id = format!(
+            "cp-{}-{}",
+            name_str.to_lowercase().replace(' ', "-"),
+            Utc::now().timestamp()
+        );
 
         Self {
             id,
@@ -352,7 +384,10 @@ mod tests {
     #[test]
     fn test_retry_condition_display() {
         assert_eq!(RetryCondition::Http5xx.to_string(), "5xx");
-        assert_eq!(RetryCondition::ConnectFailure.to_string(), "connect-failure");
+        assert_eq!(
+            RetryCondition::ConnectFailure.to_string(),
+            "connect-failure"
+        );
         assert_eq!(RetryCondition::Unavailable.to_string(), "unavailable");
     }
 
@@ -409,8 +444,7 @@ mod tests {
 
     #[test]
     fn test_rate_limit_builder() {
-        let policy = RateLimitPolicy::new("ratelimit", "default", "service")
-            .with_rate(1000, 2000);
+        let policy = RateLimitPolicy::new("ratelimit", "default", "service").with_rate(1000, 2000);
 
         assert_eq!(policy.requests_per_second, 1000);
         assert_eq!(policy.burst_size, 2000);

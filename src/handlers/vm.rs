@@ -1,8 +1,8 @@
-use anyhow::{anyhow, Result};
 use crate::config::{validate_vm_config, VMConfig, VMConfigBuilder};
 use crate::output::{format_output, OutputFormat};
 use crate::templates::TEMPLATES;
 use crate::tui::colors::cli as color;
+use anyhow::{anyhow, Result};
 
 fn load_or_create_config(
     name: &str,
@@ -54,8 +54,8 @@ pub async fn handle_create(
     output: String,
     namespace: &str,
 ) -> Result<()> {
-    use std::fs;
     use crate::kube;
+    use std::fs;
 
     let mut config = load_or_create_config(&name, namespace, template, from_file)?;
 
@@ -95,25 +95,35 @@ pub async fn handle_create(
 
         // Create the VM via Kubernetes API
         match kube::KubeClient::new().await {
-            Ok(client) => {
-                match client.create_vm(&config).await {
-                    Ok(_vm) => {
-                        println!("{}", color::success(&format!("VM '{}' created successfully", name)));
-                        println!("  Namespace: {}", color::namespace(&config.namespace));
-                        println!("  Status: {} (use '{}' to start)",
-                            color::vm_status("Stopped"),
-                            color::command(&format!("zorvia start {}", name))
-                        );
-                    }
-                    Err(e) => {
-                        eprintln!("{}", color::error(&format!("Failed to create VM: {}", e)));
-                        std::process::exit(1);
-                    }
+            Ok(client) => match client.create_vm(&config).await {
+                Ok(_vm) => {
+                    println!(
+                        "{}",
+                        color::success(&format!("VM '{}' created successfully", name))
+                    );
+                    println!("  Namespace: {}", color::namespace(&config.namespace));
+                    println!(
+                        "  Status: {} (use '{}' to start)",
+                        color::vm_status("Stopped"),
+                        color::command(&format!("zorvia start {}", name))
+                    );
                 }
-            }
+                Err(e) => {
+                    eprintln!("{}", color::error(&format!("Failed to create VM: {}", e)));
+                    std::process::exit(1);
+                }
+            },
             Err(e) => {
-                eprintln!("{}", color::error(&format!("Failed to connect to Kubernetes: {}", e)));
-                eprintln!("  {}", color::muted("Make sure kubectl is configured and you have access to the cluster"));
+                eprintln!(
+                    "{}",
+                    color::error(&format!("Failed to connect to Kubernetes: {}", e))
+                );
+                eprintln!(
+                    "  {}",
+                    color::muted(
+                        "Make sure kubectl is configured and you have access to the cluster"
+                    )
+                );
                 std::process::exit(1);
             }
         }
@@ -121,11 +131,7 @@ pub async fn handle_create(
     Ok(())
 }
 
-pub async fn handle_list(
-    all_namespaces: bool,
-    output: String,
-    namespace: &str,
-) -> Result<()> {
+pub async fn handle_list(all_namespaces: bool, output: String, namespace: &str) -> Result<()> {
     use crate::kube;
     use crate::output;
 
@@ -155,7 +161,8 @@ pub async fn handle_list(
             use crate::tui::colors::vm_status_symbol;
 
             // Print header with theme colors
-            println!("{:<30} {:<20} {:<15} {:<10}",
+            println!(
+                "{:<30} {:<20} {:<15} {:<10}",
                 color::header("NAME"),
                 color::header("NAMESPACE"),
                 color::header("STATUS"),
@@ -178,12 +185,11 @@ pub async fn handle_list(
                 };
 
                 // Format with theme colors
-                let status_display = format!("{} {}",
-                    vm_status_symbol(status),
-                    color::vm_status(status)
-                );
+                let status_display =
+                    format!("{} {}", vm_status_symbol(status), color::vm_status(status));
 
-                println!("{:<30} {:<20} {:<25} {:<10}",
+                println!(
+                    "{:<30} {:<20} {:<25} {:<10}",
                     color::vm_name(name),
                     color::namespace(namespace),
                     status_display,
@@ -195,11 +201,7 @@ pub async fn handle_list(
     Ok(())
 }
 
-pub async fn handle_get(
-    name: String,
-    output: String,
-    namespace: &str,
-) -> Result<()> {
+pub async fn handle_get(name: String, output: String, namespace: &str) -> Result<()> {
     use crate::kube;
 
     let client = kube::KubeClient::new().await?;
@@ -213,11 +215,7 @@ pub async fn handle_get(
     Ok(())
 }
 
-pub async fn handle_delete(
-    name: String,
-    yes: bool,
-    namespace: &str,
-) -> Result<()> {
+pub async fn handle_delete(name: String, yes: bool, namespace: &str) -> Result<()> {
     use crate::kube;
 
     let client = kube::KubeClient::new().await?;
@@ -237,44 +235,47 @@ pub async fn handle_delete(
     }
 
     client.delete_vm(namespace, &name).await?;
-    println!("{}", color::success(&format!("VM '{}' deleted successfully", name)));
+    println!(
+        "{}",
+        color::success(&format!("VM '{}' deleted successfully", name))
+    );
     Ok(())
 }
 
-pub async fn handle_start(
-    name: String,
-    namespace: &str,
-) -> Result<()> {
+pub async fn handle_start(name: String, namespace: &str) -> Result<()> {
     use crate::kube;
 
     let client = kube::KubeClient::new().await?;
     client.start_vm(namespace, &name).await?;
-    println!("{}", color::success(&format!("VM '{}' started successfully", name)));
+    println!(
+        "{}",
+        color::success(&format!("VM '{}' started successfully", name))
+    );
     Ok(())
 }
 
-pub async fn handle_stop(
-    name: String,
-    namespace: &str,
-) -> Result<()> {
+pub async fn handle_stop(name: String, namespace: &str) -> Result<()> {
     use crate::kube;
 
     let client = kube::KubeClient::new().await?;
     client.stop_vm(namespace, &name).await?;
-    println!("{}", color::success(&format!("VM '{}' stopped successfully", name)));
+    println!(
+        "{}",
+        color::success(&format!("VM '{}' stopped successfully", name))
+    );
     Ok(())
 }
 
-pub async fn handle_restart(
-    name: String,
-    namespace: &str,
-) -> Result<()> {
+pub async fn handle_restart(name: String, namespace: &str) -> Result<()> {
     use crate::kube;
 
     let client = kube::KubeClient::new().await?;
     println!("{}", color::info(&format!("Restarting VM '{}'...", name)));
     client.restart_vm(namespace, &name).await?;
-    println!("{}", color::success(&format!("VM '{}' restarted successfully", name)));
+    println!(
+        "{}",
+        color::success(&format!("VM '{}' restarted successfully", name))
+    );
     Ok(())
 }
 
@@ -291,8 +292,8 @@ pub fn handle_generate(
     kubevirt: bool,
     namespace: &str,
 ) -> Result<()> {
-    use std::fs;
     use crate::kube;
+    use std::fs;
 
     let mut config = load_or_create_config(&name, namespace, template, from_file)?;
 
@@ -341,10 +342,7 @@ pub fn handle_templates() -> Result<()> {
     Ok(())
 }
 
-pub fn handle_template(
-    name: String,
-    output: String,
-) -> Result<()> {
+pub fn handle_template(name: String, output: String) -> Result<()> {
     let config = TEMPLATES
         .get(&name)
         .ok_or_else(|| anyhow!("Template not found: {}", name))?;
@@ -357,9 +355,7 @@ pub fn handle_template(
     Ok(())
 }
 
-pub fn handle_validate(
-    file: String,
-) -> Result<()> {
+pub fn handle_validate(file: String) -> Result<()> {
     use std::fs;
 
     let content = fs::read_to_string(&file)?;
@@ -422,17 +418,34 @@ pub async fn handle_clone(
 
     let client = kube::KubeClient::new().await?;
 
-    println!("{}", color::info(&format!("Cloning VM '{}' to '{}'...", source, target)));
+    println!(
+        "{}",
+        color::info(&format!("Cloning VM '{}' to '{}'...", source, target))
+    );
 
     // Get source VM
     let source_vm = client.get_vm(namespace, &source).await?;
 
     // Convert to VMConfig
-    let cpu_ref = source_vm.spec.template.spec.domain.cpu.as_ref()
+    let cpu_ref = source_vm
+        .spec
+        .template
+        .spec
+        .domain
+        .cpu
+        .as_ref()
         .ok_or_else(|| anyhow!("Source VM has no CPU configuration"))?;
-    let mem_ref = source_vm.spec.template.spec.domain.memory.as_ref()
+    let mem_ref = source_vm
+        .spec
+        .template
+        .spec
+        .domain
+        .memory
+        .as_ref()
         .ok_or_else(|| anyhow!("Source VM has no memory configuration"))?;
-    let guest_mem = mem_ref.guest.as_ref()
+    let guest_mem = mem_ref
+        .guest
+        .as_ref()
         .ok_or_else(|| anyhow!("Source VM has no guest memory configuration"))?;
 
     let mut config = VMConfigBuilder::new(&target)
@@ -456,7 +469,10 @@ pub async fn handle_clone(
 
     // Create the cloned VM
     client.create_vm(&config).await?;
-    println!("{}", color::success(&format!("VM '{}' cloned successfully", target)));
+    println!(
+        "{}",
+        color::success(&format!("VM '{}' cloned successfully", target))
+    );
 
     if start {
         println!("{}", color::info(&format!("Starting VM '{}'...", target)));
@@ -485,11 +501,21 @@ pub async fn handle_resources(
     summary.display();
 
     println!();
-    println!("{}", color::header("╔═══════════════════════════════════════════════════════════════╗"));
-    println!("{}", color::header("║                   VM Resource Details                         ║"));
-    println!("{}", color::header("╚═══════════════════════════════════════════════════════════════╝"));
+    println!(
+        "{}",
+        color::header("╔═══════════════════════════════════════════════════════════════╗")
+    );
+    println!(
+        "{}",
+        color::header("║                   VM Resource Details                         ║")
+    );
+    println!(
+        "{}",
+        color::header("╚═══════════════════════════════════════════════════════════════╝")
+    );
     println!();
-    println!("{:<30} {:<15} {:<10} {:<10}",
+    println!(
+        "{:<30} {:<15} {:<10} {:<10}",
         color::header("NAME"),
         color::header("NAMESPACE"),
         color::header("CPU"),
@@ -532,7 +558,8 @@ pub async fn handle_resources(
     }
 
     for (name, namespace, cpu, memory) in vm_infos {
-        println!("{:<30} {:<15} {:<10} {:<10}",
+        println!(
+            "{:<30} {:<15} {:<10} {:<10}",
             color::vm_name(name),
             color::namespace(namespace),
             color::resource(&cpu.to_string(), "cpu"),
@@ -548,9 +575,9 @@ pub async fn handle_export(
     kubevirt: bool,
     namespace: &str,
 ) -> Result<()> {
-    use std::fs;
     use crate::kube;
     use crate::output;
+    use std::fs;
 
     let client = kube::KubeClient::new().await?;
     let vm = client.get_vm(namespace, &name).await?;
@@ -565,32 +592,39 @@ pub async fn handle_export(
 
     if let Some(output_file) = output {
         fs::write(&output_file, &manifest)?;
-        println!("{}", color::success(&format!("VM exported to: {}", color::path(&output_file))));
+        println!(
+            "{}",
+            color::success(&format!("VM exported to: {}", color::path(&output_file)))
+        );
     } else {
         println!("{}", manifest);
     }
     Ok(())
 }
 
-pub async fn handle_wizard(
-    name: Option<String>,
-    namespace: &str,
-) -> Result<()> {
+pub async fn handle_wizard(name: Option<String>, namespace: &str) -> Result<()> {
     use crate::kube;
     use dialoguer::{Input, Select};
 
-    println!("{}", color::header("╔═══════════════════════════════════════════════════════════════╗"));
-    println!("{}", color::header("║           Interactive VM Creation Wizard                      ║"));
-    println!("{}", color::header("╚═══════════════════════════════════════════════════════════════╝"));
+    println!(
+        "{}",
+        color::header("╔═══════════════════════════════════════════════════════════════╗")
+    );
+    println!(
+        "{}",
+        color::header("║           Interactive VM Creation Wizard                      ║")
+    );
+    println!(
+        "{}",
+        color::header("╚═══════════════════════════════════════════════════════════════╝")
+    );
     println!();
 
     // VM Name
     let vm_name: String = if let Some(n) = name {
         n
     } else {
-        Input::new()
-            .with_prompt("VM Name")
-            .interact_text()?
+        Input::new().with_prompt("VM Name").interact_text()?
     };
 
     // Template selection
@@ -625,19 +659,40 @@ pub async fn handle_wizard(
         .with_prompt("Start VM immediately?")
         .items(&["No", "Yes"])
         .default(0)
-        .interact()? == 1;
+        .interact()?
+        == 1;
 
     println!();
-    println!("{}", color::info("Creating VM with the following configuration:"));
+    println!(
+        "{}",
+        color::info("Creating VM with the following configuration:")
+    );
     println!("  {:<12} {}", color::label("Name:"), color::value(&vm_name));
-    println!("  {:<12} {}", color::label("Template:"), color::value(template_name));
-    println!("  {:<12} {}", color::label("CPU:"), color::resource(&format!("{} cores", cpu_cores), "cpu"));
-    println!("  {:<12} {}", color::label("Memory:"), color::resource(&memory, "memory"));
-    println!("  {:<12} {}", color::label("Disk:"), color::resource(&disk_size, "disk"));
+    println!(
+        "  {:<12} {}",
+        color::label("Template:"),
+        color::value(template_name)
+    );
+    println!(
+        "  {:<12} {}",
+        color::label("CPU:"),
+        color::resource(&format!("{} cores", cpu_cores), "cpu")
+    );
+    println!(
+        "  {:<12} {}",
+        color::label("Memory:"),
+        color::resource(&memory, "memory")
+    );
+    println!(
+        "  {:<12} {}",
+        color::label("Disk:"),
+        color::resource(&disk_size, "disk")
+    );
     println!();
 
     // Create VM
-    let mut config = TEMPLATES.get(template_name)
+    let mut config = TEMPLATES
+        .get(template_name)
         .ok_or_else(|| anyhow!("Unknown template: {}", template_name))?;
     config.name = vm_name.clone();
     config.namespace = namespace.to_string();
@@ -651,7 +706,10 @@ pub async fn handle_wizard(
 
     let client = kube::KubeClient::new().await?;
     client.create_vm(&config).await?;
-    println!("{}", color::success(&format!("VM '{}' created successfully", vm_name)));
+    println!(
+        "{}",
+        color::success(&format!("VM '{}' created successfully", vm_name))
+    );
 
     if start_vm {
         client.start_vm(namespace, &vm_name).await?;
@@ -671,7 +729,13 @@ pub async fn handle_batch(
     use crate::utils;
     use indicatif::{ProgressBar, ProgressStyle};
 
-    println!("{}", color::info(&format!("Loading batch configuration from: {}", color::path(&file))));
+    println!(
+        "{}",
+        color::info(&format!(
+            "Loading batch configuration from: {}",
+            color::path(&file)
+        ))
+    );
     let mut batch = utils::BatchConfig::from_file(&file)?;
 
     // Apply namespace override
@@ -681,13 +745,17 @@ pub async fn handle_batch(
         batch.apply_namespace(namespace);
     }
 
-    println!("{}", color::info(&format!("Found {} VMs to create", batch.vms.len())));
+    println!(
+        "{}",
+        color::info(&format!("Found {} VMs to create", batch.vms.len()))
+    );
     println!();
 
     if dry_run {
         println!("{}", color::info("Dry run - VMs that would be created:"));
         for (i, vm) in batch.vms.iter().enumerate() {
-            println!("  {}. {} (namespace: {}, {} cores, {})",
+            println!(
+                "  {}. {} (namespace: {}, {} cores, {})",
                 color::value(&(i + 1).to_string()),
                 color::vm_name(&vm.name),
                 color::namespace(&vm.namespace),
@@ -750,16 +818,37 @@ pub async fn handle_batch(
     pb.finish_with_message("Batch creation complete");
 
     println!();
-    println!("{}", color::header("╔═══════════════════════════════════════════════════════════════╗"));
-    println!("{}", color::header("║                   Batch Summary                               ║"));
-    println!("{}", color::header("╚═══════════════════════════════════════════════════════════════╝"));
-    println!("  {:<12} {}", color::label("Total VMs:"), color::value(&batch.vms.len().to_string()));
-    println!("  {:<12} {}", color::label("Successful:"), color::success(&format!("{} ✓", success_count)));
-    println!("  {:<12} {}", color::label("Failed:"), if error_count > 0 {
-        color::error(&format!("{} ✗", error_count))
-    } else {
-        color::muted(&format!("{} ✗", error_count))
-    });
+    println!(
+        "{}",
+        color::header("╔═══════════════════════════════════════════════════════════════╗")
+    );
+    println!(
+        "{}",
+        color::header("║                   Batch Summary                               ║")
+    );
+    println!(
+        "{}",
+        color::header("╚═══════════════════════════════════════════════════════════════╝")
+    );
+    println!(
+        "  {:<12} {}",
+        color::label("Total VMs:"),
+        color::value(&batch.vms.len().to_string())
+    );
+    println!(
+        "  {:<12} {}",
+        color::label("Successful:"),
+        color::success(&format!("{} ✓", success_count))
+    );
+    println!(
+        "  {:<12} {}",
+        color::label("Failed:"),
+        if error_count > 0 {
+            color::error(&format!("{} ✗", error_count))
+        } else {
+            color::muted(&format!("{} ✗", error_count))
+        }
+    );
 
     if error_count > 0 && !continue_on_error {
         std::process::exit(1);

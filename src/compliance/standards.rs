@@ -37,7 +37,11 @@ impl ComplianceControl {
         framework: ComplianceFramework,
     ) -> Self {
         let control_id_str = control_id.into();
-        let id = format!("ctrl-{}-{}", control_id_str.to_lowercase().replace(' ', "-"), Utc::now().timestamp());
+        let id = format!(
+            "ctrl-{}-{}",
+            control_id_str.to_lowercase().replace(' ', "-"),
+            Utc::now().timestamp()
+        );
 
         Self {
             id,
@@ -162,7 +166,10 @@ impl StandardsManager {
     }
 
     pub fn compliant_controls(&self) -> Vec<&ComplianceControl> {
-        self.controls.values().filter(|c| c.is_compliant()).collect()
+        self.controls
+            .values()
+            .filter(|c| c.is_compliant())
+            .collect()
     }
 
     pub fn implementation_rate(&self) -> f64 {
@@ -214,9 +221,14 @@ mod tests {
 
     #[test]
     fn test_control_builder() {
-        let control = ComplianceControl::new("AC-2", "Account Management", "Description", ComplianceFramework::NIST)
-            .with_category("Access Control")
-            .with_severity(Severity::High);
+        let control = ComplianceControl::new(
+            "AC-2",
+            "Account Management",
+            "Description",
+            ComplianceFramework::NIST,
+        )
+        .with_category("Access Control")
+        .with_severity(Severity::High);
 
         assert_eq!(control.category, "Access Control");
         assert_eq!(control.severity, Severity::High);
@@ -224,7 +236,12 @@ mod tests {
 
     #[test]
     fn test_control_mark_implemented() {
-        let mut control = ComplianceControl::new("AC-3", "Access Enforcement", "Desc", ComplianceFramework::NIST);
+        let mut control = ComplianceControl::new(
+            "AC-3",
+            "Access Enforcement",
+            "Desc",
+            ComplianceFramework::NIST,
+        );
 
         assert!(!control.implemented);
         assert_eq!(control.status, ComplianceStatus::UnderReview);
@@ -237,7 +254,12 @@ mod tests {
 
     #[test]
     fn test_control_add_test_result_passed() {
-        let mut control = ComplianceControl::new("AC-4", "Information Flow", "Desc", ComplianceFramework::NIST);
+        let mut control = ComplianceControl::new(
+            "AC-4",
+            "Information Flow",
+            "Desc",
+            ComplianceFramework::NIST,
+        );
 
         control.add_test_result(TestResult::new(true, 95.0));
 
@@ -249,7 +271,12 @@ mod tests {
 
     #[test]
     fn test_control_add_test_result_failed() {
-        let mut control = ComplianceControl::new("AC-5", "Separation of Duties", "Desc", ComplianceFramework::NIST);
+        let mut control = ComplianceControl::new(
+            "AC-5",
+            "Separation of Duties",
+            "Desc",
+            ComplianceFramework::NIST,
+        );
 
         control.add_test_result(TestResult::new(false, 45.0));
 
@@ -282,7 +309,8 @@ mod tests {
     fn test_standards_manager() {
         let mut manager = StandardsManager::new();
 
-        let control = ComplianceControl::new("AC-1", "Access Control", "Desc", ComplianceFramework::NIST);
+        let control =
+            ComplianceControl::new("AC-1", "Access Control", "Desc", ComplianceFramework::NIST);
         let id = manager.add_control(control);
 
         assert_eq!(manager.control_count(), 1);
@@ -293,9 +321,24 @@ mod tests {
     fn test_manager_by_framework() {
         let mut manager = StandardsManager::new();
 
-        manager.add_control(ComplianceControl::new("AC-1", "AC1", "D", ComplianceFramework::NIST));
-        manager.add_control(ComplianceControl::new("CC1", "CC1", "D", ComplianceFramework::SOC2));
-        manager.add_control(ComplianceControl::new("AC-2", "AC2", "D", ComplianceFramework::NIST));
+        manager.add_control(ComplianceControl::new(
+            "AC-1",
+            "AC1",
+            "D",
+            ComplianceFramework::NIST,
+        ));
+        manager.add_control(ComplianceControl::new(
+            "CC1",
+            "CC1",
+            "D",
+            ComplianceFramework::SOC2,
+        ));
+        manager.add_control(ComplianceControl::new(
+            "AC-2",
+            "AC2",
+            "D",
+            ComplianceFramework::NIST,
+        ));
 
         let nist = manager.by_framework(&ComplianceFramework::NIST);
         assert_eq!(nist.len(), 2);

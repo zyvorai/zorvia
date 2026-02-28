@@ -1,7 +1,7 @@
 // Inference Serving - ML model serving and inference
 
-use serde::{Deserialize, Serialize};
 use chrono::{DateTime, Utc};
+use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
 use super::{MLFramework, WorkloadStatus};
@@ -32,7 +32,11 @@ impl InferenceEndpoint {
         framework: MLFramework,
     ) -> Self {
         let name_str = name.into();
-        let id = format!("inference-{}-{}", name_str.to_lowercase().replace(' ', "-"), Utc::now().timestamp());
+        let id = format!(
+            "inference-{}-{}",
+            name_str.to_lowercase().replace(' ', "-"),
+            Utc::now().timestamp()
+        );
 
         Self {
             id,
@@ -121,7 +125,8 @@ impl InferenceMetrics {
         }
 
         // Simple running average (in production, use proper percentile tracking)
-        self.avg_latency_ms = (self.avg_latency_ms * (self.total_requests - 1) as f64 + latency_ms) / self.total_requests as f64;
+        self.avg_latency_ms = (self.avg_latency_ms * (self.total_requests - 1) as f64 + latency_ms)
+            / self.total_requests as f64;
     }
 
     pub fn success_rate(&self) -> f64 {
@@ -174,21 +179,18 @@ impl InferenceServiceManager {
     }
 
     pub fn running_endpoints(&self) -> Vec<&InferenceEndpoint> {
-        self.endpoints.values()
-            .filter(|e| e.is_running())
-            .collect()
+        self.endpoints.values().filter(|e| e.is_running()).collect()
     }
 
     pub fn by_model(&self, model_id: &str) -> Vec<&InferenceEndpoint> {
-        self.endpoints.values()
+        self.endpoints
+            .values()
             .filter(|e| e.model_id == model_id)
             .collect()
     }
 
     pub fn with_autoscaling(&self) -> Vec<&InferenceEndpoint> {
-        self.endpoints.values()
-            .filter(|e| e.autoscaling)
-            .collect()
+        self.endpoints.values().filter(|e| e.autoscaling).collect()
     }
 
     pub fn endpoint_count(&self) -> usize {
@@ -204,7 +206,10 @@ impl InferenceServiceManager {
     }
 
     pub fn total_requests(&self) -> u64 {
-        self.endpoints.values().map(|e| e.metrics.total_requests).sum()
+        self.endpoints
+            .values()
+            .map(|e| e.metrics.total_requests)
+            .sum()
     }
 }
 
@@ -220,10 +225,11 @@ mod tests {
 
     #[test]
     fn test_inference_endpoint() {
-        let endpoint = InferenceEndpoint::new("image-classifier", "model-123", MLFramework::PyTorch)
-            .with_endpoint("http://localhost:8080/predict")
-            .with_replicas(3)
-            .with_batch_size(16);
+        let endpoint =
+            InferenceEndpoint::new("image-classifier", "model-123", MLFramework::PyTorch)
+                .with_endpoint("http://localhost:8080/predict")
+                .with_replicas(3)
+                .with_batch_size(16);
 
         assert_eq!(endpoint.name, "image-classifier");
         assert_eq!(endpoint.model_id, "model-123");
@@ -234,8 +240,9 @@ mod tests {
 
     #[test]
     fn test_endpoint_autoscaling() {
-        let endpoint = InferenceEndpoint::new("scalable-service", "model-456", MLFramework::TensorFlow)
-            .with_autoscaling(2, 10);
+        let endpoint =
+            InferenceEndpoint::new("scalable-service", "model-456", MLFramework::TensorFlow)
+                .with_autoscaling(2, 10);
 
         assert!(endpoint.autoscaling);
         assert_eq!(endpoint.min_replicas, 2);
@@ -341,9 +348,21 @@ mod tests {
     fn test_manager_by_model() {
         let mut manager = InferenceServiceManager::new();
 
-        manager.create_endpoint(InferenceEndpoint::new("endpoint1", "model-123", MLFramework::PyTorch));
-        manager.create_endpoint(InferenceEndpoint::new("endpoint2", "model-123", MLFramework::TensorFlow));
-        manager.create_endpoint(InferenceEndpoint::new("endpoint3", "model-456", MLFramework::JAX));
+        manager.create_endpoint(InferenceEndpoint::new(
+            "endpoint1",
+            "model-123",
+            MLFramework::PyTorch,
+        ));
+        manager.create_endpoint(InferenceEndpoint::new(
+            "endpoint2",
+            "model-123",
+            MLFramework::TensorFlow,
+        ));
+        manager.create_endpoint(InferenceEndpoint::new(
+            "endpoint3",
+            "model-456",
+            MLFramework::JAX,
+        ));
 
         let model_123_endpoints = manager.by_model("model-123");
         assert_eq!(model_123_endpoints.len(), 2);
@@ -355,11 +374,13 @@ mod tests {
 
         manager.create_endpoint(
             InferenceEndpoint::new("scalable", "model-1", MLFramework::PyTorch)
-                .with_autoscaling(1, 5)
+                .with_autoscaling(1, 5),
         );
-        manager.create_endpoint(
-            InferenceEndpoint::new("static", "model-2", MLFramework::TensorFlow)
-        );
+        manager.create_endpoint(InferenceEndpoint::new(
+            "static",
+            "model-2",
+            MLFramework::TensorFlow,
+        ));
 
         assert_eq!(manager.with_autoscaling().len(), 1);
     }
@@ -369,12 +390,11 @@ mod tests {
         let mut manager = InferenceServiceManager::new();
 
         manager.create_endpoint(
-            InferenceEndpoint::new("endpoint1", "model-1", MLFramework::PyTorch)
-                .with_replicas(3)
+            InferenceEndpoint::new("endpoint1", "model-1", MLFramework::PyTorch).with_replicas(3),
         );
         manager.create_endpoint(
             InferenceEndpoint::new("endpoint2", "model-2", MLFramework::TensorFlow)
-                .with_replicas(2)
+                .with_replicas(2),
         );
 
         assert_eq!(manager.total_replicas(), 5);

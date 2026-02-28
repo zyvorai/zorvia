@@ -85,7 +85,11 @@ impl CostOptimization {
         optimized_cost: f64,
     ) -> Self {
         let title_str = title.into();
-        let id = format!("opt-{}-{}", title_str.to_lowercase().replace(' ', "-"), Utc::now().timestamp_micros());
+        let id = format!(
+            "opt-{}-{}",
+            title_str.to_lowercase().replace(' ', "-"),
+            Utc::now().timestamp_micros()
+        );
 
         let monthly_savings = (current_cost - optimized_cost).max(0.0);
 
@@ -316,27 +320,23 @@ mod tests {
 
     #[test]
     fn test_estimate_with_confidence() {
-        let estimate = SavingsEstimate::new(300.0)
-            .with_confidence(0.95);
+        let estimate = SavingsEstimate::new(300.0).with_confidence(0.95);
 
         assert_eq!(estimate.confidence_level, 0.95);
     }
 
     #[test]
     fn test_estimate_confidence_clamping() {
-        let estimate1 = SavingsEstimate::new(100.0)
-            .with_confidence(1.5);
+        let estimate1 = SavingsEstimate::new(100.0).with_confidence(1.5);
         assert_eq!(estimate1.confidence_level, 1.0);
 
-        let estimate2 = SavingsEstimate::new(100.0)
-            .with_confidence(-0.2);
+        let estimate2 = SavingsEstimate::new(100.0).with_confidence(-0.2);
         assert_eq!(estimate2.confidence_level, 0.0);
     }
 
     #[test]
     fn test_estimate_with_currency() {
-        let estimate = SavingsEstimate::new(200.0)
-            .with_currency("EUR");
+        let estimate = SavingsEstimate::new(200.0).with_currency("EUR");
 
         assert_eq!(estimate.currency, "EUR");
     }
@@ -435,30 +435,65 @@ mod tests {
 
     #[test]
     fn test_optimization_is_high_priority() {
-        let opt1 = CostOptimization::new("T1", "D1", OptimizationType::RightSizing, "vm-1", 100.0, 50.0)
-            .with_priority(9);
+        let opt1 = CostOptimization::new(
+            "T1",
+            "D1",
+            OptimizationType::RightSizing,
+            "vm-1",
+            100.0,
+            50.0,
+        )
+        .with_priority(9);
         assert!(opt1.is_high_priority());
 
-        let opt2 = CostOptimization::new("T2", "D2", OptimizationType::RightSizing, "vm-2", 100.0, 50.0)
-            .with_priority(5);
+        let opt2 = CostOptimization::new(
+            "T2",
+            "D2",
+            OptimizationType::RightSizing,
+            "vm-2",
+            100.0,
+            50.0,
+        )
+        .with_priority(5);
         assert!(!opt2.is_high_priority());
     }
 
     #[test]
     fn test_optimization_is_quick_win() {
-        let opt1 = CostOptimization::new("T1", "D1", OptimizationType::UnusedResources, "vm-1", 200.0, 0.0)
-            .with_effort(ImplementationEffort::Low)
-            .with_risk(RiskLevel::Low);
+        let opt1 = CostOptimization::new(
+            "T1",
+            "D1",
+            OptimizationType::UnusedResources,
+            "vm-1",
+            200.0,
+            0.0,
+        )
+        .with_effort(ImplementationEffort::Low)
+        .with_risk(RiskLevel::Low);
         assert!(opt1.is_quick_win());
 
-        let opt2 = CostOptimization::new("T2", "D2", OptimizationType::RightSizing, "vm-2", 100.0, 80.0)
-            .with_effort(ImplementationEffort::Low)
-            .with_risk(RiskLevel::Low);
+        let opt2 = CostOptimization::new(
+            "T2",
+            "D2",
+            OptimizationType::RightSizing,
+            "vm-2",
+            100.0,
+            80.0,
+        )
+        .with_effort(ImplementationEffort::Low)
+        .with_risk(RiskLevel::Low);
         assert!(!opt2.is_quick_win()); // Low savings
 
-        let opt3 = CostOptimization::new("T3", "D3", OptimizationType::RightSizing, "vm-3", 200.0, 0.0)
-            .with_effort(ImplementationEffort::High)
-            .with_risk(RiskLevel::Low);
+        let opt3 = CostOptimization::new(
+            "T3",
+            "D3",
+            OptimizationType::RightSizing,
+            "vm-3",
+            200.0,
+            0.0,
+        )
+        .with_effort(ImplementationEffort::High)
+        .with_risk(RiskLevel::Low);
         assert!(!opt3.is_quick_win()); // High effort
     }
 
@@ -476,8 +511,8 @@ mod tests {
 
     #[test]
     fn test_reserved_instance_with_upfront() {
-        let rec = ReservedInstanceRec::new("compute", "c5.large", 100.0, 70.0, 12)
-            .with_upfront(100.0);
+        let rec =
+            ReservedInstanceRec::new("compute", "c5.large", 100.0, 70.0, 12).with_upfront(100.0);
 
         assert_eq!(rec.upfront_cost, 100.0);
         assert_eq!(rec.break_even_months, 4); // 100 / 30 = 3.33, ceil = 4
@@ -485,8 +520,8 @@ mod tests {
 
     #[test]
     fn test_reserved_instance_total_savings() {
-        let rec = ReservedInstanceRec::new("compute", "c5.large", 100.0, 70.0, 12)
-            .with_upfront(100.0);
+        let rec =
+            ReservedInstanceRec::new("compute", "c5.large", 100.0, 70.0, 12).with_upfront(100.0);
 
         // 30 * 12 - 100 = 260
         assert_eq!(rec.total_savings(), 260.0);
@@ -494,12 +529,12 @@ mod tests {
 
     #[test]
     fn test_reserved_instance_is_worthwhile() {
-        let rec1 = ReservedInstanceRec::new("compute", "c5.large", 100.0, 70.0, 12)
-            .with_upfront(100.0);
+        let rec1 =
+            ReservedInstanceRec::new("compute", "c5.large", 100.0, 70.0, 12).with_upfront(100.0);
         assert!(rec1.is_worthwhile()); // break_even: 4 months < 12 months
 
-        let rec2 = ReservedInstanceRec::new("compute", "c5.large", 100.0, 90.0, 12)
-            .with_upfront(200.0);
+        let rec2 =
+            ReservedInstanceRec::new("compute", "c5.large", 100.0, 90.0, 12).with_upfront(200.0);
         assert!(!rec2.is_worthwhile()); // break_even: 20 months > 12 months
     }
 
@@ -535,9 +570,30 @@ mod tests {
     fn test_manager_by_type() {
         let mut manager = OptimizationManager::new();
 
-        manager.add_optimization(CostOptimization::new("O1", "D1", OptimizationType::RightSizing, "vm-1", 100.0, 50.0));
-        manager.add_optimization(CostOptimization::new("O2", "D2", OptimizationType::UnusedResources, "vm-2", 200.0, 0.0));
-        manager.add_optimization(CostOptimization::new("O3", "D3", OptimizationType::RightSizing, "vm-3", 150.0, 100.0));
+        manager.add_optimization(CostOptimization::new(
+            "O1",
+            "D1",
+            OptimizationType::RightSizing,
+            "vm-1",
+            100.0,
+            50.0,
+        ));
+        manager.add_optimization(CostOptimization::new(
+            "O2",
+            "D2",
+            OptimizationType::UnusedResources,
+            "vm-2",
+            200.0,
+            0.0,
+        ));
+        manager.add_optimization(CostOptimization::new(
+            "O3",
+            "D3",
+            OptimizationType::RightSizing,
+            "vm-3",
+            150.0,
+            100.0,
+        ));
 
         let rightsizing = manager.by_type(&OptimizationType::RightSizing);
         assert_eq!(rightsizing.len(), 2);
@@ -548,12 +604,26 @@ mod tests {
         let mut manager = OptimizationManager::new();
 
         manager.add_optimization(
-            CostOptimization::new("O1", "D1", OptimizationType::RightSizing, "vm-1", 100.0, 50.0)
-                .with_priority(9)
+            CostOptimization::new(
+                "O1",
+                "D1",
+                OptimizationType::RightSizing,
+                "vm-1",
+                100.0,
+                50.0,
+            )
+            .with_priority(9),
         );
         manager.add_optimization(
-            CostOptimization::new("O2", "D2", OptimizationType::RightSizing, "vm-2", 100.0, 50.0)
-                .with_priority(5)
+            CostOptimization::new(
+                "O2",
+                "D2",
+                OptimizationType::RightSizing,
+                "vm-2",
+                100.0,
+                50.0,
+            )
+            .with_priority(5),
         );
 
         let high_priority = manager.high_priority();
@@ -565,14 +635,28 @@ mod tests {
         let mut manager = OptimizationManager::new();
 
         manager.add_optimization(
-            CostOptimization::new("O1", "D1", OptimizationType::UnusedResources, "vm-1", 200.0, 0.0)
-                .with_effort(ImplementationEffort::Low)
-                .with_risk(RiskLevel::Low)
+            CostOptimization::new(
+                "O1",
+                "D1",
+                OptimizationType::UnusedResources,
+                "vm-1",
+                200.0,
+                0.0,
+            )
+            .with_effort(ImplementationEffort::Low)
+            .with_risk(RiskLevel::Low),
         );
         manager.add_optimization(
-            CostOptimization::new("O2", "D2", OptimizationType::RightSizing, "vm-2", 100.0, 80.0)
-                .with_effort(ImplementationEffort::Low)
-                .with_risk(RiskLevel::Low)
+            CostOptimization::new(
+                "O2",
+                "D2",
+                OptimizationType::RightSizing,
+                "vm-2",
+                100.0,
+                80.0,
+            )
+            .with_effort(ImplementationEffort::Low)
+            .with_risk(RiskLevel::Low),
         );
 
         let quick_wins = manager.quick_wins();
@@ -583,9 +667,30 @@ mod tests {
     fn test_manager_total_potential_savings() {
         let mut manager = OptimizationManager::new();
 
-        manager.add_optimization(CostOptimization::new("O1", "D1", OptimizationType::RightSizing, "vm-1", 200.0, 100.0));
-        manager.add_optimization(CostOptimization::new("O2", "D2", OptimizationType::UnusedResources, "vm-2", 150.0, 0.0));
-        manager.add_optimization(CostOptimization::new("O3", "D3", OptimizationType::StorageOptimization, "vol-1", 80.0, 50.0));
+        manager.add_optimization(CostOptimization::new(
+            "O1",
+            "D1",
+            OptimizationType::RightSizing,
+            "vm-1",
+            200.0,
+            100.0,
+        ));
+        manager.add_optimization(CostOptimization::new(
+            "O2",
+            "D2",
+            OptimizationType::UnusedResources,
+            "vm-2",
+            150.0,
+            0.0,
+        ));
+        manager.add_optimization(CostOptimization::new(
+            "O3",
+            "D3",
+            OptimizationType::StorageOptimization,
+            "vol-1",
+            80.0,
+            50.0,
+        ));
 
         assert_eq!(manager.total_potential_savings(), 280.0); // 100 + 150 + 30
     }
@@ -595,12 +700,10 @@ mod tests {
         let mut manager = OptimizationManager::new();
 
         manager.add_reserved_instance_rec(
-            ReservedInstanceRec::new("compute", "c5.large", 100.0, 70.0, 12)
-                .with_upfront(100.0)
+            ReservedInstanceRec::new("compute", "c5.large", 100.0, 70.0, 12).with_upfront(100.0),
         );
         manager.add_reserved_instance_rec(
-            ReservedInstanceRec::new("compute", "c5.xlarge", 200.0, 190.0, 12)
-                .with_upfront(500.0)
+            ReservedInstanceRec::new("compute", "c5.xlarge", 200.0, 190.0, 12).with_upfront(500.0),
         );
 
         let worthwhile = manager.worthwhile_reserved_instances();
@@ -612,12 +715,26 @@ mod tests {
         let mut manager = OptimizationManager::new();
 
         manager.add_optimization(
-            CostOptimization::new("O1", "D1", OptimizationType::RightSizing, "vm-1", 100.0, 50.0)
-                .with_effort(ImplementationEffort::Low)
+            CostOptimization::new(
+                "O1",
+                "D1",
+                OptimizationType::RightSizing,
+                "vm-1",
+                100.0,
+                50.0,
+            )
+            .with_effort(ImplementationEffort::Low),
         );
         manager.add_optimization(
-            CostOptimization::new("O2", "D2", OptimizationType::RightSizing, "vm-2", 100.0, 50.0)
-                .with_effort(ImplementationEffort::High)
+            CostOptimization::new(
+                "O2",
+                "D2",
+                OptimizationType::RightSizing,
+                "vm-2",
+                100.0,
+                50.0,
+            )
+            .with_effort(ImplementationEffort::High),
         );
 
         let low_effort = manager.by_effort(&ImplementationEffort::Low);
@@ -629,12 +746,26 @@ mod tests {
         let mut manager = OptimizationManager::new();
 
         manager.add_optimization(
-            CostOptimization::new("O1", "D1", OptimizationType::SpotInstances, "vm-1", 100.0, 30.0)
-                .with_risk(RiskLevel::High)
+            CostOptimization::new(
+                "O1",
+                "D1",
+                OptimizationType::SpotInstances,
+                "vm-1",
+                100.0,
+                30.0,
+            )
+            .with_risk(RiskLevel::High),
         );
         manager.add_optimization(
-            CostOptimization::new("O2", "D2", OptimizationType::RightSizing, "vm-2", 100.0, 70.0)
-                .with_risk(RiskLevel::Low)
+            CostOptimization::new(
+                "O2",
+                "D2",
+                OptimizationType::RightSizing,
+                "vm-2",
+                100.0,
+                70.0,
+            )
+            .with_risk(RiskLevel::Low),
         );
 
         let high_risk = manager.by_risk(&RiskLevel::High);
@@ -644,6 +775,9 @@ mod tests {
     #[test]
     fn test_optimization_type_equality() {
         assert_eq!(OptimizationType::RightSizing, OptimizationType::RightSizing);
-        assert_ne!(OptimizationType::RightSizing, OptimizationType::SpotInstances);
+        assert_ne!(
+            OptimizationType::RightSizing,
+            OptimizationType::SpotInstances
+        );
     }
 }

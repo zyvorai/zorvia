@@ -65,7 +65,11 @@ pub struct ScanFinding {
 impl ComplianceScan {
     pub fn new(name: impl Into<String>, scan_type: ScanType) -> Self {
         let name_str = name.into();
-        let id = format!("scan-{}-{}", name_str.to_lowercase().replace(' ', "-"), Utc::now().timestamp());
+        let id = format!(
+            "scan-{}-{}",
+            name_str.to_lowercase().replace(' ', "-"),
+            Utc::now().timestamp()
+        );
 
         Self {
             id,
@@ -136,7 +140,8 @@ impl ComplianceScan {
     }
 
     pub fn duration_seconds(&self) -> Option<i64> {
-        self.completed_at.map(|end| (end - self.started_at).num_seconds())
+        self.completed_at
+            .map(|end| (end - self.started_at).num_seconds())
     }
 }
 
@@ -486,10 +491,22 @@ mod tests {
         let mut manager = ScanManager::new();
 
         let mut scan1 = ComplianceScan::new("Scan 1", ScanType::Security);
-        scan1.add_finding(ScanFinding::new("C1", "Title", "Desc", Severity::Critical, "r1"));
+        scan1.add_finding(ScanFinding::new(
+            "C1",
+            "Title",
+            "Desc",
+            Severity::Critical,
+            "r1",
+        ));
 
         let mut scan2 = ComplianceScan::new("Scan 2", ScanType::Compliance);
-        scan2.add_finding(ScanFinding::new("C2", "Title", "Desc", Severity::High, "r2"));
+        scan2.add_finding(ScanFinding::new(
+            "C2",
+            "Title",
+            "Desc",
+            Severity::High,
+            "r2",
+        ));
 
         manager.add_scan(scan1);
         manager.add_scan(scan2);

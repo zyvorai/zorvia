@@ -2,11 +2,11 @@ use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
+pub mod connectivity;
+pub mod federation;
+pub mod portability;
 pub mod providers;
 pub mod workloads;
-pub mod connectivity;
-pub mod portability;
-pub mod federation;
 
 /// Cloud provider type
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
@@ -42,7 +42,11 @@ impl CloudRegion {
         endpoint: impl Into<String>,
     ) -> Self {
         let name_str = name.into();
-        let id = format!("region-{}-{}", name_str.to_lowercase().replace(' ', "-"), Utc::now().timestamp());
+        let id = format!(
+            "region-{}-{}",
+            name_str.to_lowercase().replace(' ', "-"),
+            Utc::now().timestamp()
+        );
 
         Self {
             id,
@@ -122,7 +126,11 @@ impl MultiCloudDeployment {
         primary_provider: CloudProvider,
     ) -> Self {
         let name_str = name.into();
-        let id = format!("mcd-{}-{}", name_str.to_lowercase().replace(' ', "-"), Utc::now().timestamp());
+        let id = format!(
+            "mcd-{}-{}",
+            name_str.to_lowercase().replace(' ', "-"),
+            Utc::now().timestamp()
+        );
 
         Self {
             id,
@@ -255,7 +263,10 @@ impl MultiCloudManager {
     }
 
     pub fn active_deployments(&self) -> Vec<&MultiCloudDeployment> {
-        self.deployments.values().filter(|d| d.is_active()).collect()
+        self.deployments
+            .values()
+            .filter(|d| d.is_active())
+            .collect()
     }
 
     pub fn multi_provider_deployments(&self) -> Vec<&MultiCloudDeployment> {
@@ -285,7 +296,12 @@ mod tests {
 
     #[test]
     fn test_cloud_region() {
-        let region = CloudRegion::new("us-east-1", CloudProvider::AWS, "Virginia", "https://aws-us-east-1.com");
+        let region = CloudRegion::new(
+            "us-east-1",
+            CloudProvider::AWS,
+            "Virginia",
+            "https://aws-us-east-1.com",
+        );
 
         assert_eq!(region.name, "us-east-1");
         assert_eq!(region.provider, CloudProvider::AWS);
@@ -295,7 +311,12 @@ mod tests {
 
     #[test]
     fn test_region_add_zone() {
-        let mut region = CloudRegion::new("us-west-2", CloudProvider::AWS, "Oregon", "https://endpoint");
+        let mut region = CloudRegion::new(
+            "us-west-2",
+            CloudProvider::AWS,
+            "Oregon",
+            "https://endpoint",
+        );
 
         region.add_zone("us-west-2a");
         region.add_zone("us-west-2b");
@@ -305,15 +326,21 @@ mod tests {
 
     #[test]
     fn test_region_with_latency() {
-        let region = CloudRegion::new("eu-west-1", CloudProvider::AWS, "Ireland", "https://endpoint")
-            .with_latency(50);
+        let region = CloudRegion::new(
+            "eu-west-1",
+            CloudProvider::AWS,
+            "Ireland",
+            "https://endpoint",
+        )
+        .with_latency(50);
 
         assert_eq!(region.latency_ms, Some(50));
     }
 
     #[test]
     fn test_region_enable_disable() {
-        let mut region = CloudRegion::new("test", CloudProvider::Azure, "East US", "https://endpoint");
+        let mut region =
+            CloudRegion::new("test", CloudProvider::Azure, "East US", "https://endpoint");
 
         assert!(region.enabled);
 
@@ -340,7 +367,8 @@ mod tests {
 
     #[test]
     fn test_deployment_add_provider() {
-        let mut deployment = MultiCloudDeployment::new("app", DeploymentTarget::MultiCloud, CloudProvider::AWS);
+        let mut deployment =
+            MultiCloudDeployment::new("app", DeploymentTarget::MultiCloud, CloudProvider::AWS);
 
         deployment.add_provider(CloudProvider::Azure);
         deployment.add_provider(CloudProvider::GCP);
@@ -352,7 +380,8 @@ mod tests {
 
     #[test]
     fn test_deployment_add_region() {
-        let mut deployment = MultiCloudDeployment::new("app", DeploymentTarget::SingleCloud, CloudProvider::GCP);
+        let mut deployment =
+            MultiCloudDeployment::new("app", DeploymentTarget::SingleCloud, CloudProvider::GCP);
 
         deployment.add_region("us-central1");
         deployment.add_region("europe-west1");
@@ -362,7 +391,8 @@ mod tests {
 
     #[test]
     fn test_deployment_add_workload() {
-        let mut deployment = MultiCloudDeployment::new("app", DeploymentTarget::MultiCloud, CloudProvider::AWS);
+        let mut deployment =
+            MultiCloudDeployment::new("app", DeploymentTarget::MultiCloud, CloudProvider::AWS);
 
         deployment.add_workload("workload-1");
         deployment.add_workload("workload-2");
@@ -372,23 +402,26 @@ mod tests {
 
     #[test]
     fn test_deployment_enable_failover() {
-        let deployment = MultiCloudDeployment::new("app", DeploymentTarget::MultiCloud, CloudProvider::AWS)
-            .enable_failover();
+        let deployment =
+            MultiCloudDeployment::new("app", DeploymentTarget::MultiCloud, CloudProvider::AWS)
+                .enable_failover();
 
         assert!(deployment.failover_enabled);
     }
 
     #[test]
     fn test_deployment_enable_load_balancing() {
-        let deployment = MultiCloudDeployment::new("app", DeploymentTarget::MultiCloud, CloudProvider::AWS)
-            .enable_load_balancing();
+        let deployment =
+            MultiCloudDeployment::new("app", DeploymentTarget::MultiCloud, CloudProvider::AWS)
+                .enable_load_balancing();
 
         assert!(deployment.load_balancing_enabled);
     }
 
     #[test]
     fn test_deployment_set_status() {
-        let mut deployment = MultiCloudDeployment::new("app", DeploymentTarget::SingleCloud, CloudProvider::Azure);
+        let mut deployment =
+            MultiCloudDeployment::new("app", DeploymentTarget::SingleCloud, CloudProvider::Azure);
 
         deployment.set_status(DeploymentStatus::Active);
         assert_eq!(deployment.status, DeploymentStatus::Active);
@@ -396,7 +429,8 @@ mod tests {
 
     #[test]
     fn test_deployment_is_active() {
-        let mut deployment = MultiCloudDeployment::new("app", DeploymentTarget::SingleCloud, CloudProvider::GCP);
+        let mut deployment =
+            MultiCloudDeployment::new("app", DeploymentTarget::SingleCloud, CloudProvider::GCP);
 
         assert!(!deployment.is_active());
 
@@ -406,7 +440,8 @@ mod tests {
 
     #[test]
     fn test_deployment_is_multi_provider() {
-        let mut deployment = MultiCloudDeployment::new("app", DeploymentTarget::MultiCloud, CloudProvider::AWS);
+        let mut deployment =
+            MultiCloudDeployment::new("app", DeploymentTarget::MultiCloud, CloudProvider::AWS);
 
         assert!(!deployment.is_multi_provider());
 
@@ -418,7 +453,12 @@ mod tests {
     fn test_multicloud_manager() {
         let mut manager = MultiCloudManager::new();
 
-        let region = CloudRegion::new("us-east-1", CloudProvider::AWS, "Virginia", "https://endpoint");
+        let region = CloudRegion::new(
+            "us-east-1",
+            CloudProvider::AWS,
+            "Virginia",
+            "https://endpoint",
+        );
         let id = manager.add_region(region);
 
         assert_eq!(manager.region_count(), 1);
@@ -429,7 +469,8 @@ mod tests {
     fn test_manager_add_deployment() {
         let mut manager = MultiCloudManager::new();
 
-        let deployment = MultiCloudDeployment::new("app", DeploymentTarget::MultiCloud, CloudProvider::AWS);
+        let deployment =
+            MultiCloudDeployment::new("app", DeploymentTarget::MultiCloud, CloudProvider::AWS);
         let id = manager.add_deployment(deployment);
 
         assert_eq!(manager.deployment_count(), 1);
@@ -467,9 +508,21 @@ mod tests {
     fn test_manager_deployments_by_provider() {
         let mut manager = MultiCloudManager::new();
 
-        manager.add_deployment(MultiCloudDeployment::new("d1", DeploymentTarget::SingleCloud, CloudProvider::AWS));
-        manager.add_deployment(MultiCloudDeployment::new("d2", DeploymentTarget::MultiCloud, CloudProvider::Azure));
-        manager.add_deployment(MultiCloudDeployment::new("d3", DeploymentTarget::HybridCloud, CloudProvider::AWS));
+        manager.add_deployment(MultiCloudDeployment::new(
+            "d1",
+            DeploymentTarget::SingleCloud,
+            CloudProvider::AWS,
+        ));
+        manager.add_deployment(MultiCloudDeployment::new(
+            "d2",
+            DeploymentTarget::MultiCloud,
+            CloudProvider::Azure,
+        ));
+        manager.add_deployment(MultiCloudDeployment::new(
+            "d3",
+            DeploymentTarget::HybridCloud,
+            CloudProvider::AWS,
+        ));
 
         let aws_deployments = manager.deployments_by_provider(&CloudProvider::AWS);
         assert_eq!(aws_deployments.len(), 2);
@@ -479,10 +532,12 @@ mod tests {
     fn test_manager_active_deployments() {
         let mut manager = MultiCloudManager::new();
 
-        let mut deployment1 = MultiCloudDeployment::new("d1", DeploymentTarget::SingleCloud, CloudProvider::AWS);
+        let mut deployment1 =
+            MultiCloudDeployment::new("d1", DeploymentTarget::SingleCloud, CloudProvider::AWS);
         deployment1.set_status(DeploymentStatus::Active);
 
-        let deployment2 = MultiCloudDeployment::new("d2", DeploymentTarget::MultiCloud, CloudProvider::Azure);
+        let deployment2 =
+            MultiCloudDeployment::new("d2", DeploymentTarget::MultiCloud, CloudProvider::Azure);
 
         manager.add_deployment(deployment1);
         manager.add_deployment(deployment2);
@@ -495,10 +550,12 @@ mod tests {
     fn test_manager_multi_provider_deployments() {
         let mut manager = MultiCloudManager::new();
 
-        let mut deployment1 = MultiCloudDeployment::new("d1", DeploymentTarget::MultiCloud, CloudProvider::AWS);
+        let mut deployment1 =
+            MultiCloudDeployment::new("d1", DeploymentTarget::MultiCloud, CloudProvider::AWS);
         deployment1.add_provider(CloudProvider::Azure);
 
-        let deployment2 = MultiCloudDeployment::new("d2", DeploymentTarget::SingleCloud, CloudProvider::GCP);
+        let deployment2 =
+            MultiCloudDeployment::new("d2", DeploymentTarget::SingleCloud, CloudProvider::GCP);
 
         manager.add_deployment(deployment1);
         manager.add_deployment(deployment2);
@@ -511,9 +568,11 @@ mod tests {
     fn test_manager_deployments_with_failover() {
         let mut manager = MultiCloudManager::new();
 
-        let deployment1 = MultiCloudDeployment::new("d1", DeploymentTarget::MultiCloud, CloudProvider::AWS)
-            .enable_failover();
-        let deployment2 = MultiCloudDeployment::new("d2", DeploymentTarget::SingleCloud, CloudProvider::Azure);
+        let deployment1 =
+            MultiCloudDeployment::new("d1", DeploymentTarget::MultiCloud, CloudProvider::AWS)
+                .enable_failover();
+        let deployment2 =
+            MultiCloudDeployment::new("d2", DeploymentTarget::SingleCloud, CloudProvider::Azure);
 
         manager.add_deployment(deployment1);
         manager.add_deployment(deployment2);

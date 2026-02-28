@@ -35,7 +35,11 @@ impl EdgeApplication {
         image: impl Into<String>,
     ) -> Self {
         let name_str = name.into();
-        let id = format!("app-{}-{}", name_str.to_lowercase().replace(' ', "-"), Utc::now().timestamp());
+        let id = format!(
+            "app-{}-{}",
+            name_str.to_lowercase().replace(' ', "-"),
+            Utc::now().timestamp()
+        );
 
         Self {
             id,
@@ -114,11 +118,17 @@ impl ApplicationManager {
     }
 
     pub fn healthy_applications(&self) -> Vec<&EdgeApplication> {
-        self.applications.values().filter(|a| a.is_healthy()).collect()
+        self.applications
+            .values()
+            .filter(|a| a.is_healthy())
+            .collect()
     }
 
     pub fn degraded_applications(&self) -> Vec<&EdgeApplication> {
-        self.applications.values().filter(|a| a.is_degraded()).collect()
+        self.applications
+            .values()
+            .filter(|a| a.is_degraded())
+            .collect()
     }
 
     pub fn down_applications(&self) -> Vec<&EdgeApplication> {
@@ -126,7 +136,10 @@ impl ApplicationManager {
     }
 
     pub fn auto_scaled_applications(&self) -> Vec<&EdgeApplication> {
-        self.applications.values().filter(|a| a.auto_scale).collect()
+        self.applications
+            .values()
+            .filter(|a| a.auto_scale)
+            .collect()
     }
 }
 
@@ -211,9 +224,19 @@ mod tests {
     fn test_manager_applications_by_runtime() {
         let mut manager = ApplicationManager::new();
 
-        manager.add_application(EdgeApplication::new("app1", Runtime::Container, "1.0.0", "img1"));
+        manager.add_application(EdgeApplication::new(
+            "app1",
+            Runtime::Container,
+            "1.0.0",
+            "img1",
+        ));
         manager.add_application(EdgeApplication::new("app2", Runtime::VM, "1.0.0", "img2"));
-        manager.add_application(EdgeApplication::new("app3", Runtime::Container, "1.0.0", "img3"));
+        manager.add_application(EdgeApplication::new(
+            "app3",
+            Runtime::Container,
+            "1.0.0",
+            "img3",
+        ));
 
         let containers = manager.applications_by_runtime(&Runtime::Container);
         assert_eq!(containers.len(), 2);
@@ -277,9 +300,14 @@ mod tests {
 
         manager.add_application(
             EdgeApplication::new("app1", Runtime::Container, "1.0.0", "img1")
-                .enable_auto_scale(2, 5)
+                .enable_auto_scale(2, 5),
         );
-        manager.add_application(EdgeApplication::new("app2", Runtime::Container, "1.0.0", "img2"));
+        manager.add_application(EdgeApplication::new(
+            "app2",
+            Runtime::Container,
+            "1.0.0",
+            "img2",
+        ));
 
         let auto_scaled = manager.auto_scaled_applications();
         assert_eq!(auto_scaled.len(), 1);

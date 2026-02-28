@@ -72,7 +72,11 @@ impl TelemetryStream {
         destination: impl Into<String>,
     ) -> Self {
         let name_str = name.into();
-        let id = format!("stream-{}-{}", name_str.to_lowercase().replace(' ', "-"), Utc::now().timestamp());
+        let id = format!(
+            "stream-{}-{}",
+            name_str.to_lowercase().replace(' ', "-"),
+            Utc::now().timestamp()
+        );
 
         Self {
             id,
@@ -212,7 +216,12 @@ mod tests {
 
     #[test]
     fn test_telemetry_stream() {
-        let stream = TelemetryStream::new("metrics-stream", TelemetryType::Metric, "edge-1", "cloud-storage");
+        let stream = TelemetryStream::new(
+            "metrics-stream",
+            TelemetryType::Metric,
+            "edge-1",
+            "cloud-storage",
+        );
 
         assert_eq!(stream.name, "metrics-stream");
         assert_eq!(stream.telemetry_type, TelemetryType::Metric);
@@ -232,8 +241,8 @@ mod tests {
 
     #[test]
     fn test_stream_with_buffer_size() {
-        let stream = TelemetryStream::new("stream", TelemetryType::Log, "src", "dst")
-            .with_buffer_size(5000);
+        let stream =
+            TelemetryStream::new("stream", TelemetryType::Log, "src", "dst").with_buffer_size(5000);
 
         assert_eq!(stream.buffer_size, 5000);
     }
@@ -284,9 +293,19 @@ mod tests {
     fn test_manager_streams_by_type() {
         let mut manager = TelemetryManager::new();
 
-        manager.add_stream(TelemetryStream::new("s1", TelemetryType::Metric, "src", "dst"));
+        manager.add_stream(TelemetryStream::new(
+            "s1",
+            TelemetryType::Metric,
+            "src",
+            "dst",
+        ));
         manager.add_stream(TelemetryStream::new("s2", TelemetryType::Log, "src", "dst"));
-        manager.add_stream(TelemetryStream::new("s3", TelemetryType::Metric, "src", "dst"));
+        manager.add_stream(TelemetryStream::new(
+            "s3",
+            TelemetryType::Metric,
+            "src",
+            "dst",
+        ));
 
         let metrics = manager.streams_by_type(&TelemetryType::Metric);
         assert_eq!(metrics.len(), 2);
@@ -311,9 +330,24 @@ mod tests {
     fn test_manager_streams_by_source() {
         let mut manager = TelemetryManager::new();
 
-        manager.add_stream(TelemetryStream::new("s1", TelemetryType::Metric, "edge-1", "dst"));
-        manager.add_stream(TelemetryStream::new("s2", TelemetryType::Log, "edge-2", "dst"));
-        manager.add_stream(TelemetryStream::new("s3", TelemetryType::Event, "edge-1", "dst"));
+        manager.add_stream(TelemetryStream::new(
+            "s1",
+            TelemetryType::Metric,
+            "edge-1",
+            "dst",
+        ));
+        manager.add_stream(TelemetryStream::new(
+            "s2",
+            TelemetryType::Log,
+            "edge-2",
+            "dst",
+        ));
+        manager.add_stream(TelemetryStream::new(
+            "s3",
+            TelemetryType::Event,
+            "edge-1",
+            "dst",
+        ));
 
         let edge1_streams = manager.streams_by_source("edge-1");
         assert_eq!(edge1_streams.len(), 2);

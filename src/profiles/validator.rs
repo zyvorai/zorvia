@@ -2,26 +2,27 @@
 
 use super::Profile;
 use anyhow::{anyhow, Result};
-use regex::Regex;
 use once_cell::sync::Lazy;
+use regex::Regex;
 
 // Compiled regex for validation
-static NAME_PATTERN: Lazy<Regex> = Lazy::new(|| {
-    Regex::new(r"^[a-z0-9]([a-z0-9-]*[a-z0-9])?$").unwrap()
-});
+static NAME_PATTERN: Lazy<Regex> =
+    Lazy::new(|| Regex::new(r"^[a-z0-9]([a-z0-9-]*[a-z0-9])?$").unwrap());
 
-static MEMORY_PATTERN: Lazy<Regex> = Lazy::new(|| {
-    Regex::new(r"^\d+([KMGT]i|[KMGT])$").unwrap()
-});
+static MEMORY_PATTERN: Lazy<Regex> = Lazy::new(|| Regex::new(r"^\d+([KMGT]i|[KMGT])$").unwrap());
 
-static DISK_PATTERN: Lazy<Regex> = Lazy::new(|| {
-    Regex::new(r"^\d+([KMGT]i|[KMGT])$").unwrap()
-});
+static DISK_PATTERN: Lazy<Regex> = Lazy::new(|| Regex::new(r"^\d+([KMGT]i|[KMGT])$").unwrap());
 
 /// Reserved profile names that cannot be used for custom profiles
 const RESERVED_NAMES: &[&str] = &[
-    "dev", "test", "prod", "high-perf", "microservice",
-    "database", "web", "minimal",
+    "dev",
+    "test",
+    "prod",
+    "high-perf",
+    "microservice",
+    "database",
+    "web",
+    "minimal",
 ];
 
 /// Validate a profile

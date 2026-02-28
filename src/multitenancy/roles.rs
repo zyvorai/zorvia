@@ -1,7 +1,7 @@
 // Role Management - Role definitions and assignments
 
-use serde::{Deserialize, Serialize};
 use chrono::{DateTime, Utc};
+use serde::{Deserialize, Serialize};
 use std::collections::HashSet;
 
 use super::permissions::Permission;
@@ -268,13 +268,15 @@ impl RoleManager {
     }
 
     pub fn get_bindings_for_user(&self, user_id: &str) -> Vec<&RoleBinding> {
-        self.bindings.iter()
+        self.bindings
+            .iter()
             .filter(|b| matches!(&b.subject, Subject::User { user_id: uid } if uid == user_id))
             .collect()
     }
 
     pub fn get_bindings_for_group(&self, group_id: &str) -> Vec<&RoleBinding> {
-        self.bindings.iter()
+        self.bindings
+            .iter()
             .filter(|b| matches!(&b.subject, Subject::Group { group_id: gid } if gid == group_id))
             .collect()
     }
@@ -385,9 +387,14 @@ mod tests {
     fn test_role_binding() {
         let binding = RoleBinding::new(
             "role-admin",
-            Subject::User { user_id: "user-1".to_string() },
-            BindingScope::Namespace { namespace: "default".to_string() }
-        ).by("admin");
+            Subject::User {
+                user_id: "user-1".to_string(),
+            },
+            BindingScope::Namespace {
+                namespace: "default".to_string(),
+            },
+        )
+        .by("admin");
 
         assert_eq!(binding.role_id, "role-admin");
         assert_eq!(binding.created_by, "admin");
@@ -395,8 +402,12 @@ mod tests {
 
     #[test]
     fn test_binding_subject() {
-        let user_subject = Subject::User { user_id: "user-1".to_string() };
-        let group_subject = Subject::Group { group_id: "group-1".to_string() };
+        let user_subject = Subject::User {
+            user_id: "user-1".to_string(),
+        };
+        let group_subject = Subject::Group {
+            group_id: "group-1".to_string(),
+        };
 
         assert!(matches!(user_subject, Subject::User { .. }));
         assert!(matches!(group_subject, Subject::Group { .. }));
@@ -405,7 +416,9 @@ mod tests {
     #[test]
     fn test_binding_scope() {
         let cluster = BindingScope::Cluster;
-        let namespace = BindingScope::Namespace { namespace: "test".to_string() };
+        let namespace = BindingScope::Namespace {
+            namespace: "test".to_string(),
+        };
 
         assert_eq!(cluster, BindingScope::Cluster);
         assert!(matches!(namespace, BindingScope::Namespace { .. }));
@@ -425,8 +438,7 @@ mod tests {
         let mut manager = RoleManager::new();
         let builtin_count = manager.builtin_roles().len();
 
-        let custom = Role::new("custom")
-            .add_permission(Permission::vm_view());
+        let custom = Role::new("custom").add_permission(Permission::vm_view());
 
         manager.add_role(custom);
 
@@ -458,8 +470,10 @@ mod tests {
 
         let binding = RoleBinding::new(
             "role-developer",
-            Subject::User { user_id: "user-alice".to_string() },
-            BindingScope::Cluster
+            Subject::User {
+                user_id: "user-alice".to_string(),
+            },
+            BindingScope::Cluster,
         );
 
         manager.add_binding(binding);
@@ -474,8 +488,12 @@ mod tests {
 
         let binding = RoleBinding::new(
             "role-viewer",
-            Subject::Group { group_id: "group-eng".to_string() },
-            BindingScope::Namespace { namespace: "dev".to_string() }
+            Subject::Group {
+                group_id: "group-eng".to_string(),
+            },
+            BindingScope::Namespace {
+                namespace: "dev".to_string(),
+            },
         );
 
         manager.add_binding(binding);
@@ -491,8 +509,10 @@ mod tests {
         // Create user binding
         let user_binding = RoleBinding::new(
             "role-developer",
-            Subject::User { user_id: "user-bob".to_string() },
-            BindingScope::Cluster
+            Subject::User {
+                user_id: "user-bob".to_string(),
+            },
+            BindingScope::Cluster,
         );
 
         manager.add_binding(user_binding);
@@ -508,13 +528,16 @@ mod tests {
         // Create group binding
         let group_binding = RoleBinding::new(
             "role-viewer",
-            Subject::Group { group_id: "group-readonly".to_string() },
-            BindingScope::Cluster
+            Subject::Group {
+                group_id: "group-readonly".to_string(),
+            },
+            BindingScope::Cluster,
         );
 
         manager.add_binding(group_binding);
 
-        let permissions = manager.get_user_permissions("user-charlie", &["group-readonly".to_string()]);
+        let permissions =
+            manager.get_user_permissions("user-charlie", &["group-readonly".to_string()]);
         assert!(!permissions.is_empty());
     }
 
@@ -524,8 +547,10 @@ mod tests {
 
         let binding = RoleBinding::new(
             "role-test",
-            Subject::User { user_id: "user-test".to_string() },
-            BindingScope::Cluster
+            Subject::User {
+                user_id: "user-test".to_string(),
+            },
+            BindingScope::Cluster,
         );
 
         let binding_id = binding.id.clone();

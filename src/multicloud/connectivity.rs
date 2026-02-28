@@ -56,7 +56,11 @@ impl CloudConnection {
         bandwidth_mbps: u32,
     ) -> Self {
         let name_str = name.into();
-        let id = format!("conn-{}-{}", name_str.to_lowercase().replace(' ', "-"), Utc::now().timestamp());
+        let id = format!(
+            "conn-{}-{}",
+            name_str.to_lowercase().replace(' ', "-"),
+            Utc::now().timestamp()
+        );
 
         Self {
             id,
@@ -105,7 +109,10 @@ impl CloudConnection {
     }
 
     pub fn is_healthy(&self) -> bool {
-        matches!(self.status, ConnectionStatus::Active | ConnectionStatus::Degraded)
+        matches!(
+            self.status,
+            ConnectionStatus::Active | ConnectionStatus::Degraded
+        )
     }
 
     pub fn is_cross_provider(&self) -> bool {
@@ -156,7 +163,11 @@ impl NetworkTunnel {
         remote_cidr: impl Into<String>,
     ) -> Self {
         let name_str = name.into();
-        let id = format!("tunnel-{}-{}", name_str.to_lowercase().replace(' ', "-"), Utc::now().timestamp());
+        let id = format!(
+            "tunnel-{}-{}",
+            name_str.to_lowercase().replace(' ', "-"),
+            Utc::now().timestamp()
+        );
 
         Self {
             id,
@@ -232,11 +243,17 @@ impl ConnectivityManager {
     }
 
     pub fn active_connections(&self) -> Vec<&CloudConnection> {
-        self.connections.values().filter(|c| c.is_active()).collect()
+        self.connections
+            .values()
+            .filter(|c| c.is_active())
+            .collect()
     }
 
     pub fn healthy_connections(&self) -> Vec<&CloudConnection> {
-        self.connections.values().filter(|c| c.is_healthy()).collect()
+        self.connections
+            .values()
+            .filter(|c| c.is_healthy())
+            .collect()
     }
 
     pub fn cross_provider_connections(&self) -> Vec<&CloudConnection> {
@@ -542,10 +559,26 @@ mod tests {
     fn test_manager_active_connections() {
         let mut manager = ConnectivityManager::new();
 
-        let mut connection1 = CloudConnection::new("c1", ConnectionType::VPN, CloudProvider::AWS, "us-east-1", CloudProvider::Azure, "eastus", 1000);
+        let mut connection1 = CloudConnection::new(
+            "c1",
+            ConnectionType::VPN,
+            CloudProvider::AWS,
+            "us-east-1",
+            CloudProvider::Azure,
+            "eastus",
+            1000,
+        );
         connection1.set_status(ConnectionStatus::Active);
 
-        let connection2 = CloudConnection::new("c2", ConnectionType::DirectConnect, CloudProvider::AWS, "us-east-1", CloudProvider::AWS, "us-west-2", 10000);
+        let connection2 = CloudConnection::new(
+            "c2",
+            ConnectionType::DirectConnect,
+            CloudProvider::AWS,
+            "us-east-1",
+            CloudProvider::AWS,
+            "us-west-2",
+            10000,
+        );
 
         manager.add_connection(connection1);
         manager.add_connection(connection2);
@@ -558,13 +591,37 @@ mod tests {
     fn test_manager_healthy_connections() {
         let mut manager = ConnectivityManager::new();
 
-        let mut connection1 = CloudConnection::new("c1", ConnectionType::VPN, CloudProvider::AWS, "us-east-1", CloudProvider::Azure, "eastus", 1000);
+        let mut connection1 = CloudConnection::new(
+            "c1",
+            ConnectionType::VPN,
+            CloudProvider::AWS,
+            "us-east-1",
+            CloudProvider::Azure,
+            "eastus",
+            1000,
+        );
         connection1.set_status(ConnectionStatus::Active);
 
-        let mut connection2 = CloudConnection::new("c2", ConnectionType::ExpressRoute, CloudProvider::Azure, "eastus", CloudProvider::AWS, "us-east-1", 5000);
+        let mut connection2 = CloudConnection::new(
+            "c2",
+            ConnectionType::ExpressRoute,
+            CloudProvider::Azure,
+            "eastus",
+            CloudProvider::AWS,
+            "us-east-1",
+            5000,
+        );
         connection2.set_status(ConnectionStatus::Degraded);
 
-        let mut connection3 = CloudConnection::new("c3", ConnectionType::DirectConnect, CloudProvider::AWS, "us-east-1", CloudProvider::AWS, "us-west-2", 10000);
+        let mut connection3 = CloudConnection::new(
+            "c3",
+            ConnectionType::DirectConnect,
+            CloudProvider::AWS,
+            "us-east-1",
+            CloudProvider::AWS,
+            "us-west-2",
+            10000,
+        );
         connection3.set_status(ConnectionStatus::Failed);
 
         manager.add_connection(connection1);
@@ -579,8 +636,24 @@ mod tests {
     fn test_manager_cross_provider_connections() {
         let mut manager = ConnectivityManager::new();
 
-        let connection1 = CloudConnection::new("c1", ConnectionType::VPN, CloudProvider::AWS, "us-east-1", CloudProvider::Azure, "eastus", 1000);
-        let connection2 = CloudConnection::new("c2", ConnectionType::DirectConnect, CloudProvider::AWS, "us-east-1", CloudProvider::AWS, "us-west-2", 10000);
+        let connection1 = CloudConnection::new(
+            "c1",
+            ConnectionType::VPN,
+            CloudProvider::AWS,
+            "us-east-1",
+            CloudProvider::Azure,
+            "eastus",
+            1000,
+        );
+        let connection2 = CloudConnection::new(
+            "c2",
+            ConnectionType::DirectConnect,
+            CloudProvider::AWS,
+            "us-east-1",
+            CloudProvider::AWS,
+            "us-west-2",
+            10000,
+        );
 
         manager.add_connection(connection1);
         manager.add_connection(connection2);
@@ -593,9 +666,33 @@ mod tests {
     fn test_manager_connections_by_type() {
         let mut manager = ConnectivityManager::new();
 
-        manager.add_connection(CloudConnection::new("c1", ConnectionType::VPN, CloudProvider::AWS, "us-east-1", CloudProvider::Azure, "eastus", 1000));
-        manager.add_connection(CloudConnection::new("c2", ConnectionType::DirectConnect, CloudProvider::AWS, "us-east-1", CloudProvider::AWS, "us-west-2", 10000));
-        manager.add_connection(CloudConnection::new("c3", ConnectionType::VPN, CloudProvider::GCP, "us-central1", CloudProvider::AWS, "us-east-1", 1000));
+        manager.add_connection(CloudConnection::new(
+            "c1",
+            ConnectionType::VPN,
+            CloudProvider::AWS,
+            "us-east-1",
+            CloudProvider::Azure,
+            "eastus",
+            1000,
+        ));
+        manager.add_connection(CloudConnection::new(
+            "c2",
+            ConnectionType::DirectConnect,
+            CloudProvider::AWS,
+            "us-east-1",
+            CloudProvider::AWS,
+            "us-west-2",
+            10000,
+        ));
+        manager.add_connection(CloudConnection::new(
+            "c3",
+            ConnectionType::VPN,
+            CloudProvider::GCP,
+            "us-central1",
+            CloudProvider::AWS,
+            "us-east-1",
+            1000,
+        ));
 
         let vpns = manager.connections_by_type(&ConnectionType::VPN);
         assert_eq!(vpns.len(), 2);
@@ -605,9 +702,25 @@ mod tests {
     fn test_manager_redundant_connections() {
         let mut manager = ConnectivityManager::new();
 
-        let connection1 = CloudConnection::new("c1", ConnectionType::DirectConnect, CloudProvider::AWS, "us-east-1", CloudProvider::AWS, "us-west-2", 10000)
-            .enable_redundancy();
-        let connection2 = CloudConnection::new("c2", ConnectionType::VPN, CloudProvider::AWS, "us-east-1", CloudProvider::Azure, "eastus", 1000);
+        let connection1 = CloudConnection::new(
+            "c1",
+            ConnectionType::DirectConnect,
+            CloudProvider::AWS,
+            "us-east-1",
+            CloudProvider::AWS,
+            "us-west-2",
+            10000,
+        )
+        .enable_redundancy();
+        let connection2 = CloudConnection::new(
+            "c2",
+            ConnectionType::VPN,
+            CloudProvider::AWS,
+            "us-east-1",
+            CloudProvider::Azure,
+            "eastus",
+            1000,
+        );
 
         manager.add_connection(connection1);
         manager.add_connection(connection2);
@@ -620,9 +733,33 @@ mod tests {
     fn test_manager_tunnels_for_connection() {
         let mut manager = ConnectivityManager::new();
 
-        manager.add_tunnel(NetworkTunnel::new("t1", "conn-1", TunnelType::IPSec, "10.0.1.1", "20.0.1.1", "10.0.0.0/16", "20.0.0.0/16"));
-        manager.add_tunnel(NetworkTunnel::new("t2", "conn-2", TunnelType::GRE, "10.0.2.1", "20.0.2.1", "10.0.0.0/16", "20.0.0.0/16"));
-        manager.add_tunnel(NetworkTunnel::new("t3", "conn-1", TunnelType::VXLAN, "10.0.3.1", "20.0.3.1", "10.0.0.0/16", "20.0.0.0/16"));
+        manager.add_tunnel(NetworkTunnel::new(
+            "t1",
+            "conn-1",
+            TunnelType::IPSec,
+            "10.0.1.1",
+            "20.0.1.1",
+            "10.0.0.0/16",
+            "20.0.0.0/16",
+        ));
+        manager.add_tunnel(NetworkTunnel::new(
+            "t2",
+            "conn-2",
+            TunnelType::GRE,
+            "10.0.2.1",
+            "20.0.2.1",
+            "10.0.0.0/16",
+            "20.0.0.0/16",
+        ));
+        manager.add_tunnel(NetworkTunnel::new(
+            "t3",
+            "conn-1",
+            TunnelType::VXLAN,
+            "10.0.3.1",
+            "20.0.3.1",
+            "10.0.0.0/16",
+            "20.0.0.0/16",
+        ));
 
         let tunnels = manager.tunnels_for_connection("conn-1");
         assert_eq!(tunnels.len(), 2);
@@ -632,10 +769,26 @@ mod tests {
     fn test_manager_active_tunnels() {
         let mut manager = ConnectivityManager::new();
 
-        let mut tunnel1 = NetworkTunnel::new("t1", "conn-1", TunnelType::IPSec, "10.0.1.1", "20.0.1.1", "10.0.0.0/16", "20.0.0.0/16");
+        let mut tunnel1 = NetworkTunnel::new(
+            "t1",
+            "conn-1",
+            TunnelType::IPSec,
+            "10.0.1.1",
+            "20.0.1.1",
+            "10.0.0.0/16",
+            "20.0.0.0/16",
+        );
         tunnel1.set_status(TunnelStatus::Up);
 
-        let tunnel2 = NetworkTunnel::new("t2", "conn-2", TunnelType::GRE, "10.0.2.1", "20.0.2.1", "10.0.0.0/16", "20.0.0.0/16");
+        let tunnel2 = NetworkTunnel::new(
+            "t2",
+            "conn-2",
+            TunnelType::GRE,
+            "10.0.2.1",
+            "20.0.2.1",
+            "10.0.0.0/16",
+            "20.0.0.0/16",
+        );
 
         manager.add_tunnel(tunnel1);
         manager.add_tunnel(tunnel2);

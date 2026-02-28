@@ -187,8 +187,7 @@ mod tests {
 
     #[test]
     fn test_link_with_latency() {
-        let link = NetworkLink::new("link1", "a", "b", 1000)
-            .with_latency(10);
+        let link = NetworkLink::new("link1", "a", "b", 1000).with_latency(10);
 
         assert_eq!(link.latency_ms, Some(10));
     }
@@ -221,8 +220,7 @@ mod tests {
 
     #[test]
     fn test_node_with_zone() {
-        let node = NetworkNode::new("vm1", NodeType::VM)
-            .with_zone("us-west-1a");
+        let node = NetworkNode::new("vm1", NodeType::VM).with_zone("us-west-1a");
 
         assert_eq!(node.zone, Some("us-west-1a".to_string()));
     }

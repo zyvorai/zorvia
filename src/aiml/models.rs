@@ -1,7 +1,7 @@
 // ML Model Management - Model registry and versioning
 
-use serde::{Deserialize, Serialize};
 use chrono::{DateTime, Utc};
+use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
 use super::MLFramework;
@@ -30,7 +30,12 @@ impl MLModel {
     ) -> Self {
         let name_str = name.into();
         let version_str = version.into();
-        let id = format!("model-{}-{}-{}", name_str.to_lowercase().replace(' ', "-"), version_str.to_lowercase().replace(' ', "-"), Utc::now().timestamp());
+        let id = format!(
+            "model-{}-{}-{}",
+            name_str.to_lowercase().replace(' ', "-"),
+            version_str.to_lowercase().replace(' ', "-"),
+            Utc::now().timestamp()
+        );
 
         Self {
             id,
@@ -117,19 +122,19 @@ impl ModelRegistry {
     }
 
     pub fn by_name(&self, name: &str) -> Vec<&MLModel> {
-        self.models.values()
-            .filter(|m| m.name == name)
-            .collect()
+        self.models.values().filter(|m| m.name == name).collect()
     }
 
     pub fn by_framework(&self, framework: MLFramework) -> Vec<&MLModel> {
-        self.models.values()
+        self.models
+            .values()
             .filter(|m| m.framework == framework)
             .collect()
     }
 
     pub fn by_type(&self, model_type: ModelType) -> Vec<&MLModel> {
-        self.models.values()
+        self.models
+            .values()
             .filter(|m| m.model_type == model_type)
             .collect()
     }
@@ -155,10 +160,15 @@ mod tests {
 
     #[test]
     fn test_ml_model() {
-        let model = MLModel::new("resnet50", "v1.0", MLFramework::PyTorch, ModelType::Classification)
-            .with_size(98)
-            .with_accuracy(0.92)
-            .with_storage_path("/models/resnet50-v1.0.pt");
+        let model = MLModel::new(
+            "resnet50",
+            "v1.0",
+            MLFramework::PyTorch,
+            ModelType::Classification,
+        )
+        .with_size(98)
+        .with_accuracy(0.92)
+        .with_storage_path("/models/resnet50-v1.0.pt");
 
         assert_eq!(model.name, "resnet50");
         assert_eq!(model.version, "v1.0");
@@ -174,7 +184,10 @@ mod tests {
         model.add_metadata("dataset", "wikipedia");
         model.add_metadata("epochs", "10");
 
-        assert_eq!(model.metadata.get("dataset"), Some(&"wikipedia".to_string()));
+        assert_eq!(
+            model.metadata.get("dataset"),
+            Some(&"wikipedia".to_string())
+        );
         assert_eq!(model.metadata.get("epochs"), Some(&"10".to_string()));
     }
 
@@ -189,7 +202,12 @@ mod tests {
     fn test_model_registry() {
         let mut registry = ModelRegistry::new();
 
-        let model = MLModel::new("test", "v1", MLFramework::PyTorch, ModelType::Classification);
+        let model = MLModel::new(
+            "test",
+            "v1",
+            MLFramework::PyTorch,
+            ModelType::Classification,
+        );
         let id = registry.register_model(model);
 
         assert_eq!(registry.model_count(), 1);
@@ -200,9 +218,24 @@ mod tests {
     fn test_registry_by_name() {
         let mut registry = ModelRegistry::new();
 
-        registry.register_model(MLModel::new("resnet", "v1", MLFramework::PyTorch, ModelType::Classification));
-        registry.register_model(MLModel::new("resnet", "v2", MLFramework::PyTorch, ModelType::Classification));
-        registry.register_model(MLModel::new("bert", "v1", MLFramework::TensorFlow, ModelType::NLP));
+        registry.register_model(MLModel::new(
+            "resnet",
+            "v1",
+            MLFramework::PyTorch,
+            ModelType::Classification,
+        ));
+        registry.register_model(MLModel::new(
+            "resnet",
+            "v2",
+            MLFramework::PyTorch,
+            ModelType::Classification,
+        ));
+        registry.register_model(MLModel::new(
+            "bert",
+            "v1",
+            MLFramework::TensorFlow,
+            ModelType::NLP,
+        ));
 
         let resnet_models = registry.by_name("resnet");
         assert_eq!(resnet_models.len(), 2);
@@ -212,9 +245,24 @@ mod tests {
     fn test_registry_by_framework() {
         let mut registry = ModelRegistry::new();
 
-        registry.register_model(MLModel::new("model1", "v1", MLFramework::PyTorch, ModelType::Classification));
-        registry.register_model(MLModel::new("model2", "v1", MLFramework::TensorFlow, ModelType::Regression));
-        registry.register_model(MLModel::new("model3", "v1", MLFramework::PyTorch, ModelType::NLP));
+        registry.register_model(MLModel::new(
+            "model1",
+            "v1",
+            MLFramework::PyTorch,
+            ModelType::Classification,
+        ));
+        registry.register_model(MLModel::new(
+            "model2",
+            "v1",
+            MLFramework::TensorFlow,
+            ModelType::Regression,
+        ));
+        registry.register_model(MLModel::new(
+            "model3",
+            "v1",
+            MLFramework::PyTorch,
+            ModelType::NLP,
+        ));
 
         let pytorch_models = registry.by_framework(MLFramework::PyTorch);
         assert_eq!(pytorch_models.len(), 2);
@@ -224,9 +272,24 @@ mod tests {
     fn test_registry_by_type() {
         let mut registry = ModelRegistry::new();
 
-        registry.register_model(MLModel::new("model1", "v1", MLFramework::PyTorch, ModelType::Classification));
-        registry.register_model(MLModel::new("model2", "v1", MLFramework::TensorFlow, ModelType::Classification));
-        registry.register_model(MLModel::new("model3", "v1", MLFramework::JAX, ModelType::Regression));
+        registry.register_model(MLModel::new(
+            "model1",
+            "v1",
+            MLFramework::PyTorch,
+            ModelType::Classification,
+        ));
+        registry.register_model(MLModel::new(
+            "model2",
+            "v1",
+            MLFramework::TensorFlow,
+            ModelType::Classification,
+        ));
+        registry.register_model(MLModel::new(
+            "model3",
+            "v1",
+            MLFramework::JAX,
+            ModelType::Regression,
+        ));
 
         let classification = registry.by_type(ModelType::Classification);
         assert_eq!(classification.len(), 2);
@@ -236,8 +299,24 @@ mod tests {
     fn test_registry_total_size() {
         let mut registry = ModelRegistry::new();
 
-        registry.register_model(MLModel::new("model1", "v1", MLFramework::PyTorch, ModelType::Classification).with_size(100));
-        registry.register_model(MLModel::new("model2", "v1", MLFramework::TensorFlow, ModelType::Regression).with_size(50));
+        registry.register_model(
+            MLModel::new(
+                "model1",
+                "v1",
+                MLFramework::PyTorch,
+                ModelType::Classification,
+            )
+            .with_size(100),
+        );
+        registry.register_model(
+            MLModel::new(
+                "model2",
+                "v1",
+                MLFramework::TensorFlow,
+                ModelType::Regression,
+            )
+            .with_size(50),
+        );
 
         assert_eq!(registry.total_size_mb(), 150);
     }
@@ -246,7 +325,12 @@ mod tests {
     fn test_registry_remove_model() {
         let mut registry = ModelRegistry::new();
 
-        let model = MLModel::new("test", "v1", MLFramework::PyTorch, ModelType::Classification);
+        let model = MLModel::new(
+            "test",
+            "v1",
+            MLFramework::PyTorch,
+            ModelType::Classification,
+        );
         let id = registry.register_model(model);
 
         assert!(registry.remove_model(&id));

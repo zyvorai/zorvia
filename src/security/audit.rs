@@ -1,7 +1,7 @@
 // Audit Logging - Security audit logging and event tracking
 
-use serde::{Deserialize, Serialize};
 use chrono::{DateTime, Utc};
+use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
 /// Audit event
@@ -25,7 +25,7 @@ impl AuditEvent {
         event_type: EventType,
         actor: impl Into<String>,
         target: impl Into<String>,
-        action: impl Into<String>
+        action: impl Into<String>,
     ) -> Self {
         let event_id = format!("evt-{}", Utc::now().format("%Y%m%d-%H%M%S-%f"));
         Self {
@@ -195,25 +195,26 @@ impl AuditLog {
     }
 
     pub fn security_events(&self) -> Vec<&AuditEvent> {
-        self.events.iter()
+        self.events
+            .iter()
             .filter(|e| e.is_security_event())
             .collect()
     }
 
     pub fn critical_events(&self) -> Vec<&AuditEvent> {
-        self.events.iter()
-            .filter(|e| e.is_critical())
-            .collect()
+        self.events.iter().filter(|e| e.is_critical()).collect()
     }
 
     pub fn events_by_type(&self, event_type: &EventType) -> Vec<&AuditEvent> {
-        self.events.iter()
+        self.events
+            .iter()
             .filter(|e| &e.event_type == event_type)
             .collect()
     }
 
     pub fn failed_events(&self) -> Vec<&AuditEvent> {
-        self.events.iter()
+        self.events
+            .iter()
             .filter(|e| e.outcome == EventOutcome::Failure)
             .collect()
     }
@@ -402,7 +403,7 @@ mod tests {
             EventType::Authentication,
             "user@example.com",
             "test-vm",
-            "login"
+            "login",
         )
         .with_severity(EventSeverity::High)
         .with_source(EventSource::User)
@@ -419,16 +420,24 @@ mod tests {
     fn test_audit_log() {
         let mut log = AuditLog::new(Some("test-vm".to_string()));
 
+        log.add_event(AuditEvent::new(
+            EventType::VMOperation,
+            "admin",
+            "test-vm",
+            "start",
+        ));
         log.add_event(
-            AuditEvent::new(EventType::VMOperation, "admin", "test-vm", "start")
-        );
-        log.add_event(
-            AuditEvent::new(EventType::SecurityViolation, "user", "test-vm", "unauthorized")
-                .with_severity(EventSeverity::Critical)
+            AuditEvent::new(
+                EventType::SecurityViolation,
+                "user",
+                "test-vm",
+                "unauthorized",
+            )
+            .with_severity(EventSeverity::Critical),
         );
         log.add_event(
             AuditEvent::new(EventType::Configuration, "admin", "test-vm", "update")
-                .with_outcome(EventOutcome::Failure)
+                .with_outcome(EventOutcome::Failure),
         );
 
         assert_eq!(log.event_count(), 3);
@@ -441,9 +450,24 @@ mod tests {
     fn test_events_by_type() {
         let mut log = AuditLog::new(None);
 
-        log.add_event(AuditEvent::new(EventType::VMOperation, "user", "vm1", "start"));
-        log.add_event(AuditEvent::new(EventType::VMOperation, "user", "vm2", "stop"));
-        log.add_event(AuditEvent::new(EventType::Authentication, "user", "system", "login"));
+        log.add_event(AuditEvent::new(
+            EventType::VMOperation,
+            "user",
+            "vm1",
+            "start",
+        ));
+        log.add_event(AuditEvent::new(
+            EventType::VMOperation,
+            "user",
+            "vm2",
+            "stop",
+        ));
+        log.add_event(AuditEvent::new(
+            EventType::Authentication,
+            "user",
+            "system",
+            "login",
+        ));
 
         let vm_ops = log.events_by_type(&EventType::VMOperation);
         assert_eq!(vm_ops.len(), 2);
@@ -455,11 +479,11 @@ mod tests {
 
         log.add_event(
             AuditEvent::new(EventType::SecurityViolation, "user", "vm", "action")
-                .with_severity(EventSeverity::Critical)
+                .with_severity(EventSeverity::Critical),
         );
         log.add_event(
             AuditEvent::new(EventType::VMOperation, "admin", "vm", "start")
-                .with_severity(EventSeverity::Info)
+                .with_severity(EventSeverity::Info),
         );
 
         let stats = AuditStatistics::from_log(&log);
@@ -484,18 +508,12 @@ mod tests {
 
     #[test]
     fn test_policy_filtering() {
-        let policy = AuditPolicy::new("filtered-policy")
-            .add_filter(
-                EventFilter::new(FilterAction::Include)
-                    .for_type(EventType::SecurityViolation)
-            );
-
-        let security_event = AuditEvent::new(
-            EventType::SecurityViolation,
-            "user",
-            "vm",
-            "violation"
+        let policy = AuditPolicy::new("filtered-policy").add_filter(
+            EventFilter::new(FilterAction::Include).for_type(EventType::SecurityViolation),
         );
+
+        let security_event =
+            AuditEvent::new(EventType::SecurityViolation, "user", "vm", "violation");
         assert!(policy.should_log(&security_event));
 
         let normal_event = AuditEvent::new(EventType::VMOperation, "user", "vm", "start");
@@ -508,34 +526,19 @@ mod tests {
             .for_type(EventType::Authentication)
             .for_severity(EventSeverity::High);
 
-        let matching_event = AuditEvent::new(
-            EventType::Authentication,
-            "user",
-            "vm",
-            "login"
-        )
-        .with_severity(EventSeverity::High);
+        let matching_event = AuditEvent::new(EventType::Authentication, "user", "vm", "login")
+            .with_severity(EventSeverity::High);
 
         assert!(filter.matches(&matching_event));
 
-        let non_matching = AuditEvent::new(
-            EventType::VMOperation,
-            "user",
-            "vm",
-            "start"
-        );
+        let non_matching = AuditEvent::new(EventType::VMOperation, "user", "vm", "start");
 
         assert!(!filter.matches(&non_matching));
     }
 
     #[test]
     fn test_security_event_detection() {
-        let auth_event = AuditEvent::new(
-            EventType::Authentication,
-            "user",
-            "system",
-            "login"
-        );
+        let auth_event = AuditEvent::new(EventType::Authentication, "user", "system", "login");
         assert!(auth_event.is_security_event());
 
         let vm_event = AuditEvent::new(EventType::VMOperation, "user", "vm", "start");
@@ -544,13 +547,8 @@ mod tests {
 
     #[test]
     fn test_critical_event_detection() {
-        let critical_event = AuditEvent::new(
-            EventType::SecurityViolation,
-            "user",
-            "vm",
-            "breach"
-        )
-        .with_severity(EventSeverity::Critical);
+        let critical_event = AuditEvent::new(EventType::SecurityViolation, "user", "vm", "breach")
+            .with_severity(EventSeverity::Critical);
 
         assert!(critical_event.is_critical());
 
@@ -561,7 +559,10 @@ mod tests {
     #[test]
     fn test_event_type_display() {
         assert_eq!(EventType::Authentication.to_string(), "Authentication");
-        assert_eq!(EventType::SecurityViolation.to_string(), "Security Violation");
+        assert_eq!(
+            EventType::SecurityViolation.to_string(),
+            "Security Violation"
+        );
     }
 
     #[test]

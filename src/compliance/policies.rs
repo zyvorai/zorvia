@@ -53,7 +53,11 @@ impl CompliancePolicy {
         framework: ComplianceFramework,
     ) -> Self {
         let name_str = name.into();
-        let id = format!("policy-{}-{}", name_str.to_lowercase().replace(' ', "-"), Utc::now().timestamp());
+        let id = format!(
+            "policy-{}-{}",
+            name_str.to_lowercase().replace(' ', "-"),
+            Utc::now().timestamp()
+        );
 
         Self {
             id,
@@ -290,7 +294,11 @@ mod tests {
         let mut manager = PolicyManager::new();
 
         manager.add_policy(CompliancePolicy::new("P1", "D1", ComplianceFramework::SOC2));
-        manager.add_policy(CompliancePolicy::new("P2", "D2", ComplianceFramework::HIPAA));
+        manager.add_policy(CompliancePolicy::new(
+            "P2",
+            "D2",
+            ComplianceFramework::HIPAA,
+        ));
         manager.add_policy(CompliancePolicy::new("P3", "D3", ComplianceFramework::SOC2));
 
         let soc2 = manager.by_framework(&ComplianceFramework::SOC2);

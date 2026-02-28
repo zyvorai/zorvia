@@ -107,12 +107,12 @@ impl AppConfig {
     /// Save configuration to a specific file
     pub fn save_to(&self, path: &PathBuf) -> Result<()> {
         if let Some(parent) = path.parent() {
-            std::fs::create_dir_all(parent)
-                .with_context(|| format!("Failed to create config directory: {}", parent.display()))?;
+            std::fs::create_dir_all(parent).with_context(|| {
+                format!("Failed to create config directory: {}", parent.display())
+            })?;
         }
 
-        let content = toml::to_string_pretty(self)
-            .context("Failed to serialize config")?;
+        let content = toml::to_string_pretty(self).context("Failed to serialize config")?;
         std::fs::write(path, content)
             .with_context(|| format!("Failed to write config file: {}", path.display()))?;
 
@@ -415,16 +415,25 @@ mod tests {
 
         let config: AppConfig = toml::from_str(toml).unwrap();
         assert_eq!(config.namespace, "staging");
-        assert_eq!(config.kubeconfig, Some("/home/user/.kube/staging".to_string()));
+        assert_eq!(
+            config.kubeconfig,
+            Some("/home/user/.kube/staging".to_string())
+        );
         assert_eq!(config.logging.level, "debug");
         assert_eq!(config.logging.format, "json");
-        assert_eq!(config.logging.file, Some("/var/log/zorvia.log".to_string()));
+        assert_eq!(
+            config.logging.file,
+            Some("/var/log/zorvia.log".to_string())
+        );
         assert_eq!(config.api.port, 443);
         assert_eq!(config.api.host, "127.0.0.1");
         assert!(config.api.tls);
         assert_eq!(config.api.auth, "bearer");
         assert_eq!(config.api.rate_limit, 120);
-        assert_eq!(config.api.cors_origins, vec!["https://dashboard.example.com"]);
+        assert_eq!(
+            config.api.cors_origins,
+            vec!["https://dashboard.example.com"]
+        );
         assert_eq!(config.output.format, "json");
         assert!(!config.output.color);
         assert!(config.output.timestamps);
@@ -533,6 +542,9 @@ mod tests {
 
     #[test]
     fn test_system_path() {
-        assert_eq!(AppConfig::system_path(), PathBuf::from("/etc/zorvia/config.toml"));
+        assert_eq!(
+            AppConfig::system_path(),
+            PathBuf::from("/etc/zorvia/config.toml")
+        );
     }
 }

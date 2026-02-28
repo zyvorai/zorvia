@@ -1,7 +1,7 @@
 // Budget Management - Set and monitor spending budgets
 
-use serde::{Deserialize, Serialize};
 use chrono::{DateTime, Utc};
+use serde::{Deserialize, Serialize};
 
 /// Budget configuration
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -60,7 +60,8 @@ impl Budget {
 
     pub fn triggered_alerts(&self) -> Vec<&BudgetAlert> {
         let utilization = self.utilization_percent();
-        self.alerts.iter()
+        self.alerts
+            .iter()
             .filter(|alert| utilization >= alert.threshold_percent)
             .collect()
     }
@@ -243,13 +244,12 @@ impl BudgetManager {
     }
 
     pub fn exceeded_budgets(&self) -> Vec<&Budget> {
-        self.budgets.iter()
-            .filter(|b| b.is_exceeded())
-            .collect()
+        self.budgets.iter().filter(|b| b.is_exceeded()).collect()
     }
 
     pub fn budgets_with_alerts(&self) -> Vec<&Budget> {
-        self.budgets.iter()
+        self.budgets
+            .iter()
             .filter(|b| !b.triggered_alerts().is_empty())
             .collect()
     }
@@ -272,7 +272,7 @@ pub struct CostForecast {
     pub current_spend: f64,
     pub projected_spend: f64,
     pub forecast_method: ForecastMethod,
-    pub confidence: f64,  // 0-100
+    pub confidence: f64, // 0-100
 }
 
 impl CostForecast {

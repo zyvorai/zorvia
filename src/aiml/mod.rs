@@ -1,13 +1,13 @@
 // AI/ML Operations - GPU acceleration and ML workload management
 
-use serde::{Deserialize, Serialize};
 use chrono::{DateTime, Utc};
+use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
 pub mod gpu;
+pub mod inference;
 pub mod models;
 pub mod training;
-pub mod inference;
 
 /// GPU configuration
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -123,7 +123,11 @@ impl MLWorkload {
         framework: MLFramework,
     ) -> Self {
         let name_str = name.into();
-        let id = format!("ml-{}-{}", name_str.to_lowercase().replace(' ', "-"), Utc::now().timestamp());
+        let id = format!(
+            "ml-{}-{}",
+            name_str.to_lowercase().replace(' ', "-"),
+            Utc::now().timestamp()
+        );
 
         Self {
             id,
@@ -266,19 +270,22 @@ impl MLWorkloadManager {
     }
 
     pub fn by_type(&self, workload_type: WorkloadType) -> Vec<&MLWorkload> {
-        self.workloads.values()
+        self.workloads
+            .values()
             .filter(|w| w.workload_type == workload_type)
             .collect()
     }
 
     pub fn by_framework(&self, framework: MLFramework) -> Vec<&MLWorkload> {
-        self.workloads.values()
+        self.workloads
+            .values()
             .filter(|w| w.framework == framework)
             .collect()
     }
 
     pub fn by_status(&self, status: WorkloadStatus) -> Vec<&MLWorkload> {
-        self.workloads.values()
+        self.workloads
+            .values()
             .filter(|w| w.status == status)
             .collect()
     }
@@ -288,7 +295,8 @@ impl MLWorkloadManager {
     }
 
     pub fn gpu_workloads(&self) -> Vec<&MLWorkload> {
-        self.workloads.values()
+        self.workloads
+            .values()
             .filter(|w| w.requires_gpu())
             .collect()
     }
@@ -304,7 +312,11 @@ impl MLWorkloadManager {
     pub fn total_gpu_allocation(&self) -> u32 {
         self.gpu_workloads()
             .iter()
-            .filter_map(|w| w.gpu_config.as_ref().map(|config| config.count * w.replicas))
+            .filter_map(|w| {
+                w.gpu_config
+                    .as_ref()
+                    .map(|config| config.count * w.replicas)
+            })
             .sum()
     }
 }
@@ -321,8 +333,7 @@ mod tests {
 
     #[test]
     fn test_gpu_config() {
-        let gpu = GPUConfig::new(GPUVendor::NVIDIA, "A100", 2)
-            .with_memory(80);
+        let gpu = GPUConfig::new(GPUVendor::NVIDIA, "A100", 2).with_memory(80);
 
         assert_eq!(gpu.vendor, GPUVendor::NVIDIA);
         assert_eq!(gpu.model, "A100");
@@ -333,8 +344,7 @@ mod tests {
 
     #[test]
     fn test_gpu_vgpu() {
-        let gpu = GPUConfig::new(GPUVendor::NVIDIA, "A100", 1)
-            .with_vgpu("grid_a100-8c");
+        let gpu = GPUConfig::new(GPUVendor::NVIDIA, "A100", 1).with_vgpu("grid_a100-8c");
 
         assert!(gpu.is_vgpu());
         assert!(!gpu.passthrough);
@@ -356,8 +366,9 @@ mod tests {
 
     #[test]
     fn test_ml_workload() {
-        let workload = MLWorkload::new("training-job", WorkloadType::Training, MLFramework::PyTorch)
-            .with_resources(8, 32, 200);
+        let workload =
+            MLWorkload::new("training-job", WorkloadType::Training, MLFramework::PyTorch)
+                .with_resources(8, 32, 200);
 
         assert_eq!(workload.name, "training-job");
         assert_eq!(workload.workload_type, WorkloadType::Training);
@@ -369,11 +380,11 @@ mod tests {
 
     #[test]
     fn test_workload_with_gpu() {
-        let gpu = GPUConfig::new(GPUVendor::NVIDIA, "V100", 4)
-            .with_memory(32);
+        let gpu = GPUConfig::new(GPUVendor::NVIDIA, "V100", 4).with_memory(32);
 
-        let workload = MLWorkload::new("gpu-training", WorkloadType::Training, MLFramework::PyTorch)
-            .with_gpu(gpu);
+        let workload =
+            MLWorkload::new("gpu-training", WorkloadType::Training, MLFramework::PyTorch)
+                .with_gpu(gpu);
 
         assert!(workload.requires_gpu());
         assert_eq!(workload.gpu_config.as_ref().unwrap().count, 4);
@@ -381,9 +392,13 @@ mod tests {
 
     #[test]
     fn test_workload_distributed() {
-        let workload = MLWorkload::new("distributed-training", WorkloadType::Training, MLFramework::TensorFlow)
-            .with_resources(8, 32, 200)
-            .with_distributed(4);
+        let workload = MLWorkload::new(
+            "distributed-training",
+            WorkloadType::Training,
+            MLFramework::TensorFlow,
+        )
+        .with_resources(8, 32, 200)
+        .with_distributed(4);
 
         assert!(workload.distributed);
         assert_eq!(workload.replicas, 4);
@@ -410,8 +425,7 @@ mod tests {
 
     #[test]
     fn test_resource_requirements() {
-        let req = ResourceRequirements::new(16, 64)
-            .with_gpu(2, 16, Some(GPUVendor::NVIDIA));
+        let req = ResourceRequirements::new(16, 64).with_gpu(2, 16, Some(GPUVendor::NVIDIA));
 
         assert_eq!(req.min_cpu_cores, 16);
         assert_eq!(req.min_memory_gb, 64);
@@ -443,9 +457,21 @@ mod tests {
     fn test_manager_by_type() {
         let mut manager = MLWorkloadManager::new();
 
-        manager.add_workload(MLWorkload::new("training-1", WorkloadType::Training, MLFramework::PyTorch));
-        manager.add_workload(MLWorkload::new("inference-1", WorkloadType::Inference, MLFramework::TensorFlow));
-        manager.add_workload(MLWorkload::new("training-2", WorkloadType::Training, MLFramework::JAX));
+        manager.add_workload(MLWorkload::new(
+            "training-1",
+            WorkloadType::Training,
+            MLFramework::PyTorch,
+        ));
+        manager.add_workload(MLWorkload::new(
+            "inference-1",
+            WorkloadType::Inference,
+            MLFramework::TensorFlow,
+        ));
+        manager.add_workload(MLWorkload::new(
+            "training-2",
+            WorkloadType::Training,
+            MLFramework::JAX,
+        ));
 
         let training = manager.by_type(WorkloadType::Training);
         assert_eq!(training.len(), 2);
@@ -455,9 +481,21 @@ mod tests {
     fn test_manager_by_framework() {
         let mut manager = MLWorkloadManager::new();
 
-        manager.add_workload(MLWorkload::new("job-1", WorkloadType::Training, MLFramework::PyTorch));
-        manager.add_workload(MLWorkload::new("job-2", WorkloadType::Training, MLFramework::PyTorch));
-        manager.add_workload(MLWorkload::new("job-3", WorkloadType::Inference, MLFramework::TensorFlow));
+        manager.add_workload(MLWorkload::new(
+            "job-1",
+            WorkloadType::Training,
+            MLFramework::PyTorch,
+        ));
+        manager.add_workload(MLWorkload::new(
+            "job-2",
+            WorkloadType::Training,
+            MLFramework::PyTorch,
+        ));
+        manager.add_workload(MLWorkload::new(
+            "job-3",
+            WorkloadType::Inference,
+            MLFramework::TensorFlow,
+        ));
 
         let pytorch = manager.by_framework(MLFramework::PyTorch);
         assert_eq!(pytorch.len(), 2);
@@ -484,10 +522,11 @@ mod tests {
         let mut manager = MLWorkloadManager::new();
 
         let gpu = GPUConfig::new(GPUVendor::NVIDIA, "A100", 2);
-        let gpu_workload = MLWorkload::new("gpu-job", WorkloadType::Training, MLFramework::PyTorch)
-            .with_gpu(gpu);
+        let gpu_workload =
+            MLWorkload::new("gpu-job", WorkloadType::Training, MLFramework::PyTorch).with_gpu(gpu);
 
-        let cpu_workload = MLWorkload::new("cpu-job", WorkloadType::Training, MLFramework::TensorFlow);
+        let cpu_workload =
+            MLWorkload::new("cpu-job", WorkloadType::Training, MLFramework::TensorFlow);
 
         manager.add_workload(gpu_workload);
         manager.add_workload(cpu_workload);
@@ -500,8 +539,8 @@ mod tests {
         let mut manager = MLWorkloadManager::new();
 
         let gpu1 = GPUConfig::new(GPUVendor::NVIDIA, "A100", 2);
-        let workload1 = MLWorkload::new("job-1", WorkloadType::Training, MLFramework::PyTorch)
-            .with_gpu(gpu1);
+        let workload1 =
+            MLWorkload::new("job-1", WorkloadType::Training, MLFramework::PyTorch).with_gpu(gpu1);
 
         let gpu2 = GPUConfig::new(GPUVendor::NVIDIA, "V100", 4);
         let workload2 = MLWorkload::new("job-2", WorkloadType::Training, MLFramework::TensorFlow)

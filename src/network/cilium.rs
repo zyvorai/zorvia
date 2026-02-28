@@ -1,7 +1,7 @@
 // Cilium Integration - Cilium network policy and eBPF support
 
-use serde::{Deserialize, Serialize};
 use super::policies::{Port, VMSelector};
+use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
 /// Cilium Network Policy (extends standard Kubernetes NetworkPolicy)
@@ -392,9 +392,8 @@ impl CiliumPolicyManager {
 
     /// Generate Cilium NetworkPolicy YAML
     pub fn generate_yaml(&self, policy_name: &str) -> Option<String> {
-        self.get_policy(policy_name).and_then(|policy| {
-            serde_yaml::to_string(policy).ok()
-        })
+        self.get_policy(policy_name)
+            .and_then(|policy| serde_yaml::to_string(policy).ok())
     }
 }
 
@@ -410,8 +409,7 @@ mod tests {
 
     #[test]
     fn test_cilium_policy_creation() {
-        let selector = VMSelector::default()
-            .with_label("app", "web");
+        let selector = VMSelector::default().with_label("app", "web");
 
         let policy = CiliumNetworkPolicy::new("web-policy")
             .with_selector(selector)
@@ -428,7 +426,10 @@ mod tests {
             .with_label("tier", "web");
 
         assert_eq!(selector.match_labels.len(), 2);
-        assert_eq!(selector.match_labels.get("role"), Some(&"frontend".to_string()));
+        assert_eq!(
+            selector.match_labels.get("role"),
+            Some(&"frontend".to_string())
+        );
     }
 
     #[test]
@@ -445,9 +446,7 @@ mod tests {
 
     #[test]
     fn test_l7_port_rule() {
-        let http_rule = HTTPRule::new()
-            .method("POST")
-            .path("/api/users");
+        let http_rule = HTTPRule::new().method("POST").path("/api/users");
 
         let port_rule = PortRule::new()
             .add_port(Port::tcp(443))
@@ -463,7 +462,10 @@ mod tests {
         assert_eq!(fqdn.match_name, Some("api.example.com".to_string()));
 
         let pattern_fqdn = FQDNSelector::pattern("*.example.com");
-        assert_eq!(pattern_fqdn.match_pattern, Some("*.example.com".to_string()));
+        assert_eq!(
+            pattern_fqdn.match_pattern,
+            Some("*.example.com".to_string())
+        );
     }
 
     #[test]

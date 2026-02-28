@@ -46,7 +46,11 @@ impl ComplianceReport {
         period_end: DateTime<Utc>,
     ) -> Self {
         let name_str = name.into();
-        let id = format!("report-{}-{}", name_str.to_lowercase().replace(' ', "-"), Utc::now().timestamp());
+        let id = format!(
+            "report-{}-{}",
+            name_str.to_lowercase().replace(' ', "-"),
+            Utc::now().timestamp()
+        );
 
         Self {
             id,
@@ -183,8 +187,14 @@ mod tests {
         let start = Utc::now() - chrono::Duration::days(30);
         let end = Utc::now();
 
-        let report = ComplianceReport::new("Test Report", ReportType::Detailed, ComplianceFramework::HIPAA, start, end)
-            .with_score(85.0);
+        let report = ComplianceReport::new(
+            "Test Report",
+            ReportType::Detailed,
+            ComplianceFramework::HIPAA,
+            start,
+            end,
+        )
+        .with_score(85.0);
 
         assert_eq!(report.overall_score, 85.0);
         assert!(report.is_passing());
@@ -195,10 +205,22 @@ mod tests {
         let start = Utc::now() - chrono::Duration::days(30);
         let end = Utc::now();
 
-        let mut report = ComplianceReport::new("Test", ReportType::Summary, ComplianceFramework::GDPR, start, end);
+        let mut report = ComplianceReport::new(
+            "Test",
+            ReportType::Summary,
+            ComplianceFramework::GDPR,
+            start,
+            end,
+        );
 
-        report.add_section(ReportSection::new("Access Control", "Summary of access controls"));
-        report.add_section(ReportSection::new("Data Protection", "Summary of data protection"));
+        report.add_section(ReportSection::new(
+            "Access Control",
+            "Summary of access controls",
+        ));
+        report.add_section(ReportSection::new(
+            "Data Protection",
+            "Summary of data protection",
+        ));
 
         assert_eq!(report.section_count(), 2);
     }
@@ -208,7 +230,13 @@ mod tests {
         let start = Utc::now() - chrono::Duration::days(30);
         let end = Utc::now();
 
-        let mut report = ComplianceReport::new("Test", ReportType::Summary, ComplianceFramework::PciDss, start, end);
+        let mut report = ComplianceReport::new(
+            "Test",
+            ReportType::Summary,
+            ComplianceFramework::PciDss,
+            start,
+            end,
+        );
 
         report.add_recommendation("Enable MFA for all users");
         report.add_recommendation("Implement regular security audits");
@@ -254,7 +282,13 @@ mod tests {
         let start = Utc::now() - chrono::Duration::days(30);
         let end = Utc::now();
 
-        let report = ComplianceReport::new("Test", ReportType::Summary, ComplianceFramework::SOC2, start, end);
+        let report = ComplianceReport::new(
+            "Test",
+            ReportType::Summary,
+            ComplianceFramework::SOC2,
+            start,
+            end,
+        );
         let id = generator.add_report(report);
 
         assert_eq!(generator.report_count(), 1);
@@ -268,9 +302,27 @@ mod tests {
         let start = Utc::now() - chrono::Duration::days(30);
         let end = Utc::now();
 
-        generator.add_report(ComplianceReport::new("R1", ReportType::Summary, ComplianceFramework::SOC2, start, end));
-        generator.add_report(ComplianceReport::new("R2", ReportType::Detailed, ComplianceFramework::HIPAA, start, end));
-        generator.add_report(ComplianceReport::new("R3", ReportType::Summary, ComplianceFramework::SOC2, start, end));
+        generator.add_report(ComplianceReport::new(
+            "R1",
+            ReportType::Summary,
+            ComplianceFramework::SOC2,
+            start,
+            end,
+        ));
+        generator.add_report(ComplianceReport::new(
+            "R2",
+            ReportType::Detailed,
+            ComplianceFramework::HIPAA,
+            start,
+            end,
+        ));
+        generator.add_report(ComplianceReport::new(
+            "R3",
+            ReportType::Summary,
+            ComplianceFramework::SOC2,
+            start,
+            end,
+        ));
 
         let soc2 = generator.by_framework(&ComplianceFramework::SOC2);
         assert_eq!(soc2.len(), 2);
@@ -283,9 +335,27 @@ mod tests {
         let start = Utc::now() - chrono::Duration::days(30);
         let end = Utc::now();
 
-        generator.add_report(ComplianceReport::new("R1", ReportType::Summary, ComplianceFramework::SOC2, start, end));
-        generator.add_report(ComplianceReport::new("R2", ReportType::Detailed, ComplianceFramework::HIPAA, start, end));
-        generator.add_report(ComplianceReport::new("R3", ReportType::Summary, ComplianceFramework::GDPR, start, end));
+        generator.add_report(ComplianceReport::new(
+            "R1",
+            ReportType::Summary,
+            ComplianceFramework::SOC2,
+            start,
+            end,
+        ));
+        generator.add_report(ComplianceReport::new(
+            "R2",
+            ReportType::Detailed,
+            ComplianceFramework::HIPAA,
+            start,
+            end,
+        ));
+        generator.add_report(ComplianceReport::new(
+            "R3",
+            ReportType::Summary,
+            ComplianceFramework::GDPR,
+            start,
+            end,
+        ));
 
         let summary = generator.by_type(&ReportType::Summary);
         assert_eq!(summary.len(), 2);
@@ -299,16 +369,34 @@ mod tests {
         let end = Utc::now();
 
         generator.add_report(
-            ComplianceReport::new("R1", ReportType::Summary, ComplianceFramework::SOC2, start, end)
-                .with_score(85.0),
+            ComplianceReport::new(
+                "R1",
+                ReportType::Summary,
+                ComplianceFramework::SOC2,
+                start,
+                end,
+            )
+            .with_score(85.0),
         );
         generator.add_report(
-            ComplianceReport::new("R2", ReportType::Summary, ComplianceFramework::HIPAA, start, end)
-                .with_score(75.0),
+            ComplianceReport::new(
+                "R2",
+                ReportType::Summary,
+                ComplianceFramework::HIPAA,
+                start,
+                end,
+            )
+            .with_score(75.0),
         );
         generator.add_report(
-            ComplianceReport::new("R3", ReportType::Summary, ComplianceFramework::GDPR, start, end)
-                .with_score(90.0),
+            ComplianceReport::new(
+                "R3",
+                ReportType::Summary,
+                ComplianceFramework::GDPR,
+                start,
+                end,
+            )
+            .with_score(90.0),
         );
 
         let passing = generator.passing_reports();

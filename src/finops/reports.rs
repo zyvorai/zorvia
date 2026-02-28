@@ -85,7 +85,11 @@ impl CostReport {
         end: DateTime<Utc>,
     ) -> Self {
         let title_str = title.into();
-        let id = format!("report-{}-{}", title_str.to_lowercase().replace(' ', "-"), Utc::now().timestamp());
+        let id = format!(
+            "report-{}-{}",
+            title_str.to_lowercase().replace(' ', "-"),
+            Utc::now().timestamp()
+        );
 
         Self {
             id,
@@ -302,8 +306,7 @@ mod tests {
 
     #[test]
     fn test_trend_with_change() {
-        let trend = CostTrend::new("2024-02", 6000.0)
-            .with_change(20.0);
+        let trend = CostTrend::new("2024-02", 6000.0).with_change(20.0);
 
         assert_eq!(trend.change_percent, 20.0);
     }
@@ -365,8 +368,8 @@ mod tests {
         let start = Utc::now();
         let end = start + chrono::Duration::days(30);
 
-        let report = CostReport::new("Report", ReportType::CostSummary, start, end)
-            .with_total_cost(15000.0);
+        let report =
+            CostReport::new("Report", ReportType::CostSummary, start, end).with_total_cost(15000.0);
 
         assert_eq!(report.total_cost, 15000.0);
     }
@@ -468,7 +471,8 @@ mod tests {
         let start = Utc::now();
         let end = start + chrono::Duration::days(30);
 
-        let report = BudgetVarianceReport::new("budget-123", "Q1 Budget", 10000.0, 11500.0, start, end);
+        let report =
+            BudgetVarianceReport::new("budget-123", "Q1 Budget", 10000.0, 11500.0, start, end);
 
         assert_eq!(report.budget_id, "budget-123");
         assert_eq!(report.budgeted_amount, 10000.0);
@@ -564,7 +568,7 @@ mod tests {
 
         manager.add_report(
             CostReport::new("R1", ReportType::CostSummary, start, end)
-                .with_format(ReportFormat::PDF)
+                .with_format(ReportFormat::PDF),
         );
         manager.add_report(CostReport::new("R2", ReportType::CostSummary, start, end));
 
@@ -579,8 +583,12 @@ mod tests {
         let start = Utc::now();
         let end = start + chrono::Duration::days(30);
 
-        manager.add_variance_report(BudgetVarianceReport::new("b1", "B1", 1000.0, 1200.0, start, end));
-        manager.add_variance_report(BudgetVarianceReport::new("b2", "B2", 1000.0, 800.0, start, end));
+        manager.add_variance_report(BudgetVarianceReport::new(
+            "b1", "B1", 1000.0, 1200.0, start, end,
+        ));
+        manager.add_variance_report(BudgetVarianceReport::new(
+            "b2", "B2", 1000.0, 800.0, start, end,
+        ));
 
         let over = manager.over_budget_variances();
         assert_eq!(over.len(), 1);
@@ -593,8 +601,12 @@ mod tests {
         let start = Utc::now();
         let end = start + chrono::Duration::days(30);
 
-        manager.add_variance_report(BudgetVarianceReport::new("b1", "B1", 1000.0, 1150.0, start, end));
-        manager.add_variance_report(BudgetVarianceReport::new("b2", "B2", 1000.0, 1050.0, start, end));
+        manager.add_variance_report(BudgetVarianceReport::new(
+            "b1", "B1", 1000.0, 1150.0, start, end,
+        ));
+        manager.add_variance_report(BudgetVarianceReport::new(
+            "b2", "B2", 1000.0, 1050.0, start, end,
+        ));
 
         let significant = manager.significant_variances();
         assert_eq!(significant.len(), 1);

@@ -30,9 +30,9 @@ impl SparklineChart {
     }
 
     pub fn render(&self, f: &mut Frame, area: Rect) {
-        let max = self.max_value.unwrap_or_else(|| {
-            *self.data.iter().max().unwrap_or(&1)
-        });
+        let max = self
+            .max_value
+            .unwrap_or_else(|| *self.data.iter().max().unwrap_or(&1));
 
         let sparkline = Sparkline::default()
             .block(
@@ -41,7 +41,9 @@ impl SparklineChart {
                     .border_style(Style::default().fg(colors::BORDER))
                     .title(Span::styled(
                         &self.title,
-                        Style::default().fg(colors::ORANGE).add_modifier(Modifier::BOLD),
+                        Style::default()
+                            .fg(colors::ORANGE)
+                            .add_modifier(Modifier::BOLD),
                     )),
             )
             .data(&self.data)

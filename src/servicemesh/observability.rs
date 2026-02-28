@@ -18,7 +18,11 @@ pub struct TelemetryConfig {
 impl TelemetryConfig {
     pub fn new(name: impl Into<String>, namespace: impl Into<String>) -> Self {
         let name_str = name.into();
-        let id = format!("telem-{}-{}", name_str.to_lowercase().replace(' ', "-"), Utc::now().timestamp());
+        let id = format!(
+            "telem-{}-{}",
+            name_str.to_lowercase().replace(' ', "-"),
+            Utc::now().timestamp()
+        );
 
         Self {
             id,
@@ -304,12 +308,10 @@ mod tests {
 
     #[test]
     fn test_sampling_rate_clamping() {
-        let config1 = TelemetryConfig::new("c1", "default")
-            .with_sampling_rate(1.5);
+        let config1 = TelemetryConfig::new("c1", "default").with_sampling_rate(1.5);
         assert_eq!(config1.sampling_rate, 1.0);
 
-        let config2 = TelemetryConfig::new("c2", "default")
-            .with_sampling_rate(-0.5);
+        let config2 = TelemetryConfig::new("c2", "default").with_sampling_rate(-0.5);
         assert_eq!(config2.sampling_rate, 0.0);
     }
 
@@ -352,7 +354,8 @@ mod tests {
     #[test]
     fn test_metrics_percentiles() {
         let mut metrics = MeshMetrics::new("service", "default");
-        metrics.request_duration_ms = vec![10.0, 20.0, 30.0, 40.0, 50.0, 60.0, 70.0, 80.0, 90.0, 100.0];
+        metrics.request_duration_ms =
+            vec![10.0, 20.0, 30.0, 40.0, 50.0, 60.0, 70.0, 80.0, 90.0, 100.0];
 
         let p95 = metrics.p95_duration_ms();
         let p99 = metrics.p99_duration_ms();
@@ -386,8 +389,8 @@ mod tests {
 
     #[test]
     fn test_span_with_parent() {
-        let span = TracingSpan::new("trace-1", "span-2", "service", "operation")
-            .with_parent("span-1");
+        let span =
+            TracingSpan::new("trace-1", "span-2", "service", "operation").with_parent("span-1");
 
         assert_eq!(span.parent_span_id, Some("span-1".to_string()));
     }

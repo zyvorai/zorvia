@@ -1,8 +1,8 @@
 // Metrics Collector - Real-time resource usage tracking
 
+use anyhow::Result;
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
-use anyhow::Result;
 
 /// VM resource metrics at a point in time
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -284,8 +284,8 @@ mod tests {
     #[test]
     fn test_memory_metrics_gb_conversion() {
         let memory = MemoryMetrics {
-            used_bytes: 4_294_967_296, // 4 GiB
-            total_bytes: 17_179_869_184, // 16 GiB
+            used_bytes: 4_294_967_296,       // 4 GiB
+            total_bytes: 17_179_869_184,     // 16 GiB
             available_bytes: 12_884_901_888, // 12 GiB
             ..Default::default()
         };

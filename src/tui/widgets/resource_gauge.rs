@@ -10,9 +10,9 @@ use ratatui::{
 
 pub struct ResourceGauge {
     pub label: String,
-    pub value: f64,      // 0.0 to 100.0
-    pub max: f64,        // Maximum value
-    pub unit: String,    // e.g., "GB", "cores", "%"
+    pub value: f64,   // 0.0 to 100.0
+    pub max: f64,     // Maximum value
+    pub unit: String, // e.g., "GB", "cores", "%"
     pub show_percentage: bool,
 }
 
@@ -50,15 +50,23 @@ impl ResourceGauge {
         };
 
         let label = if self.show_percentage {
-            format!("{}: {:.1}/{} {} ({:.0}%)",
-                self.label, self.value, self.max, self.unit, percentage)
+            format!(
+                "{}: {:.1}/{} {} ({:.0}%)",
+                self.label, self.value, self.max, self.unit, percentage
+            )
         } else {
-            format!("{}: {:.1}/{} {}",
-                self.label, self.value, self.max, self.unit)
+            format!(
+                "{}: {:.1}/{} {}",
+                self.label, self.value, self.max, self.unit
+            )
         };
 
         let gauge = Gauge::default()
-            .block(Block::default().borders(Borders::ALL).border_style(Style::default().fg(colors::BORDER)))
+            .block(
+                Block::default()
+                    .borders(Borders::ALL)
+                    .border_style(Style::default().fg(colors::BORDER)),
+            )
             .gauge_style(
                 Style::default()
                     .fg(color)
@@ -99,17 +107,17 @@ impl MultiGaugePanel {
             .border_style(Style::default().fg(colors::BORDER))
             .title(Span::styled(
                 &self.title,
-                Style::default().fg(colors::ORANGE).add_modifier(Modifier::BOLD),
+                Style::default()
+                    .fg(colors::ORANGE)
+                    .add_modifier(Modifier::BOLD),
             ));
 
         let inner = block.inner(area);
         f.render_widget(block, area);
 
         // Create constraints for each gauge
-        let constraints: Vec<Constraint> = self.gauges
-            .iter()
-            .map(|_| Constraint::Length(3))
-            .collect();
+        let constraints: Vec<Constraint> =
+            self.gauges.iter().map(|_| Constraint::Length(3)).collect();
 
         let chunks = Layout::default()
             .direction(Direction::Vertical)

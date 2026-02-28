@@ -9,33 +9,33 @@ pub mod tui;
 pub mod utils;
 
 // Innovative features
-pub mod profiles;
-pub mod blueprints;
-pub mod health;
-pub mod snapshots;
-pub mod monitoring;
-pub mod disk;
-pub mod migration;
-pub mod backup;
-pub mod security;
-pub mod cost;
-pub mod automation;
-pub mod observability;
-pub mod multitenancy;
-pub mod gitops;
 pub mod aiml;
-pub mod servicemesh;
-pub mod dr;
-pub mod compliance;
-pub mod capacity;
-pub mod finops;
-pub mod networking;
-pub mod edge;
-pub mod secrets;
-pub mod multicloud;
-pub mod devexp;
 pub mod api;
+pub mod automation;
+pub mod backup;
+pub mod blueprints;
+pub mod capacity;
+pub mod compliance;
+pub mod cost;
+pub mod devexp;
+pub mod disk;
+pub mod dr;
+pub mod edge;
+pub mod finops;
+pub mod gitops;
 pub mod handlers;
+pub mod health;
+pub mod migration;
+pub mod monitoring;
+pub mod multicloud;
+pub mod multitenancy;
+pub mod networking;
+pub mod observability;
+pub mod profiles;
+pub mod secrets;
+pub mod security;
+pub mod servicemesh;
+pub mod snapshots;
 
 use anyhow::Result;
 use cli::{Cli, Commands};
@@ -77,15 +77,38 @@ pub async fn run(mut cli: Cli) -> Result<()> {
 
     match cli.command {
         // ========== CORE VM MANAGEMENT ==========
-
         Commands::Create {
-            name, template, from_file, cpus, memory, disk_size,
-            storage_class: _, container_disk: _, cloud_init, dry_run, output,
+            name,
+            template,
+            from_file,
+            cpus,
+            memory,
+            disk_size,
+            storage_class: _,
+            container_disk: _,
+            cloud_init,
+            dry_run,
+            output,
         } => {
-            handlers::vm::handle_create(name, template, from_file, cpus, memory, disk_size, cloud_init, dry_run, output, &cli.namespace).await?;
+            handlers::vm::handle_create(
+                name,
+                template,
+                from_file,
+                cpus,
+                memory,
+                disk_size,
+                cloud_init,
+                dry_run,
+                output,
+                &cli.namespace,
+            )
+            .await?;
         }
 
-        Commands::List { all_namespaces, output } => {
+        Commands::List {
+            all_namespaces,
+            output,
+        } => {
             handlers::vm::handle_list(all_namespaces, output, &cli.namespace).await?;
         }
 
@@ -110,9 +133,28 @@ pub async fn run(mut cli: Cli) -> Result<()> {
         }
 
         Commands::Generate {
-            name, template, from_file, cpus, memory, disk_size, output, format, kubevirt,
+            name,
+            template,
+            from_file,
+            cpus,
+            memory,
+            disk_size,
+            output,
+            format,
+            kubevirt,
         } => {
-            handlers::vm::handle_generate(name, template, from_file, cpus, memory, disk_size, output, format, kubevirt, &cli.namespace)?;
+            handlers::vm::handle_generate(
+                name,
+                template,
+                from_file,
+                cpus,
+                memory,
+                disk_size,
+                output,
+                format,
+                kubevirt,
+                &cli.namespace,
+            )?;
         }
 
         Commands::Templates => {
@@ -127,19 +169,34 @@ pub async fn run(mut cli: Cli) -> Result<()> {
             handlers::vm::handle_validate(file)?;
         }
 
-        Commands::Status { name, watch, interval } => {
+        Commands::Status {
+            name,
+            watch,
+            interval,
+        } => {
             handlers::vm::handle_status(name, watch, interval, &cli.namespace).await?;
         }
 
-        Commands::Clone { source, target, start } => {
+        Commands::Clone {
+            source,
+            target,
+            start,
+        } => {
             handlers::vm::handle_clone(source, target, start, &cli.namespace).await?;
         }
 
-        Commands::Resources { all_namespaces, sort_by } => {
+        Commands::Resources {
+            all_namespaces,
+            sort_by,
+        } => {
             handlers::vm::handle_resources(all_namespaces, sort_by, &cli.namespace).await?;
         }
 
-        Commands::Export { name, output, kubevirt } => {
+        Commands::Export {
+            name,
+            output,
+            kubevirt,
+        } => {
             handlers::vm::handle_export(name, output, kubevirt, &cli.namespace).await?;
         }
 
@@ -147,12 +204,17 @@ pub async fn run(mut cli: Cli) -> Result<()> {
             handlers::vm::handle_wizard(name, &cli.namespace).await?;
         }
 
-        Commands::Batch { file, namespace, dry_run, continue_on_error } => {
-            handlers::vm::handle_batch(file, namespace, dry_run, continue_on_error, &cli.namespace).await?;
+        Commands::Batch {
+            file,
+            namespace,
+            dry_run,
+            continue_on_error,
+        } => {
+            handlers::vm::handle_batch(file, namespace, dry_run, continue_on_error, &cli.namespace)
+                .await?;
         }
 
         // ========== INNOVATIVE FEATURES ==========
-
         Commands::Profiles { details } => {
             handlers::profiles::handle_profiles(details)?;
         }
@@ -173,7 +235,18 @@ pub async fn run(mut cli: Cli) -> Result<()> {
             recommended_os,
             from_file,
         } => {
-            handlers::profiles::handle_profile_create(name, cpus, sockets, threads, memory, disk_size, description, use_cases, recommended_os, from_file)?;
+            handlers::profiles::handle_profile_create(
+                name,
+                cpus,
+                sockets,
+                threads,
+                memory,
+                disk_size,
+                description,
+                use_cases,
+                recommended_os,
+                from_file,
+            )?;
         }
 
         Commands::ProfileEdit {
@@ -187,7 +260,17 @@ pub async fn run(mut cli: Cli) -> Result<()> {
             use_cases,
             recommended_os,
         } => {
-            handlers::profiles::handle_profile_edit(name, cpus, sockets, threads, memory, disk_size, description, use_cases, recommended_os)?;
+            handlers::profiles::handle_profile_edit(
+                name,
+                cpus,
+                sockets,
+                threads,
+                memory,
+                disk_size,
+                description,
+                use_cases,
+                recommended_os,
+            )?;
         }
 
         Commands::ProfileDelete { name, yes } => {
@@ -208,7 +291,14 @@ pub async fn run(mut cli: Cli) -> Result<()> {
             start,
             dry_run,
         } => {
-            handlers::profiles::handle_deploy(blueprint, prefix, start, dry_run, cli.namespace.clone()).await?;
+            handlers::profiles::handle_deploy(
+                blueprint,
+                prefix,
+                start,
+                dry_run,
+                cli.namespace.clone(),
+            )
+            .await?;
         }
 
         Commands::BlueprintCreate {
@@ -219,10 +309,7 @@ pub async fn run(mut cli: Cli) -> Result<()> {
             handlers::profiles::handle_blueprint_create(name, from_file, description)?;
         }
 
-        Commands::BlueprintEdit {
-            name,
-            description,
-        } => {
+        Commands::BlueprintEdit { name, description } => {
             handlers::profiles::handle_blueprint_edit(name, description)?;
         }
 
@@ -238,88 +325,164 @@ pub async fn run(mut cli: Cli) -> Result<()> {
             handlers::profiles::handle_health(target, detailed, cli.namespace.clone()).await?;
         }
 
-        Commands::Recommend { workload, alternatives } => {
+        Commands::Recommend {
+            workload,
+            alternatives,
+        } => {
             handlers::profiles::handle_recommend(workload, alternatives)?;
         }
 
         // ========== VM SNAPSHOTS & BACKUP ==========
+        Commands::SnapshotCreate {
+            vm,
+            name,
+            description,
+        } => handlers::infra::handle_snapshot_create(vm, name, description, &cli.namespace).await?,
 
-        Commands::SnapshotCreate { vm, name, description } =>
-            handlers::infra::handle_snapshot_create(vm, name, description, &cli.namespace).await?,
+        Commands::SnapshotList {
+            vm,
+            all_namespaces,
+            output,
+        } => {
+            handlers::infra::handle_snapshot_list(vm, all_namespaces, output, &cli.namespace)
+                .await?
+        }
 
-        Commands::SnapshotList { vm, all_namespaces, output } =>
-            handlers::infra::handle_snapshot_list(vm, all_namespaces, output, &cli.namespace).await?,
+        Commands::SnapshotGet { name, output } => {
+            handlers::infra::handle_snapshot_get(name, output, &cli.namespace).await?
+        }
 
-        Commands::SnapshotGet { name, output } =>
-            handlers::infra::handle_snapshot_get(name, output, &cli.namespace).await?,
+        Commands::SnapshotDelete { name, yes } => {
+            handlers::infra::handle_snapshot_delete(name, yes, &cli.namespace).await?
+        }
 
-        Commands::SnapshotDelete { name, yes } =>
-            handlers::infra::handle_snapshot_delete(name, yes, &cli.namespace).await?,
-
-        Commands::SnapshotRestore { snapshot, target, in_place, start } =>
-            handlers::infra::handle_snapshot_restore(snapshot, target, in_place, start, &cli.namespace).await?,
+        Commands::SnapshotRestore {
+            snapshot,
+            target,
+            in_place,
+            start,
+        } => {
+            handlers::infra::handle_snapshot_restore(
+                snapshot,
+                target,
+                in_place,
+                start,
+                &cli.namespace,
+            )
+            .await?
+        }
 
         // ========== PERFORMANCE MONITORING ==========
+        Commands::MonitorLive { vm, interval } => {
+            handlers::infra::handle_monitor_live(vm, interval, &cli.namespace).await?
+        }
 
-        Commands::MonitorLive { vm, interval } =>
-            handlers::infra::handle_monitor_live(vm, interval, &cli.namespace).await?,
+        Commands::MonitorStats { vm, period, output } => {
+            handlers::infra::handle_monitor_stats(vm, period, output, &cli.namespace).await?
+        }
 
-        Commands::MonitorStats { vm, period, output } =>
-            handlers::infra::handle_monitor_stats(vm, period, output, &cli.namespace).await?,
+        Commands::MonitorCompare { vms, output } => {
+            handlers::infra::handle_monitor_compare(vms, output, &cli.namespace).await?
+        }
 
-        Commands::MonitorCompare { vms, output } =>
-            handlers::infra::handle_monitor_compare(vms, output, &cli.namespace).await?,
-
-        Commands::MonitorTop { all_namespaces, sort_by, limit } =>
-            handlers::infra::handle_monitor_top(all_namespaces, sort_by, limit, &cli.namespace).await?,
+        Commands::MonitorTop {
+            all_namespaces,
+            sort_by,
+            limit,
+        } => {
+            handlers::infra::handle_monitor_top(all_namespaces, sort_by, limit, &cli.namespace)
+                .await?
+        }
 
         // ========== DISK MANAGEMENT ==========
+        Commands::DiskExpand {
+            vm,
+            disk,
+            size,
+            pvc,
+            plan,
+        } => handlers::infra::handle_disk_expand(vm, disk, size, pvc, plan, &cli.namespace).await?,
 
-        Commands::DiskExpand { vm, disk, size, pvc, plan } =>
-            handlers::infra::handle_disk_expand(vm, disk, size, pvc, plan, &cli.namespace).await?,
+        Commands::DiskHealth { vm, detailed } => handlers::infra::handle_disk_health(vm, detailed)?,
 
-        Commands::DiskHealth { vm, detailed } =>
-            handlers::infra::handle_disk_health(vm, detailed)?,
+        Commands::DiskScript {
+            filesystem,
+            device,
+            output,
+            dry_run,
+        } => handlers::infra::handle_disk_script(filesystem, device, output, dry_run)?,
 
-        Commands::DiskScript { filesystem, device, output, dry_run } =>
-            handlers::infra::handle_disk_script(filesystem, device, output, dry_run)?,
-
-        Commands::DiskUsage { vm, sort_by, output } =>
-            handlers::infra::handle_disk_usage(vm, sort_by, output)?,
+        Commands::DiskUsage {
+            vm,
+            sort_by,
+            output,
+        } => handlers::infra::handle_disk_usage(vm, sort_by, output)?,
 
         // ========== NETWORK MANAGEMENT ==========
+        Commands::NetworkList { vm, output } => handlers::infra::handle_network_list(vm, output)?,
 
-        Commands::NetworkList { vm, output } =>
-            handlers::infra::handle_network_list(vm, output)?,
+        Commands::NetworkGet {
+            vm,
+            interface,
+            output,
+        } => handlers::infra::handle_network_get(vm, interface, output)?,
 
-        Commands::NetworkGet { vm, interface, output } =>
-            handlers::infra::handle_network_get(vm, interface, output)?,
+        Commands::NetworkBandwidth {
+            vm,
+            interface,
+            watch,
+            interval,
+        } => handlers::infra::handle_network_bandwidth(vm, interface, watch, interval)?,
 
-        Commands::NetworkBandwidth { vm, interface, watch, interval } =>
-            handlers::infra::handle_network_bandwidth(vm, interface, watch, interval)?,
+        Commands::NetworkTraffic {
+            vm,
+            interface,
+            period,
+            top,
+            output,
+        } => handlers::infra::handle_network_traffic(vm, interface, period, top, output)?,
 
-        Commands::NetworkTraffic { vm, interface, period, top, output } =>
-            handlers::infra::handle_network_traffic(vm, interface, period, top, output)?,
+        Commands::NetworkPolicies {
+            all_namespaces,
+            output,
+        } => handlers::infra::handle_network_policies(all_namespaces, output)?,
 
-        Commands::NetworkPolicies { all_namespaces, output } =>
-            handlers::infra::handle_network_policies(all_namespaces, output)?,
+        Commands::NetworkPolicy { name, output } => {
+            handlers::infra::handle_network_policy(name, output)?
+        }
 
-        Commands::NetworkPolicy { name, output } =>
-            handlers::infra::handle_network_policy(name, output)?,
-
-        Commands::Migrate { vm, target_node, migration_type, plan } => {
+        Commands::Migrate {
+            vm,
+            target_node,
+            migration_type,
+            plan,
+        } => {
             handlers::backup::handle_migrate(vm, target_node, migration_type, plan)?;
         }
 
-        Commands::MigrationStatus { vm, watch, interval } => {
+        Commands::MigrationStatus {
+            vm,
+            watch,
+            interval,
+        } => {
             handlers::backup::handle_migration_status(vm, watch, interval)?;
         }
 
-        Commands::MigrationList { all_namespaces, state, output } => {
+        Commands::MigrationList {
+            all_namespaces,
+            state,
+            output,
+        } => {
             handlers::backup::handle_migration_list(all_namespaces, state, output)?;
         }
 
-        Commands::HAConfig { vm, enable, disable, priority, eviction_strategy } => {
+        Commands::HAConfig {
+            vm,
+            enable,
+            disable,
+            priority,
+            eviction_strategy,
+        } => {
             handlers::backup::handle_ha_config(vm, enable, disable, priority, eviction_strategy)?;
         }
 
@@ -327,16 +490,42 @@ pub async fn run(mut cli: Cli) -> Result<()> {
             handlers::backup::handle_ha_status(vm, output)?;
         }
 
-        Commands::EvacuateNode { node, reason, max_parallel, timeout, force, plan } => {
-            handlers::backup::handle_evacuate_node(node, reason, max_parallel, timeout, force, plan)?;
+        Commands::EvacuateNode {
+            node,
+            reason,
+            max_parallel,
+            timeout,
+            force,
+            plan,
+        } => {
+            handlers::backup::handle_evacuate_node(
+                node,
+                reason,
+                max_parallel,
+                timeout,
+                force,
+                plan,
+            )?;
         }
 
         Commands::EvacuationStatus { node, watch } => {
             handlers::backup::handle_evacuation_status(node, watch)?;
         }
 
-        Commands::BackupCreate { vm, name, backup_type, compression, no_encryption } => {
-            handlers::backup::handle_backup_create(vm, name, backup_type, compression, no_encryption)?;
+        Commands::BackupCreate {
+            vm,
+            name,
+            backup_type,
+            compression,
+            no_encryption,
+        } => {
+            handlers::backup::handle_backup_create(
+                vm,
+                name,
+                backup_type,
+                compression,
+                no_encryption,
+            )?;
         }
 
         Commands::BackupList { vm, output } => {
@@ -351,11 +540,18 @@ pub async fn run(mut cli: Cli) -> Result<()> {
             handlers::backup::handle_backup_delete(name, yes)?;
         }
 
-        Commands::BackupRestore { backup, target, start } => {
+        Commands::BackupRestore {
+            backup,
+            target,
+            start,
+        } => {
             handlers::backup::handle_backup_restore(backup, target, start)?;
         }
 
-        Commands::BackupVerify { name, verification_type } => {
+        Commands::BackupVerify {
+            name,
+            verification_type,
+        } => {
             handlers::backup::handle_backup_verify(name, verification_type)?;
         }
 
@@ -376,8 +572,12 @@ pub async fn run(mut cli: Cli) -> Result<()> {
         }
 
         // ========== SECURITY & COMPLIANCE ==========
-
-        Commands::SecurityScan { vm, scan_type, containers, output } => {
+        Commands::SecurityScan {
+            vm,
+            scan_type,
+            containers,
+            output,
+        } => {
             handlers::security::handle_security_scan(vm, scan_type, containers, output)?;
         }
 
@@ -385,7 +585,11 @@ pub async fn run(mut cli: Cli) -> Result<()> {
             handlers::security::handle_security_assess(vm, output)?;
         }
 
-        Commands::SecurityHarden { vm, profile, verify_only } => {
+        Commands::SecurityHarden {
+            vm,
+            profile,
+            verify_only,
+        } => {
             handlers::security::handle_security_harden(vm, profile, verify_only)?;
         }
 
@@ -393,15 +597,29 @@ pub async fn run(mut cli: Cli) -> Result<()> {
             handlers::security::handle_security_profiles(details)?;
         }
 
-        Commands::ComplianceCheck { vm, framework, output } => {
+        Commands::ComplianceCheck {
+            vm,
+            framework,
+            output,
+        } => {
             handlers::security::handle_compliance_check(vm, framework, output)?;
         }
 
-        Commands::ComplianceReport { vm, report_id, output } => {
+        Commands::ComplianceReport {
+            vm,
+            report_id,
+            output,
+        } => {
             handlers::security::handle_compliance_report(vm, report_id, output)?;
         }
 
-        Commands::AuditList { vm, event_type, severity, security_only, output } => {
+        Commands::AuditList {
+            vm,
+            event_type,
+            severity,
+            security_only,
+            output,
+        } => {
             handlers::security::handle_audit_list(vm, event_type, severity, security_only, output)?;
         }
 
@@ -414,194 +632,376 @@ pub async fn run(mut cli: Cli) -> Result<()> {
         }
 
         // ========== COST MANAGEMENT & OPTIMIZATION ==========
+        Commands::CostAnalyze { vm, period, output } => {
+            handlers::cost::handle_cost_analyze(vm, period, output)?
+        }
 
-        Commands::CostAnalyze { vm, period, output } =>
-            handlers::cost::handle_cost_analyze(vm, period, output)?,
+        Commands::CostSummary {
+            namespace,
+            period,
+            group_by,
+            output,
+        } => handlers::cost::handle_cost_summary(namespace, period, group_by, output)?,
 
-        Commands::CostSummary { namespace, period, group_by, output } =>
-            handlers::cost::handle_cost_summary(namespace, period, group_by, output)?,
+        Commands::CostReport {
+            report_type,
+            format,
+            output,
+        } => handlers::cost::handle_cost_report(report_type, format, output)?,
 
-        Commands::CostReport { report_type, format, output } =>
-            handlers::cost::handle_cost_report(report_type, format, output)?,
+        Commands::BudgetList { output } => handlers::cost::handle_budget_list(output)?,
 
-        Commands::BudgetList { output } =>
-            handlers::cost::handle_budget_list(output)?,
+        Commands::BudgetCreate {
+            name,
+            amount,
+            period,
+            scope,
+            alert_threshold,
+        } => handlers::cost::handle_budget_create(name, amount, period, scope, alert_threshold)?,
 
-        Commands::BudgetCreate { name, amount, period, scope, alert_threshold } =>
-            handlers::cost::handle_budget_create(name, amount, period, scope, alert_threshold)?,
+        Commands::BudgetStatus { name, output } => {
+            handlers::cost::handle_budget_status(name, output)?
+        }
 
-        Commands::BudgetStatus { name, output } =>
-            handlers::cost::handle_budget_status(name, output)?,
+        Commands::CostOptimize {
+            vm,
+            high_priority_only,
+            output,
+        } => handlers::cost::handle_cost_optimize(vm, high_priority_only, output)?,
 
-        Commands::CostOptimize { vm, high_priority_only, output } =>
-            handlers::cost::handle_cost_optimize(vm, high_priority_only, output)?,
+        Commands::CostWaste {
+            waste_type,
+            min_waste,
+            output,
+        } => handlers::cost::handle_cost_waste(waste_type, min_waste, output)?,
 
-        Commands::CostWaste { waste_type, min_waste, output } =>
-            handlers::cost::handle_cost_waste(waste_type, min_waste, output)?,
-
-        Commands::CostForecast { budget, period, output } =>
-            handlers::cost::handle_cost_forecast(budget, period, output)?,
+        Commands::CostForecast {
+            budget,
+            period,
+            output,
+        } => handlers::cost::handle_cost_forecast(budget, period, output)?,
 
         // ========== AUTOMATION & ORCHESTRATION ==========
-
-        Commands::AutomationList { enabled_only, output } =>
-            handlers::automation::handle_automation_list(enabled_only, output)?,
-        Commands::AutomationCreate { name, description, trigger, enable } =>
-            handlers::automation::handle_automation_create(name, description, trigger, enable)?,
-        Commands::AutomationGet { rule, output } =>
-            handlers::automation::handle_automation_get(rule, output)?,
-        Commands::AutomationRun { rule, dry_run } =>
-            handlers::automation::handle_automation_run(rule, dry_run)?,
-        Commands::WorkflowList { output } =>
-            handlers::automation::handle_workflow_list(output)?,
-        Commands::WorkflowCreate { name, description, template } =>
-            handlers::automation::handle_workflow_create(name, description, template)?,
-        Commands::WorkflowGet { workflow, output } =>
-            handlers::automation::handle_workflow_get(workflow, output)?,
-        Commands::WorkflowRun { workflow, watch } =>
-            handlers::automation::handle_workflow_run(workflow, watch)?,
-        Commands::WorkflowExecutions { workflow, limit, output } =>
-            handlers::automation::handle_workflow_executions(workflow, limit, output)?,
-        Commands::ScheduleList { enabled_only, output } =>
-            handlers::automation::handle_schedule_list(enabled_only, output)?,
-        Commands::ScheduleCreate { name, rule, schedule, enable } =>
-            handlers::automation::handle_schedule_create(name, rule, schedule, enable)?,
+        Commands::AutomationList {
+            enabled_only,
+            output,
+        } => handlers::automation::handle_automation_list(enabled_only, output)?,
+        Commands::AutomationCreate {
+            name,
+            description,
+            trigger,
+            enable,
+        } => handlers::automation::handle_automation_create(name, description, trigger, enable)?,
+        Commands::AutomationGet { rule, output } => {
+            handlers::automation::handle_automation_get(rule, output)?
+        }
+        Commands::AutomationRun { rule, dry_run } => {
+            handlers::automation::handle_automation_run(rule, dry_run)?
+        }
+        Commands::WorkflowList { output } => handlers::automation::handle_workflow_list(output)?,
+        Commands::WorkflowCreate {
+            name,
+            description,
+            template,
+        } => handlers::automation::handle_workflow_create(name, description, template)?,
+        Commands::WorkflowGet { workflow, output } => {
+            handlers::automation::handle_workflow_get(workflow, output)?
+        }
+        Commands::WorkflowRun { workflow, watch } => {
+            handlers::automation::handle_workflow_run(workflow, watch)?
+        }
+        Commands::WorkflowExecutions {
+            workflow,
+            limit,
+            output,
+        } => handlers::automation::handle_workflow_executions(workflow, limit, output)?,
+        Commands::ScheduleList {
+            enabled_only,
+            output,
+        } => handlers::automation::handle_schedule_list(enabled_only, output)?,
+        Commands::ScheduleCreate {
+            name,
+            rule,
+            schedule,
+            enable,
+        } => handlers::automation::handle_schedule_create(name, rule, schedule, enable)?,
 
         // ========== OBSERVABILITY & ANALYTICS ==========
-
-        Commands::LogsQuery { start: _, end: _, level, source, search, limit } =>
-            handlers::observability::handle_logs_query(level, source, search, limit)?,
-        Commands::LogsStats { group_by } =>
-            handlers::observability::handle_logs_stats(group_by)?,
-        Commands::LogsPatterns { min_count } =>
-            handlers::observability::handle_logs_patterns(min_count)?,
-        Commands::MetricsCollect { vm } =>
-            handlers::observability::handle_metrics_collect(vm)?,
-        Commands::MetricsQuery { name, start: _, end: _, aggregation } =>
-            handlers::observability::handle_metrics_query(name, aggregation)?,
-        Commands::MetricsSnapshot { vm: _, cpu_threshold, memory_threshold } =>
-            handlers::observability::handle_metrics_snapshot(cpu_threshold, memory_threshold)?,
-        Commands::AlertsList { enabled_only, severity, output } =>
-            handlers::observability::handle_alerts_list(enabled_only, severity, output)?,
-        Commands::AlertsCreate { name, severity, metric, operator, threshold, duration } =>
-            handlers::observability::handle_alerts_create(name, severity, metric, operator, threshold, duration)?,
-        Commands::AlertsActive { severity, output } =>
-            handlers::observability::handle_alerts_active(severity, output)?,
-        Commands::AlertsResolve { alert_id } =>
-            handlers::observability::handle_alerts_resolve(alert_id)?,
-        Commands::InsightsGenerate { vm, insight_type, min_severity } =>
-            handlers::observability::handle_insights_generate(vm, insight_type, min_severity)?,
-        Commands::Recommendations { category, min_priority, with_savings, output } =>
-            handlers::observability::handle_recommendations(category, min_priority, with_savings, output)?,
-        Commands::TrendsAnalyze { metric, window, threshold } =>
-            handlers::observability::handle_trends_analyze(metric, window, threshold)?,
-        Commands::HealthCheck { component, output } =>
-            handlers::observability::handle_health_check(component, output)?,
+        Commands::LogsQuery {
+            start: _,
+            end: _,
+            level,
+            source,
+            search,
+            limit,
+        } => handlers::observability::handle_logs_query(level, source, search, limit)?,
+        Commands::LogsStats { group_by } => handlers::observability::handle_logs_stats(group_by)?,
+        Commands::LogsPatterns { min_count } => {
+            handlers::observability::handle_logs_patterns(min_count)?
+        }
+        Commands::MetricsCollect { vm } => handlers::observability::handle_metrics_collect(vm)?,
+        Commands::MetricsQuery {
+            name,
+            start: _,
+            end: _,
+            aggregation,
+        } => handlers::observability::handle_metrics_query(name, aggregation)?,
+        Commands::MetricsSnapshot {
+            vm: _,
+            cpu_threshold,
+            memory_threshold,
+        } => handlers::observability::handle_metrics_snapshot(cpu_threshold, memory_threshold)?,
+        Commands::AlertsList {
+            enabled_only,
+            severity,
+            output,
+        } => handlers::observability::handle_alerts_list(enabled_only, severity, output)?,
+        Commands::AlertsCreate {
+            name,
+            severity,
+            metric,
+            operator,
+            threshold,
+            duration,
+        } => handlers::observability::handle_alerts_create(
+            name, severity, metric, operator, threshold, duration,
+        )?,
+        Commands::AlertsActive { severity, output } => {
+            handlers::observability::handle_alerts_active(severity, output)?
+        }
+        Commands::AlertsResolve { alert_id } => {
+            handlers::observability::handle_alerts_resolve(alert_id)?
+        }
+        Commands::InsightsGenerate {
+            vm,
+            insight_type,
+            min_severity,
+        } => handlers::observability::handle_insights_generate(vm, insight_type, min_severity)?,
+        Commands::Recommendations {
+            category,
+            min_priority,
+            with_savings,
+            output,
+        } => handlers::observability::handle_recommendations(
+            category,
+            min_priority,
+            with_savings,
+            output,
+        )?,
+        Commands::TrendsAnalyze {
+            metric,
+            window,
+            threshold,
+        } => handlers::observability::handle_trends_analyze(metric, window, threshold)?,
+        Commands::HealthCheck { component, output } => {
+            handlers::observability::handle_health_check(component, output)?
+        }
 
         // ========== MULTI-TENANCY & RBAC ==========
-
-        Commands::TenantsList { active_only, output } =>
-            handlers::multitenancy::handle_tenants_list(active_only, output)?,
-        Commands::TenantsCreate { name, owner, email, description, namespace } =>
-            handlers::multitenancy::handle_tenants_create(name, owner, email, description, namespace)?,
-        Commands::TenantsShow { tenant, output } =>
-            handlers::multitenancy::handle_tenants_show(tenant, output)?,
-        Commands::TenantsDelete { tenant, yes } =>
-            handlers::multitenancy::handle_tenants_delete(tenant, yes)?,
-        Commands::UsersList { active_only, group, output } =>
-            handlers::multitenancy::handle_users_list(active_only, group, output)?,
-        Commands::UsersCreate { username, email, role, group } =>
-            handlers::multitenancy::handle_users_create(username, email, role, group)?,
-        Commands::UsersAssignRole { user, role, scope } =>
-            handlers::multitenancy::handle_users_assign_role(user, role, scope)?,
-        Commands::RolesList { builtin, custom, output } =>
-            handlers::multitenancy::handle_roles_list(builtin, custom, output)?,
-        Commands::RolesShow { role, output } =>
-            handlers::multitenancy::handle_roles_show(role, output)?,
-        Commands::RolesCreate { name, description, permissions } =>
-            handlers::multitenancy::handle_roles_create(name, description, permissions)?,
-        Commands::QuotasList { namespace, exceeded, output } =>
-            handlers::multitenancy::handle_quotas_list(namespace, exceeded, output)?,
-        Commands::QuotasCreate { name, namespace, preset } =>
-            handlers::multitenancy::handle_quotas_create(name, namespace, preset)?,
-        Commands::QuotasShow { quota, utilization, output } =>
-            handlers::multitenancy::handle_quotas_show(quota, utilization, output)?,
-        Commands::GroupsList { output } =>
-            handlers::multitenancy::handle_groups_list(output)?,
-        Commands::GroupsCreate { name, description, role } =>
-            handlers::multitenancy::handle_groups_create(name, description, role)?,
-        Commands::GroupsAddUser { group, user } =>
-            handlers::multitenancy::handle_groups_add_user(group, user)?,
+        Commands::TenantsList {
+            active_only,
+            output,
+        } => handlers::multitenancy::handle_tenants_list(active_only, output)?,
+        Commands::TenantsCreate {
+            name,
+            owner,
+            email,
+            description,
+            namespace,
+        } => handlers::multitenancy::handle_tenants_create(
+            name,
+            owner,
+            email,
+            description,
+            namespace,
+        )?,
+        Commands::TenantsShow { tenant, output } => {
+            handlers::multitenancy::handle_tenants_show(tenant, output)?
+        }
+        Commands::TenantsDelete { tenant, yes } => {
+            handlers::multitenancy::handle_tenants_delete(tenant, yes)?
+        }
+        Commands::UsersList {
+            active_only,
+            group,
+            output,
+        } => handlers::multitenancy::handle_users_list(active_only, group, output)?,
+        Commands::UsersCreate {
+            username,
+            email,
+            role,
+            group,
+        } => handlers::multitenancy::handle_users_create(username, email, role, group)?,
+        Commands::UsersAssignRole { user, role, scope } => {
+            handlers::multitenancy::handle_users_assign_role(user, role, scope)?
+        }
+        Commands::RolesList {
+            builtin,
+            custom,
+            output,
+        } => handlers::multitenancy::handle_roles_list(builtin, custom, output)?,
+        Commands::RolesShow { role, output } => {
+            handlers::multitenancy::handle_roles_show(role, output)?
+        }
+        Commands::RolesCreate {
+            name,
+            description,
+            permissions,
+        } => handlers::multitenancy::handle_roles_create(name, description, permissions)?,
+        Commands::QuotasList {
+            namespace,
+            exceeded,
+            output,
+        } => handlers::multitenancy::handle_quotas_list(namespace, exceeded, output)?,
+        Commands::QuotasCreate {
+            name,
+            namespace,
+            preset,
+        } => handlers::multitenancy::handle_quotas_create(name, namespace, preset)?,
+        Commands::QuotasShow {
+            quota,
+            utilization,
+            output,
+        } => handlers::multitenancy::handle_quotas_show(quota, utilization, output)?,
+        Commands::GroupsList { output } => handlers::multitenancy::handle_groups_list(output)?,
+        Commands::GroupsCreate {
+            name,
+            description,
+            role,
+        } => handlers::multitenancy::handle_groups_create(name, description, role)?,
+        Commands::GroupsAddUser { group, user } => {
+            handlers::multitenancy::handle_groups_add_user(group, user)?
+        }
 
         // ========== DEVELOPER EXPERIENCE & TOOLING ==========
+        Commands::Completions {
+            shell,
+            output,
+            install,
+        } => handlers::devexp::handle_completions(shell, output, install)?,
 
-        Commands::Completions { shell, output, install } => {
-            handlers::devexp::handle_completions(shell, output, install)?
-        }
+        Commands::ConfigSave {
+            name,
+            file,
+            description,
+            category,
+            tags,
+        } => handlers::devexp::handle_config_save(name, file, description, category, tags)?,
 
-        Commands::ConfigSave { name, file, description, category, tags } => {
-            handlers::devexp::handle_config_save(name, file, description, category, tags)?
-        }
+        Commands::ConfigLoad {
+            name,
+            output,
+            format,
+        } => handlers::devexp::handle_config_load(name, output, format)?,
 
-        Commands::ConfigLoad { name, output, format } => {
-            handlers::devexp::handle_config_load(name, output, format)?
-        }
+        Commands::ConfigList {
+            category,
+            tag,
+            sort_by,
+            output,
+        } => handlers::devexp::handle_config_list(category, tag, sort_by, output)?,
 
-        Commands::ConfigList { category, tag, sort_by, output } => {
-            handlers::devexp::handle_config_list(category, tag, sort_by, output)?
-        }
+        Commands::ConfigDelete { name, yes } => handlers::devexp::handle_config_delete(name, yes)?,
 
-        Commands::ConfigDelete { name, yes } => {
-            handlers::devexp::handle_config_delete(name, yes)?
-        }
+        Commands::Diff {
+            source,
+            target,
+            show_unchanged,
+            output,
+        } => handlers::devexp::handle_diff(source, target, show_unchanged, output)?,
 
-        Commands::Diff { source, target, show_unchanged, output } => {
-            handlers::devexp::handle_diff(source, target, show_unchanged, output)?
-        }
+        Commands::Init {
+            name,
+            project_type,
+            directory,
+            namespace,
+            no_examples,
+            ci,
+            no_git,
+        } => handlers::devexp::handle_init(
+            name,
+            project_type,
+            directory,
+            namespace,
+            no_examples,
+            ci,
+            no_git,
+        )?,
 
-        Commands::Init { name, project_type, directory, namespace, no_examples, ci, no_git } => {
-            handlers::devexp::handle_init(name, project_type, directory, namespace, no_examples, ci, no_git)?
-        }
-
-        Commands::Info { detailed, diagnostics, output } => {
-            handlers::devexp::handle_info(detailed, diagnostics, output, &cli.namespace)?
-        }
+        Commands::Info {
+            detailed,
+            diagnostics,
+            output,
+        } => handlers::devexp::handle_info(detailed, diagnostics, output, &cli.namespace)?,
         // ========== API & REST INTERFACE ==========
-
-        Commands::ApiServe { port, host, tls, tls_cert, tls_key, auth, rate_limit } => {
+        Commands::ApiServe {
+            port,
+            host,
+            tls,
+            tls_cert,
+            tls_key,
+            auth,
+            rate_limit,
+        } => {
             // Merge CLI args with config file (CLI takes priority)
-            let port = if port == 8080 { app_config.api.port } else { port };
-            let host = if host == "0.0.0.0" { app_config.api.host.clone() } else { host };
+            let port = if port == 8080 {
+                app_config.api.port
+            } else {
+                port
+            };
+            let host = if host == "0.0.0.0" {
+                app_config.api.host.clone()
+            } else {
+                host
+            };
             let tls = tls || app_config.api.tls;
             let tls_cert = tls_cert.or(app_config.api.tls_cert.clone());
             let tls_key = tls_key.or(app_config.api.tls_key.clone());
-            let auth = if auth == "none" { app_config.api.auth.clone() } else { auth };
-            let rate_limit = if rate_limit == 60 { app_config.api.rate_limit } else { rate_limit };
+            let auth = if auth == "none" {
+                app_config.api.auth.clone()
+            } else {
+                auth
+            };
+            let rate_limit = if rate_limit == 60 {
+                app_config.api.rate_limit
+            } else {
+                rate_limit
+            };
             handlers::api::handle_api_serve(port, host, tls, tls_cert, tls_key, auth, rate_limit)?;
         }
-        Commands::ApiStatus { output } =>
-            handlers::api::handle_api_status(output)?,
-        Commands::ApiRoutes { method, output } =>
-            handlers::api::handle_api_routes(method, output)?,
-        Commands::ApiSpec { format, output } =>
-            handlers::api::handle_api_spec(format, output)?,
-        Commands::ApiKeyList { active_only, output } =>
-            handlers::api::handle_api_key_list(active_only, output)?,
-        Commands::ApiKeyCreate { name, permissions, rate_limit } =>
-            handlers::api::handle_api_key_create(name, permissions, rate_limit)?,
-        Commands::ApiKeyDelete { key, yes } =>
-            handlers::api::handle_api_key_delete(key, yes)?,
-        Commands::WebhookList { active_only, output } =>
-            handlers::api::handle_webhook_list(active_only, output)?,
-        Commands::WebhookCreate { name, url, events, secret } =>
-            handlers::api::handle_webhook_create(name, url, events, secret)?,
-        Commands::WebhookDelete { webhook, yes } =>
-            handlers::api::handle_webhook_delete(webhook, yes)?,
-        Commands::Tui { no_splash: _, theme, interactive } =>
-            handlers::api::handle_tui(cli.namespace.clone(), theme, interactive).await?,
+        Commands::ApiStatus { output } => handlers::api::handle_api_status(output)?,
+        Commands::ApiRoutes { method, output } => handlers::api::handle_api_routes(method, output)?,
+        Commands::ApiSpec { format, output } => handlers::api::handle_api_spec(format, output)?,
+        Commands::ApiKeyList {
+            active_only,
+            output,
+        } => handlers::api::handle_api_key_list(active_only, output)?,
+        Commands::ApiKeyCreate {
+            name,
+            permissions,
+            rate_limit,
+        } => handlers::api::handle_api_key_create(name, permissions, rate_limit)?,
+        Commands::ApiKeyDelete { key, yes } => handlers::api::handle_api_key_delete(key, yes)?,
+        Commands::WebhookList {
+            active_only,
+            output,
+        } => handlers::api::handle_webhook_list(active_only, output)?,
+        Commands::WebhookCreate {
+            name,
+            url,
+            events,
+            secret,
+        } => handlers::api::handle_webhook_create(name, url, events, secret)?,
+        Commands::WebhookDelete { webhook, yes } => {
+            handlers::api::handle_webhook_delete(webhook, yes)?
+        }
+        Commands::Tui {
+            no_splash: _,
+            theme,
+            interactive,
+        } => handlers::api::handle_tui(cli.namespace.clone(), theme, interactive).await?,
 
         // ========== CONFIGURATION ==========
-
         Commands::ConfigShow { path } => {
             let user_path = AppConfig::user_path()?;
             let system_path = AppConfig::system_path();
@@ -611,12 +1011,24 @@ pub async fn run(mut cli: Cli) -> Result<()> {
                 use tui::colors::cli as color;
                 println!("{}", color::header("Zorvia Configuration"));
                 println!();
-                println!("  System config: {}  {}", system_path.display(),
-                    if system_path.exists() { color::success("(loaded)") }
-                    else { color::muted("(not found)") });
-                println!("  User config:   {}  {}", user_path.display(),
-                    if user_path.exists() { color::success("(loaded)") }
-                    else { color::muted("(not found)") });
+                println!(
+                    "  System config: {}  {}",
+                    system_path.display(),
+                    if system_path.exists() {
+                        color::success("(loaded)")
+                    } else {
+                        color::muted("(not found)")
+                    }
+                );
+                println!(
+                    "  User config:   {}  {}",
+                    user_path.display(),
+                    if user_path.exists() {
+                        color::success("(loaded)")
+                    } else {
+                        color::muted("(not found)")
+                    }
+                );
                 println!();
                 println!("  Priority: CLI args > user config > system config > defaults");
                 println!();
@@ -631,17 +1043,22 @@ pub async fn run(mut cli: Cli) -> Result<()> {
             let config_path = AppConfig::default_path()?;
 
             if config_path.exists() && !force {
-                println!("{}", color::warning(&format!(
-                    "Config file already exists: {}", config_path.display()
-                )));
+                println!(
+                    "{}",
+                    color::warning(&format!(
+                        "Config file already exists: {}",
+                        config_path.display()
+                    ))
+                );
                 println!("  Use --force to overwrite");
                 return Ok(());
             }
 
             app_config.save()?;
-            println!("{}", color::success(&format!(
-                "✓ Config file created: {}", config_path.display()
-            )));
+            println!(
+                "{}",
+                color::success(&format!("✓ Config file created: {}", config_path.display()))
+            );
             println!();
             println!("Edit it to customize defaults:");
             println!("  namespace, API port/host, logging level, output format, etc.");
@@ -650,4 +1067,3 @@ pub async fn run(mut cli: Cli) -> Result<()> {
 
     Ok(())
 }
-

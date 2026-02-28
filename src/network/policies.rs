@@ -50,9 +50,9 @@ impl NetworkPolicy {
             return self.policy_type == PolicyType::Egress; // Default allow if only egress
         }
 
-        self.ingress_rules.iter().any(|rule| {
-            rule.matches(source, port, protocol)
-        })
+        self.ingress_rules
+            .iter()
+            .any(|rule| rule.matches(source, port, protocol))
     }
 
     /// Check if policy allows egress traffic
@@ -61,19 +61,17 @@ impl NetworkPolicy {
             return self.policy_type == PolicyType::Ingress; // Default allow if only ingress
         }
 
-        self.egress_rules.iter().any(|rule| {
-            rule.matches(dest, port, protocol)
-        })
+        self.egress_rules
+            .iter()
+            .any(|rule| rule.matches(dest, port, protocol))
     }
 }
 
 /// VM selector for policy targeting
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[derive(Default)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct VMSelector {
     pub labels: HashMap<String, String>,
 }
-
 
 impl VMSelector {
     pub fn with_label(mut self, key: impl Into<String>, value: impl Into<String>) -> Self {
@@ -82,9 +80,9 @@ impl VMSelector {
     }
 
     pub fn matches(&self, vm_labels: &HashMap<String, String>) -> bool {
-        self.labels.iter().all(|(k, v)| {
-            vm_labels.get(k).map(|val| val == v).unwrap_or(false)
-        })
+        self.labels
+            .iter()
+            .all(|(k, v)| vm_labels.get(k).map(|val| val == v).unwrap_or(false))
     }
 }
 
@@ -130,8 +128,8 @@ impl IngressRule {
 
     /// Check if rule matches traffic
     pub fn matches(&self, source: &str, port: u16, protocol: &str) -> bool {
-        let cidr_match = self.from_cidrs.is_empty() ||
-            self.from_cidrs.iter().any(|cidr| {
+        let cidr_match = self.from_cidrs.is_empty()
+            || self.from_cidrs.iter().any(|cidr| {
                 // Simplified CIDR matching - in production use proper IP parsing
                 if cidr == "*" {
                     return true;
@@ -148,8 +146,8 @@ impl IngressRule {
                 }
             });
 
-        let port_match = self.ports.is_empty() ||
-            self.ports.iter().any(|p| p.matches(port, protocol));
+        let port_match =
+            self.ports.is_empty() || self.ports.iter().any(|p| p.matches(port, protocol));
 
         cidr_match && port_match
     }
@@ -195,8 +193,8 @@ impl EgressRule {
 
     /// Check if rule matches traffic
     pub fn matches(&self, dest: &str, port: u16, protocol: &str) -> bool {
-        let cidr_match = self.to_cidrs.is_empty() ||
-            self.to_cidrs.iter().any(|cidr| {
+        let cidr_match = self.to_cidrs.is_empty()
+            || self.to_cidrs.iter().any(|cidr| {
                 // Simplified CIDR matching - in production use proper IP parsing
                 if cidr == "*" {
                     return true;
@@ -213,8 +211,8 @@ impl EgressRule {
                 }
             });
 
-        let port_match = self.ports.is_empty() ||
-            self.ports.iter().any(|p| p.matches(port, protocol));
+        let port_match =
+            self.ports.is_empty() || self.ports.iter().any(|p| p.matches(port, protocol));
 
         cidr_match && port_match
     }
@@ -262,7 +260,7 @@ impl Port {
     /// Check if port matches
     pub fn matches(&self, port: u16, protocol: &str) -> bool {
         let proto_match = protocol.to_uppercase() == self.protocol.as_str();
-        
+
         let port_match = if let Some(end) = self.end_port {
             port >= self.port && port <= end
         } else {
@@ -344,8 +342,7 @@ mod tests {
 
     #[test]
     fn test_network_policy_creation() {
-        let policy = NetworkPolicy::new("web-policy")
-            .with_policy_type(PolicyType::Both);
+        let policy = NetworkPolicy::new("web-policy").with_policy_type(PolicyType::Both);
 
         assert_eq!(policy.name, "web-policy");
         assert_eq!(policy.policy_type, PolicyType::Both);
@@ -409,11 +406,11 @@ mod tests {
     #[test]
     fn test_policy_allows_traffic() {
         let mut policy = NetworkPolicy::new("test-policy");
-        
+
         let ingress = IngressRule::new()
             .from_cidr("10.0.0.0/24")
             .allow_port(Port::tcp(80));
-        
+
         policy.ingress_rules.push(ingress);
 
         assert!(policy.allows_ingress("10.0.0.5", 80, "TCP"));

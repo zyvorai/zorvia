@@ -106,16 +106,19 @@ impl RouteGroup {
     }
 
     pub fn get_routes(&self) -> Vec<Route> {
-        self.routes.iter().map(|r| {
-            let mut route = r.clone();
-            route.path = format!("{}{}", self.prefix, route.path);
-            for mw in &self.middleware {
-                if !route.middleware.contains(mw) {
-                    route.middleware.push(mw.clone());
+        self.routes
+            .iter()
+            .map(|r| {
+                let mut route = r.clone();
+                route.path = format!("{}{}", self.prefix, route.path);
+                for mw in &self.middleware {
+                    if !route.middleware.contains(mw) {
+                        route.middleware.push(mw.clone());
+                    }
                 }
-            }
-            route
-        }).collect()
+                route
+            })
+            .collect()
     }
 }
 
@@ -209,7 +212,8 @@ pub fn build_default_router() -> Router {
     let mut blueprint_group = RouteGroup::new("blueprints", "/blueprints");
     blueprint_group.add_route(Route::new("GET", "", "list_blueprints"));
     blueprint_group.add_route(Route::new("GET", "/:name", "get_blueprint"));
-    blueprint_group.add_route(Route::new("POST", "/:name/deploy", "deploy_blueprint").with_middleware("auth"));
+    blueprint_group
+        .add_route(Route::new("POST", "/:name/deploy", "deploy_blueprint").with_middleware("auth"));
     router.add_group(blueprint_group);
 
     // Snapshot routes
@@ -217,8 +221,10 @@ pub fn build_default_router() -> Router {
     snapshot_group.add_route(Route::new("GET", "", "list_snapshots"));
     snapshot_group.add_route(Route::new("POST", "", "create_snapshot").with_middleware("auth"));
     snapshot_group.add_route(Route::new("GET", "/:id", "get_snapshot"));
-    snapshot_group.add_route(Route::new("DELETE", "/:id", "delete_snapshot").with_middleware("auth"));
-    snapshot_group.add_route(Route::new("POST", "/:id/restore", "restore_snapshot").with_middleware("auth"));
+    snapshot_group
+        .add_route(Route::new("DELETE", "/:id", "delete_snapshot").with_middleware("auth"));
+    snapshot_group
+        .add_route(Route::new("POST", "/:id/restore", "restore_snapshot").with_middleware("auth"));
     router.add_group(snapshot_group);
 
     // Health routes
@@ -282,8 +288,7 @@ mod tests {
 
     #[test]
     fn test_route_with_version() {
-        let route = Route::new("GET", "/vms", "list_vms")
-            .with_version(ApiVersion::V2);
+        let route = Route::new("GET", "/vms", "list_vms").with_version(ApiVersion::V2);
         assert_eq!(route.full_path(), "/api/v2/vms");
     }
 
@@ -306,8 +311,7 @@ mod tests {
 
     #[test]
     fn test_route_group_get_routes() {
-        let mut group = RouteGroup::new("vms", "/vms")
-            .with_middleware("rate-limit");
+        let mut group = RouteGroup::new("vms", "/vms").with_middleware("rate-limit");
         group.add_route(Route::new("GET", "/:id", "get_vm"));
 
         let routes = group.get_routes();

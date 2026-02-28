@@ -1,10 +1,5 @@
 // Enhanced VM List View - Advanced table with search, filter, sort, multi-select
-use crate::tui::{
-    colors::tui as colors,
-    config::TuiConfig,
-    state::AppState,
-    widgets::SearchBar,
-};
+use crate::tui::{colors::tui as colors, config::TuiConfig, state::AppState, widgets::SearchBar};
 
 use ratatui::{
     layout::{Alignment, Constraint, Direction, Layout, Rect},
@@ -20,7 +15,12 @@ pub fn render(f: &mut Frame, state: &mut AppState, config: &TuiConfig) {
     render_with_search(f, state, config, &search_bar);
 }
 
-fn render_with_search(f: &mut Frame, state: &mut AppState, _config: &TuiConfig, search_bar: &SearchBar) {
+fn render_with_search(
+    f: &mut Frame,
+    state: &mut AppState,
+    _config: &TuiConfig,
+    search_bar: &SearchBar,
+) {
     let size = f.area();
 
     // Main layout with optional stats bar and search
@@ -28,29 +28,29 @@ fn render_with_search(f: &mut Frame, state: &mut AppState, _config: &TuiConfig, 
         Layout::default()
             .direction(Direction::Vertical)
             .constraints([
-                Constraint::Length(3),  // Header
-                Constraint::Length(4),  // Search bar
-                Constraint::Min(0),     // VM table
-                Constraint::Length(5),  // Help text
+                Constraint::Length(3), // Header
+                Constraint::Length(4), // Search bar
+                Constraint::Min(0),    // VM table
+                Constraint::Length(5), // Help text
             ])
             .split(size)
     } else if state.show_stats_bar {
         Layout::default()
             .direction(Direction::Vertical)
             .constraints([
-                Constraint::Length(3),  // Header
-                Constraint::Length(2),  // Stats bar
-                Constraint::Min(0),     // VM table
-                Constraint::Length(5),  // Help text
+                Constraint::Length(3), // Header
+                Constraint::Length(2), // Stats bar
+                Constraint::Min(0),    // VM table
+                Constraint::Length(5), // Help text
             ])
             .split(size)
     } else {
         Layout::default()
             .direction(Direction::Vertical)
             .constraints([
-                Constraint::Length(3),  // Header
-                Constraint::Min(0),     // VM table
-                Constraint::Length(5),  // Help text
+                Constraint::Length(3), // Header
+                Constraint::Min(0),    // VM table
+                Constraint::Length(5), // Help text
             ])
             .split(size)
     };
@@ -93,11 +93,24 @@ fn render_header(f: &mut Frame, state: &AppState, area: Rect) {
     };
 
     let header_text = Line::from(vec![
-        Span::styled("Zorvia".to_string(), Style::default().fg(colors::ORANGE).add_modifier(Modifier::BOLD)),
+        Span::styled(
+            "Zorvia".to_string(),
+            Style::default()
+                .fg(colors::ORANGE)
+                .add_modifier(Modifier::BOLD),
+        ),
         Span::styled(" - ".to_string(), Style::default().fg(colors::TEXT_MUTED)),
-        Span::styled("KubeVirt VM Manager".to_string(), Style::default().fg(colors::TEXT)),
+        Span::styled(
+            "KubeVirt VM Manager".to_string(),
+            Style::default().fg(colors::TEXT),
+        ),
         Span::styled("  │  ".to_string(), Style::default().fg(colors::TEXT_MUTED)),
-        Span::styled("💻 VM List".to_string(), Style::default().fg(colors::LIGHT_ORANGE).add_modifier(Modifier::BOLD)),
+        Span::styled(
+            "💻 VM List".to_string(),
+            Style::default()
+                .fg(colors::LIGHT_ORANGE)
+                .add_modifier(Modifier::BOLD),
+        ),
         Span::styled(vm_count_text, Style::default().fg(colors::TEXT)),
         Span::styled(sort_indicator, Style::default().fg(colors::INFO)),
         Span::styled(multi_select_indicator, Style::default().fg(colors::WARNING)),
@@ -105,7 +118,11 @@ fn render_header(f: &mut Frame, state: &AppState, area: Rect) {
 
     let header = Paragraph::new(header_text)
         .alignment(Alignment::Center)
-        .block(Block::default().borders(Borders::ALL).border_style(Style::default().fg(colors::BORDER)));
+        .block(
+            Block::default()
+                .borders(Borders::ALL)
+                .border_style(Style::default().fg(colors::BORDER)),
+        );
 
     f.render_widget(header, area);
 }
@@ -115,23 +132,49 @@ fn render_stats_bar(f: &mut Frame, state: &AppState, area: Rect) {
 
     let stats_line = Line::from(vec![
         Span::styled("📊 ", Style::default().fg(colors::ORANGE)),
-        Span::styled(format!("Total: {} ", stats.total), Style::default().fg(colors::TEXT)),
+        Span::styled(
+            format!("Total: {} ", stats.total),
+            Style::default().fg(colors::TEXT),
+        ),
         Span::styled("│ ", Style::default().fg(colors::TEXT_MUTED)),
         Span::styled("🟢 ", Style::default().fg(colors::SUCCESS)),
-        Span::styled(format!("{} ", stats.running), Style::default().fg(colors::SUCCESS).add_modifier(Modifier::BOLD)),
+        Span::styled(
+            format!("{} ", stats.running),
+            Style::default()
+                .fg(colors::SUCCESS)
+                .add_modifier(Modifier::BOLD),
+        ),
         Span::styled("│ ", Style::default().fg(colors::TEXT_MUTED)),
         Span::styled("⏸  ", Style::default().fg(colors::TEXT_MUTED)),
-        Span::styled(format!("{} ", stats.stopped), Style::default().fg(colors::TEXT_MUTED).add_modifier(Modifier::BOLD)),
+        Span::styled(
+            format!("{} ", stats.stopped),
+            Style::default()
+                .fg(colors::TEXT_MUTED)
+                .add_modifier(Modifier::BOLD),
+        ),
         Span::styled("│ ", Style::default().fg(colors::TEXT_MUTED)),
         Span::styled("🟡 ", Style::default().fg(colors::WARNING)),
-        Span::styled(format!("{} ", stats.starting), Style::default().fg(colors::WARNING).add_modifier(Modifier::BOLD)),
+        Span::styled(
+            format!("{} ", stats.starting),
+            Style::default()
+                .fg(colors::WARNING)
+                .add_modifier(Modifier::BOLD),
+        ),
         Span::styled("│ ", Style::default().fg(colors::TEXT_MUTED)),
         Span::styled("🔴 ", Style::default().fg(colors::ERROR)),
-        Span::styled(format!("{} ", stats.failed), Style::default().fg(colors::ERROR).add_modifier(Modifier::BOLD)),
+        Span::styled(
+            format!("{} ", stats.failed),
+            Style::default()
+                .fg(colors::ERROR)
+                .add_modifier(Modifier::BOLD),
+        ),
     ]);
 
-    let paragraph = Paragraph::new(stats_line)
-        .block(Block::default().borders(Borders::ALL).border_style(Style::default().fg(colors::BORDER)));
+    let paragraph = Paragraph::new(stats_line).block(
+        Block::default()
+            .borders(Borders::ALL)
+            .border_style(Style::default().fg(colors::BORDER)),
+    );
 
     f.render_widget(paragraph, area);
 }
@@ -140,7 +183,13 @@ fn render_vm_table(f: &mut Frame, state: &AppState, area: Rect) {
     // Enhanced header with icons
     let header_cells = ["", "Name", "Status", "CPU", "Memory", "Disk", "Age", "IP"]
         .iter()
-        .map(|h| Cell::from(*h).style(Style::default().fg(colors::LIGHT_ORANGE).add_modifier(Modifier::BOLD)));
+        .map(|h| {
+            Cell::from(*h).style(
+                Style::default()
+                    .fg(colors::LIGHT_ORANGE)
+                    .add_modifier(Modifier::BOLD),
+            )
+        });
 
     let header = Row::new(header_cells)
         .style(Style::default().bg(colors::DARK_ORANGE))
@@ -174,7 +223,11 @@ fn render_vm_table(f: &mut Frame, state: &AppState, area: Rect) {
         let cells = vec![
             Cell::from(selection_indicator),
             Cell::from(format!("💾 {}", vm.name)),
-            Cell::from(format!("{} {}", status_icon, vm.status)).style(Style::default().fg(status_color).add_modifier(Modifier::BOLD)),
+            Cell::from(format!("{} {}", status_icon, vm.status)).style(
+                Style::default()
+                    .fg(status_color)
+                    .add_modifier(Modifier::BOLD),
+            ),
             Cell::from(vm.cpu.clone()),
             Cell::from(vm.memory.clone()),
             Cell::from(vm.disk.clone()),
@@ -200,28 +253,43 @@ fn render_vm_table(f: &mut Frame, state: &AppState, area: Rect) {
     });
 
     let widths = [
-        Constraint::Length(3),   // Selection
-        Constraint::Percentage(20),  // Name
-        Constraint::Percentage(15),  // Status
-        Constraint::Percentage(10),  // CPU
-        Constraint::Percentage(12),  // Memory
-        Constraint::Percentage(10),  // Disk
-        Constraint::Percentage(13),  // Age
-        Constraint::Percentage(20),  // IP
+        Constraint::Length(3),      // Selection
+        Constraint::Percentage(20), // Name
+        Constraint::Percentage(15), // Status
+        Constraint::Percentage(10), // CPU
+        Constraint::Percentage(12), // Memory
+        Constraint::Percentage(10), // Disk
+        Constraint::Percentage(13), // Age
+        Constraint::Percentage(20), // IP
     ];
 
     let title = if state.multi_select_mode {
         Span::styled(
-            format!("💻 Virtual Machines [Multi-Select: {} selected]", state.selected_items.len()),
-            Style::default().fg(colors::WARNING).add_modifier(Modifier::BOLD),
+            format!(
+                "💻 Virtual Machines [Multi-Select: {} selected]",
+                state.selected_items.len()
+            ),
+            Style::default()
+                .fg(colors::WARNING)
+                .add_modifier(Modifier::BOLD),
         )
     } else {
-        Span::styled("💻 Virtual Machines", Style::default().fg(colors::ORANGE).add_modifier(Modifier::BOLD))
+        Span::styled(
+            "💻 Virtual Machines",
+            Style::default()
+                .fg(colors::ORANGE)
+                .add_modifier(Modifier::BOLD),
+        )
     };
 
     let table = Table::new(rows, widths)
         .header(header)
-        .block(Block::default().borders(Borders::ALL).border_style(Style::default().fg(colors::BORDER)).title(title))
+        .block(
+            Block::default()
+                .borders(Borders::ALL)
+                .border_style(Style::default().fg(colors::BORDER))
+                .title(title),
+        )
         .column_spacing(1);
 
     f.render_widget(table, area);
@@ -233,15 +301,46 @@ fn render_help(f: &mut Frame, state: &AppState, search_bar: &SearchBar, area: Re
         vec![
             Line::from(""),
             Line::from(vec![
-                Span::styled("🔍 Search Mode", Style::default().fg(colors::ORANGE).add_modifier(Modifier::BOLD)),
-                Span::styled(" - Type to search, ", Style::default().fg(colors::TEXT_MUTED)),
-                Span::styled("Ctrl+I", Style::default().fg(colors::INFO).add_modifier(Modifier::BOLD)),
-                Span::styled(": Case sensitive, ", Style::default().fg(colors::TEXT_MUTED)),
-                Span::styled("Ctrl+R", Style::default().fg(colors::INFO).add_modifier(Modifier::BOLD)),
+                Span::styled(
+                    "🔍 Search Mode",
+                    Style::default()
+                        .fg(colors::ORANGE)
+                        .add_modifier(Modifier::BOLD),
+                ),
+                Span::styled(
+                    " - Type to search, ",
+                    Style::default().fg(colors::TEXT_MUTED),
+                ),
+                Span::styled(
+                    "Ctrl+I",
+                    Style::default()
+                        .fg(colors::INFO)
+                        .add_modifier(Modifier::BOLD),
+                ),
+                Span::styled(
+                    ": Case sensitive, ",
+                    Style::default().fg(colors::TEXT_MUTED),
+                ),
+                Span::styled(
+                    "Ctrl+R",
+                    Style::default()
+                        .fg(colors::INFO)
+                        .add_modifier(Modifier::BOLD),
+                ),
                 Span::styled(": Regex mode, ", Style::default().fg(colors::TEXT_MUTED)),
-                Span::styled("ESC", Style::default().fg(colors::INFO).add_modifier(Modifier::BOLD)),
+                Span::styled(
+                    "ESC",
+                    Style::default()
+                        .fg(colors::INFO)
+                        .add_modifier(Modifier::BOLD),
+                ),
                 Span::styled(": Cancel, ", Style::default().fg(colors::TEXT_MUTED)),
-                Span::styled("Enter", Style::default().fg(colors::INFO).add_modifier(Modifier::BOLD)),
+                Span::styled(
+                    "Enter",
+                    Style::default()
+                        .fg(colors::INFO)
+                        .add_modifier(Modifier::BOLD),
+                ),
                 Span::styled(": Apply", Style::default().fg(colors::TEXT_MUTED)),
             ]),
         ]
@@ -249,22 +348,57 @@ fn render_help(f: &mut Frame, state: &AppState, search_bar: &SearchBar, area: Re
         vec![
             Line::from(""),
             Line::from(vec![
-                Span::styled("☑  Multi-Select Mode", Style::default().fg(colors::WARNING).add_modifier(Modifier::BOLD)),
+                Span::styled(
+                    "☑  Multi-Select Mode",
+                    Style::default()
+                        .fg(colors::WARNING)
+                        .add_modifier(Modifier::BOLD),
+                ),
                 Span::styled(" - ", Style::default().fg(colors::TEXT_MUTED)),
-                Span::styled("Space", Style::default().fg(colors::INFO).add_modifier(Modifier::BOLD)),
+                Span::styled(
+                    "Space",
+                    Style::default()
+                        .fg(colors::INFO)
+                        .add_modifier(Modifier::BOLD),
+                ),
                 Span::styled(": Toggle, ", Style::default().fg(colors::TEXT_MUTED)),
-                Span::styled("Ctrl+A", Style::default().fg(colors::INFO).add_modifier(Modifier::BOLD)),
+                Span::styled(
+                    "Ctrl+A",
+                    Style::default()
+                        .fg(colors::INFO)
+                        .add_modifier(Modifier::BOLD),
+                ),
                 Span::styled(": All, ", Style::default().fg(colors::TEXT_MUTED)),
-                Span::styled("m", Style::default().fg(colors::INFO).add_modifier(Modifier::BOLD)),
+                Span::styled(
+                    "m",
+                    Style::default()
+                        .fg(colors::INFO)
+                        .add_modifier(Modifier::BOLD),
+                ),
                 Span::styled(": Exit", Style::default().fg(colors::TEXT_MUTED)),
             ]),
             Line::from(vec![
                 Span::styled("  Actions: ", Style::default().fg(colors::TEXT_MUTED)),
-                Span::styled("s", Style::default().fg(colors::SUCCESS).add_modifier(Modifier::BOLD)),
+                Span::styled(
+                    "s",
+                    Style::default()
+                        .fg(colors::SUCCESS)
+                        .add_modifier(Modifier::BOLD),
+                ),
                 Span::styled(": Start All, ", Style::default().fg(colors::TEXT_MUTED)),
-                Span::styled("x", Style::default().fg(colors::ERROR).add_modifier(Modifier::BOLD)),
+                Span::styled(
+                    "x",
+                    Style::default()
+                        .fg(colors::ERROR)
+                        .add_modifier(Modifier::BOLD),
+                ),
                 Span::styled(": Stop All, ", Style::default().fg(colors::TEXT_MUTED)),
-                Span::styled("d", Style::default().fg(colors::ERROR).add_modifier(Modifier::BOLD)),
+                Span::styled(
+                    "d",
+                    Style::default()
+                        .fg(colors::ERROR)
+                        .add_modifier(Modifier::BOLD),
+                ),
                 Span::styled(": Delete All", Style::default().fg(colors::TEXT_MUTED)),
             ]),
         ]
@@ -273,37 +407,87 @@ fn render_help(f: &mut Frame, state: &AppState, search_bar: &SearchBar, area: Re
             Line::from(""),
             Line::from(vec![
                 Span::styled("⌨  ", Style::default().fg(colors::ORANGE)),
-                Span::styled("↑↓/jk", Style::default().fg(colors::INFO).add_modifier(Modifier::BOLD)),
+                Span::styled(
+                    "↑↓/jk",
+                    Style::default()
+                        .fg(colors::INFO)
+                        .add_modifier(Modifier::BOLD),
+                ),
                 Span::styled(": Navigate", Style::default().fg(colors::TEXT)),
                 Span::styled(" │ ", Style::default().fg(colors::TEXT_MUTED)),
-                Span::styled("Enter", Style::default().fg(colors::INFO).add_modifier(Modifier::BOLD)),
+                Span::styled(
+                    "Enter",
+                    Style::default()
+                        .fg(colors::INFO)
+                        .add_modifier(Modifier::BOLD),
+                ),
                 Span::styled(": Details", Style::default().fg(colors::TEXT)),
                 Span::styled(" │ ", Style::default().fg(colors::TEXT_MUTED)),
-                Span::styled("s", Style::default().fg(colors::SUCCESS).add_modifier(Modifier::BOLD)),
+                Span::styled(
+                    "s",
+                    Style::default()
+                        .fg(colors::SUCCESS)
+                        .add_modifier(Modifier::BOLD),
+                ),
                 Span::styled(": Start", Style::default().fg(colors::TEXT)),
                 Span::styled(" │ ", Style::default().fg(colors::TEXT_MUTED)),
-                Span::styled("x", Style::default().fg(colors::ERROR).add_modifier(Modifier::BOLD)),
+                Span::styled(
+                    "x",
+                    Style::default()
+                        .fg(colors::ERROR)
+                        .add_modifier(Modifier::BOLD),
+                ),
                 Span::styled(": Stop", Style::default().fg(colors::TEXT)),
                 Span::styled(" │ ", Style::default().fg(colors::TEXT_MUTED)),
-                Span::styled("d", Style::default().fg(colors::ERROR).add_modifier(Modifier::BOLD)),
+                Span::styled(
+                    "d",
+                    Style::default()
+                        .fg(colors::ERROR)
+                        .add_modifier(Modifier::BOLD),
+                ),
                 Span::styled(": Delete", Style::default().fg(colors::TEXT)),
             ]),
             Line::from(vec![
                 Span::styled("  ", Style::default()),
-                Span::styled("/", Style::default().fg(colors::INFO).add_modifier(Modifier::BOLD)),
+                Span::styled(
+                    "/",
+                    Style::default()
+                        .fg(colors::INFO)
+                        .add_modifier(Modifier::BOLD),
+                ),
                 Span::styled(": Search", Style::default().fg(colors::TEXT)),
                 Span::styled(" │ ", Style::default().fg(colors::TEXT_MUTED)),
-                Span::styled("o", Style::default().fg(colors::INFO).add_modifier(Modifier::BOLD)),
+                Span::styled(
+                    "o",
+                    Style::default()
+                        .fg(colors::INFO)
+                        .add_modifier(Modifier::BOLD),
+                ),
                 Span::styled(": Sort", Style::default().fg(colors::TEXT)),
                 Span::styled(sort_text, Style::default().fg(colors::INFO)),
                 Span::styled(" │ ", Style::default().fg(colors::TEXT_MUTED)),
-                Span::styled("m", Style::default().fg(colors::INFO).add_modifier(Modifier::BOLD)),
+                Span::styled(
+                    "m",
+                    Style::default()
+                        .fg(colors::INFO)
+                        .add_modifier(Modifier::BOLD),
+                ),
                 Span::styled(": Multi-select", Style::default().fg(colors::TEXT)),
                 Span::styled(" │ ", Style::default().fg(colors::TEXT_MUTED)),
-                Span::styled("r", Style::default().fg(colors::INFO).add_modifier(Modifier::BOLD)),
+                Span::styled(
+                    "r",
+                    Style::default()
+                        .fg(colors::INFO)
+                        .add_modifier(Modifier::BOLD),
+                ),
                 Span::styled(": Refresh", Style::default().fg(colors::TEXT)),
                 Span::styled(" │ ", Style::default().fg(colors::TEXT_MUTED)),
-                Span::styled("q", Style::default().fg(colors::INFO).add_modifier(Modifier::BOLD)),
+                Span::styled(
+                    "q",
+                    Style::default()
+                        .fg(colors::INFO)
+                        .add_modifier(Modifier::BOLD),
+                ),
                 Span::styled(": Quit", Style::default().fg(colors::TEXT)),
             ]),
         ]
@@ -311,7 +495,11 @@ fn render_help(f: &mut Frame, state: &AppState, search_bar: &SearchBar, area: Re
 
     let help = Paragraph::new(help_lines)
         .alignment(Alignment::Center)
-        .block(Block::default().borders(Borders::ALL).border_style(Style::default().fg(colors::BORDER)));
+        .block(
+            Block::default()
+                .borders(Borders::ALL)
+                .border_style(Style::default().fg(colors::BORDER)),
+        );
 
     f.render_widget(help, area);
 }

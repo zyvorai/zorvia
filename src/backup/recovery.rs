@@ -1,7 +1,7 @@
 // Disaster Recovery - VM restore and recovery operations
 
-use serde::{Deserialize, Serialize};
 use chrono::{DateTime, Utc};
+use serde::{Deserialize, Serialize};
 
 /// Recovery plan for disaster recovery
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -10,8 +10,8 @@ pub struct RecoveryPlan {
     pub description: String,
     pub vms: Vec<VMRecoveryConfig>,
     pub recovery_order: Vec<RecoveryPhase>,
-    pub rto_minutes: u32,  // Recovery Time Objective
-    pub rpo_minutes: u32,  // Recovery Point Objective
+    pub rto_minutes: u32, // Recovery Time Objective
+    pub rpo_minutes: u32, // Recovery Point Objective
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
 }
@@ -23,8 +23,8 @@ impl RecoveryPlan {
             description: String::new(),
             vms: Vec::new(),
             recovery_order: Vec::new(),
-            rto_minutes: 60,  // Default 1 hour
-            rpo_minutes: 15,  // Default 15 minutes
+            rto_minutes: 60, // Default 1 hour
+            rpo_minutes: 15, // Default 15 minutes
             created_at: Utc::now(),
             updated_at: Utc::now(),
         }
@@ -172,8 +172,12 @@ impl RestoreOperation {
 
     pub fn duration_secs(&self) -> i64 {
         match self.completed_at {
-            Some(completed) => completed.signed_duration_since(self.started_at).num_seconds(),
-            None => Utc::now().signed_duration_since(self.started_at).num_seconds(),
+            Some(completed) => completed
+                .signed_duration_since(self.started_at)
+                .num_seconds(),
+            None => Utc::now()
+                .signed_duration_since(self.started_at)
+                .num_seconds(),
         }
     }
 
@@ -225,13 +229,11 @@ impl PointInTimeRecovery {
 
     /// Find closest backup to target time
     pub fn find_closest_backup(&self) -> Option<&BackupInfo> {
-        self.available_backups
-            .iter()
-            .min_by_key(|b| {
-                (b.created_at.signed_duration_since(self.target_time))
-                    .num_seconds()
-                    .abs()
-            })
+        self.available_backups.iter().min_by_key(|b| {
+            (b.created_at.signed_duration_since(self.target_time))
+                .num_seconds()
+                .abs()
+        })
     }
 
     /// Find backup immediately before target time

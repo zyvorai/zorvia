@@ -1,7 +1,7 @@
 // Backup & Disaster Recovery - VM backup and restore
 
-use serde::{Deserialize, Serialize};
 use chrono::{DateTime, Utc};
+use serde::{Deserialize, Serialize};
 
 /// Backup configuration
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -202,8 +202,12 @@ impl BackupStatus {
 
     pub fn duration_secs(&self) -> i64 {
         match self.completed_at {
-            Some(completed) => completed.signed_duration_since(self.created_at).num_seconds(),
-            None => Utc::now().signed_duration_since(self.created_at).num_seconds(),
+            Some(completed) => completed
+                .signed_duration_since(self.created_at)
+                .num_seconds(),
+            None => Utc::now()
+                .signed_duration_since(self.created_at)
+                .num_seconds(),
         }
     }
 
@@ -253,8 +257,8 @@ pub enum VerificationStatus {
     Skipped,
 }
 
-pub mod schedule;
 pub mod recovery;
+pub mod schedule;
 pub mod verify;
 
 #[cfg(test)]

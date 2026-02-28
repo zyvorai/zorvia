@@ -1,10 +1,10 @@
-use zorvia::config::{DiskSource, NetworkType, VMConfig, VMConfigBuilder, validate_vm_config};
+use zorvia::blueprints::BLUEPRINTS;
+use zorvia::config::{validate_vm_config, DiskSource, NetworkType, VMConfig, VMConfigBuilder};
 use zorvia::kube::vm_config_to_kubevirt;
 use zorvia::output::{to_json, to_yaml};
-use zorvia::templates::TEMPLATES;
 use zorvia::profiles::PROFILES;
-use zorvia::blueprints::BLUEPRINTS;
-use zorvia::storage::{parse_size_to_bytes, format_bytes, PvcSpec, AccessMode};
+use zorvia::storage::{format_bytes, parse_size_to_bytes, AccessMode, PvcSpec};
+use zorvia::templates::TEMPLATES;
 
 #[test]
 fn test_template_to_kubevirt_conversion() {
@@ -241,7 +241,17 @@ fn test_network_types_conversion() {
     });
 
     let vm = vm_config_to_kubevirt(&config).unwrap();
-    let interfaces = vm.spec.template.spec.domain.devices.as_ref().unwrap().interfaces.as_ref().unwrap();
+    let interfaces = vm
+        .spec
+        .template
+        .spec
+        .domain
+        .devices
+        .as_ref()
+        .unwrap()
+        .interfaces
+        .as_ref()
+        .unwrap();
     let networks = vm.spec.template.spec.networks.as_ref().unwrap();
 
     assert_eq!(interfaces.len(), 3);
@@ -262,16 +272,32 @@ fn test_network_types_conversion() {
 #[test]
 fn test_all_templates_valid() {
     let template_names = TEMPLATES.list();
-    assert!(template_names.len() >= 40, "Expected at least 40 templates, got {}", template_names.len());
+    assert!(
+        template_names.len() >= 40,
+        "Expected at least 40 templates, got {}",
+        template_names.len()
+    );
 
     for name in &template_names {
         let config = TEMPLATES.get(name);
         assert!(config.is_some(), "Template '{}' should exist", name);
 
         let config = config.unwrap();
-        assert!(!config.name.is_empty(), "Template '{}' should have a name", name);
-        assert!(config.cpu.cores >= 1, "Template '{}' should have at least 1 CPU core", name);
-        assert!(!config.memory.size.is_empty(), "Template '{}' should have memory size", name);
+        assert!(
+            !config.name.is_empty(),
+            "Template '{}' should have a name",
+            name
+        );
+        assert!(
+            config.cpu.cores >= 1,
+            "Template '{}' should have at least 1 CPU core",
+            name
+        );
+        assert!(
+            !config.memory.size.is_empty(),
+            "Template '{}' should have memory size",
+            name
+        );
     }
 }
 
@@ -282,7 +308,12 @@ fn test_all_templates_convert_to_kubevirt() {
     for name in &template_names {
         let config = TEMPLATES.get(name).unwrap();
         let result = vm_config_to_kubevirt(&config);
-        assert!(result.is_ok(), "Template '{}' should convert to KubeVirt: {:?}", name, result.err());
+        assert!(
+            result.is_ok(),
+            "Template '{}' should convert to KubeVirt: {:?}",
+            name,
+            result.err()
+        );
     }
 }
 
@@ -291,7 +322,11 @@ fn test_template_families() {
     let families = ["ubuntu", "fedora", "centos", "debian", "rhel", "windows"];
     for family in families {
         let config = TEMPLATES.get(family);
-        assert!(config.is_some(), "Template family '{}' should have a default template", family);
+        assert!(
+            config.is_some(),
+            "Template family '{}' should have a default template",
+            family
+        );
     }
 }
 
@@ -302,17 +337,46 @@ fn test_builtin_profiles_exist() {
     let manager = PROFILES.read().expect("profiles lock");
     let profiles = manager.list();
 
-    let expected = ["minimal", "dev", "test", "web", "prod", "database", "microservice", "high-perf"];
+    let expected = [
+        "minimal",
+        "dev",
+        "test",
+        "web",
+        "prod",
+        "database",
+        "microservice",
+        "high-perf",
+    ];
     for name in expected {
-        assert!(manager.exists(name), "Built-in profile '{}' should exist", name);
-        assert!(manager.is_builtin(name), "Profile '{}' should be built-in", name);
+        assert!(
+            manager.exists(name),
+            "Built-in profile '{}' should exist",
+            name
+        );
+        assert!(
+            manager.is_builtin(name),
+            "Profile '{}' should be built-in",
+            name
+        );
 
         let profile = manager.get(name);
-        assert!(profile.is_some(), "Profile '{}' should be retrievable", name);
-        assert!(profile.unwrap().cpu_cores >= 1, "Profile '{}' should have at least 1 CPU", name);
+        assert!(
+            profile.is_some(),
+            "Profile '{}' should be retrievable",
+            name
+        );
+        assert!(
+            profile.unwrap().cpu_cores >= 1,
+            "Profile '{}' should have at least 1 CPU",
+            name
+        );
     }
 
-    assert!(profiles.len() >= 8, "Expected at least 8 profiles, got {}", profiles.len());
+    assert!(
+        profiles.len() >= 8,
+        "Expected at least 8 profiles, got {}",
+        profiles.len()
+    );
 }
 
 #[test]
@@ -339,15 +403,31 @@ fn test_builtin_blueprints_exist() {
 
     let expected = ["lamp", "k8s-cluster", "3tier", "cicd", "dev-stack"];
     for name in expected {
-        assert!(manager.exists(name), "Built-in blueprint '{}' should exist", name);
-        assert!(manager.is_builtin(name), "Blueprint '{}' should be built-in", name);
+        assert!(
+            manager.exists(name),
+            "Built-in blueprint '{}' should exist",
+            name
+        );
+        assert!(
+            manager.is_builtin(name),
+            "Blueprint '{}' should be built-in",
+            name
+        );
 
         let bp = manager.get(name);
         assert!(bp.is_some(), "Blueprint '{}' should be retrievable", name);
-        assert!(!bp.unwrap().vms.is_empty(), "Blueprint '{}' should have VMs", name);
+        assert!(
+            !bp.unwrap().vms.is_empty(),
+            "Blueprint '{}' should have VMs",
+            name
+        );
     }
 
-    assert!(blueprints.len() >= 5, "Expected at least 5 blueprints, got {}", blueprints.len());
+    assert!(
+        blueprints.len() >= 5,
+        "Expected at least 5 blueprints, got {}",
+        blueprints.len()
+    );
 }
 
 #[test]
@@ -357,9 +437,13 @@ fn test_blueprint_vm_templates_valid() {
     for bp in manager.list() {
         for vm_spec in &bp.vms {
             let template = TEMPLATES.get(&vm_spec.template);
-            assert!(template.is_some(),
+            assert!(
+                template.is_some(),
                 "Blueprint '{}' VM '{}' references template '{}' which doesn't exist",
-                bp.name, vm_spec.name, vm_spec.template);
+                bp.name,
+                vm_spec.name,
+                vm_spec.template
+            );
         }
     }
 }
@@ -368,17 +452,23 @@ fn test_blueprint_vm_templates_valid() {
 
 #[test]
 fn test_example_files_valid_yaml() {
-    let example_files = [
-        "examples/basic-vm.yaml",
-        "examples/ubuntu-cloud-init.yaml",
-    ];
+    let example_files = ["examples/basic-vm.yaml", "examples/ubuntu-cloud-init.yaml"];
 
     for file in example_files {
         let content = std::fs::read_to_string(file);
-        assert!(content.is_ok(), "Example file '{}' should be readable", file);
+        assert!(
+            content.is_ok(),
+            "Example file '{}' should be readable",
+            file
+        );
 
         let config: Result<VMConfig, _> = serde_yaml::from_str(&content.unwrap());
-        assert!(config.is_ok(), "Example file '{}' should parse as VMConfig: {:?}", file, config.err());
+        assert!(
+            config.is_ok(),
+            "Example file '{}' should parse as VMConfig: {:?}",
+            file,
+            config.err()
+        );
     }
 }
 
@@ -471,7 +561,10 @@ fn test_template_to_config_to_kubevirt_workflow() {
     let vm = vm_config_to_kubevirt(&config).unwrap();
     assert_eq!(vm.metadata.name, Some("my-web-server".to_string()));
     assert_eq!(vm.metadata.namespace, Some("production".to_string()));
-    assert_eq!(vm.spec.template.spec.domain.cpu.as_ref().unwrap().cores, Some(4));
+    assert_eq!(
+        vm.spec.template.spec.domain.cpu.as_ref().unwrap().cores,
+        Some(4)
+    );
 
     // Serialize to YAML (what kubectl would apply)
     let yaml = to_yaml(&vm).unwrap();

@@ -42,7 +42,8 @@ impl BarChart {
     }
 
     pub fn render(&self, f: &mut Frame, area: Rect) {
-        let bar_data: Vec<(&str, u64)> = self.data
+        let bar_data: Vec<(&str, u64)> = self
+            .data
             .iter()
             .map(|(label, value)| (label.as_str(), *value))
             .collect();
@@ -54,7 +55,9 @@ impl BarChart {
                     .border_style(Style::default().fg(colors::BORDER))
                     .title(Span::styled(
                         &self.title,
-                        Style::default().fg(colors::ORANGE).add_modifier(Modifier::BOLD),
+                        Style::default()
+                            .fg(colors::ORANGE)
+                            .add_modifier(Modifier::BOLD),
                     )),
             )
             .data(&bar_data)

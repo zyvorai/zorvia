@@ -22,26 +22,42 @@ impl VmInfo {
     pub fn from_vm(vm: &crate::kube::types::VirtualMachine) -> Self {
         let name = vm.metadata.name.clone().unwrap_or_default();
 
-        let status = vm.status.as_ref()
+        let status = vm
+            .status
+            .as_ref()
             .and_then(|s| s.print_able_status.clone())
             .unwrap_or_else(|| "Unknown".to_string());
 
-        let ready = vm.status.as_ref()
-            .and_then(|s| s.ready)
-            .unwrap_or(false);
+        let ready = vm.status.as_ref().and_then(|s| s.ready).unwrap_or(false);
 
         // Extract CPU and memory from spec
-        let cpu = vm.spec.template.spec.domain.cpu.as_ref()
+        let cpu = vm
+            .spec
+            .template
+            .spec
+            .domain
+            .cpu
+            .as_ref()
             .map(|c| format!("{} cores", c.cores.unwrap_or(1)))
             .unwrap_or_else(|| "1 core".to_string());
 
-        let memory = vm.spec.template.spec.domain.resources.requests.as_ref()
+        let memory = vm
+            .spec
+            .template
+            .spec
+            .domain
+            .resources
+            .requests
+            .as_ref()
             .and_then(|req| req.get("memory"))
             .cloned()
             .unwrap_or_else(|| "Unknown".to_string());
 
         // Calculate age
-        let age = vm.metadata.creation_timestamp.as_ref()
+        let age = vm
+            .metadata
+            .creation_timestamp
+            .as_ref()
             .map(|created| {
                 let now = Utc::now();
                 let duration = now.signed_duration_since(created.0);
@@ -61,7 +77,12 @@ impl VmInfo {
             .unwrap_or_else(|| "Unknown".to_string());
 
         // Extract disk info from volumes
-        let disk = vm.spec.template.spec.volumes.as_ref()
+        let disk = vm
+            .spec
+            .template
+            .spec
+            .volumes
+            .as_ref()
             .map(|volumes| {
                 // Sum up empty disk capacities, count PVCs
                 let mut parts = Vec::new();
@@ -76,15 +97,22 @@ impl VmInfo {
                         parts.push("container".to_string());
                     }
                 }
-                if parts.is_empty() { "None".to_string() } else { parts.join(", ") }
+                if parts.is_empty() {
+                    "None".to_string()
+                } else {
+                    parts.join(", ")
+                }
             })
             .unwrap_or_else(|| "None".to_string());
 
         // Extract node name from conditions or status
-        let node = vm.status.as_ref()
+        let node = vm
+            .status
+            .as_ref()
             .and_then(|s| {
                 s.conditions.as_ref().and_then(|conds| {
-                    conds.iter()
+                    conds
+                        .iter()
                         .find(|c| c.type_ == "Ready" && c.status == "True")
                         .and_then(|c| c.message.clone())
                 })
@@ -178,8 +206,14 @@ impl AppState {
             multi_select_mode: false,
             selected_items: Vec::new(),
             show_stats_bar: true,
-            cpu_history: vec![45, 52, 48, 55, 60, 58, 62, 65, 63, 68, 70, 67, 72, 75, 73, 78, 80, 77, 75, 72, 70, 68, 65, 62, 60, 58, 55, 52, 50, 48],
-            memory_history: vec![60, 62, 65, 68, 70, 72, 75, 77, 80, 82, 85, 83, 80, 78, 75, 72, 70, 68, 65, 62, 60, 58, 55, 52, 50, 48, 45, 42, 40, 38],
+            cpu_history: vec![
+                45, 52, 48, 55, 60, 58, 62, 65, 63, 68, 70, 67, 72, 75, 73, 78, 80, 77, 75, 72, 70,
+                68, 65, 62, 60, 58, 55, 52, 50, 48,
+            ],
+            memory_history: vec![
+                60, 62, 65, 68, 70, 72, 75, 77, 80, 82, 85, 83, 80, 78, 75, 72, 70, 68, 65, 62, 60,
+                58, 55, 52, 50, 48, 45, 42, 40, 38,
+            ],
             vm_count_history: vec![0; 30], // Will be populated as VMs are added
         }
     }
@@ -191,10 +225,7 @@ impl AppState {
         let client = KubeClient::new().await?;
         let vm_list = client.list_vms(&self.namespace).await?;
 
-        self.vms = vm_list
-            .into_iter()
-            .map(|vm| VmInfo::from_vm(&vm))
-            .collect();
+        self.vms = vm_list.into_iter().map(|vm| VmInfo::from_vm(&vm)).collect();
 
         self.last_refresh = Utc::now();
 
@@ -275,8 +306,16 @@ impl AppState {
         let total = self.vms.len();
         let running = self.vms.iter().filter(|vm| vm.status == "Running").count();
         let stopped = self.vms.iter().filter(|vm| vm.status == "Stopped").count();
-        let starting = self.vms.iter().filter(|vm| vm.status == "Starting" || vm.status == "Pending").count();
-        let failed = self.vms.iter().filter(|vm| vm.status == "Failed" || vm.status == "Error").count();
+        let starting = self
+            .vms
+            .iter()
+            .filter(|vm| vm.status == "Starting" || vm.status == "Pending")
+            .count();
+        let failed = self
+            .vms
+            .iter()
+            .filter(|vm| vm.status == "Failed" || vm.status == "Error")
+            .count();
 
         VmStats {
             total,
@@ -298,7 +337,11 @@ impl AppState {
     /// Toggle selection of current item
     pub fn toggle_current_selection(&mut self) {
         if self.multi_select_mode {
-            if let Some(pos) = self.selected_items.iter().position(|&i| i == self.selected_index) {
+            if let Some(pos) = self
+                .selected_items
+                .iter()
+                .position(|&i| i == self.selected_index)
+            {
                 self.selected_items.remove(pos);
             } else {
                 self.selected_items.push(self.selected_index);

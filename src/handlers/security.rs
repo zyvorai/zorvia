@@ -1,5 +1,5 @@
-use anyhow::Result;
 use crate::tui::colors::cli as color;
+use anyhow::Result;
 
 pub fn handle_security_scan(
     vm: String,
@@ -25,7 +25,14 @@ pub fn handle_security_scan(
     }
 
     println!("  Scan Type:  {}", color::value(&scan_type));
-    println!("  Containers: {}", if containers { color::success("Yes") } else { "No".to_string() });
+    println!(
+        "  Containers: {}",
+        if containers {
+            color::success("Yes")
+        } else {
+            "No".to_string()
+        }
+    );
     println!();
     println!("Scanning...");
 
@@ -33,18 +40,30 @@ pub fn handle_security_scan(
 
     println!();
     println!("Scan Results:");
-    println!("  Status:     {}", color::success(&result.status.to_string()));
-    println!("  Total:      {}", color::value(&result.statistics.total.to_string()));
-    println!("  Critical:   {}", if result.statistics.critical > 0 {
-        color::error(&result.statistics.critical.to_string())
-    } else {
-        color::success("0")
-    });
-    println!("  High:       {}", if result.statistics.high > 0 {
-        color::warning(&result.statistics.high.to_string())
-    } else {
-        color::success("0")
-    });
+    println!(
+        "  Status:     {}",
+        color::success(&result.status.to_string())
+    );
+    println!(
+        "  Total:      {}",
+        color::value(&result.statistics.total.to_string())
+    );
+    println!(
+        "  Critical:   {}",
+        if result.statistics.critical > 0 {
+            color::error(&result.statistics.critical.to_string())
+        } else {
+            color::success("0")
+        }
+    );
+    println!(
+        "  High:       {}",
+        if result.statistics.high > 0 {
+            color::warning(&result.statistics.high.to_string())
+        } else {
+            color::success("0")
+        }
+    );
     println!("  Medium:     {}", result.statistics.medium);
     println!("  Low:        {}", result.statistics.low);
     println!();
@@ -61,35 +80,45 @@ pub fn handle_security_scan(
 }
 
 pub fn handle_security_assess(vm: String, output: String) -> Result<()> {
-    use crate::security::{SecurityAssessment, Vulnerability, Severity};
+    use crate::security::{SecurityAssessment, Severity, Vulnerability};
 
     let mut assessment = SecurityAssessment::new(&vm);
 
     // Example vulnerabilities
     assessment.add_vulnerability(
-        Vulnerability::new("VULN-001", "OpenSSL vulnerability", Severity::High)
-            .with_cvss(7.5)
+        Vulnerability::new("VULN-001", "OpenSSL vulnerability", Severity::High).with_cvss(7.5),
     );
     assessment.add_vulnerability(
-        Vulnerability::new("VULN-002", "Kernel vulnerability", Severity::Medium)
-            .with_cvss(5.0)
+        Vulnerability::new("VULN-002", "Kernel vulnerability", Severity::Medium).with_cvss(5.0),
     );
 
     assessment.calculate_score();
 
     println!("{}", color::header(&format!("Security Assessment: {}", vm)));
     println!();
-    println!("  Score:         {}", color::value(&assessment.overall_score.to_string()));
-    println!("  Risk Level:    {}", match assessment.risk_level {
-        crate::security::RiskLevel::Critical => color::error("Critical"),
-        crate::security::RiskLevel::High => color::error("High"),
-        crate::security::RiskLevel::Medium => color::warning("Medium"),
-        crate::security::RiskLevel::Low => color::success("Low"),
-        crate::security::RiskLevel::Unknown => color::muted("Unknown"),
-    });
+    println!(
+        "  Score:         {}",
+        color::value(&assessment.overall_score.to_string())
+    );
+    println!(
+        "  Risk Level:    {}",
+        match assessment.risk_level {
+            crate::security::RiskLevel::Critical => color::error("Critical"),
+            crate::security::RiskLevel::High => color::error("High"),
+            crate::security::RiskLevel::Medium => color::warning("Medium"),
+            crate::security::RiskLevel::Low => color::success("Low"),
+            crate::security::RiskLevel::Unknown => color::muted("Unknown"),
+        }
+    );
     println!("  Vulnerabilities: {}", assessment.vulnerabilities.len());
-    println!("    Critical:    {}", color::error(&assessment.critical_count().to_string()));
-    println!("    High:        {}", color::warning(&assessment.high_count().to_string()));
+    println!(
+        "    Critical:    {}",
+        color::error(&assessment.critical_count().to_string())
+    );
+    println!(
+        "    High:        {}",
+        color::warning(&assessment.high_count().to_string())
+    );
     println!();
 
     if output == "json" {
@@ -103,11 +132,7 @@ pub fn handle_security_assess(vm: String, output: String) -> Result<()> {
     Ok(())
 }
 
-pub fn handle_security_harden(
-    vm: String,
-    profile: String,
-    verify_only: bool,
-) -> Result<()> {
+pub fn handle_security_harden(vm: String, profile: String, verify_only: bool) -> Result<()> {
     use crate::security::hardening::{HardeningEngine, SecurityBaseline};
 
     println!("{}", color::header(&format!("Security Hardening: {}", vm)));
@@ -128,11 +153,14 @@ pub fn handle_security_harden(
 
     println!("  Profile:     {}", color::value(&baseline.to_string()));
     println!("  Rules:       {}", hardening_profile.rule_count());
-    println!("  Mode:        {}", if verify_only {
-        color::info("Verify Only")
-    } else {
-        color::warning("Apply")
-    });
+    println!(
+        "  Mode:        {}",
+        if verify_only {
+            color::info("Verify Only")
+        } else {
+            color::warning("Apply")
+        }
+    );
     println!();
 
     let result = if verify_only {
@@ -142,14 +170,23 @@ pub fn handle_security_harden(
     };
 
     println!("Results:");
-    println!("  Status:      {}", color::success(&result.status.to_string()));
-    println!("  Applied:     {}", color::success(&result.statistics.applied.to_string()));
+    println!(
+        "  Status:      {}",
+        color::success(&result.status.to_string())
+    );
+    println!(
+        "  Applied:     {}",
+        color::success(&result.statistics.applied.to_string())
+    );
     println!("  Skipped:     {}", result.statistics.skipped);
-    println!("  Failed:      {}", if result.statistics.failed > 0 {
-        color::error(&result.statistics.failed.to_string())
-    } else {
-        color::success("0")
-    });
+    println!(
+        "  Failed:      {}",
+        if result.statistics.failed > 0 {
+            color::error(&result.statistics.failed.to_string())
+        } else {
+            color::success("0")
+        }
+    );
     println!("  Success:     {}%", result.success_rate() as u8);
 
     Ok(())
@@ -175,7 +212,8 @@ pub fn handle_security_profiles(details: bool) -> Result<()> {
             println!();
         }
     } else {
-        println!("{:<20} {:<50} {}",
+        println!(
+            "{:<20} {:<50} {}",
             color::label("PROFILE"),
             color::label("DESCRIPTION"),
             color::label("RULES")
@@ -183,7 +221,8 @@ pub fn handle_security_profiles(details: bool) -> Result<()> {
         println!("{}", "-".repeat(80));
 
         for (baseline, profile) in profiles {
-            println!("{:<20} {:<50} {}",
+            println!(
+                "{:<20} {:<50} {}",
                 baseline.to_string(),
                 profile.description,
                 profile.rule_count()
@@ -194,11 +233,7 @@ pub fn handle_security_profiles(details: bool) -> Result<()> {
     Ok(())
 }
 
-pub fn handle_compliance_check(
-    vm: String,
-    framework: String,
-    output: String,
-) -> Result<()> {
+pub fn handle_compliance_check(vm: String, framework: String, output: String) -> Result<()> {
     use crate::security::compliance::{ComplianceChecker, ComplianceFramework};
 
     println!("{}", color::header(&format!("Compliance Check: {}", vm)));
@@ -226,24 +261,36 @@ pub fn handle_compliance_check(
 
     println!();
     println!("Compliance Report:");
-    println!("  Status:      {}", if report.compliant {
-        color::success("Compliant")
-    } else {
-        color::error("Non-Compliant")
-    });
+    println!(
+        "  Status:      {}",
+        if report.compliant {
+            color::success("Compliant")
+        } else {
+            color::error("Non-Compliant")
+        }
+    );
     println!("  Score:       {}%", report.summary.compliance_score as u8);
     println!("  Total:       {}", report.summary.total_checks);
-    println!("  Passed:      {}", color::success(&report.summary.passed.to_string()));
-    println!("  Failed:      {}", if report.summary.failed > 0 {
-        color::error(&report.summary.failed.to_string())
-    } else {
-        color::success("0")
-    });
-    println!("  Critical:    {}", if report.summary.critical_failures > 0 {
-        color::error(&report.summary.critical_failures.to_string())
-    } else {
-        color::success("0")
-    });
+    println!(
+        "  Passed:      {}",
+        color::success(&report.summary.passed.to_string())
+    );
+    println!(
+        "  Failed:      {}",
+        if report.summary.failed > 0 {
+            color::error(&report.summary.failed.to_string())
+        } else {
+            color::success("0")
+        }
+    );
+    println!(
+        "  Critical:    {}",
+        if report.summary.critical_failures > 0 {
+            color::error(&report.summary.critical_failures.to_string())
+        } else {
+            color::success("0")
+        }
+    );
     println!();
 
     if output == "json" {
@@ -268,8 +315,14 @@ pub fn handle_compliance_report(
 
     println!("{}", color::header(&format!("Compliance Report: {}", vm)));
     println!();
-    println!("  Report ID:   {}", report_id.as_deref().unwrap_or(&report.report_id));
-    println!("  Generated:   {}", report.generated_at.format("%Y-%m-%d %H:%M:%S"));
+    println!(
+        "  Report ID:   {}",
+        report_id.as_deref().unwrap_or(&report.report_id)
+    );
+    println!(
+        "  Generated:   {}",
+        report.generated_at.format("%Y-%m-%d %H:%M:%S")
+    );
     println!();
 
     if output == "json" {
@@ -290,7 +343,7 @@ pub fn handle_audit_list(
     security_only: bool,
     output: String,
 ) -> Result<()> {
-    use crate::security::audit::{AuditLog, AuditEvent, EventType, EventSeverity};
+    use crate::security::audit::{AuditEvent, AuditLog, EventSeverity, EventType};
 
     let _ = (event_type, severity);
 
@@ -305,16 +358,26 @@ pub fn handle_audit_list(
 
     // Add example events
     log.add_event(
-        AuditEvent::new(EventType::Authentication, "user@example.com", "test-vm", "login")
-            .with_severity(EventSeverity::Info)
+        AuditEvent::new(
+            EventType::Authentication,
+            "user@example.com",
+            "test-vm",
+            "login",
+        )
+        .with_severity(EventSeverity::Info),
     );
     log.add_event(
         AuditEvent::new(EventType::VMOperation, "admin", "test-vm", "start")
-            .with_severity(EventSeverity::Info)
+            .with_severity(EventSeverity::Info),
     );
     log.add_event(
-        AuditEvent::new(EventType::SecurityViolation, "user", "test-vm", "unauthorized")
-            .with_severity(EventSeverity::Critical)
+        AuditEvent::new(
+            EventType::SecurityViolation,
+            "user",
+            "test-vm",
+            "unauthorized",
+        )
+        .with_severity(EventSeverity::Critical),
     );
 
     let events: Vec<&AuditEvent> = if security_only {
@@ -330,7 +393,8 @@ pub fn handle_audit_list(
         let yaml = serde_yaml::to_string(&events)?;
         println!("{}", yaml);
     } else {
-        println!("{:<25} {:<20} {:<15} {:<10} {}",
+        println!(
+            "{:<25} {:<20} {:<15} {:<10} {}",
             color::label("TIMESTAMP"),
             color::label("TYPE"),
             color::label("ACTOR"),
@@ -348,7 +412,8 @@ pub fn handle_audit_list(
                 EventSeverity::Info => color::muted("Info"),
             };
 
-            println!("{:<25} {:<20} {:<15} {:<10} {}",
+            println!(
+                "{:<25} {:<20} {:<15} {:<10} {}",
                 event.timestamp.format("%Y-%m-%d %H:%M:%S"),
                 event.event_type.to_string(),
                 event.actor,
@@ -370,7 +435,10 @@ pub fn handle_audit_get(log_id: String, output: String) -> Result<()> {
     println!();
     println!("  Log ID:      {}", log.log_id);
     println!("  Events:      {}", log.event_count());
-    println!("  Created:     {}", log.created_at.format("%Y-%m-%d %H:%M:%S"));
+    println!(
+        "  Created:     {}",
+        log.created_at.format("%Y-%m-%d %H:%M:%S")
+    );
     println!();
 
     if output == "json" {
@@ -384,11 +452,7 @@ pub fn handle_audit_get(log_id: String, output: String) -> Result<()> {
     Ok(())
 }
 
-pub fn handle_audit_stats(
-    vm: Option<String>,
-    period: String,
-    output: String,
-) -> Result<()> {
+pub fn handle_audit_stats(vm: Option<String>, period: String, output: String) -> Result<()> {
     use crate::security::audit::{AuditLog, AuditStatistics};
 
     println!("{}", color::header("Audit Statistics"));
@@ -411,16 +475,22 @@ pub fn handle_audit_stats(
         println!("Summary:");
         println!("  Total Events:      {}", stats.total_events);
         println!("  Security Events:   {}", stats.security_events);
-        println!("  Critical Events:   {}", if stats.critical_events > 0 {
-            color::error(&stats.critical_events.to_string())
-        } else {
-            color::success("0")
-        });
-        println!("  Failed Events:     {}", if stats.failed_events > 0 {
-            color::warning(&stats.failed_events.to_string())
-        } else {
-            color::success("0")
-        });
+        println!(
+            "  Critical Events:   {}",
+            if stats.critical_events > 0 {
+                color::error(&stats.critical_events.to_string())
+            } else {
+                color::success("0")
+            }
+        );
+        println!(
+            "  Failed Events:     {}",
+            if stats.failed_events > 0 {
+                color::warning(&stats.failed_events.to_string())
+            } else {
+                color::success("0")
+            }
+        );
     }
 
     Ok(())

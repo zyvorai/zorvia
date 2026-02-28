@@ -2,10 +2,10 @@ use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
+pub mod applications;
 pub mod devices;
 pub mod nodes;
 pub mod sync;
-pub mod applications;
 pub mod telemetry;
 
 /// Edge location type
@@ -49,7 +49,11 @@ impl EdgeDeployment {
         region: impl Into<String>,
     ) -> Self {
         let name_str = name.into();
-        let id = format!("edge-{}-{}", name_str.to_lowercase().replace(' ', "-"), Utc::now().timestamp());
+        let id = format!(
+            "edge-{}-{}",
+            name_str.to_lowercase().replace(' ', "-"),
+            Utc::now().timestamp()
+        );
 
         Self {
             id,
@@ -146,7 +150,11 @@ impl EdgeWorkload {
         memory_mb: u32,
     ) -> Self {
         let name_str = name.into();
-        let id = format!("workload-{}-{}", name_str.to_lowercase().replace(' ', "-"), Utc::now().timestamp_micros());
+        let id = format!(
+            "workload-{}-{}",
+            name_str.to_lowercase().replace(' ', "-"),
+            Utc::now().timestamp_micros()
+        );
 
         Self {
             id,
@@ -189,8 +197,8 @@ impl EdgeWorkload {
     }
 
     pub fn is_degraded(&self) -> bool {
-        self.status == WorkloadStatus::Degraded ||
-        (self.status == WorkloadStatus::Running && self.active_replicas < self.replicas)
+        self.status == WorkloadStatus::Degraded
+            || (self.status == WorkloadStatus::Running && self.active_replicas < self.replicas)
     }
 }
 
@@ -266,7 +274,10 @@ impl EdgeManager {
     }
 
     pub fn degraded_workloads(&self) -> Vec<&EdgeWorkload> {
-        self.workloads.values().filter(|w| w.is_degraded()).collect()
+        self.workloads
+            .values()
+            .filter(|w| w.is_degraded())
+            .collect()
     }
 }
 
@@ -302,8 +313,8 @@ mod tests {
 
     #[test]
     fn test_deployment_with_bandwidth() {
-        let deployment = EdgeDeployment::new("Site-A", LocationType::EdgeSite, "us-west-1")
-            .with_bandwidth(1000);
+        let deployment =
+            EdgeDeployment::new("Site-A", LocationType::EdgeSite, "us-west-1").with_bandwidth(1000);
 
         assert_eq!(deployment.bandwidth_mbps, Some(1000));
     }
@@ -338,7 +349,13 @@ mod tests {
 
     #[test]
     fn test_edge_workload() {
-        let workload = EdgeWorkload::new("app-1", "edge-site-a", PlacementStrategy::LatencySensitive, 2, 4096);
+        let workload = EdgeWorkload::new(
+            "app-1",
+            "edge-site-a",
+            PlacementStrategy::LatencySensitive,
+            2,
+            4096,
+        );
 
         assert_eq!(workload.name, "app-1");
         assert_eq!(workload.deployment_id, "edge-site-a");
@@ -350,23 +367,36 @@ mod tests {
 
     #[test]
     fn test_workload_with_storage() {
-        let workload = EdgeWorkload::new("app-1", "edge-1", PlacementStrategy::DataLocality, 2, 4096)
-            .with_storage(100);
+        let workload =
+            EdgeWorkload::new("app-1", "edge-1", PlacementStrategy::DataLocality, 2, 4096)
+                .with_storage(100);
 
         assert_eq!(workload.resource_requirements.storage_gb, 100);
     }
 
     #[test]
     fn test_workload_require_gpu() {
-        let workload = EdgeWorkload::new("ml-app", "edge-1", PlacementStrategy::LatencySensitive, 4, 8192)
-            .require_gpu();
+        let workload = EdgeWorkload::new(
+            "ml-app",
+            "edge-1",
+            PlacementStrategy::LatencySensitive,
+            4,
+            8192,
+        )
+        .require_gpu();
 
         assert!(workload.resource_requirements.gpu_required);
     }
 
     #[test]
     fn test_workload_set_replicas() {
-        let mut workload = EdgeWorkload::new("app-1", "edge-1", PlacementStrategy::HighAvailability, 2, 4096);
+        let mut workload = EdgeWorkload::new(
+            "app-1",
+            "edge-1",
+            PlacementStrategy::HighAvailability,
+            2,
+            4096,
+        );
 
         workload.set_replicas(3);
         assert_eq!(workload.replicas, 3);
@@ -374,7 +404,13 @@ mod tests {
 
     #[test]
     fn test_workload_set_status() {
-        let mut workload = EdgeWorkload::new("app-1", "edge-1", PlacementStrategy::LatencySensitive, 2, 4096);
+        let mut workload = EdgeWorkload::new(
+            "app-1",
+            "edge-1",
+            PlacementStrategy::LatencySensitive,
+            2,
+            4096,
+        );
 
         workload.set_status(WorkloadStatus::Running);
         assert_eq!(workload.status, WorkloadStatus::Running);
@@ -382,7 +418,13 @@ mod tests {
 
     #[test]
     fn test_workload_is_healthy() {
-        let mut workload = EdgeWorkload::new("app-1", "edge-1", PlacementStrategy::LatencySensitive, 2, 4096);
+        let mut workload = EdgeWorkload::new(
+            "app-1",
+            "edge-1",
+            PlacementStrategy::LatencySensitive,
+            2,
+            4096,
+        );
         workload.set_replicas(2);
         workload.active_replicas = 2;
         workload.set_status(WorkloadStatus::Running);
@@ -392,11 +434,23 @@ mod tests {
 
     #[test]
     fn test_workload_is_degraded() {
-        let mut workload1 = EdgeWorkload::new("app-1", "edge-1", PlacementStrategy::HighAvailability, 2, 4096);
+        let mut workload1 = EdgeWorkload::new(
+            "app-1",
+            "edge-1",
+            PlacementStrategy::HighAvailability,
+            2,
+            4096,
+        );
         workload1.set_status(WorkloadStatus::Degraded);
         assert!(workload1.is_degraded());
 
-        let mut workload2 = EdgeWorkload::new("app-2", "edge-1", PlacementStrategy::HighAvailability, 2, 4096);
+        let mut workload2 = EdgeWorkload::new(
+            "app-2",
+            "edge-1",
+            PlacementStrategy::HighAvailability,
+            2,
+            4096,
+        );
         workload2.set_replicas(3);
         workload2.active_replicas = 1;
         workload2.set_status(WorkloadStatus::Running);
@@ -418,7 +472,13 @@ mod tests {
     fn test_manager_add_workload() {
         let mut manager = EdgeManager::new();
 
-        let workload = EdgeWorkload::new("app-1", "edge-1", PlacementStrategy::LatencySensitive, 2, 4096);
+        let workload = EdgeWorkload::new(
+            "app-1",
+            "edge-1",
+            PlacementStrategy::LatencySensitive,
+            2,
+            4096,
+        );
         let id = manager.add_workload(workload);
 
         assert_eq!(manager.workload_count(), 1);
@@ -429,9 +489,21 @@ mod tests {
     fn test_manager_deployments_by_location() {
         let mut manager = EdgeManager::new();
 
-        manager.add_deployment(EdgeDeployment::new("Site-A", LocationType::EdgeSite, "us-west-1"));
-        manager.add_deployment(EdgeDeployment::new("Site-B", LocationType::RemoteSite, "us-east-1"));
-        manager.add_deployment(EdgeDeployment::new("Site-C", LocationType::EdgeSite, "eu-west-1"));
+        manager.add_deployment(EdgeDeployment::new(
+            "Site-A",
+            LocationType::EdgeSite,
+            "us-west-1",
+        ));
+        manager.add_deployment(EdgeDeployment::new(
+            "Site-B",
+            LocationType::RemoteSite,
+            "us-east-1",
+        ));
+        manager.add_deployment(EdgeDeployment::new(
+            "Site-C",
+            LocationType::EdgeSite,
+            "eu-west-1",
+        ));
 
         let edge_sites = manager.deployments_by_location(&LocationType::EdgeSite);
         assert_eq!(edge_sites.len(), 2);
@@ -456,9 +528,27 @@ mod tests {
     fn test_manager_workloads_by_deployment() {
         let mut manager = EdgeManager::new();
 
-        manager.add_workload(EdgeWorkload::new("app-1", "edge-1", PlacementStrategy::LatencySensitive, 2, 4096));
-        manager.add_workload(EdgeWorkload::new("app-2", "edge-2", PlacementStrategy::DataLocality, 2, 4096));
-        manager.add_workload(EdgeWorkload::new("app-3", "edge-1", PlacementStrategy::HighAvailability, 2, 4096));
+        manager.add_workload(EdgeWorkload::new(
+            "app-1",
+            "edge-1",
+            PlacementStrategy::LatencySensitive,
+            2,
+            4096,
+        ));
+        manager.add_workload(EdgeWorkload::new(
+            "app-2",
+            "edge-2",
+            PlacementStrategy::DataLocality,
+            2,
+            4096,
+        ));
+        manager.add_workload(EdgeWorkload::new(
+            "app-3",
+            "edge-1",
+            PlacementStrategy::HighAvailability,
+            2,
+            4096,
+        ));
 
         let edge1_workloads = manager.workloads_by_deployment("edge-1");
         assert_eq!(edge1_workloads.len(), 2);
@@ -468,12 +558,19 @@ mod tests {
     fn test_manager_healthy_workloads() {
         let mut manager = EdgeManager::new();
 
-        let mut workload1 = EdgeWorkload::new("app-1", "edge-1", PlacementStrategy::LatencySensitive, 2, 4096);
+        let mut workload1 = EdgeWorkload::new(
+            "app-1",
+            "edge-1",
+            PlacementStrategy::LatencySensitive,
+            2,
+            4096,
+        );
         workload1.set_replicas(2);
         workload1.active_replicas = 2;
         workload1.set_status(WorkloadStatus::Running);
 
-        let workload2 = EdgeWorkload::new("app-2", "edge-1", PlacementStrategy::DataLocality, 2, 4096);
+        let workload2 =
+            EdgeWorkload::new("app-2", "edge-1", PlacementStrategy::DataLocality, 2, 4096);
 
         manager.add_workload(workload1);
         manager.add_workload(workload2);
@@ -486,10 +583,22 @@ mod tests {
     fn test_manager_degraded_workloads() {
         let mut manager = EdgeManager::new();
 
-        let mut workload1 = EdgeWorkload::new("app-1", "edge-1", PlacementStrategy::HighAvailability, 2, 4096);
+        let mut workload1 = EdgeWorkload::new(
+            "app-1",
+            "edge-1",
+            PlacementStrategy::HighAvailability,
+            2,
+            4096,
+        );
         workload1.set_status(WorkloadStatus::Degraded);
 
-        let mut workload2 = EdgeWorkload::new("app-2", "edge-1", PlacementStrategy::LatencySensitive, 2, 4096);
+        let mut workload2 = EdgeWorkload::new(
+            "app-2",
+            "edge-1",
+            PlacementStrategy::LatencySensitive,
+            2,
+            4096,
+        );
         workload2.set_replicas(2);
         workload2.active_replicas = 2;
         workload2.set_status(WorkloadStatus::Running);
@@ -510,13 +619,22 @@ mod tests {
     #[test]
     fn test_connectivity_status_equality() {
         assert_eq!(ConnectivityStatus::Connected, ConnectivityStatus::Connected);
-        assert_ne!(ConnectivityStatus::Connected, ConnectivityStatus::Disconnected);
+        assert_ne!(
+            ConnectivityStatus::Connected,
+            ConnectivityStatus::Disconnected
+        );
     }
 
     #[test]
     fn test_placement_strategy_equality() {
-        assert_eq!(PlacementStrategy::LatencySensitive, PlacementStrategy::LatencySensitive);
-        assert_ne!(PlacementStrategy::LatencySensitive, PlacementStrategy::CostOptimized);
+        assert_eq!(
+            PlacementStrategy::LatencySensitive,
+            PlacementStrategy::LatencySensitive
+        );
+        assert_ne!(
+            PlacementStrategy::LatencySensitive,
+            PlacementStrategy::CostOptimized
+        );
     }
 
     #[test]

@@ -2,11 +2,11 @@ use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
-pub mod policies;
 pub mod audit;
-pub mod standards;
+pub mod policies;
 pub mod reporting;
 pub mod scanning;
+pub mod standards;
 
 /// Compliance framework
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -106,7 +106,11 @@ impl ComplianceRequirement {
         description: impl Into<String>,
     ) -> Self {
         let name_str = name.into();
-        let id = format!("req-{}-{}", name_str.to_lowercase().replace(' ', "-"), Utc::now().timestamp());
+        let id = format!(
+            "req-{}-{}",
+            name_str.to_lowercase().replace(' ', "-"),
+            Utc::now().timestamp()
+        );
 
         Self {
             id,
@@ -312,10 +316,7 @@ impl ComplianceManager {
     }
 
     pub fn open_violations(&self) -> Vec<&ComplianceViolation> {
-        self.violations
-            .values()
-            .filter(|v| v.is_open())
-            .collect()
+        self.violations.values().filter(|v| v.is_open()).collect()
     }
 
     pub fn resolved_violations(&self) -> Vec<&ComplianceViolation> {
@@ -365,14 +366,20 @@ mod tests {
         assert_eq!(ComplianceFramework::SOC2.to_string(), "SOC 2");
         assert_eq!(ComplianceFramework::HIPAA.to_string(), "HIPAA");
         assert_eq!(ComplianceFramework::GDPR.to_string(), "GDPR");
-        assert_eq!(ComplianceFramework::Custom("MyFramework".to_string()).to_string(), "Custom: MyFramework");
+        assert_eq!(
+            ComplianceFramework::Custom("MyFramework".to_string()).to_string(),
+            "Custom: MyFramework"
+        );
     }
 
     #[test]
     fn test_compliance_status_display() {
         assert_eq!(ComplianceStatus::Compliant.to_string(), "Compliant");
         assert_eq!(ComplianceStatus::NonCompliant.to_string(), "Non-Compliant");
-        assert_eq!(ComplianceStatus::PartiallyCompliant.to_string(), "Partially Compliant");
+        assert_eq!(
+            ComplianceStatus::PartiallyCompliant.to_string(),
+            "Partially Compliant"
+        );
     }
 
     #[test]
@@ -400,9 +407,14 @@ mod tests {
 
     #[test]
     fn test_requirement_builder() {
-        let req = ComplianceRequirement::new("Test", ComplianceFramework::HIPAA, "164.312", "Security rule")
-            .with_severity(Severity::Critical)
-            .with_status(ComplianceStatus::Compliant);
+        let req = ComplianceRequirement::new(
+            "Test",
+            ComplianceFramework::HIPAA,
+            "164.312",
+            "Security rule",
+        )
+        .with_severity(Severity::Critical)
+        .with_status(ComplianceStatus::Compliant);
 
         assert_eq!(req.severity, Severity::Critical);
         assert_eq!(req.status, ComplianceStatus::Compliant);
@@ -412,7 +424,8 @@ mod tests {
 
     #[test]
     fn test_requirement_control_objectives() {
-        let mut req = ComplianceRequirement::new("Test", ComplianceFramework::NIST, "AC-1", "Access Control");
+        let mut req =
+            ComplianceRequirement::new("Test", ComplianceFramework::NIST, "AC-1", "Access Control");
 
         req.add_control_objective("Implement MFA");
         req.add_control_objective("Review access logs");
@@ -422,7 +435,8 @@ mod tests {
 
     #[test]
     fn test_requirement_evidence() {
-        let mut req = ComplianceRequirement::new("Test", ComplianceFramework::PciDss, "8.2", "Auth");
+        let mut req =
+            ComplianceRequirement::new("Test", ComplianceFramework::PciDss, "8.2", "Auth");
 
         req.add_evidence("MFA configuration");
         req.add_evidence("Access logs");
@@ -513,9 +527,24 @@ mod tests {
     fn test_manager_by_framework() {
         let mut manager = ComplianceManager::new();
 
-        manager.add_requirement(ComplianceRequirement::new("R1", ComplianceFramework::SOC2, "CC1", "Test"));
-        manager.add_requirement(ComplianceRequirement::new("R2", ComplianceFramework::HIPAA, "164.1", "Test"));
-        manager.add_requirement(ComplianceRequirement::new("R3", ComplianceFramework::SOC2, "CC2", "Test"));
+        manager.add_requirement(ComplianceRequirement::new(
+            "R1",
+            ComplianceFramework::SOC2,
+            "CC1",
+            "Test",
+        ));
+        manager.add_requirement(ComplianceRequirement::new(
+            "R2",
+            ComplianceFramework::HIPAA,
+            "164.1",
+            "Test",
+        ));
+        manager.add_requirement(ComplianceRequirement::new(
+            "R3",
+            ComplianceFramework::SOC2,
+            "CC2",
+            "Test",
+        ));
 
         let soc2 = manager.by_framework(&ComplianceFramework::SOC2);
         assert_eq!(soc2.len(), 2);
@@ -550,7 +579,12 @@ mod tests {
             ComplianceRequirement::new("R2", ComplianceFramework::HIPAA, "164.1", "Test")
                 .with_status(ComplianceStatus::Compliant),
         );
-        manager.add_requirement(ComplianceRequirement::new("R3", ComplianceFramework::GDPR, "Art5", "Test"));
+        manager.add_requirement(ComplianceRequirement::new(
+            "R3",
+            ComplianceFramework::GDPR,
+            "Art5",
+            "Test",
+        ));
 
         let compliant = manager.compliant_requirements();
         assert_eq!(compliant.len(), 2);

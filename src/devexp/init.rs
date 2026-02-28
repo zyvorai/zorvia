@@ -306,9 +306,7 @@ Thumbs.db
 
     /// Get the list of files that would be created
     pub fn file_list(&self) -> Vec<String> {
-        let mut files = vec![
-            format!("{}/zorvia.yaml", self.directory),
-        ];
+        let mut files = vec![format!("{}/zorvia.yaml", self.directory)];
 
         if self.git_init {
             files.push(format!("{}/.gitignore", self.directory));
@@ -320,7 +318,10 @@ Thumbs.db
         }
 
         if self.include_ci {
-            files.push(format!("{}/.github/workflows/zorvia.yaml", self.directory));
+            files.push(format!(
+                "{}/.github/workflows/zorvia.yaml",
+                self.directory
+            ));
         }
 
         files
@@ -348,36 +349,31 @@ mod tests {
 
     #[test]
     fn test_project_init_with_namespace() {
-        let init = ProjectInit::new("test", ProjectType::Production)
-            .with_namespace("production");
+        let init = ProjectInit::new("test", ProjectType::Production).with_namespace("production");
         assert_eq!(init.namespace, "production");
     }
 
     #[test]
     fn test_project_init_with_directory() {
-        let init = ProjectInit::new("test", ProjectType::Basic)
-            .with_directory("/custom/path");
+        let init = ProjectInit::new("test", ProjectType::Basic).with_directory("/custom/path");
         assert_eq!(init.directory, "/custom/path");
     }
 
     #[test]
     fn test_project_init_with_examples() {
-        let init = ProjectInit::new("test", ProjectType::Basic)
-            .with_examples(false);
+        let init = ProjectInit::new("test", ProjectType::Basic).with_examples(false);
         assert!(!init.include_examples);
     }
 
     #[test]
     fn test_project_init_with_ci() {
-        let init = ProjectInit::new("test", ProjectType::Basic)
-            .with_ci(true);
+        let init = ProjectInit::new("test", ProjectType::Basic).with_ci(true);
         assert!(init.include_ci);
     }
 
     #[test]
     fn test_project_init_with_git() {
-        let init = ProjectInit::new("test", ProjectType::Basic)
-            .with_git(false);
+        let init = ProjectInit::new("test", ProjectType::Basic).with_git(false);
         assert!(!init.git_init);
     }
 
@@ -385,12 +381,24 @@ mod tests {
     fn test_project_type_from_str() {
         assert_eq!(ProjectType::parse("basic"), Some(ProjectType::Basic));
         assert_eq!(ProjectType::parse("dev"), Some(ProjectType::Development));
-        assert_eq!(ProjectType::parse("development"), Some(ProjectType::Development));
+        assert_eq!(
+            ProjectType::parse("development"),
+            Some(ProjectType::Development)
+        );
         assert_eq!(ProjectType::parse("prod"), Some(ProjectType::Production));
-        assert_eq!(ProjectType::parse("production"), Some(ProjectType::Production));
-        assert_eq!(ProjectType::parse("micro"), Some(ProjectType::Microservices));
+        assert_eq!(
+            ProjectType::parse("production"),
+            Some(ProjectType::Production)
+        );
+        assert_eq!(
+            ProjectType::parse("micro"),
+            Some(ProjectType::Microservices)
+        );
         assert_eq!(ProjectType::parse("data"), Some(ProjectType::DataPipeline));
-        assert_eq!(ProjectType::parse("pipeline"), Some(ProjectType::DataPipeline));
+        assert_eq!(
+            ProjectType::parse("pipeline"),
+            Some(ProjectType::DataPipeline)
+        );
         assert_eq!(ProjectType::parse("unknown"), None);
     }
 
@@ -475,24 +483,21 @@ mod tests {
 
     #[test]
     fn test_file_list_with_examples() {
-        let init = ProjectInit::new("test", ProjectType::Basic)
-            .with_examples(true);
+        let init = ProjectInit::new("test", ProjectType::Basic).with_examples(true);
         let files = init.file_list();
         assert!(files.iter().any(|f| f.contains("examples/")));
     }
 
     #[test]
     fn test_file_list_without_git() {
-        let init = ProjectInit::new("test", ProjectType::Basic)
-            .with_git(false);
+        let init = ProjectInit::new("test", ProjectType::Basic).with_git(false);
         let files = init.file_list();
         assert!(!files.iter().any(|f| f.contains(".gitignore")));
     }
 
     #[test]
     fn test_file_list_with_ci() {
-        let init = ProjectInit::new("test", ProjectType::Basic)
-            .with_ci(true);
+        let init = ProjectInit::new("test", ProjectType::Basic).with_ci(true);
         let files = init.file_list();
         assert!(files.iter().any(|f| f.contains(".github")));
     }

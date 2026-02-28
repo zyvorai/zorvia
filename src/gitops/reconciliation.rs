@@ -1,7 +1,7 @@
 // Reconciliation - Drift detection and automatic reconciliation
 
-use serde::{Deserialize, Serialize};
 use chrono::{DateTime, Utc};
+use serde::{Deserialize, Serialize};
 
 /// Drift status
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
@@ -107,18 +107,27 @@ impl DriftDifference {
 /// Drift type
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub enum DriftType {
-    Added,      // Field exists in cluster but not in Git
-    Removed,    // Field exists in Git but not in cluster
-    Modified,   // Field value differs between Git and cluster
+    Added,    // Field exists in cluster but not in Git
+    Removed,  // Field exists in Git but not in cluster
+    Modified, // Field value differs between Git and cluster
 }
 
 /// Reconciliation action
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum ReconciliationAction {
-    Update { resource_name: String },
-    Recreate { resource_name: String },
-    Delete { resource_name: String },
-    Skip { resource_name: String, reason: String },
+    Update {
+        resource_name: String,
+    },
+    Recreate {
+        resource_name: String,
+    },
+    Delete {
+        resource_name: String,
+    },
+    Skip {
+        resource_name: String,
+        reason: String,
+    },
 }
 
 /// Reconciliation plan
@@ -229,8 +238,12 @@ impl ReconciliationResult {
 
     pub fn duration_seconds(&self) -> i64 {
         match self.completed_at {
-            Some(completed) => completed.signed_duration_since(self.started_at).num_seconds(),
-            None => Utc::now().signed_duration_since(self.started_at).num_seconds(),
+            Some(completed) => completed
+                .signed_duration_since(self.started_at)
+                .num_seconds(),
+            None => Utc::now()
+                .signed_duration_since(self.started_at)
+                .num_seconds(),
         }
     }
 }
@@ -262,7 +275,8 @@ impl DriftDetector {
     }
 
     pub fn get_drifted_resources(&self) -> Vec<&ResourceDrift> {
-        self.detected_drifts.iter()
+        self.detected_drifts
+            .iter()
             .filter(|d| d.is_drifted())
             .collect()
     }

@@ -30,7 +30,11 @@ pub struct QoSPolicy {
 impl QoSPolicy {
     pub fn new(name: impl Into<String>, class: TrafficClass) -> Self {
         let name_str = name.into();
-        let id = format!("qos-{}-{}", name_str.to_lowercase().replace(' ', "-"), Utc::now().timestamp());
+        let id = format!(
+            "qos-{}-{}",
+            name_str.to_lowercase().replace(' ', "-"),
+            Utc::now().timestamp()
+        );
 
         Self {
             id,
@@ -106,7 +110,11 @@ pub struct TrafficShapingRule {
 impl TrafficShapingRule {
     pub fn new(name: impl Into<String>, rate_limit_mbps: u32) -> Self {
         let name_str = name.into();
-        let id = format!("shape-{}-{}", name_str.to_lowercase().replace(' ', "-"), Utc::now().timestamp());
+        let id = format!(
+            "shape-{}-{}",
+            name_str.to_lowercase().replace(' ', "-"),
+            Utc::now().timestamp()
+        );
 
         Self {
             id,
@@ -279,11 +287,17 @@ impl QoSManager {
     }
 
     pub fn active_reservations(&self) -> Vec<&BandwidthReservation> {
-        self.reservations.values().filter(|r| r.is_active()).collect()
+        self.reservations
+            .values()
+            .filter(|r| r.is_active())
+            .collect()
     }
 
     pub fn guaranteed_reservations(&self) -> Vec<&BandwidthReservation> {
-        self.reservations.values().filter(|r| r.guaranteed).collect()
+        self.reservations
+            .values()
+            .filter(|r| r.guaranteed)
+            .collect()
     }
 
     pub fn total_reserved_bandwidth(&self) -> u32 {
@@ -316,56 +330,49 @@ mod tests {
 
     #[test]
     fn test_policy_with_min_bandwidth() {
-        let policy = QoSPolicy::new("test", TrafficClass::Critical)
-            .with_min_bandwidth(100);
+        let policy = QoSPolicy::new("test", TrafficClass::Critical).with_min_bandwidth(100);
 
         assert_eq!(policy.min_bandwidth_mbps, Some(100));
     }
 
     #[test]
     fn test_policy_with_max_bandwidth() {
-        let policy = QoSPolicy::new("test", TrafficClass::BestEffort)
-            .with_max_bandwidth(500);
+        let policy = QoSPolicy::new("test", TrafficClass::BestEffort).with_max_bandwidth(500);
 
         assert_eq!(policy.max_bandwidth_mbps, Some(500));
     }
 
     #[test]
     fn test_policy_with_guaranteed_bandwidth() {
-        let policy = QoSPolicy::new("test", TrafficClass::RealTime)
-            .with_guaranteed_bandwidth(200);
+        let policy = QoSPolicy::new("test", TrafficClass::RealTime).with_guaranteed_bandwidth(200);
 
         assert_eq!(policy.guaranteed_bandwidth_mbps, Some(200));
     }
 
     #[test]
     fn test_policy_with_burst_size() {
-        let policy = QoSPolicy::new("test", TrafficClass::Priority)
-            .with_burst_size(1024);
+        let policy = QoSPolicy::new("test", TrafficClass::Priority).with_burst_size(1024);
 
         assert_eq!(policy.burst_size_kb, Some(1024));
     }
 
     #[test]
     fn test_policy_with_priority() {
-        let policy = QoSPolicy::new("test", TrafficClass::Critical)
-            .with_priority(10);
+        let policy = QoSPolicy::new("test", TrafficClass::Critical).with_priority(10);
 
         assert_eq!(policy.priority, 10);
     }
 
     #[test]
     fn test_policy_with_dscp() {
-        let policy = QoSPolicy::new("test", TrafficClass::RealTime)
-            .with_dscp(46);
+        let policy = QoSPolicy::new("test", TrafficClass::RealTime).with_dscp(46);
 
         assert_eq!(policy.dscp, Some(46));
     }
 
     #[test]
     fn test_policy_dscp_clamping() {
-        let policy = QoSPolicy::new("test", TrafficClass::RealTime)
-            .with_dscp(100);
+        let policy = QoSPolicy::new("test", TrafficClass::RealTime).with_dscp(100);
 
         assert_eq!(policy.dscp, Some(63));
     }
@@ -388,12 +395,10 @@ mod tests {
         let policy1 = QoSPolicy::new("test1", TrafficClass::Priority);
         assert!(!policy1.has_bandwidth_limits());
 
-        let policy2 = QoSPolicy::new("test2", TrafficClass::Priority)
-            .with_min_bandwidth(100);
+        let policy2 = QoSPolicy::new("test2", TrafficClass::Priority).with_min_bandwidth(100);
         assert!(policy2.has_bandwidth_limits());
 
-        let policy3 = QoSPolicy::new("test3", TrafficClass::Priority)
-            .with_max_bandwidth(500);
+        let policy3 = QoSPolicy::new("test3", TrafficClass::Priority).with_max_bandwidth(500);
         assert!(policy3.has_bandwidth_limits());
     }
 
@@ -408,36 +413,31 @@ mod tests {
 
     #[test]
     fn test_shaping_rule_with_burst_limit() {
-        let rule = TrafficShapingRule::new("test", 100)
-            .with_burst_limit(200);
+        let rule = TrafficShapingRule::new("test", 100).with_burst_limit(200);
 
         assert_eq!(rule.burst_limit_mbps, Some(200));
     }
 
     #[test]
     fn test_shaping_rule_with_latency() {
-        let rule = TrafficShapingRule::new("test", 100)
-            .with_latency(50);
+        let rule = TrafficShapingRule::new("test", 100).with_latency(50);
 
         assert_eq!(rule.latency_ms, Some(50));
     }
 
     #[test]
     fn test_shaping_rule_with_packet_loss() {
-        let rule = TrafficShapingRule::new("test", 100)
-            .with_packet_loss(0.5);
+        let rule = TrafficShapingRule::new("test", 100).with_packet_loss(0.5);
 
         assert_eq!(rule.packet_loss_percent, Some(0.5));
     }
 
     #[test]
     fn test_shaping_rule_packet_loss_clamping() {
-        let rule1 = TrafficShapingRule::new("test1", 100)
-            .with_packet_loss(150.0);
+        let rule1 = TrafficShapingRule::new("test1", 100).with_packet_loss(150.0);
         assert_eq!(rule1.packet_loss_percent, Some(100.0));
 
-        let rule2 = TrafficShapingRule::new("test2", 100)
-            .with_packet_loss(-10.0);
+        let rule2 = TrafficShapingRule::new("test2", 100).with_packet_loss(-10.0);
         assert_eq!(rule2.packet_loss_percent, Some(0.0));
     }
 
@@ -465,8 +465,7 @@ mod tests {
 
     #[test]
     fn test_reservation_guarantee() {
-        let reservation = BandwidthReservation::new("vm-1", 200)
-            .guarantee();
+        let reservation = BandwidthReservation::new("vm-1", 200).guarantee();
 
         assert!(reservation.guaranteed);
     }
@@ -476,8 +475,7 @@ mod tests {
         let start = Utc::now();
         let end = start + chrono::Duration::hours(24);
 
-        let reservation = BandwidthReservation::new("vm-1", 300)
-            .with_duration(start, end);
+        let reservation = BandwidthReservation::new("vm-1", 300).with_duration(start, end);
 
         assert_eq!(reservation.start_time, start);
         assert_eq!(reservation.end_time, Some(end));
@@ -488,14 +486,13 @@ mod tests {
         let start = Utc::now() - chrono::Duration::hours(1);
         let end = Utc::now() + chrono::Duration::hours(1);
 
-        let reservation1 = BandwidthReservation::new("vm-1", 100)
-            .with_duration(start, end);
+        let reservation1 = BandwidthReservation::new("vm-1", 100).with_duration(start, end);
         assert!(reservation1.is_active());
 
         let past_start = Utc::now() - chrono::Duration::hours(2);
         let past_end = Utc::now() - chrono::Duration::hours(1);
-        let reservation2 = BandwidthReservation::new("vm-2", 100)
-            .with_duration(past_start, past_end);
+        let reservation2 =
+            BandwidthReservation::new("vm-2", 100).with_duration(past_start, past_end);
         assert!(!reservation2.is_active());
     }
 
@@ -504,8 +501,8 @@ mod tests {
         let past_start = Utc::now() - chrono::Duration::hours(2);
         let past_end = Utc::now() - chrono::Duration::hours(1);
 
-        let reservation1 = BandwidthReservation::new("vm-1", 100)
-            .with_duration(past_start, past_end);
+        let reservation1 =
+            BandwidthReservation::new("vm-1", 100).with_duration(past_start, past_end);
         assert!(reservation1.is_expired());
 
         let reservation2 = BandwidthReservation::new("vm-2", 100);
@@ -598,7 +595,9 @@ mod tests {
 
         let past_start = Utc::now() - chrono::Duration::hours(2);
         let past_end = Utc::now() - chrono::Duration::hours(1);
-        manager.add_reservation(BandwidthReservation::new("vm-2", 200).with_duration(past_start, past_end));
+        manager.add_reservation(
+            BandwidthReservation::new("vm-2", 200).with_duration(past_start, past_end),
+        );
 
         let active = manager.active_reservations();
         assert_eq!(active.len(), 1);

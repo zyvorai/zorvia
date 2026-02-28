@@ -1,7 +1,7 @@
 // High Availability - VM HA configuration and failover
 
-use serde::{Deserialize, Serialize};
 use chrono::{DateTime, Utc};
+use serde::{Deserialize, Serialize};
 
 /// High Availability configuration for a VM
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -45,7 +45,7 @@ impl HAConfig {
 /// HA priority level
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub enum HAPriority {
-    Critical,  // Highest priority
+    Critical, // Highest priority
     High,
     Normal,
     Low,
@@ -97,9 +97,9 @@ impl Default for FailoverPolicy {
 /// Eviction strategy when node is drained
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub enum EvictionStrategy {
-    LiveMigrate,    // Attempt live migration
-    Shutdown,       // Graceful shutdown
-    None,           // Do not evict (risk downtime)
+    LiveMigrate, // Attempt live migration
+    Shutdown,    // Graceful shutdown
+    None,        // Do not evict (risk downtime)
 }
 
 impl std::fmt::Display for EvictionStrategy {

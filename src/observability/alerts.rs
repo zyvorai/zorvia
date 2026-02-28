@@ -1,7 +1,7 @@
 // Alerts - Alert rules and notification management
 
+use chrono::{DateTime, Duration, Utc};
 use serde::{Deserialize, Serialize};
-use chrono::{DateTime, Utc, Duration};
 use std::collections::HashMap;
 
 /// Alert severity
@@ -25,10 +25,10 @@ impl std::fmt::Display for AlertSeverity {
 /// Alert state
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub enum AlertState {
-    Pending,    // Alert condition detected, waiting for confirmation
-    Firing,     // Alert is actively firing
-    Resolved,   // Alert condition no longer met
-    Silenced,   // Alert is silenced
+    Pending,  // Alert condition detected, waiting for confirmation
+    Firing,   // Alert is actively firing
+    Resolved, // Alert condition no longer met
+    Silenced, // Alert is silenced
 }
 
 /// Alert rule
@@ -39,15 +39,23 @@ pub struct AlertRule {
     pub description: String,
     pub severity: AlertSeverity,
     pub condition: AlertCondition,
-    pub duration: Duration,  // How long condition must be true
+    pub duration: Duration, // How long condition must be true
     pub enabled: bool,
     pub created_at: DateTime<Utc>,
 }
 
 impl AlertRule {
-    pub fn new(name: impl Into<String>, severity: AlertSeverity, condition: AlertCondition) -> Self {
+    pub fn new(
+        name: impl Into<String>,
+        severity: AlertSeverity,
+        condition: AlertCondition,
+    ) -> Self {
         let name_str = name.into();
-        let id = format!("alert-{}-{}", name_str.to_lowercase().replace(' ', "-"), Utc::now().timestamp());
+        let id = format!(
+            "alert-{}-{}",
+            name_str.to_lowercase().replace(' ', "-"),
+            Utc::now().timestamp()
+        );
 
         Self {
             id,
@@ -140,7 +148,11 @@ pub struct Alert {
 }
 
 impl Alert {
-    pub fn new(rule_id: impl Into<String>, rule_name: impl Into<String>, severity: AlertSeverity) -> Self {
+    pub fn new(
+        rule_id: impl Into<String>,
+        rule_name: impl Into<String>,
+        severity: AlertSeverity,
+    ) -> Self {
         let id = format!("alert-instance-{}", Utc::now().timestamp_millis());
 
         Self {
@@ -226,7 +238,8 @@ impl AlertManager {
     }
 
     pub fn get_active_alerts(&self) -> Vec<&Alert> {
-        self.active_alerts.iter()
+        self.active_alerts
+            .iter()
             .filter(|a| a.is_firing())
             .collect()
     }
@@ -248,7 +261,8 @@ impl AlertManager {
     }
 
     pub fn alerts_by_severity(&self, severity: AlertSeverity) -> Vec<&Alert> {
-        self.active_alerts.iter()
+        self.active_alerts
+            .iter()
             .filter(|a| a.severity == severity && a.is_firing())
             .collect()
     }
@@ -259,9 +273,8 @@ impl AlertManager {
 
     pub fn cleanup_resolved(&mut self, older_than: Duration) {
         let cutoff = Utc::now() - older_than;
-        self.active_alerts.retain(|a| {
-            !a.is_resolved() || a.resolved_at.map(|t| t > cutoff).unwrap_or(false)
-        });
+        self.active_alerts
+            .retain(|a| !a.is_resolved() || a.resolved_at.map(|t| t > cutoff).unwrap_or(false));
     }
 
     pub fn total_alerts(&self) -> usize {
@@ -273,7 +286,10 @@ impl AlertManager {
     }
 
     pub fn resolved_count(&self) -> usize {
-        self.active_alerts.iter().filter(|a| a.is_resolved()).count()
+        self.active_alerts
+            .iter()
+            .filter(|a| a.is_resolved())
+            .count()
     }
 }
 
@@ -436,8 +452,9 @@ mod tests {
                 metric_name: "cpu_usage".to_string(),
                 operator: ThresholdOperator::GreaterThan,
                 threshold: 80.0,
-            }
-        ).with_description("CPU usage is too high");
+            },
+        )
+        .with_description("CPU usage is too high");
 
         assert_eq!(rule.name, "High CPU");
         assert_eq!(rule.severity, AlertSeverity::Warning);
@@ -494,7 +511,7 @@ mod tests {
                 metric_name: "cpu".to_string(),
                 operator: ThresholdOperator::GreaterThan,
                 threshold: 90.0,
-            }
+            },
         );
 
         manager.add_rule(rule);
@@ -593,7 +610,10 @@ mod tests {
         let mut notification = Notification::new("alert-1", channel);
         notification.mark_failed("Connection timeout");
 
-        assert!(matches!(notification.status, NotificationStatus::Failed { .. }));
+        assert!(matches!(
+            notification.status,
+            NotificationStatus::Failed { .. }
+        ));
     }
 
     #[test]

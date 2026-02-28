@@ -23,7 +23,11 @@ impl MonitoringReporter {
     }
 
     /// Format performance report
-    pub fn format_performance_report(&self, report: &PerformanceReport, format: &ReportFormat) -> Result<String> {
+    pub fn format_performance_report(
+        &self,
+        report: &PerformanceReport,
+        format: &ReportFormat,
+    ) -> Result<String> {
         match format {
             ReportFormat::Table => Ok(self.format_table(report)),
             ReportFormat::Json => {
@@ -46,7 +50,8 @@ impl MonitoringReporter {
         output.push_str(&format!("║  Performance Report: {:<24}║\n", report.vm_name));
         output.push_str("╚═══════════════════════════════════════════════╝\n\n");
 
-        output.push_str(&format!("Performance Score: {}/100 [{}]\n\n",
+        output.push_str(&format!(
+            "Performance Score: {}/100 [{}]\n\n",
             report.performance_score,
             report.status.as_str()
         ));
@@ -57,29 +62,38 @@ impl MonitoringReporter {
 
         output.push_str(&format!("  CPU:     {:>6.1}%  ", metrics.cpu.usage_percent));
         output.push_str(&self.create_bar(metrics.cpu.usage_percent, 30));
-        output.push_str(&format!("  ({:.1}/{} cores)\n",
-            metrics.cpu.cores_used,
-            metrics.cpu.cores_allocated
+        output.push_str(&format!(
+            "  ({:.1}/{} cores)\n",
+            metrics.cpu.cores_used, metrics.cpu.cores_allocated
         ));
 
-        output.push_str(&format!("  Memory:  {:>6.1}%  ", metrics.memory.usage_percent));
+        output.push_str(&format!(
+            "  Memory:  {:>6.1}%  ",
+            metrics.memory.usage_percent
+        ));
         output.push_str(&self.create_bar(metrics.memory.usage_percent, 30));
-        output.push_str(&format!("  ({:.1}/{:.1} GiB)\n",
+        output.push_str(&format!(
+            "  ({:.1}/{:.1} GiB)\n",
             metrics.memory.used_gb(),
             metrics.memory.total_gb()
         ));
 
-        output.push_str(&format!("  Disk:    {:>6.1}%  ", metrics.disk.usage_percent));
+        output.push_str(&format!(
+            "  Disk:    {:>6.1}%  ",
+            metrics.disk.usage_percent
+        ));
         output.push_str(&self.create_bar(metrics.disk.usage_percent, 30));
         output.push('\n');
 
-        output.push_str(&format!("\n  Disk I/O:     ↑ {:.1} MB/s  ↓ {:.1} MB/s  ({} IOPS)\n",
+        output.push_str(&format!(
+            "\n  Disk I/O:     ↑ {:.1} MB/s  ↓ {:.1} MB/s  ({} IOPS)\n",
             metrics.disk.read_mb_per_sec(),
             metrics.disk.write_mb_per_sec(),
             metrics.disk.total_iops()
         ));
 
-        output.push_str(&format!("  Network I/O:  ↑ {:.1} MB/s  ↓ {:.1} MB/s\n\n",
+        output.push_str(&format!(
+            "  Network I/O:  ↑ {:.1} MB/s  ↓ {:.1} MB/s\n\n",
             metrics.network.rx_mb_per_sec(),
             metrics.network.tx_mb_per_sec()
         ));
@@ -88,10 +102,9 @@ impl MonitoringReporter {
         if !report.bottlenecks.is_empty() {
             output.push_str("Bottlenecks Detected:\n");
             for bottleneck in &report.bottlenecks {
-                output.push_str(&format!("  ⚠ {:?}: {} ({:.1}%)\n",
-                    bottleneck.bottleneck_type,
-                    bottleneck.severity,
-                    bottleneck.current_usage
+                output.push_str(&format!(
+                    "  ⚠ {:?}: {} ({:.1}%)\n",
+                    bottleneck.bottleneck_type, bottleneck.severity, bottleneck.current_usage
                 ));
             }
             output.push('\n');
@@ -148,14 +161,16 @@ impl MonitoringReporter {
         output.push_str("║     VM Performance Comparison              ║\n");
         output.push_str("╚════════════════════════════════════════════╝\n\n");
 
-        output.push_str(&format!("{:<30} {:>10} {:>15}\n",
+        output.push_str(&format!(
+            "{:<30} {:>10} {:>15}\n",
             "VM NAME", "SCORE", "STATUS"
         ));
         output.push_str(&"-".repeat(58));
         output.push('\n');
 
         for (name, score, status) in vms {
-            output.push_str(&format!("{:<30} {:>10} {:>15}\n",
+            output.push_str(&format!(
+                "{:<30} {:>10} {:>15}\n",
                 name,
                 format!("{}/100", score),
                 status
@@ -171,36 +186,51 @@ impl MonitoringReporter {
 
         output.push_str(&format!("═══ Live Metrics: {} ═══\n\n", vm_name));
 
-        output.push_str(&format!("CPU Usage:  [{:6.1}%] ", metrics.cpu.usage_percent));
+        output.push_str(&format!(
+            "CPU Usage:  [{:6.1}%] ",
+            metrics.cpu.usage_percent
+        ));
         output.push_str(&self.create_bar(metrics.cpu.usage_percent, 40));
-        output.push_str(&format!("  {:.1}/{} cores\n",
-            metrics.cpu.cores_used,
-            metrics.cpu.cores_allocated
+        output.push_str(&format!(
+            "  {:.1}/{} cores\n",
+            metrics.cpu.cores_used, metrics.cpu.cores_allocated
         ));
 
-        output.push_str(&format!("Memory:     [{:6.1}%] ", metrics.memory.usage_percent));
+        output.push_str(&format!(
+            "Memory:     [{:6.1}%] ",
+            metrics.memory.usage_percent
+        ));
         output.push_str(&self.create_bar(metrics.memory.usage_percent, 40));
-        output.push_str(&format!("  {:.1}/{:.1} GiB\n",
+        output.push_str(&format!(
+            "  {:.1}/{:.1} GiB\n",
             metrics.memory.used_gb(),
             metrics.memory.total_gb()
         ));
 
-        output.push_str(&format!("Disk:       [{:6.1}%] ", metrics.disk.usage_percent));
+        output.push_str(&format!(
+            "Disk:       [{:6.1}%] ",
+            metrics.disk.usage_percent
+        ));
         output.push_str(&self.create_bar(metrics.disk.usage_percent, 40));
         output.push_str("\n\n");
 
-        output.push_str(&format!("Disk I/O:    ↑ {:7.1} MB/s  ↓ {:7.1} MB/s  ({} IOPS)\n",
+        output.push_str(&format!(
+            "Disk I/O:    ↑ {:7.1} MB/s  ↓ {:7.1} MB/s  ({} IOPS)\n",
             metrics.disk.read_mb_per_sec(),
             metrics.disk.write_mb_per_sec(),
             metrics.disk.total_iops()
         ));
 
-        output.push_str(&format!("Network I/O: ↑ {:7.1} MB/s  ↓ {:7.1} MB/s\n",
+        output.push_str(&format!(
+            "Network I/O: ↑ {:7.1} MB/s  ↓ {:7.1} MB/s\n",
             metrics.network.rx_mb_per_sec(),
             metrics.network.tx_mb_per_sec()
         ));
 
-        output.push_str(&format!("\nTimestamp: {}\n", metrics.timestamp.format("%Y-%m-%d %H:%M:%S UTC")));
+        output.push_str(&format!(
+            "\nTimestamp: {}\n",
+            metrics.timestamp.format("%Y-%m-%d %H:%M:%S UTC")
+        ));
 
         output
     }
@@ -218,7 +248,9 @@ mod tests {
     #[allow(unused_imports)]
     use crate::monitoring::analyzer::{Bottleneck, PerformanceStatus};
     #[allow(unused_imports)]
-    use crate::monitoring::metrics::{VMMetrics, CPUMetrics, MemoryMetrics, DiskMetrics, NetworkMetrics};
+    use crate::monitoring::metrics::{
+        CPUMetrics, DiskMetrics, MemoryMetrics, NetworkMetrics, VMMetrics,
+    };
 
     #[test]
     fn test_create_bar() {

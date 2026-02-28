@@ -54,7 +54,11 @@ pub struct CapacityExpansion {
 impl CapacityPlan {
     pub fn new(name: impl Into<String>, description: impl Into<String>) -> Self {
         let name_str = name.into();
-        let id = format!("plan-{}-{}", name_str.to_lowercase().replace(' ', "-"), Utc::now().timestamp());
+        let id = format!(
+            "plan-{}-{}",
+            name_str.to_lowercase().replace(' ', "-"),
+            Utc::now().timestamp()
+        );
 
         Self {
             id,
@@ -119,7 +123,10 @@ impl CapacityPlan {
     }
 
     pub fn is_approved(&self) -> bool {
-        matches!(self.status, PlanStatus::Approved | PlanStatus::Implementing | PlanStatus::Completed)
+        matches!(
+            self.status,
+            PlanStatus::Approved | PlanStatus::Implementing | PlanStatus::Completed
+        )
     }
 }
 
@@ -184,10 +191,7 @@ impl CapacityPlanner {
     }
 
     pub fn approved_plans(&self) -> Vec<&CapacityPlan> {
-        self.plans
-            .values()
-            .filter(|p| p.is_approved())
-            .collect()
+        self.plans.values().filter(|p| p.is_approved()).collect()
     }
 
     pub fn pending_plans(&self) -> Vec<&CapacityPlan> {
@@ -294,21 +298,32 @@ mod tests {
     fn test_plan_total_additional_cpu() {
         let mut plan = CapacityPlan::new("Test", "Description");
 
-        plan.add_expansion(CapacityExpansion::new(ResourceType::CPU, 100.0, 50.0, "Reason 1"));
-        plan.add_expansion(CapacityExpansion::new(ResourceType::Memory, 1000.0, 500.0, "Reason 2"));
-        plan.add_expansion(CapacityExpansion::new(ResourceType::CPU, 200.0, 30.0, "Reason 3"));
+        plan.add_expansion(CapacityExpansion::new(
+            ResourceType::CPU,
+            100.0,
+            50.0,
+            "Reason 1",
+        ));
+        plan.add_expansion(CapacityExpansion::new(
+            ResourceType::Memory,
+            1000.0,
+            500.0,
+            "Reason 2",
+        ));
+        plan.add_expansion(CapacityExpansion::new(
+            ResourceType::CPU,
+            200.0,
+            30.0,
+            "Reason 3",
+        ));
 
         assert_eq!(plan.total_additional_cpu(), 80.0);
     }
 
     #[test]
     fn test_capacity_expansion() {
-        let expansion = CapacityExpansion::new(
-            ResourceType::CPU,
-            100.0,
-            50.0,
-            "Peak load requirements",
-        );
+        let expansion =
+            CapacityExpansion::new(ResourceType::CPU, 100.0, 50.0, "Peak load requirements");
 
         assert_eq!(expansion.resource_type, ResourceType::CPU);
         assert_eq!(expansion.current_capacity, 100.0);

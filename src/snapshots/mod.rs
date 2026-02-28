@@ -1,17 +1,17 @@
 // VM Snapshots & Backup System - Production-grade snapshot management
 // This is a critical feature for disaster recovery and VM lifecycle management
 
-pub mod types;
+pub mod crds;
 pub mod manager;
 pub mod restore;
-pub mod crds;
 pub mod retention;
+pub mod types;
 
-pub use types::{SnapshotInfo, SnapshotStatus, RestoreInfo, RestoreStatus};
+pub use crds::{VirtualMachineRestore, VirtualMachineSnapshot};
 pub use manager::SnapshotManager;
 pub use restore::RestoreManager;
-pub use crds::{VirtualMachineSnapshot, VirtualMachineRestore};
 pub use retention::RetentionEnforcer;
+pub use types::{RestoreInfo, RestoreStatus, SnapshotInfo, SnapshotStatus};
 
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;

@@ -76,22 +76,35 @@ impl SearchBar {
         let case_text = if self.case_sensitive { "Aa" } else { "aa" };
 
         let search_line = Line::from(vec![
-            Span::styled("🔍 Search: ", Style::default().fg(colors::ORANGE).add_modifier(Modifier::BOLD)),
+            Span::styled(
+                "🔍 Search: ",
+                Style::default()
+                    .fg(colors::ORANGE)
+                    .add_modifier(Modifier::BOLD),
+            ),
             Span::styled(
                 format!("[{}] ", mode_text),
                 Style::default().fg(colors::INFO),
             ),
             Span::styled(
                 format!("[{}] ", case_text),
-                Style::default().fg(if self.case_sensitive { colors::WARNING } else { colors::TEXT_MUTED }),
+                Style::default().fg(if self.case_sensitive {
+                    colors::WARNING
+                } else {
+                    colors::TEXT_MUTED
+                }),
             ),
             Span::styled(
                 &self.query,
-                Style::default().fg(colors::TEXT).add_modifier(Modifier::BOLD),
+                Style::default()
+                    .fg(colors::TEXT)
+                    .add_modifier(Modifier::BOLD),
             ),
             Span::styled(
                 "█",
-                Style::default().fg(colors::ORANGE).add_modifier(Modifier::SLOW_BLINK),
+                Style::default()
+                    .fg(colors::ORANGE)
+                    .add_modifier(Modifier::SLOW_BLINK),
             ),
         ]);
 

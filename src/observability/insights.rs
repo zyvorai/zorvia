@@ -1,7 +1,7 @@
 // Insights - Operational insights and recommendations
 
-use serde::{Deserialize, Serialize};
 use chrono::{DateTime, Utc};
+use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
 /// Insight type
@@ -101,13 +101,16 @@ impl InsightAnalyzer {
                 Insight::new(
                     InsightType::Performance,
                     InsightSeverity::High,
-                    "High CPU Usage Detected"
+                    "High CPU Usage Detected",
                 )
-                .with_description(format!("VM {} is experiencing high CPU usage at {:.1}%", vm_name, cpu_usage))
+                .with_description(format!(
+                    "VM {} is experiencing high CPU usage at {:.1}%",
+                    vm_name, cpu_usage
+                ))
                 .with_recommendation("Consider scaling up CPU resources or optimizing workload")
                 .with_impact("May cause performance degradation and increased latency")
                 .add_resource(vm_name.to_string())
-                .add_metric("cpu_usage", cpu_usage)
+                .add_metric("cpu_usage", cpu_usage),
             );
         }
 
@@ -117,13 +120,18 @@ impl InsightAnalyzer {
                 Insight::new(
                     InsightType::Performance,
                     InsightSeverity::High,
-                    "High Memory Usage Detected"
+                    "High Memory Usage Detected",
                 )
-                .with_description(format!("VM {} is using {:.1}% of available memory", vm_name, memory_usage))
-                .with_recommendation("Increase memory allocation or review memory-intensive processes")
+                .with_description(format!(
+                    "VM {} is using {:.1}% of available memory",
+                    vm_name, memory_usage
+                ))
+                .with_recommendation(
+                    "Increase memory allocation or review memory-intensive processes",
+                )
                 .with_impact("Risk of OOM errors and application crashes")
                 .add_resource(vm_name.to_string())
-                .add_metric("memory_usage", memory_usage)
+                .add_metric("memory_usage", memory_usage),
             );
         }
 
@@ -133,14 +141,17 @@ impl InsightAnalyzer {
                 Insight::new(
                     InsightType::Cost,
                     InsightSeverity::Medium,
-                    "Low Resource Utilization"
+                    "Low Resource Utilization",
                 )
-                .with_description(format!("VM {} is underutilized (CPU: {:.1}%, Memory: {:.1}%)", vm_name, cpu_usage, memory_usage))
+                .with_description(format!(
+                    "VM {} is underutilized (CPU: {:.1}%, Memory: {:.1}%)",
+                    vm_name, cpu_usage, memory_usage
+                ))
                 .with_recommendation("Consider downsizing VM or consolidating workloads")
                 .with_impact("Potential cost savings of 30-50%")
                 .add_resource(vm_name.to_string())
                 .add_metric("cpu_usage", cpu_usage)
-                .add_metric("memory_usage", memory_usage)
+                .add_metric("memory_usage", memory_usage),
             );
         }
 
@@ -162,13 +173,13 @@ impl InsightAnalyzer {
                 Insight::new(
                     InsightType::Availability,
                     severity,
-                    "Low Availability Detected"
+                    "Low Availability Detected",
                 )
                 .with_description(format!("VM {} has {:.2}% uptime", vm_name, uptime_percent))
                 .with_recommendation("Implement high availability with redundancy and failover")
                 .with_impact("Service disruptions affecting user experience")
                 .add_resource(vm_name.to_string())
-                .add_metric("uptime_percent", uptime_percent)
+                .add_metric("uptime_percent", uptime_percent),
             );
         }
 
@@ -191,17 +202,20 @@ impl InsightAnalyzer {
                     Insight::new(
                         InsightType::Cost,
                         InsightSeverity::Medium,
-                        "Significant Cost Increase"
+                        "Significant Cost Increase",
                     )
                     .with_description(format!(
                         "VM {} costs increased by {:.1}% (${:.2} -> ${:.2})",
                         vm_name, increase_percent, previous_cost, current_cost
                     ))
                     .with_recommendation("Review recent configuration changes and usage patterns")
-                    .with_impact(format!("Additional ${:.2} per month", current_cost - previous_cost))
+                    .with_impact(format!(
+                        "Additional ${:.2} per month",
+                        current_cost - previous_cost
+                    ))
                     .add_resource(vm_name.to_string())
                     .add_metric("cost_increase_percent", increase_percent)
-                    .add_metric("current_cost", current_cost)
+                    .add_metric("current_cost", current_cost),
                 );
             }
         }
@@ -210,11 +224,7 @@ impl InsightAnalyzer {
     }
 
     /// Analyze capacity trends
-    pub fn analyze_capacity(
-        current_usage: f64,
-        capacity: f64,
-        growth_rate: f64,
-    ) -> Vec<Insight> {
+    pub fn analyze_capacity(current_usage: f64, capacity: f64, growth_rate: f64) -> Vec<Insight> {
         let mut insights = Vec::new();
 
         let usage_percent = (current_usage / capacity) * 100.0;
@@ -238,7 +248,7 @@ impl InsightAnalyzer {
                 Insight::new(
                     InsightType::Capacity,
                     severity,
-                    "Capacity Approaching Limit"
+                    "Capacity Approaching Limit",
                 )
                 .with_description(format!(
                     "Current capacity usage at {:.1}% ({:.0}/{:.0})",
@@ -250,7 +260,7 @@ impl InsightAnalyzer {
                     days_to_full
                 ))
                 .add_metric("usage_percent", usage_percent)
-                .add_metric("days_to_full", days_to_full)
+                .add_metric("days_to_full", days_to_full),
             );
         }
 
@@ -320,12 +330,11 @@ impl AnomalyDetector {
         }
 
         let mean = values.iter().sum::<f64>() / values.len() as f64;
-        let variance = values.iter()
-            .map(|v| (v - mean).powi(2))
-            .sum::<f64>() / values.len() as f64;
+        let variance = values.iter().map(|v| (v - mean).powi(2)).sum::<f64>() / values.len() as f64;
         let stddev = variance.sqrt();
 
-        values.iter()
+        values
+            .iter()
             .enumerate()
             .filter_map(|(i, &v)| {
                 if (v - mean).abs() > threshold_stddev * stddev {
@@ -339,15 +348,10 @@ impl AnomalyDetector {
 
     /// Detect anomalies with timestamps
     pub fn detect_with_threshold(values: &[f64], threshold: f64) -> Vec<usize> {
-        values.iter()
+        values
+            .iter()
             .enumerate()
-            .filter_map(|(i, &v)| {
-                if v > threshold {
-                    Some(i)
-                } else {
-                    None
-                }
-            })
+            .filter_map(|(i, &v)| if v > threshold { Some(i) } else { None })
             .collect()
     }
 }
@@ -412,9 +416,9 @@ pub enum RecommendationCategory {
 /// Implementation effort
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub enum ImplementationEffort {
-    Low,     // < 1 hour
-    Medium,  // 1-4 hours
-    High,    // > 4 hours
+    Low,    // < 1 hour
+    Medium, // 1-4 hours
+    High,   // > 4 hours
 }
 
 #[cfg(test)]
@@ -426,7 +430,7 @@ mod tests {
         let insight = Insight::new(
             InsightType::Performance,
             InsightSeverity::High,
-            "High CPU Usage"
+            "High CPU Usage",
         )
         .with_description("CPU usage is above 90%")
         .with_recommendation("Scale up CPU resources")
@@ -461,7 +465,9 @@ mod tests {
         let insights = InsightAnalyzer::analyze_resource_utilization(15.0, 25.0, "test-vm");
 
         assert!(!insights.is_empty());
-        let cost_insight = insights.iter().find(|i| i.insight_type == InsightType::Cost);
+        let cost_insight = insights
+            .iter()
+            .find(|i| i.insight_type == InsightType::Cost);
         assert!(cost_insight.is_some());
     }
 
@@ -572,7 +578,7 @@ mod tests {
         let rec = Recommendation::new(
             "Downsize VM",
             RecommendationCategory::CostOptimization,
-            InsightSeverity::Medium
+            InsightSeverity::Medium,
         )
         .with_description("VM is underutilized")
         .with_savings(150.0)

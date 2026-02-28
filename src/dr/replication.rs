@@ -69,7 +69,11 @@ impl ReplicationPair {
         target_site: impl Into<String>,
     ) -> Self {
         let name_str = name.into();
-        let id = format!("rep-{}-{}", name_str.to_lowercase().replace(' ', "-"), Utc::now().timestamp());
+        let id = format!(
+            "rep-{}-{}",
+            name_str.to_lowercase().replace(' ', "-"),
+            Utc::now().timestamp()
+        );
 
         Self {
             id,
@@ -171,24 +175,15 @@ impl ReplicationManager {
     }
 
     pub fn active_pairs(&self) -> Vec<&ReplicationPair> {
-        self.pairs
-            .values()
-            .filter(|p| p.is_active())
-            .collect()
+        self.pairs.values().filter(|p| p.is_active()).collect()
     }
 
     pub fn by_mode(&self, mode: &ReplicationMode) -> Vec<&ReplicationPair> {
-        self.pairs
-            .values()
-            .filter(|p| &p.mode == mode)
-            .collect()
+        self.pairs.values().filter(|p| &p.mode == mode).collect()
     }
 
     pub fn unhealthy_pairs(&self) -> Vec<&ReplicationPair> {
-        self.pairs
-            .values()
-            .filter(|p| !p.is_healthy())
-            .collect()
+        self.pairs.values().filter(|p| !p.is_healthy()).collect()
     }
 
     pub fn total_bytes_replicated(&self) -> u64 {
@@ -210,7 +205,10 @@ mod tests {
     fn test_replication_mode_display() {
         assert_eq!(ReplicationMode::Synchronous.to_string(), "Synchronous");
         assert_eq!(ReplicationMode::Asynchronous.to_string(), "Asynchronous");
-        assert_eq!(ReplicationMode::SemiSynchronous.to_string(), "Semi-Synchronous");
+        assert_eq!(
+            ReplicationMode::SemiSynchronous.to_string(),
+            "Semi-Synchronous"
+        );
     }
 
     #[test]
@@ -222,7 +220,13 @@ mod tests {
 
     #[test]
     fn test_replication_pair() {
-        let pair = ReplicationPair::new("DB Replication", "db-primary", "db-secondary", "site-1", "site-2");
+        let pair = ReplicationPair::new(
+            "DB Replication",
+            "db-primary",
+            "db-secondary",
+            "site-1",
+            "site-2",
+        );
 
         assert_eq!(pair.name, "DB Replication");
         assert_eq!(pair.source_resource, "db-primary");
@@ -336,9 +340,18 @@ mod tests {
     fn test_manager_by_mode() {
         let mut manager = ReplicationManager::new();
 
-        manager.add_pair(ReplicationPair::new("P1", "s1", "t1", "site1", "site2").with_mode(ReplicationMode::Synchronous));
-        manager.add_pair(ReplicationPair::new("P2", "s2", "t2", "site1", "site2").with_mode(ReplicationMode::Asynchronous));
-        manager.add_pair(ReplicationPair::new("P3", "s3", "t3", "site1", "site2").with_mode(ReplicationMode::Synchronous));
+        manager.add_pair(
+            ReplicationPair::new("P1", "s1", "t1", "site1", "site2")
+                .with_mode(ReplicationMode::Synchronous),
+        );
+        manager.add_pair(
+            ReplicationPair::new("P2", "s2", "t2", "site1", "site2")
+                .with_mode(ReplicationMode::Asynchronous),
+        );
+        manager.add_pair(
+            ReplicationPair::new("P3", "s3", "t3", "site1", "site2")
+                .with_mode(ReplicationMode::Synchronous),
+        );
 
         let sync = manager.by_mode(&ReplicationMode::Synchronous);
         assert_eq!(sync.len(), 2);

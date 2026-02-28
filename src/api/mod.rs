@@ -2,11 +2,11 @@ use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
-pub mod server;
-pub mod routes;
 pub mod middleware;
-pub mod webhooks;
 pub mod openapi;
+pub mod routes;
+pub mod server;
+pub mod webhooks;
 
 /// API server configuration
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -231,11 +231,21 @@ impl HttpMethod {
     }
 
     pub fn is_safe(&self) -> bool {
-        matches!(self, HttpMethod::GET | HttpMethod::HEAD | HttpMethod::OPTIONS)
+        matches!(
+            self,
+            HttpMethod::GET | HttpMethod::HEAD | HttpMethod::OPTIONS
+        )
     }
 
     pub fn is_idempotent(&self) -> bool {
-        matches!(self, HttpMethod::GET | HttpMethod::PUT | HttpMethod::DELETE | HttpMethod::HEAD | HttpMethod::OPTIONS)
+        matches!(
+            self,
+            HttpMethod::GET
+                | HttpMethod::PUT
+                | HttpMethod::DELETE
+                | HttpMethod::HEAD
+                | HttpMethod::OPTIONS
+        )
     }
 }
 
@@ -368,7 +378,12 @@ impl ApiResponse<()> {
     }
 
     pub fn not_found(resource: &str, request_id: &str) -> Self {
-        Self::error(404, "NOT_FOUND", &format!("{} not found", resource), request_id)
+        Self::error(
+            404,
+            "NOT_FOUND",
+            &format!("{} not found", resource),
+            request_id,
+        )
     }
 
     pub fn unauthorized(request_id: &str) -> Self {
@@ -410,7 +425,11 @@ impl ApiKey {
     pub fn new(name: impl Into<String>, key_hash: impl Into<String>) -> Self {
         let name_str = name.into();
         Self {
-            id: format!("key-{}-{}", name_str.to_lowercase().replace(' ', "-"), Utc::now().timestamp_micros()),
+            id: format!(
+                "key-{}-{}",
+                name_str.to_lowercase().replace(' ', "-"),
+                Utc::now().timestamp_micros()
+            ),
             name: name_str,
             key_hash: key_hash.into(),
             permissions: vec!["read".to_string()],
@@ -462,7 +481,9 @@ impl ApiKey {
     }
 
     pub fn has_permission(&self, permission: &str) -> bool {
-        self.permissions.iter().any(|p| p == permission || p == "admin")
+        self.permissions
+            .iter()
+            .any(|p| p == permission || p == "admin")
     }
 }
 
@@ -761,8 +782,7 @@ mod tests {
 
     #[test]
     fn test_api_key_admin_permission() {
-        let key = ApiKey::new("key", "hash")
-            .with_permissions(vec!["admin".to_string()]);
+        let key = ApiKey::new("key", "hash").with_permissions(vec!["admin".to_string()]);
         assert!(key.has_permission("read"));
         assert!(key.has_permission("write"));
         assert!(key.has_permission("anything"));
@@ -829,8 +849,8 @@ mod tests {
 
     #[test]
     fn test_api_config_with_cors_origins() {
-        let config = ApiConfig::new(8080)
-            .with_cors_origins(vec!["https://example.com".to_string()]);
+        let config =
+            ApiConfig::new(8080).with_cors_origins(vec!["https://example.com".to_string()]);
         assert_eq!(config.cors_origins.len(), 1);
         assert_eq!(config.cors_origins[0], "https://example.com");
     }

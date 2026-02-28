@@ -1,7 +1,7 @@
 // Log Management - Centralized log aggregation and analysis
 
-use serde::{Deserialize, Serialize};
 use chrono::{DateTime, Utc};
+use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
 /// Log entry
@@ -167,7 +167,8 @@ impl LogAggregator {
     }
 
     pub fn query(&self, query: &LogQuery) -> Vec<&LogEntry> {
-        self.entries.iter()
+        self.entries
+            .iter()
             .filter(|e| query.matches(e))
             .take(query.limit)
             .collect()
@@ -186,9 +187,7 @@ impl LogAggregator {
     }
 
     pub fn sources(&self) -> Vec<String> {
-        let mut sources: Vec<String> = self.entries.iter()
-            .map(|e| e.source.clone())
-            .collect();
+        let mut sources: Vec<String> = self.entries.iter().map(|e| e.source.clone()).collect();
         sources.sort();
         sources.dedup();
         sources
@@ -207,7 +206,8 @@ impl LogAggregator {
 
     /// Get recent errors
     pub fn recent_errors(&self, count: usize) -> Vec<&LogEntry> {
-        self.entries.iter()
+        self.entries
+            .iter()
             .filter(|e| e.is_error())
             .rev()
             .take(count)
@@ -265,7 +265,8 @@ impl LogAnalyzer {
             // Simplified pattern detection - extract error codes, keywords, etc.
             let pattern_key = Self::extract_pattern(&entry.message);
 
-            patterns.entry(pattern_key.clone())
+            patterns
+                .entry(pattern_key.clone())
                 .or_insert_with(|| LogPattern::new(pattern_key))
                 .record_occurrence(&entry.message);
         }
@@ -375,8 +376,10 @@ mod tests {
         aggregator.add_entry(old_entry);
         aggregator.add_entry(LogEntry::new(LogLevel::Info, "api", "Recent message"));
 
-        let query = LogQuery::new()
-            .with_time_range(now - chrono::Duration::hours(1), now + chrono::Duration::hours(1));
+        let query = LogQuery::new().with_time_range(
+            now - chrono::Duration::hours(1),
+            now + chrono::Duration::hours(1),
+        );
 
         let results = aggregator.query(&query);
         assert_eq!(results.len(), 1);

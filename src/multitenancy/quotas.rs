@@ -1,7 +1,7 @@
 // Resource Quotas - Tenant resource limits and tracking
 
-use serde::{Deserialize, Serialize};
 use chrono::{DateTime, Utc};
+use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
 /// Resource quota definition
@@ -19,7 +19,11 @@ pub struct ResourceQuota {
 impl ResourceQuota {
     pub fn new(name: impl Into<String>, namespace: impl Into<String>) -> Self {
         let name_str = name.into();
-        let id = format!("quota-{}-{}", name_str.to_lowercase().replace(' ', "-"), Utc::now().timestamp());
+        let id = format!(
+            "quota-{}-{}",
+            name_str.to_lowercase().replace(' ', "-"),
+            Utc::now().timestamp()
+        );
 
         Self {
             id,
@@ -72,19 +76,31 @@ impl ResourceQuota {
         let mut util = HashMap::new();
 
         if self.limits.max_vms > 0 {
-            util.insert("vms".to_string(), (self.usage.vms as f64 / self.limits.max_vms as f64) * 100.0);
+            util.insert(
+                "vms".to_string(),
+                (self.usage.vms as f64 / self.limits.max_vms as f64) * 100.0,
+            );
         }
 
         if self.limits.max_cpu_cores > 0 {
-            util.insert("cpu".to_string(), (self.usage.cpu_cores as f64 / self.limits.max_cpu_cores as f64) * 100.0);
+            util.insert(
+                "cpu".to_string(),
+                (self.usage.cpu_cores as f64 / self.limits.max_cpu_cores as f64) * 100.0,
+            );
         }
 
         if self.limits.max_memory_gi > 0 {
-            util.insert("memory".to_string(), (self.usage.memory_gi as f64 / self.limits.max_memory_gi as f64) * 100.0);
+            util.insert(
+                "memory".to_string(),
+                (self.usage.memory_gi as f64 / self.limits.max_memory_gi as f64) * 100.0,
+            );
         }
 
         if self.limits.max_storage_gi > 0 {
-            util.insert("storage".to_string(), (self.usage.storage_gi as f64 / self.limits.max_storage_gi as f64) * 100.0);
+            util.insert(
+                "storage".to_string(),
+                (self.usage.storage_gi as f64 / self.limits.max_storage_gi as f64) * 100.0,
+            );
         }
 
         util
@@ -182,19 +198,19 @@ impl ResourceUsage {
     }
 
     pub fn exceeds(&self, limits: &ResourceLimits) -> bool {
-        self.vms > limits.max_vms ||
-        self.cpu_cores > limits.max_cpu_cores ||
-        self.memory_gi > limits.max_memory_gi ||
-        self.storage_gi > limits.max_storage_gi ||
-        self.snapshots > limits.max_snapshots ||
-        self.backups > limits.max_backups
+        self.vms > limits.max_vms
+            || self.cpu_cores > limits.max_cpu_cores
+            || self.memory_gi > limits.max_memory_gi
+            || self.storage_gi > limits.max_storage_gi
+            || self.snapshots > limits.max_snapshots
+            || self.backups > limits.max_backups
     }
 
     pub fn can_fit(&self, request: &ResourceRequest, limits: &ResourceLimits) -> bool {
-        self.vms < limits.max_vms &&
-        self.cpu_cores + request.cpu_cores <= limits.max_cpu_cores &&
-        self.memory_gi + request.memory_gi <= limits.max_memory_gi &&
-        self.storage_gi + request.storage_gi <= limits.max_storage_gi
+        self.vms < limits.max_vms
+            && self.cpu_cores + request.cpu_cores <= limits.max_cpu_cores
+            && self.memory_gi + request.memory_gi <= limits.max_memory_gi
+            && self.storage_gi + request.storage_gi <= limits.max_storage_gi
     }
 }
 
@@ -266,7 +282,11 @@ impl QuotaManager {
         self.quotas.values().filter(|q| q.is_exceeded()).collect()
     }
 
-    pub fn check_allocation(&self, namespace: &str, request: &ResourceRequest) -> Result<(), String> {
+    pub fn check_allocation(
+        &self,
+        namespace: &str,
+        request: &ResourceRequest,
+    ) -> Result<(), String> {
         if let Some(quota) = self.get_quota_by_namespace(namespace) {
             if !quota.can_allocate(request) {
                 return Err(format!("Quota exceeded for namespace: {}", namespace));
@@ -326,16 +346,14 @@ mod tests {
     #[test]
     fn test_resource_quota_with_limits() {
         let limits = ResourceLimits::small();
-        let quota = ResourceQuota::new("test", "default")
-            .with_limits(limits.clone());
+        let quota = ResourceQuota::new("test", "default").with_limits(limits.clone());
 
         assert_eq!(quota.limits.max_vms, limits.max_vms);
     }
 
     #[test]
     fn test_quota_allocation() {
-        let mut quota = ResourceQuota::new("test", "default")
-            .with_limits(ResourceLimits::small());
+        let mut quota = ResourceQuota::new("test", "default").with_limits(ResourceLimits::small());
 
         let request = ResourceRequest::new(2, 4, 20);
 
@@ -350,8 +368,7 @@ mod tests {
 
     #[test]
     fn test_quota_exceeded() {
-        let mut quota = ResourceQuota::new("test", "default")
-            .with_limits(ResourceLimits::small());
+        let mut quota = ResourceQuota::new("test", "default").with_limits(ResourceLimits::small());
 
         // Allocate close to limit
         let request = ResourceRequest::new(20, 64, 500);
@@ -380,8 +397,7 @@ mod tests {
 
     #[test]
     fn test_quota_utilization() {
-        let mut quota = ResourceQuota::new("test", "default")
-            .with_limits(ResourceLimits::new());
+        let mut quota = ResourceQuota::new("test", "default").with_limits(ResourceLimits::new());
 
         let request = ResourceRequest::new(10, 32, 250);
         quota.allocate(&request).unwrap();
@@ -449,8 +465,7 @@ mod tests {
     fn test_quota_manager_allocation() {
         let mut manager = QuotaManager::new();
 
-        let quota = ResourceQuota::new("test", "default")
-            .with_limits(ResourceLimits::medium());
+        let quota = ResourceQuota::new("test", "default").with_limits(ResourceLimits::medium());
         manager.create_quota(quota);
 
         let request = ResourceRequest::new(4, 8, 50);
@@ -481,8 +496,7 @@ mod tests {
     fn test_quota_manager_exceeded() {
         let mut manager = QuotaManager::new();
 
-        let mut quota = ResourceQuota::new("test", "default")
-            .with_limits(ResourceLimits::small());
+        let mut quota = ResourceQuota::new("test", "default").with_limits(ResourceLimits::small());
 
         // Manually set usage to exceed limits
         quota.usage.vms = 10;
@@ -517,8 +531,7 @@ mod tests {
 
     #[test]
     fn test_quota_is_exceeded() {
-        let mut quota = ResourceQuota::new("test", "default")
-            .with_limits(ResourceLimits::small());
+        let mut quota = ResourceQuota::new("test", "default").with_limits(ResourceLimits::small());
 
         assert!(!quota.is_exceeded());
 

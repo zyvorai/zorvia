@@ -21,9 +21,17 @@ pub struct TrafficBackend {
 }
 
 impl TrafficSplit {
-    pub fn new(name: impl Into<String>, namespace: impl Into<String>, service: impl Into<String>) -> Self {
+    pub fn new(
+        name: impl Into<String>,
+        namespace: impl Into<String>,
+        service: impl Into<String>,
+    ) -> Self {
         let name_str = name.into();
-        let id = format!("ts-{}-{}", name_str.to_lowercase().replace(' ', "-"), Utc::now().timestamp());
+        let id = format!(
+            "ts-{}-{}",
+            name_str.to_lowercase().replace(' ', "-"),
+            Utc::now().timestamp()
+        );
 
         Self {
             id,
@@ -73,9 +81,17 @@ pub struct CircuitBreaker {
 }
 
 impl CircuitBreaker {
-    pub fn new(name: impl Into<String>, namespace: impl Into<String>, target: impl Into<String>) -> Self {
+    pub fn new(
+        name: impl Into<String>,
+        namespace: impl Into<String>,
+        target: impl Into<String>,
+    ) -> Self {
         let name_str = name.into();
-        let id = format!("cb-{}-{}", name_str.to_lowercase().replace(' ', "-"), Utc::now().timestamp());
+        let id = format!(
+            "cb-{}-{}",
+            name_str.to_lowercase().replace(' ', "-"),
+            Utc::now().timestamp()
+        );
 
         Self {
             id,
@@ -129,7 +145,11 @@ impl TrafficMirror {
         mirror: impl Into<String>,
     ) -> Self {
         let name_str = name.into();
-        let id = format!("tm-{}-{}", name_str.to_lowercase().replace(' ', "-"), Utc::now().timestamp());
+        let id = format!(
+            "tm-{}-{}",
+            name_str.to_lowercase().replace(' ', "-"),
+            Utc::now().timestamp()
+        );
 
         Self {
             id,
@@ -185,9 +205,17 @@ pub struct LoadBalancer {
 }
 
 impl LoadBalancer {
-    pub fn new(name: impl Into<String>, namespace: impl Into<String>, service: impl Into<String>) -> Self {
+    pub fn new(
+        name: impl Into<String>,
+        namespace: impl Into<String>,
+        service: impl Into<String>,
+    ) -> Self {
         let name_str = name.into();
-        let id = format!("lb-{}-{}", name_str.to_lowercase().replace(' ', "-"), Utc::now().timestamp());
+        let id = format!(
+            "lb-{}-{}",
+            name_str.to_lowercase().replace(' ', "-"),
+            Utc::now().timestamp()
+        );
 
         Self {
             id,
@@ -414,28 +442,32 @@ mod tests {
 
     #[test]
     fn test_traffic_mirror_percentage() {
-        let mirror = TrafficMirror::new("mirror", "default", "source", "mirror")
-            .with_percentage(50.0);
+        let mirror =
+            TrafficMirror::new("mirror", "default", "source", "mirror").with_percentage(50.0);
 
         assert_eq!(mirror.percentage, 50.0);
     }
 
     #[test]
     fn test_mirror_percentage_clamping() {
-        let mirror1 = TrafficMirror::new("m1", "default", "s1", "m1")
-            .with_percentage(150.0);
+        let mirror1 = TrafficMirror::new("m1", "default", "s1", "m1").with_percentage(150.0);
         assert_eq!(mirror1.percentage, 100.0);
 
-        let mirror2 = TrafficMirror::new("m2", "default", "s2", "m2")
-            .with_percentage(-10.0);
+        let mirror2 = TrafficMirror::new("m2", "default", "s2", "m2").with_percentage(-10.0);
         assert_eq!(mirror2.percentage, 0.0);
     }
 
     #[test]
     fn test_load_balancing_strategy() {
         assert_eq!(LoadBalancingStrategy::RoundRobin.to_string(), "Round Robin");
-        assert_eq!(LoadBalancingStrategy::LeastRequest.to_string(), "Least Request");
-        assert_eq!(LoadBalancingStrategy::ConsistentHash.to_string(), "Consistent Hash");
+        assert_eq!(
+            LoadBalancingStrategy::LeastRequest.to_string(),
+            "Least Request"
+        );
+        assert_eq!(
+            LoadBalancingStrategy::ConsistentHash.to_string(),
+            "Consistent Hash"
+        );
     }
 
     #[test]
@@ -581,7 +613,13 @@ mod tests {
 
     #[test]
     fn test_load_balancing_strategy_equality() {
-        assert_eq!(LoadBalancingStrategy::RoundRobin, LoadBalancingStrategy::RoundRobin);
-        assert_ne!(LoadBalancingStrategy::RoundRobin, LoadBalancingStrategy::Random);
+        assert_eq!(
+            LoadBalancingStrategy::RoundRobin,
+            LoadBalancingStrategy::RoundRobin
+        );
+        assert_ne!(
+            LoadBalancingStrategy::RoundRobin,
+            LoadBalancingStrategy::Random
+        );
     }
 }

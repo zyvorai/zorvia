@@ -2,10 +2,10 @@ use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
-pub mod forecasting;
-pub mod planning;
-pub mod optimization;
 pub mod analysis;
+pub mod forecasting;
+pub mod optimization;
+pub mod planning;
 pub mod rightsizing;
 
 /// Resource type for capacity planning
@@ -123,7 +123,10 @@ impl ResourceCapacity {
     }
 
     pub fn is_healthy(&self) -> bool {
-        matches!(self.status, CapacityStatus::Available | CapacityStatus::Warning)
+        matches!(
+            self.status,
+            CapacityStatus::Available | CapacityStatus::Warning
+        )
     }
 }
 
@@ -141,7 +144,11 @@ pub struct WorkloadProfile {
 impl WorkloadProfile {
     pub fn new(name: impl Into<String>, workload_type: impl Into<String>) -> Self {
         let name_str = name.into();
-        let id = format!("workload-{}-{}", name_str.to_lowercase().replace(' ', "-"), Utc::now().timestamp());
+        let id = format!(
+            "workload-{}-{}",
+            name_str.to_lowercase().replace(' ', "-"),
+            Utc::now().timestamp()
+        );
 
         Self {
             id,
@@ -194,12 +201,20 @@ impl CapacityManager {
         self.capacities.insert(key, capacity);
     }
 
-    pub fn get_capacity(&self, cluster: &str, resource_type: &ResourceType) -> Option<&ResourceCapacity> {
+    pub fn get_capacity(
+        &self,
+        cluster: &str,
+        resource_type: &ResourceType,
+    ) -> Option<&ResourceCapacity> {
         let key = format!("{}-{}", cluster, resource_type);
         self.capacities.get(&key)
     }
 
-    pub fn get_capacity_mut(&mut self, cluster: &str, resource_type: &ResourceType) -> Option<&mut ResourceCapacity> {
+    pub fn get_capacity_mut(
+        &mut self,
+        cluster: &str,
+        resource_type: &ResourceType,
+    ) -> Option<&mut ResourceCapacity> {
         let key = format!("{}-{}", cluster, resource_type);
         self.capacities.get_mut(&key)
     }
@@ -229,7 +244,9 @@ impl CapacityManager {
     pub fn critical_capacities(&self) -> Vec<&ResourceCapacity> {
         self.capacities
             .values()
-            .filter(|c| c.status == CapacityStatus::Critical || c.status == CapacityStatus::Exhausted)
+            .filter(|c| {
+                c.status == CapacityStatus::Critical || c.status == CapacityStatus::Exhausted
+            })
             .collect()
     }
 
@@ -375,8 +392,7 @@ mod tests {
 
     #[test]
     fn test_workload_builder() {
-        let profile = WorkloadProfile::new("Database", "PostgreSQL")
-            .with_priority(9);
+        let profile = WorkloadProfile::new("Database", "PostgreSQL").with_priority(9);
 
         assert_eq!(profile.priority, 9);
     }
@@ -412,7 +428,9 @@ mod tests {
         manager.add_capacity("cluster-1", capacity);
 
         assert_eq!(manager.capacity_count(), 1);
-        assert!(manager.get_capacity("cluster-1", &ResourceType::CPU).is_some());
+        assert!(manager
+            .get_capacity("cluster-1", &ResourceType::CPU)
+            .is_some());
     }
 
     #[test]
@@ -464,9 +482,18 @@ mod tests {
     fn test_manager_by_resource_type() {
         let mut manager = CapacityManager::new();
 
-        manager.add_capacity("cluster-1", ResourceCapacity::new(ResourceType::CPU, 100.0, "cores"));
-        manager.add_capacity("cluster-2", ResourceCapacity::new(ResourceType::CPU, 200.0, "cores"));
-        manager.add_capacity("cluster-3", ResourceCapacity::new(ResourceType::Memory, 1000.0, "GB"));
+        manager.add_capacity(
+            "cluster-1",
+            ResourceCapacity::new(ResourceType::CPU, 100.0, "cores"),
+        );
+        manager.add_capacity(
+            "cluster-2",
+            ResourceCapacity::new(ResourceType::CPU, 200.0, "cores"),
+        );
+        manager.add_capacity(
+            "cluster-3",
+            ResourceCapacity::new(ResourceType::Memory, 1000.0, "GB"),
+        );
 
         let cpu = manager.by_resource_type(&ResourceType::CPU);
         assert_eq!(cpu.len(), 2);
@@ -506,7 +533,9 @@ mod tests {
             capacity_mut.update_usage(75.0);
         }
 
-        let capacity = manager.get_capacity("cluster-1", &ResourceType::CPU).unwrap();
+        let capacity = manager
+            .get_capacity("cluster-1", &ResourceType::CPU)
+            .unwrap();
         assert_eq!(capacity.used_capacity, 75.0);
     }
 

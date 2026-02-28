@@ -44,7 +44,11 @@ pub struct MeshDeployment {
 impl MeshDeployment {
     pub fn new(name: impl Into<String>, config: MeshConfig, version: impl Into<String>) -> Self {
         let name_str = name.into();
-        let id = format!("mesh-{}-{}", name_str.to_lowercase().replace(' ', "-"), Utc::now().timestamp());
+        let id = format!(
+            "mesh-{}-{}",
+            name_str.to_lowercase().replace(' ', "-"),
+            Utc::now().timestamp()
+        );
 
         Self {
             id,
@@ -113,9 +117,17 @@ pub enum TLSMode {
 }
 
 impl Gateway {
-    pub fn new(name: impl Into<String>, namespace: impl Into<String>, gateway_type: GatewayType) -> Self {
+    pub fn new(
+        name: impl Into<String>,
+        namespace: impl Into<String>,
+        gateway_type: GatewayType,
+    ) -> Self {
         let name_str = name.into();
-        let id = format!("gw-{}-{}", name_str.to_lowercase().replace(' ', "-"), Utc::now().timestamp());
+        let id = format!(
+            "gw-{}-{}",
+            name_str.to_lowercase().replace(' ', "-"),
+            Utc::now().timestamp()
+        );
 
         Self {
             id,
@@ -162,9 +174,17 @@ pub struct Subset {
 }
 
 impl DestinationRule {
-    pub fn new(name: impl Into<String>, namespace: impl Into<String>, host: impl Into<String>) -> Self {
+    pub fn new(
+        name: impl Into<String>,
+        namespace: impl Into<String>,
+        host: impl Into<String>,
+    ) -> Self {
         let name_str = name.into();
-        let id = format!("dr-{}-{}", name_str.to_lowercase().replace(' ', "-"), Utc::now().timestamp());
+        let id = format!(
+            "dr-{}-{}",
+            name_str.to_lowercase().replace(' ', "-"),
+            Utc::now().timestamp()
+        );
 
         Self {
             id,
@@ -260,10 +280,7 @@ impl MeshManager {
     }
 
     pub fn ready_deployments(&self) -> Vec<&MeshDeployment> {
-        self.deployments
-            .values()
-            .filter(|d| d.is_ready())
-            .collect()
+        self.deployments.values().filter(|d| d.is_ready()).collect()
     }
 
     pub fn by_provider(&self, provider: &MeshProvider) -> Vec<&MeshDeployment> {
@@ -274,17 +291,11 @@ impl MeshManager {
     }
 
     pub fn ingress_gateways(&self) -> Vec<&Gateway> {
-        self.gateways
-            .values()
-            .filter(|g| g.is_ingress())
-            .collect()
+        self.gateways.values().filter(|g| g.is_ingress()).collect()
     }
 
     pub fn egress_gateways(&self) -> Vec<&Gateway> {
-        self.gateways
-            .values()
-            .filter(|g| g.is_egress())
-            .collect()
+        self.gateways.values().filter(|g| g.is_egress()).collect()
     }
 }
 

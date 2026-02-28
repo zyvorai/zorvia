@@ -58,37 +58,49 @@ impl StatsBar {
             Span::styled("VMs: ", Style::default().fg(colors::TEXT)),
             Span::styled(
                 format!("{} ", self.total_vms),
-                Style::default().fg(colors::ORANGE).add_modifier(Modifier::BOLD),
+                Style::default()
+                    .fg(colors::ORANGE)
+                    .add_modifier(Modifier::BOLD),
             ),
             Span::styled("│ ", Style::default().fg(colors::TEXT_MUTED)),
             Span::styled("Running: ", Style::default().fg(colors::TEXT)),
             Span::styled(
                 format!("{} ", self.running_vms),
-                Style::default().fg(colors::SUCCESS).add_modifier(Modifier::BOLD),
+                Style::default()
+                    .fg(colors::SUCCESS)
+                    .add_modifier(Modifier::BOLD),
             ),
             Span::styled("│ ", Style::default().fg(colors::TEXT_MUTED)),
             Span::styled("Stopped: ", Style::default().fg(colors::TEXT)),
             Span::styled(
                 format!("{} ", self.stopped_vms),
-                Style::default().fg(colors::TEXT_MUTED).add_modifier(Modifier::BOLD),
+                Style::default()
+                    .fg(colors::TEXT_MUTED)
+                    .add_modifier(Modifier::BOLD),
             ),
             Span::styled("│ ", Style::default().fg(colors::TEXT_MUTED)),
             Span::styled("Snapshots: ", Style::default().fg(colors::TEXT)),
             Span::styled(
                 format!("{} ", self.snapshots),
-                Style::default().fg(colors::INFO).add_modifier(Modifier::BOLD),
+                Style::default()
+                    .fg(colors::INFO)
+                    .add_modifier(Modifier::BOLD),
             ),
             Span::styled("│ ", Style::default().fg(colors::TEXT_MUTED)),
             Span::styled("Status: ", Style::default().fg(colors::TEXT)),
             Span::styled(
                 format!("{} {} ", health_icon, health_text),
-                Style::default().fg(colors::TEXT).add_modifier(Modifier::BOLD),
+                Style::default()
+                    .fg(colors::TEXT)
+                    .add_modifier(Modifier::BOLD),
             ),
             Span::styled("│ ", Style::default().fg(colors::TEXT_MUTED)),
             Span::styled("NS: ", Style::default().fg(colors::TEXT)),
             Span::styled(
                 &self.namespace,
-                Style::default().fg(colors::LIGHT_ORANGE).add_modifier(Modifier::BOLD),
+                Style::default()
+                    .fg(colors::LIGHT_ORANGE)
+                    .add_modifier(Modifier::BOLD),
             ),
         ]);
 

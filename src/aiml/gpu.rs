@@ -1,7 +1,7 @@
 // GPU Resource Management - GPU allocation and monitoring
 
-use serde::{Deserialize, Serialize};
 use chrono::{DateTime, Utc};
+use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
 use super::GPUVendor;
@@ -151,9 +151,14 @@ impl GPUPool {
             .sum()
     }
 
-    pub fn allocate_gpu(&mut self, workload_id: &str, requirements: &GPUAllocationRequest) -> Option<String> {
+    pub fn allocate_gpu(
+        &mut self,
+        workload_id: &str,
+        requirements: &GPUAllocationRequest,
+    ) -> Option<String> {
         // Find suitable GPU
-        let gpu = self.available_gpus()
+        let gpu = self
+            .available_gpus()
             .into_iter()
             .filter(|g| {
                 if let Some(vendor) = &requirements.preferred_vendor {
@@ -161,7 +166,8 @@ impl GPUPool {
                 } else {
                     true
                 }
-            }).find(|g| g.memory_total_mb >= requirements.min_memory_mb);
+            })
+            .find(|g| g.memory_total_mb >= requirements.min_memory_mb);
 
         if let Some(gpu) = gpu {
             let gpu_id = gpu.id.clone();
@@ -345,9 +351,27 @@ mod tests {
     fn test_pool_by_vendor() {
         let mut pool = GPUPool::new();
 
-        pool.add_gpu(GPUResource::new("gpu-0", GPUVendor::NVIDIA, "A100", "0000:00:00.0", 81920));
-        pool.add_gpu(GPUResource::new("gpu-1", GPUVendor::AMD, "MI100", "0000:01:00.0", 32768));
-        pool.add_gpu(GPUResource::new("gpu-2", GPUVendor::NVIDIA, "V100", "0000:02:00.0", 32768));
+        pool.add_gpu(GPUResource::new(
+            "gpu-0",
+            GPUVendor::NVIDIA,
+            "A100",
+            "0000:00:00.0",
+            81920,
+        ));
+        pool.add_gpu(GPUResource::new(
+            "gpu-1",
+            GPUVendor::AMD,
+            "MI100",
+            "0000:01:00.0",
+            32768,
+        ));
+        pool.add_gpu(GPUResource::new(
+            "gpu-2",
+            GPUVendor::NVIDIA,
+            "V100",
+            "0000:02:00.0",
+            32768,
+        ));
 
         let nvidia_gpus = pool.gpus_by_vendor(GPUVendor::NVIDIA);
         assert_eq!(nvidia_gpus.len(), 2);
@@ -357,8 +381,20 @@ mod tests {
     fn test_pool_total_memory() {
         let mut pool = GPUPool::new();
 
-        pool.add_gpu(GPUResource::new("gpu-0", GPUVendor::NVIDIA, "A100", "0000:00:00.0", 81920));
-        pool.add_gpu(GPUResource::new("gpu-1", GPUVendor::NVIDIA, "V100", "0000:01:00.0", 32768));
+        pool.add_gpu(GPUResource::new(
+            "gpu-0",
+            GPUVendor::NVIDIA,
+            "A100",
+            "0000:00:00.0",
+            81920,
+        ));
+        pool.add_gpu(GPUResource::new(
+            "gpu-1",
+            GPUVendor::NVIDIA,
+            "V100",
+            "0000:01:00.0",
+            32768,
+        ));
 
         assert_eq!(pool.total_memory_mb(), 114688);
     }
@@ -367,11 +403,22 @@ mod tests {
     fn test_pool_allocate_gpu() {
         let mut pool = GPUPool::new();
 
-        pool.add_gpu(GPUResource::new("gpu-0", GPUVendor::NVIDIA, "A100", "0000:00:00.0", 81920));
-        pool.add_gpu(GPUResource::new("gpu-1", GPUVendor::NVIDIA, "V100", "0000:01:00.0", 32768));
+        pool.add_gpu(GPUResource::new(
+            "gpu-0",
+            GPUVendor::NVIDIA,
+            "A100",
+            "0000:00:00.0",
+            81920,
+        ));
+        pool.add_gpu(GPUResource::new(
+            "gpu-1",
+            GPUVendor::NVIDIA,
+            "V100",
+            "0000:01:00.0",
+            32768,
+        ));
 
-        let request = GPUAllocationRequest::new(1)
-            .with_memory(40000);
+        let request = GPUAllocationRequest::new(1).with_memory(40000);
 
         let allocated = pool.allocate_gpu("workload-1", &request);
 
@@ -383,11 +430,22 @@ mod tests {
     fn test_pool_allocate_with_vendor_preference() {
         let mut pool = GPUPool::new();
 
-        pool.add_gpu(GPUResource::new("gpu-0", GPUVendor::AMD, "MI100", "0000:00:00.0", 32768));
-        pool.add_gpu(GPUResource::new("gpu-1", GPUVendor::NVIDIA, "V100", "0000:01:00.0", 32768));
+        pool.add_gpu(GPUResource::new(
+            "gpu-0",
+            GPUVendor::AMD,
+            "MI100",
+            "0000:00:00.0",
+            32768,
+        ));
+        pool.add_gpu(GPUResource::new(
+            "gpu-1",
+            GPUVendor::NVIDIA,
+            "V100",
+            "0000:01:00.0",
+            32768,
+        ));
 
-        let request = GPUAllocationRequest::new(1)
-            .with_vendor(GPUVendor::NVIDIA);
+        let request = GPUAllocationRequest::new(1).with_vendor(GPUVendor::NVIDIA);
 
         let allocated = pool.allocate_gpu("workload-1", &request);
 
@@ -414,7 +472,13 @@ mod tests {
     fn test_pool_remove_gpu() {
         let mut pool = GPUPool::new();
 
-        pool.add_gpu(GPUResource::new("gpu-0", GPUVendor::NVIDIA, "A100", "0000:00:00.0", 81920));
+        pool.add_gpu(GPUResource::new(
+            "gpu-0",
+            GPUVendor::NVIDIA,
+            "A100",
+            "0000:00:00.0",
+            81920,
+        ));
 
         assert!(pool.remove_gpu("gpu-0"));
         assert_eq!(pool.total_count(), 0);

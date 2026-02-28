@@ -1,7 +1,7 @@
 // Git Repository Management - Repository operations and version control
 
-use serde::{Deserialize, Serialize};
 use chrono::{DateTime, Utc};
+use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
 /// Git repository
@@ -83,7 +83,11 @@ pub struct GitCommit {
 }
 
 impl GitCommit {
-    pub fn new(hash: impl Into<String>, author: impl Into<String>, message: impl Into<String>) -> Self {
+    pub fn new(
+        hash: impl Into<String>,
+        author: impl Into<String>,
+        message: impl Into<String>,
+    ) -> Self {
         let hash_str = hash.into();
         let short = if hash_str.len() > 7 {
             hash_str[..7].to_string()
@@ -134,11 +138,14 @@ impl GitHistory {
     }
 
     pub fn get_commit(&self, hash: &str) -> Option<&GitCommit> {
-        self.commits.iter().find(|c| c.hash == hash || c.short_hash == hash)
+        self.commits
+            .iter()
+            .find(|c| c.hash == hash || c.short_hash == hash)
     }
 
     pub fn commits_since(&self, since: &DateTime<Utc>) -> Vec<&GitCommit> {
-        self.commits.iter()
+        self.commits
+            .iter()
             .filter(|c| c.timestamp > *since)
             .collect()
     }
@@ -152,9 +159,7 @@ impl GitHistory {
     }
 
     pub fn commits_by_author(&self, author: &str) -> Vec<&GitCommit> {
-        self.commits.iter()
-            .filter(|c| c.author == author)
-            .collect()
+        self.commits.iter().filter(|c| c.author == author).collect()
     }
 }
 
@@ -255,7 +260,10 @@ impl RepositoryManager {
     }
 
     pub fn ready_repositories(&self) -> Vec<&GitRepository> {
-        self.repositories.values().filter(|r| r.is_ready()).collect()
+        self.repositories
+            .values()
+            .filter(|r| r.is_ready())
+            .collect()
     }
 
     pub fn repository_count(&self) -> usize {
@@ -264,7 +272,9 @@ impl RepositoryManager {
 
     fn generate_repo_id(&self, url: &str) -> String {
         // Simple ID generation from URL
-        url.split('/').next_back().unwrap_or("repo")
+        url.split('/')
+            .next_back()
+            .unwrap_or("repo")
             .trim_end_matches(".git")
             .to_string()
     }
@@ -282,8 +292,7 @@ mod tests {
 
     #[test]
     fn test_git_repository() {
-        let repo = GitRepository::new("https://github.com/org/repo.git", "main")
-            .with_path("vms");
+        let repo = GitRepository::new("https://github.com/org/repo.git", "main").with_path("vms");
 
         assert_eq!(repo.url, "https://github.com/org/repo.git");
         assert_eq!(repo.branch, "main");

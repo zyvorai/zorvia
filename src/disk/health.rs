@@ -1,8 +1,8 @@
 // Disk Health Checks - Monitor disk space and alert on issues
 
 use super::DiskInfo;
-use serde::{Deserialize, Serialize};
 use chrono::{DateTime, Utc};
+use serde::{Deserialize, Serialize};
 
 /// Disk health status
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
@@ -56,22 +56,34 @@ impl DiskUsageAlert {
     fn generate_messages(disk: &DiskInfo, status: &DiskHealthStatus) -> (String, String) {
         match status {
             DiskHealthStatus::Full => (
-                format!("Disk {} is full ({}% used)", disk.mount_point, disk.usage_percent),
+                format!(
+                    "Disk {} is full ({}% used)",
+                    disk.mount_point, disk.usage_percent
+                ),
                 "Immediate action required: Expand disk or free up space".to_string(),
             ),
             DiskHealthStatus::Critical => (
-                format!("Disk {} is critically full ({:.1}% used, {} available)",
-                    disk.mount_point, disk.usage_percent, disk.available),
-                format!("Expand disk immediately or free up space. Only {} remaining", disk.available),
+                format!(
+                    "Disk {} is critically full ({:.1}% used, {} available)",
+                    disk.mount_point, disk.usage_percent, disk.available
+                ),
+                format!(
+                    "Expand disk immediately or free up space. Only {} remaining",
+                    disk.available
+                ),
             ),
             DiskHealthStatus::Warning => (
-                format!("Disk {} usage is high ({:.1}% used, {} available)",
-                    disk.mount_point, disk.usage_percent, disk.available),
+                format!(
+                    "Disk {} usage is high ({:.1}% used, {} available)",
+                    disk.mount_point, disk.usage_percent, disk.available
+                ),
                 "Consider expanding disk or cleaning up unused data".to_string(),
             ),
             DiskHealthStatus::Healthy => (
-                format!("Disk {} has sufficient space ({:.1}% used, {} available)",
-                    disk.mount_point, disk.usage_percent, disk.available),
+                format!(
+                    "Disk {} has sufficient space ({:.1}% used, {} available)",
+                    disk.mount_point, disk.usage_percent, disk.available
+                ),
                 "No action needed".to_string(),
             ),
         }
@@ -81,10 +93,10 @@ impl DiskUsageAlert {
 /// Disk health check configuration
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct DiskHealthConfig {
-    pub warning_threshold: f64,   // e.g., 75.0
-    pub critical_threshold: f64,  // e.g., 90.0
-    pub full_threshold: f64,      // e.g., 98.0
-    pub min_free_space_gb: f64,   // e.g., 5.0
+    pub warning_threshold: f64,  // e.g., 75.0
+    pub critical_threshold: f64, // e.g., 90.0
+    pub full_threshold: f64,     // e.g., 98.0
+    pub min_free_space_gb: f64,  // e.g., 5.0
 }
 
 impl Default for DiskHealthConfig {
@@ -131,20 +143,29 @@ impl DiskHealth {
             self.needs_expansion = true;
         }
 
-        self.disks.push(DiskHealthItem {
-            info: disk,
-            status,
-        });
+        self.disks.push(DiskHealthItem { info: disk, status });
 
         self.update_overall_status();
     }
 
     fn update_overall_status(&mut self) {
-        if self.disks.iter().any(|d| d.status == DiskHealthStatus::Full) {
+        if self
+            .disks
+            .iter()
+            .any(|d| d.status == DiskHealthStatus::Full)
+        {
             self.overall_status = DiskHealthStatus::Full;
-        } else if self.disks.iter().any(|d| d.status == DiskHealthStatus::Critical) {
+        } else if self
+            .disks
+            .iter()
+            .any(|d| d.status == DiskHealthStatus::Critical)
+        {
             self.overall_status = DiskHealthStatus::Critical;
-        } else if self.disks.iter().any(|d| d.status == DiskHealthStatus::Warning) {
+        } else if self
+            .disks
+            .iter()
+            .any(|d| d.status == DiskHealthStatus::Warning)
+        {
             self.overall_status = DiskHealthStatus::Warning;
         } else {
             self.overall_status = DiskHealthStatus::Healthy;

@@ -27,9 +27,7 @@ pub struct Footer {
 
 impl Footer {
     pub fn new() -> Self {
-        Self {
-            last_refresh: None,
-        }
+        Self { last_refresh: None }
     }
 
     pub fn update_refresh(&mut self) {
@@ -77,7 +75,9 @@ impl Footer {
             Span::styled(" │ ", Style::default().fg(colors::TEXT_MUTED)),
             Span::styled(
                 time_since_refresh,
-                Style::default().fg(colors::TEXT_MUTED).add_modifier(Modifier::ITALIC),
+                Style::default()
+                    .fg(colors::TEXT_MUTED)
+                    .add_modifier(Modifier::ITALIC),
             ),
         ]);
 

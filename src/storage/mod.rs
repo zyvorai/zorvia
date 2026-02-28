@@ -1,7 +1,7 @@
 // Storage management - PVC and StorageClass operations for KubeVirt VMs
 
-use serde::{Deserialize, Serialize};
 use chrono::{DateTime, Utc};
+use serde::{Deserialize, Serialize};
 
 /// PVC access modes
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -227,7 +227,9 @@ impl std::fmt::Display for VolumeBindingMode {
 pub fn parse_size_to_bytes(size: &str) -> Option<u64> {
     let size = size.trim();
     if let Some(num) = size.strip_suffix("Ti") {
-        num.parse::<u64>().ok().map(|v| v * 1024 * 1024 * 1024 * 1024)
+        num.parse::<u64>()
+            .ok()
+            .map(|v| v * 1024 * 1024 * 1024 * 1024)
     } else if let Some(num) = size.strip_suffix("Gi") {
         num.parse::<u64>().ok().map(|v| v * 1024 * 1024 * 1024)
     } else if let Some(num) = size.strip_suffix("Mi") {
@@ -242,7 +244,10 @@ pub fn parse_size_to_bytes(size: &str) -> Option<u64> {
 /// Format bytes to human-readable storage size
 pub fn format_bytes(bytes: u64) -> String {
     if bytes >= 1024 * 1024 * 1024 * 1024 {
-        format!("{:.1}Ti", bytes as f64 / (1024.0 * 1024.0 * 1024.0 * 1024.0))
+        format!(
+            "{:.1}Ti",
+            bytes as f64 / (1024.0 * 1024.0 * 1024.0 * 1024.0)
+        )
     } else if bytes >= 1024 * 1024 * 1024 {
         format!("{:.1}Gi", bytes as f64 / (1024.0 * 1024.0 * 1024.0))
     } else if bytes >= 1024 * 1024 {
@@ -332,7 +337,10 @@ mod tests {
         for size in sizes {
             let bytes = parse_size_to_bytes(size).unwrap();
             let formatted = format_bytes(bytes);
-            assert_eq!(formatted, format!("{}.0{}", &size[..size.len() - 2], &size[size.len() - 2..]));
+            assert_eq!(
+                formatted,
+                format!("{}.0{}", &size[..size.len() - 2], &size[size.len() - 2..])
+            );
         }
     }
 
@@ -349,7 +357,10 @@ mod tests {
         assert_eq!(ReclaimPolicy::Delete.to_string(), "Delete");
         assert_eq!(ReclaimPolicy::Retain.to_string(), "Retain");
         assert_eq!(VolumeBindingMode::Immediate.to_string(), "Immediate");
-        assert_eq!(VolumeBindingMode::WaitForFirstConsumer.to_string(), "WaitForFirstConsumer");
+        assert_eq!(
+            VolumeBindingMode::WaitForFirstConsumer.to_string(),
+            "WaitForFirstConsumer"
+        );
     }
 
     #[test]

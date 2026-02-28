@@ -30,7 +30,11 @@ impl Vault {
         endpoint: impl Into<String>,
     ) -> Self {
         let name_str = name.into();
-        let id = format!("vault-{}-{}", name_str.to_lowercase().replace(' ', "-"), Utc::now().timestamp());
+        let id = format!(
+            "vault-{}-{}",
+            name_str.to_lowercase().replace(' ', "-"),
+            Utc::now().timestamp()
+        );
 
         Self {
             id,
@@ -138,8 +142,7 @@ mod tests {
 
     #[test]
     fn test_vault_with_max_secrets() {
-        let vault = Vault::new("test", VaultType::Local, "local")
-            .with_max_secrets(1000);
+        let vault = Vault::new("test", VaultType::Local, "local").with_max_secrets(1000);
 
         assert_eq!(vault.max_secrets, Some(1000));
     }
@@ -159,8 +162,7 @@ mod tests {
 
     #[test]
     fn test_vault_is_full() {
-        let mut vault = Vault::new("test", VaultType::Local, "local")
-            .with_max_secrets(10);
+        let mut vault = Vault::new("test", VaultType::Local, "local").with_max_secrets(10);
 
         assert!(!vault.is_full());
 
@@ -170,8 +172,7 @@ mod tests {
 
     #[test]
     fn test_vault_is_available() {
-        let mut vault = Vault::new("test", VaultType::Local, "local")
-            .with_max_secrets(10);
+        let mut vault = Vault::new("test", VaultType::Local, "local").with_max_secrets(10);
 
         assert!(!vault.is_available()); // Sealed
 

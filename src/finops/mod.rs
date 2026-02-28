@@ -156,11 +156,7 @@ impl CostManager {
             .sum()
     }
 
-    pub fn metrics_in_period(
-        &self,
-        start: DateTime<Utc>,
-        end: DateTime<Utc>,
-    ) -> Vec<&CostMetric> {
+    pub fn metrics_in_period(&self, start: DateTime<Utc>, end: DateTime<Utc>) -> Vec<&CostMetric> {
         self.metrics
             .iter()
             .filter(|m| m.period_start >= start && m.period_end <= end)
@@ -203,8 +199,7 @@ mod tests {
 
     #[test]
     fn test_metric_with_currency() {
-        let metric = CostMetric::new("vol-456", "storage", 50.0)
-            .with_currency("EUR");
+        let metric = CostMetric::new("vol-456", "storage", 50.0).with_currency("EUR");
 
         assert_eq!(metric.currency, "EUR");
     }
@@ -214,8 +209,7 @@ mod tests {
         let start = Utc::now();
         let end = start + chrono::Duration::hours(24);
 
-        let metric = CostMetric::new("vm-1", "compute", 120.0)
-            .with_period(start, end);
+        let metric = CostMetric::new("vm-1", "compute", 120.0).with_period(start, end);
 
         assert_eq!(metric.period_start, start);
         assert_eq!(metric.period_end, end);
@@ -229,7 +223,10 @@ mod tests {
         metric.add_tag("team", "platform");
 
         assert_eq!(metric.tags.len(), 2);
-        assert_eq!(metric.tags.get("environment"), Some(&"production".to_string()));
+        assert_eq!(
+            metric.tags.get("environment"),
+            Some(&"production".to_string())
+        );
     }
 
     #[test]
@@ -237,8 +234,7 @@ mod tests {
         let start = Utc::now();
         let end = start + chrono::Duration::hours(10);
 
-        let metric = CostMetric::new("vm-1", "compute", 100.0)
-            .with_period(start, end);
+        let metric = CostMetric::new("vm-1", "compute", 100.0).with_period(start, end);
 
         assert!((metric.duration_hours() - 10.0).abs() < 0.1);
     }
@@ -248,8 +244,7 @@ mod tests {
         let start = Utc::now();
         let end = start + chrono::Duration::hours(24);
 
-        let metric = CostMetric::new("vm-1", "compute", 120.0)
-            .with_period(start, end);
+        let metric = CostMetric::new("vm-1", "compute", 120.0).with_period(start, end);
 
         assert_eq!(metric.hourly_cost(), 5.0);
     }
@@ -354,12 +349,9 @@ mod tests {
         let mid = start + chrono::Duration::hours(12);
         let end = start + chrono::Duration::hours(24);
 
-        let m1 = CostMetric::new("vm-1", "compute", 100.0)
-            .with_period(start, mid);
-        let m2 = CostMetric::new("vm-2", "compute", 150.0)
-            .with_period(mid, end);
-        let m3 = CostMetric::new("vm-3", "compute", 75.0)
-            .with_period(start, end);
+        let m1 = CostMetric::new("vm-1", "compute", 100.0).with_period(start, mid);
+        let m2 = CostMetric::new("vm-2", "compute", 150.0).with_period(mid, end);
+        let m3 = CostMetric::new("vm-3", "compute", 75.0).with_period(start, end);
 
         manager.add_metric(m1);
         manager.add_metric(m2);

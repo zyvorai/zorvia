@@ -1,7 +1,7 @@
 // Compliance Checking - Verify VM compliance with security standards
 
-use serde::{Deserialize, Serialize};
 use chrono::{DateTime, Utc};
+use serde::{Deserialize, Serialize};
 
 /// Compliance check
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -20,7 +20,7 @@ impl ComplianceCheck {
         check_id: impl Into<String>,
         control_id: impl Into<String>,
         title: impl Into<String>,
-        framework: ComplianceFramework
+        framework: ComplianceFramework,
     ) -> Self {
         Self {
             check_id: check_id.into(),
@@ -52,13 +52,13 @@ impl ComplianceCheck {
 /// Compliance framework
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub enum ComplianceFramework {
-    PCIDSS,      // Payment Card Industry Data Security Standard
-    HIPAA,       // Health Insurance Portability and Accountability Act
-    SOC2,        // Service Organization Control 2
-    ISO27001,    // ISO/IEC 27001
-    GDPR,        // General Data Protection Regulation
-    NIST,        // NIST Cybersecurity Framework
-    CIS,         // CIS Controls
+    PCIDSS,   // Payment Card Industry Data Security Standard
+    HIPAA,    // Health Insurance Portability and Accountability Act
+    SOC2,     // Service Organization Control 2
+    ISO27001, // ISO/IEC 27001
+    GDPR,     // General Data Protection Regulation
+    NIST,     // NIST Cybersecurity Framework
+    CIS,      // CIS Controls
     Custom(String),
 }
 
@@ -144,7 +144,8 @@ impl ComplianceReport {
     }
 
     pub fn critical_failures(&self) -> Vec<&CheckResult> {
-        self.check_results.iter()
+        self.check_results
+            .iter()
             .filter(|r| r.status == CheckStatus::Failed && r.severity == CheckSeverity::Critical)
             .collect()
     }
@@ -190,7 +191,11 @@ pub struct CheckResult {
 }
 
 impl CheckResult {
-    pub fn new(check_id: impl Into<String>, control_id: impl Into<String>, title: impl Into<String>) -> Self {
+    pub fn new(
+        check_id: impl Into<String>,
+        control_id: impl Into<String>,
+        title: impl Into<String>,
+    ) -> Self {
         Self {
             check_id: check_id.into(),
             control_id: control_id.into(),
@@ -270,28 +275,28 @@ impl ComplianceChecker {
         report.add_result(
             CheckResult::new("PCI-1.1", "REQ-1", "Firewall installed and configured")
                 .with_severity(CheckSeverity::Critical)
-                .passed()
+                .passed(),
         );
 
         // Requirement 2: Do not use vendor-supplied defaults
         report.add_result(
             CheckResult::new("PCI-2.1", "REQ-2", "Default passwords changed")
                 .with_severity(CheckSeverity::Critical)
-                .passed()
+                .passed(),
         );
 
         // Requirement 3: Protect stored data
         report.add_result(
             CheckResult::new("PCI-3.1", "REQ-3", "Data encryption enabled")
                 .with_severity(CheckSeverity::Critical)
-                .passed()
+                .passed(),
         );
 
         // Requirement 8: Identify and authenticate access
         report.add_result(
             CheckResult::new("PCI-8.1", "REQ-8", "Strong authentication configured")
                 .with_severity(CheckSeverity::High)
-                .passed()
+                .passed(),
         );
 
         report.finalize();
@@ -306,21 +311,21 @@ impl ComplianceChecker {
         report.add_result(
             CheckResult::new("HIPAA-AC-1", "164.312(a)(1)", "Access control implemented")
                 .with_severity(CheckSeverity::Critical)
-                .passed()
+                .passed(),
         );
 
         // Audit Controls
         report.add_result(
             CheckResult::new("HIPAA-AU-1", "164.312(b)", "Audit logging enabled")
                 .with_severity(CheckSeverity::High)
-                .passed()
+                .passed(),
         );
 
         // Encryption
         report.add_result(
             CheckResult::new("HIPAA-EN-1", "164.312(e)(1)", "Data encryption in transit")
                 .with_severity(CheckSeverity::Critical)
-                .passed()
+                .passed(),
         );
 
         report.finalize();
@@ -335,14 +340,14 @@ impl ComplianceChecker {
         report.add_result(
             CheckResult::new("SOC2-SEC-1", "CC6.1", "Logical access controls")
                 .with_severity(CheckSeverity::High)
-                .passed()
+                .passed(),
         );
 
         // Availability Principle
         report.add_result(
             CheckResult::new("SOC2-AVL-1", "A1.1", "System monitoring")
                 .with_severity(CheckSeverity::Medium)
-                .passed()
+                .passed(),
         );
 
         report.finalize();
@@ -369,7 +374,7 @@ mod tests {
             "CHECK-001",
             "CTRL-001",
             "Encryption enabled",
-            ComplianceFramework::PCIDSS
+            ComplianceFramework::PCIDSS,
         )
         .with_description("Verify encryption is enabled")
         .with_severity(CheckSeverity::Critical)
@@ -384,17 +389,13 @@ mod tests {
     fn test_compliance_report() {
         let mut report = ComplianceReport::new("test-vm", ComplianceFramework::PCIDSS);
 
-        report.add_result(
-            CheckResult::new("C1", "CTRL1", "Test 1").passed()
-        );
+        report.add_result(CheckResult::new("C1", "CTRL1", "Test 1").passed());
         report.add_result(
             CheckResult::new("C2", "CTRL2", "Test 2")
                 .with_severity(CheckSeverity::Critical)
-                .failed("Critical issue")
+                .failed("Critical issue"),
         );
-        report.add_result(
-            CheckResult::new("C3", "CTRL3", "Test 3").not_applicable()
-        );
+        report.add_result(CheckResult::new("C3", "CTRL3", "Test 3").not_applicable());
 
         assert_eq!(report.summary.total_checks, 3);
         assert_eq!(report.summary.passed, 1);
@@ -429,8 +430,7 @@ mod tests {
         assert_eq!(passed.severity, CheckSeverity::High);
         assert!(passed.evidence.is_some());
 
-        let failed = CheckResult::new("C2", "CTRL2", "Test")
-            .failed("Firewall not configured");
+        let failed = CheckResult::new("C2", "CTRL2", "Test").failed("Firewall not configured");
 
         assert_eq!(failed.status, CheckStatus::Failed);
     }
@@ -473,12 +473,12 @@ mod tests {
         report.add_result(
             CheckResult::new("C1", "CTRL1", "Test 1")
                 .with_severity(CheckSeverity::Critical)
-                .failed("Critical issue")
+                .failed("Critical issue"),
         );
         report.add_result(
             CheckResult::new("C2", "CTRL2", "Test 2")
                 .with_severity(CheckSeverity::High)
-                .failed("High issue")
+                .failed("High issue"),
         );
 
         let critical = report.critical_failures();

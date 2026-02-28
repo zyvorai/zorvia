@@ -2,7 +2,7 @@ use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
-use super::{DRStrategy, RTO, RPO};
+use super::{DRStrategy, RPO, RTO};
 
 /// DR plan status
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -56,7 +56,11 @@ pub struct DRStep {
 impl DRPlan {
     pub fn new(name: impl Into<String>, description: impl Into<String>) -> Self {
         let name_str = name.into();
-        let id = format!("plan-{}-{}", name_str.to_lowercase().replace(' ', "-"), Utc::now().timestamp());
+        let id = format!(
+            "plan-{}-{}",
+            name_str.to_lowercase().replace(' ', "-"),
+            Utc::now().timestamp()
+        );
 
         Self {
             id,
@@ -126,7 +130,10 @@ impl DRPlan {
     }
 
     pub fn total_estimated_duration(&self) -> u64 {
-        self.steps.iter().map(|s| s.estimated_duration_seconds).sum()
+        self.steps
+            .iter()
+            .map(|s| s.estimated_duration_seconds)
+            .sum()
     }
 
     pub fn is_active(&self) -> bool {
@@ -210,10 +217,7 @@ impl DRPlanManager {
     }
 
     pub fn active_plans(&self) -> Vec<&DRPlan> {
-        self.plans
-            .values()
-            .filter(|p| p.is_active())
-            .collect()
+        self.plans.values().filter(|p| p.is_active()).collect()
     }
 
     pub fn by_strategy(&self, strategy: &DRStrategy) -> Vec<&DRPlan> {

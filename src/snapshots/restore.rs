@@ -1,14 +1,15 @@
 // Restore Manager - Restore VMs from snapshots
 // Real KubeVirt CRD integration
 
+use super::crds::{RestoreTarget, VirtualMachineRestore, VirtualMachineRestoreSpec};
 use super::types::{RestoreInfo, RestoreStatus};
-use super::crds::{
-    VirtualMachineRestore, VirtualMachineRestoreSpec, RestoreTarget,
-};
 use anyhow::{Context, Result};
 use chrono::{DateTime, Utc};
-use kube::{Api, Client, api::{PostParams, ListParams, DeleteParams}};
 use k8s_openapi::apimachinery::pkg::apis::meta::v1::ObjectMeta;
+use kube::{
+    api::{DeleteParams, ListParams, PostParams},
+    Api, Client,
+};
 use std::collections::BTreeMap;
 
 /// Restore Manager for VM restore operations
@@ -52,9 +53,18 @@ impl RestoreManager {
 
         // Build labels
         let mut labels = BTreeMap::new();
-        labels.insert("zorvia.io/snapshot".to_string(), snapshot_name.to_string());
-        labels.insert("zorvia.io/target-vm".to_string(), target_vm_name.to_string());
-        labels.insert("zorvia.io/created-by".to_string(), "zorvia".to_string());
+        labels.insert(
+            "zorvia.io/snapshot".to_string(),
+            snapshot_name.to_string(),
+        );
+        labels.insert(
+            "zorvia.io/target-vm".to_string(),
+            target_vm_name.to_string(),
+        );
+        labels.insert(
+            "zorvia.io/created-by".to_string(),
+            "zorvia".to_string(),
+        );
 
         // Create the restore CRD
         let restore = VirtualMachineRestore {
@@ -86,7 +96,11 @@ impl RestoreManager {
     }
 
     /// Restore VM from snapshot in-place (overwrites current VM)
-    pub async fn restore_in_place(&self, vm_name: &str, snapshot_name: &str) -> Result<RestoreInfo> {
+    pub async fn restore_in_place(
+        &self,
+        vm_name: &str,
+        snapshot_name: &str,
+    ) -> Result<RestoreInfo> {
         // In-place restore uses the same VM name as target
         self.restore_to_new_vm(snapshot_name, vm_name, false).await
     }
@@ -165,7 +179,10 @@ impl RestoreManager {
     /// Convert VirtualMachineRestore CRD to RestoreInfo
     fn restore_to_info(&self, restore: VirtualMachineRestore) -> RestoreInfo {
         let name = restore.metadata.name.unwrap_or_default();
-        let namespace = restore.metadata.namespace.unwrap_or_else(|| self.namespace.clone());
+        let namespace = restore
+            .metadata
+            .namespace
+            .unwrap_or_else(|| self.namespace.clone());
 
         let snapshot_name = restore.spec.snapshot_name.clone();
         let target_vm_name = restore.spec.target.name.clone();
@@ -185,20 +202,24 @@ impl RestoreManager {
             RestoreStatus::Unknown
         };
 
-        let created_at = restore.status
+        let created_at = restore
+            .status
             .as_ref()
             .and_then(|s| s.restore_time.as_ref())
-            .and_then(|t| DateTime::parse_from_rfc3339(t)
-                .ok()
-                .map(|dt| dt.with_timezone(&Utc)));
+            .and_then(|t| {
+                DateTime::parse_from_rfc3339(t)
+                    .ok()
+                    .map(|dt| dt.with_timezone(&Utc))
+            });
 
         let completed_at = if status == RestoreStatus::Succeeded {
-            created_at  // Use restore time as completion for now
+            created_at // Use restore time as completion for now
         } else {
             None
         };
 
-        let error = restore.status
+        let error = restore
+            .status
             .as_ref()
             .and_then(|s| s.error.as_ref())
             .and_then(|e| e.message.clone());

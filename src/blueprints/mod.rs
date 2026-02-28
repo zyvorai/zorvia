@@ -5,13 +5,13 @@ mod builtin;
 mod storage;
 pub mod validator;
 
-pub use validator::{validate_blueprint, check_circular_dependencies, resolve_deployment_order};
+pub use validator::{check_circular_dependencies, resolve_deployment_order, validate_blueprint};
 
+use anyhow::Result;
+use once_cell::sync::Lazy;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::sync::RwLock;
-use once_cell::sync::Lazy;
-use anyhow::Result;
 
 pub static BLUEPRINTS: Lazy<RwLock<BlueprintManager>> = Lazy::new(|| {
     RwLock::new(BlueprintManager::new().expect("Failed to initialize BlueprintManager"))
@@ -69,7 +69,8 @@ impl BlueprintManager {
 
     /// List all blueprints (builtin + custom)
     pub fn list(&self) -> Vec<Blueprint> {
-        let mut blueprints: Vec<_> = self.builtin_blueprints
+        let mut blueprints: Vec<_> = self
+            .builtin_blueprints
             .values()
             .chain(self.custom_blueprints.values())
             .cloned()
@@ -103,7 +104,8 @@ impl BlueprintManager {
         self.storage.save(&blueprint)?;
 
         // Add to in-memory map
-        self.custom_blueprints.insert(blueprint.name.clone(), blueprint);
+        self.custom_blueprints
+            .insert(blueprint.name.clone(), blueprint);
 
         Ok(())
     }
@@ -127,7 +129,8 @@ impl BlueprintManager {
         self.storage.save(&blueprint)?;
 
         // Update in-memory map
-        self.custom_blueprints.insert(blueprint.name.clone(), blueprint);
+        self.custom_blueprints
+            .insert(blueprint.name.clone(), blueprint);
 
         Ok(())
     }
@@ -156,7 +159,8 @@ impl BlueprintManager {
     /// Search blueprints by tag
     pub fn search_by_tag(&self, tag: &str) -> Vec<Blueprint> {
         let tag_lower = tag.to_lowercase();
-        let mut matches: Vec<_> = self.list()
+        let mut matches: Vec<_> = self
+            .list()
             .into_iter()
             .filter(|b| b.tags.iter().any(|t| t.to_lowercase().contains(&tag_lower)))
             .collect();
@@ -239,18 +243,16 @@ mod tests {
         let custom = Blueprint {
             name: "custom-test".to_string(),
             description: "Custom test blueprint".to_string(),
-            vms: vec![
-                VMSpec {
-                    name: "test-vm".to_string(),
-                    template: "ubuntu".to_string(),
-                    profile: Some("dev".to_string()),
-                    cpu: None,
-                    memory: None,
-                    disk_size: None,
-                    depends_on: vec![],
-                    labels: HashMap::new(),
-                },
-            ],
+            vms: vec![VMSpec {
+                name: "test-vm".to_string(),
+                template: "ubuntu".to_string(),
+                profile: Some("dev".to_string()),
+                cpu: None,
+                memory: None,
+                disk_size: None,
+                depends_on: vec![],
+                labels: HashMap::new(),
+            }],
             tags: vec!["test".to_string()],
         };
 

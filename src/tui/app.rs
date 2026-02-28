@@ -4,10 +4,7 @@ use super::config::TuiConfig;
 use super::state::AppState;
 use anyhow::Result;
 use crossterm::event::{self, Event, KeyCode, KeyEvent, KeyModifiers};
-use ratatui::{
-    backend::Backend,
-    Terminal,
-};
+use ratatui::{backend::Backend, Terminal};
 use std::time::Duration;
 
 /// TUI View enum - different screens in the application
@@ -161,7 +158,11 @@ impl App {
 
             let success = Paragraph::new(msg.as_str())
                 .block(Block::default().borders(Borders::ALL).title("Success"))
-                .style(Style::default().fg(Color::Green).add_modifier(Modifier::BOLD))
+                .style(
+                    Style::default()
+                        .fg(Color::Green)
+                        .add_modifier(Modifier::BOLD),
+                )
                 .alignment(Alignment::Center);
 
             f.render_widget(success, success_area);

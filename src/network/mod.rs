@@ -139,9 +139,9 @@ impl NetworkConfig {
 }
 
 pub mod bandwidth;
+pub mod cilium;
 pub mod policies;
 pub mod traffic;
-pub mod cilium;
 
 #[cfg(test)]
 mod tests {
@@ -168,7 +168,10 @@ mod tests {
         assert_eq!(InterfaceType::Multus.as_str(), "multus");
 
         assert_eq!(InterfaceType::parse("bridge"), InterfaceType::Bridge);
-        assert_eq!(InterfaceType::parse("masquerade"), InterfaceType::Masquerade);
+        assert_eq!(
+            InterfaceType::parse("masquerade"),
+            InterfaceType::Masquerade
+        );
     }
 
     #[test]

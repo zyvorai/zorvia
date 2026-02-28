@@ -124,14 +124,23 @@ impl VMStatus {
 
     pub fn display(&self) {
         println!("╔═══════════════════════════════════════════════════════════════╗");
-        println!("║              VM Status: {}                    ", self.name);
+        println!(
+            "║              VM Status: {}                    ",
+            self.name
+        );
         println!("╚═══════════════════════════════════════════════════════════════╝");
         println!();
         println!("Basic Information:");
         println!("  Name:       {}", self.name);
         println!("  Namespace:  {}", self.namespace);
-        println!("  Running:    {}", if self.running { "Yes ✓" } else { "No ✗" });
-        println!("  Ready:      {}", if self.ready { "Yes ✓" } else { "No ✗" });
+        println!(
+            "  Running:    {}",
+            if self.running { "Yes ✓" } else { "No ✗" }
+        );
+        println!(
+            "  Ready:      {}",
+            if self.ready { "Yes ✓" } else { "No ✗" }
+        );
         println!("  Phase:      {}", self.phase);
 
         if let Some(created) = &self.created_at {
@@ -168,7 +177,10 @@ impl VMStatus {
             println!("Conditions:");
             for cond in &self.conditions {
                 let status_icon = if cond.status == "True" { "✓" } else { "✗" };
-                println!("  {} {} - {}", status_icon, cond.condition_type, cond.status);
+                println!(
+                    "  {} {} - {}",
+                    status_icon, cond.condition_type, cond.status
+                );
                 if let Some(reason) = &cond.reason {
                     println!("      Reason: {}", reason);
                 }
@@ -243,8 +255,14 @@ impl ResourceSummary {
         if self.total_vms > 0 {
             println!();
             println!("Per VM Average:");
-            println!("  CPU:    {:.1} cores", self.total_cpu_cores as f64 / self.total_vms as f64);
-            println!("  Memory: {:.2} Gi", self.total_memory_gi / self.total_vms as f64);
+            println!(
+                "  CPU:    {:.1} cores",
+                self.total_cpu_cores as f64 / self.total_vms as f64
+            );
+            println!(
+                "  Memory: {:.2} Gi",
+                self.total_memory_gi / self.total_vms as f64
+            );
         }
     }
 }
@@ -255,15 +273,31 @@ fn parse_memory_to_gi(mem_str: &str) -> Option<f64> {
     if mem_str.ends_with("Gi") {
         mem_str.trim_end_matches("Gi").parse::<f64>().ok()
     } else if mem_str.ends_with("Mi") {
-        mem_str.trim_end_matches("Mi").parse::<f64>().ok().map(|m| m / 1024.0)
+        mem_str
+            .trim_end_matches("Mi")
+            .parse::<f64>()
+            .ok()
+            .map(|m| m / 1024.0)
     } else if mem_str.ends_with("Ti") {
-        mem_str.trim_end_matches("Ti").parse::<f64>().ok().map(|m| m * 1024.0)
+        mem_str
+            .trim_end_matches("Ti")
+            .parse::<f64>()
+            .ok()
+            .map(|m| m * 1024.0)
     } else if mem_str.ends_with("G") {
         mem_str.trim_end_matches("G").parse::<f64>().ok()
     } else if mem_str.ends_with("M") {
-        mem_str.trim_end_matches("M").parse::<f64>().ok().map(|m| m / 1024.0)
+        mem_str
+            .trim_end_matches("M")
+            .parse::<f64>()
+            .ok()
+            .map(|m| m / 1024.0)
     } else if mem_str.ends_with("T") {
-        mem_str.trim_end_matches("T").parse::<f64>().ok().map(|m| m * 1024.0)
+        mem_str
+            .trim_end_matches("T")
+            .parse::<f64>()
+            .ok()
+            .map(|m| m * 1024.0)
     } else {
         None
     }

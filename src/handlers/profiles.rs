@@ -1,10 +1,12 @@
-use anyhow::{anyhow, Result};
 use crate::tui::colors::cli as color;
+use anyhow::{anyhow, Result};
 
 pub fn handle_profiles(details: bool) -> Result<()> {
     use crate::profiles::PROFILES;
 
-    let manager = PROFILES.read().map_err(|e| anyhow::anyhow!("Failed to lock profiles: {}", e))?;
+    let manager = PROFILES
+        .read()
+        .map_err(|e| anyhow::anyhow!("Failed to lock profiles: {}", e))?;
 
     println!("{}", color::header("═══ VM Resource Profiles ═══"));
     println!();
@@ -20,7 +22,8 @@ pub fn handle_profiles(details: bool) -> Result<()> {
         println!("  {}", color::muted(&profile.description));
 
         if details {
-            println!("  CPU:    {} cores ({} sockets, {} threads)",
+            println!(
+                "  CPU:    {} cores ({} sockets, {} threads)",
                 color::resource(&profile.cpu_cores.to_string(), "cpu"),
                 profile.cpu_sockets,
                 profile.cpu_threads
@@ -29,17 +32,26 @@ pub fn handle_profiles(details: bool) -> Result<()> {
             println!("  Disk:   {}", color::resource(&profile.disk_size, "disk"));
             println!("  Use cases: {}", profile.use_cases.join(", "));
             println!("  Recommended OS: {}", profile.recommended_os.join(", "));
-            println!("  Type: {}", if manager.is_builtin(&profile.name) {
-                color::muted("builtin")
-            } else {
-                color::success("custom")
-            });
+            println!(
+                "  Type: {}",
+                if manager.is_builtin(&profile.name) {
+                    color::muted("builtin")
+                } else {
+                    color::success("custom")
+                }
+            );
         }
         println!();
     }
 
-    println!("{}", color::muted("★ = custom profile, • = builtin profile"));
-    println!("{}", color::muted("Use 'zorvia profile <name>' for details"));
+    println!(
+        "{}",
+        color::muted("★ = custom profile, • = builtin profile")
+    );
+    println!(
+        "{}",
+        color::muted("Use 'zorvia profile <name>' for details")
+    );
     println!("{}", color::muted("Create custom: zorvia profile-create <name> --cpus <n> --memory <size> --disk-size <size>"));
     Ok(())
 }
@@ -47,8 +59,11 @@ pub fn handle_profiles(details: bool) -> Result<()> {
 pub fn handle_profile(name: String, output: String) -> Result<()> {
     use crate::profiles::PROFILES;
 
-    let manager = PROFILES.read().map_err(|e| anyhow::anyhow!("Failed to lock profiles: {}", e))?;
-    let profile = manager.get(&name)
+    let manager = PROFILES
+        .read()
+        .map_err(|e| anyhow::anyhow!("Failed to lock profiles: {}", e))?;
+    let profile = manager
+        .get(&name)
         .ok_or_else(|| anyhow!("Profile not found: {}", name))?;
 
     match output.as_str() {
@@ -82,37 +97,55 @@ pub fn handle_profile_create(
 
     let profile = if let Some(file_path) = from_file {
         // Load from file
-        let content = std::fs::read_to_string(file_path)
-            .context("Failed to read profile file")?;
-        serde_yaml::from_str::<Profile>(&content)
-            .context("Failed to parse profile YAML")?
+        let content = std::fs::read_to_string(file_path).context("Failed to read profile file")?;
+        serde_yaml::from_str::<Profile>(&content).context("Failed to parse profile YAML")?
     } else {
         // Build from arguments
         Profile {
             name: name.clone(),
-            description: description.clone()
+            description: description
+                .clone()
                 .unwrap_or_else(|| format!("Custom profile: {}", name)),
             cpu_cores: cpus,
             cpu_sockets: sockets,
             cpu_threads: threads,
             memory: memory.clone(),
             disk_size: disk_size.clone(),
-            use_cases: use_cases.as_ref()
+            use_cases: use_cases
+                .as_ref()
                 .map(|s| s.split(',').map(|s| s.trim().to_string()).collect())
                 .unwrap_or_default(),
-            recommended_os: recommended_os.as_ref()
+            recommended_os: recommended_os
+                .as_ref()
                 .map(|s| s.split(',').map(|s| s.trim().to_string()).collect())
                 .unwrap_or_default(),
         }
     };
 
     // Create the profile
-    let mut manager = PROFILES.write().map_err(|e| anyhow::anyhow!("Failed to lock profiles: {}", e))?;
+    let mut manager = PROFILES
+        .write()
+        .map_err(|e| anyhow::anyhow!("Failed to lock profiles: {}", e))?;
     manager.create_custom(profile)?;
 
-    println!("{}", color::success(&format!("✓ Custom profile '{}' created successfully", name)));
-    println!("{}", color::muted(&format!("  Location: ~/.config/zorvia/profiles/{}.yaml", name)));
-    println!("{}", color::muted(&format!("  Use with: zorvia create <vm-name> --template <os> --profile {}", name)));
+    println!(
+        "{}",
+        color::success(&format!("✓ Custom profile '{}' created successfully", name))
+    );
+    println!(
+        "{}",
+        color::muted(&format!(
+            "  Location: ~/.config/zorvia/profiles/{}.yaml",
+            name
+        ))
+    );
+    println!(
+        "{}",
+        color::muted(&format!(
+            "  Use with: zorvia create <vm-name> --template <os> --profile {}",
+            name
+        ))
+    );
     Ok(())
 }
 
@@ -130,15 +163,21 @@ pub fn handle_profile_edit(
 ) -> Result<()> {
     use crate::profiles::PROFILES;
 
-    let mut manager = PROFILES.write().map_err(|e| anyhow::anyhow!("Failed to lock profiles: {}", e))?;
+    let mut manager = PROFILES
+        .write()
+        .map_err(|e| anyhow::anyhow!("Failed to lock profiles: {}", e))?;
 
     // Load existing profile
-    let mut profile = manager.get(&name)
+    let mut profile = manager
+        .get(&name)
         .ok_or_else(|| anyhow!("Profile '{}' not found", name))?;
 
     // Check if builtin
     if manager.is_builtin(&name) {
-        anyhow::bail!("Cannot edit builtin profile '{}'. Create a custom profile instead.", name);
+        anyhow::bail!(
+            "Cannot edit builtin profile '{}'. Create a custom profile instead.",
+            name
+        );
     }
 
     // Apply updates
@@ -170,14 +209,19 @@ pub fn handle_profile_edit(
     // Update the profile
     manager.update_custom(profile)?;
 
-    println!("{}", color::success(&format!("✓ Profile '{}' updated successfully", name)));
+    println!(
+        "{}",
+        color::success(&format!("✓ Profile '{}' updated successfully", name))
+    );
     Ok(())
 }
 
 pub fn handle_profile_delete(name: String, yes: bool) -> Result<()> {
     use crate::profiles::PROFILES;
 
-    let mut manager = PROFILES.write().map_err(|e| anyhow::anyhow!("Failed to lock profiles: {}", e))?;
+    let mut manager = PROFILES
+        .write()
+        .map_err(|e| anyhow::anyhow!("Failed to lock profiles: {}", e))?;
 
     // Check if builtin
     if manager.is_builtin(&name) {
@@ -207,7 +251,10 @@ pub fn handle_profile_delete(name: String, yes: bool) -> Result<()> {
     // Delete the profile
     manager.delete_custom(&name)?;
 
-    println!("{}", color::success(&format!("✓ Profile '{}' deleted", name)));
+    println!(
+        "{}",
+        color::success(&format!("✓ Profile '{}' deleted", name))
+    );
     Ok(())
 }
 
@@ -215,7 +262,9 @@ pub fn handle_blueprints(tag: Option<String>, details: bool) -> Result<()> {
     use crate::blueprints::BLUEPRINTS;
     use crate::tui::colors::cli;
 
-    let manager = BLUEPRINTS.read().map_err(|e| anyhow::anyhow!("Failed to lock blueprints: {}", e))?;
+    let manager = BLUEPRINTS
+        .read()
+        .map_err(|e| anyhow::anyhow!("Failed to lock blueprints: {}", e))?;
 
     println!("{}", color::header("═══ Multi-VM Blueprints ═══"));
     println!();
@@ -238,33 +287,49 @@ pub fn handle_blueprints(tag: Option<String>, details: bool) -> Result<()> {
         println!("  VMs: {}", color::value(&blueprint.vms.len().to_string()));
         if details {
             for vm in &blueprint.vms {
-                println!("    {} {} (template: {})",
+                println!(
+                    "    {} {} (template: {})",
                     color::value("-"),
                     cli::vm_name(&vm.name),
                     vm.template
                 );
             }
             println!("  Tags: {}", blueprint.tags.join(", "));
-            println!("  Type: {}", if manager.is_builtin(&blueprint.name) {
-                color::muted("builtin")
-            } else {
-                color::success("custom")
-            });
+            println!(
+                "  Type: {}",
+                if manager.is_builtin(&blueprint.name) {
+                    color::muted("builtin")
+                } else {
+                    color::success("custom")
+                }
+            );
         }
         println!();
     }
 
-    println!("{}", color::muted("★ = custom blueprint, • = builtin blueprint"));
-    println!("{}", color::muted("Use 'zorvia blueprint <name>' for details"));
-    println!("{}", color::muted("Create custom: zorvia blueprint-create <name> --from-file <file>"));
+    println!(
+        "{}",
+        color::muted("★ = custom blueprint, • = builtin blueprint")
+    );
+    println!(
+        "{}",
+        color::muted("Use 'zorvia blueprint <name>' for details")
+    );
+    println!(
+        "{}",
+        color::muted("Create custom: zorvia blueprint-create <name> --from-file <file>")
+    );
     Ok(())
 }
 
 pub fn handle_blueprint(name: String, output: String) -> Result<()> {
     use crate::blueprints::BLUEPRINTS;
 
-    let manager = BLUEPRINTS.read().map_err(|e| anyhow::anyhow!("Failed to lock blueprints: {}", e))?;
-    let blueprint = manager.get(&name)
+    let manager = BLUEPRINTS
+        .read()
+        .map_err(|e| anyhow::anyhow!("Failed to lock blueprints: {}", e))?;
+    let blueprint = manager
+        .get(&name)
         .ok_or_else(|| anyhow!("Blueprint not found: {}", name))?;
 
     match output.as_str() {
@@ -288,22 +353,28 @@ pub async fn handle_deploy(
     namespace: String,
 ) -> Result<()> {
     use crate::blueprints::BLUEPRINTS;
+    use crate::kube;
     use crate::profiles::PROFILES;
     use crate::templates::TEMPLATES;
     use crate::tui::colors::cli;
-    use crate::kube;
 
     // Clone blueprint data and drop lock before any await points
     let bp = {
-        let manager = BLUEPRINTS.read().map_err(|e| anyhow::anyhow!("Failed to lock blueprints: {}", e))?;
-        manager.get(&blueprint)
+        let manager = BLUEPRINTS
+            .read()
+            .map_err(|e| anyhow::anyhow!("Failed to lock blueprints: {}", e))?;
+        manager
+            .get(&blueprint)
             .ok_or_else(|| anyhow!("Blueprint not found: {}", blueprint))?
             .clone()
     };
 
     let vm_prefix = prefix.unwrap_or_else(|| blueprint.clone());
 
-    println!("{}", color::info(&format!("Deploying blueprint: {}", blueprint)));
+    println!(
+        "{}",
+        color::info(&format!("Deploying blueprint: {}", blueprint))
+    );
     println!("  Description: {}", bp.description);
     println!("  VMs to create: {}", bp.vms.len());
     println!();
@@ -315,9 +386,12 @@ pub async fn handle_deploy(
             println!("  {}. {}", i + 1, cli::vm_name(&vm_name));
             println!("     Template: {}", vm_spec.template);
             if let Some(profile_name) = &vm_spec.profile {
-                let profiles = PROFILES.read().map_err(|e| anyhow::anyhow!("Failed to lock profiles: {}", e))?;
+                let profiles = PROFILES
+                    .read()
+                    .map_err(|e| anyhow::anyhow!("Failed to lock profiles: {}", e))?;
                 if let Some(profile) = profiles.get(profile_name) {
-                    println!("     Profile: {} ({}, {})",
+                    println!(
+                        "     Profile: {} ({}, {})",
                         profile_name,
                         color::resource(&profile.cpu_cores.to_string(), "cpu"),
                         color::resource(&profile.memory, "memory")
@@ -341,7 +415,8 @@ pub async fn handle_deploy(
         println!("{}", color::info(&format!("Creating VM: {}", vm_name)));
 
         // Get base config from template
-        let mut config = TEMPLATES.get(&vm_spec.template)
+        let mut config = TEMPLATES
+            .get(&vm_spec.template)
             .ok_or_else(|| anyhow!("Template not found: {}", vm_spec.template))?;
 
         config.name = vm_name.clone();
@@ -349,7 +424,9 @@ pub async fn handle_deploy(
 
         // Apply profile if specified (scope lock to avoid holding across await)
         if let Some(profile_name) = &vm_spec.profile {
-            let profiles = PROFILES.read().map_err(|e| anyhow::anyhow!("Failed to lock profiles: {}", e))?;
+            let profiles = PROFILES
+                .read()
+                .map_err(|e| anyhow::anyhow!("Failed to lock profiles: {}", e))?;
             if let Some(profile) = profiles.get(profile_name) {
                 config.cpu.cores = profile.cpu_cores;
                 config.cpu.sockets = profile.cpu_sockets;
@@ -380,10 +457,16 @@ pub async fn handle_deploy(
         // Create the VM
         match client.create_vm(&config).await {
             Ok(_) => {
-                println!("{}", cli::success(&format!("VM '{}' created successfully", vm_name)));
+                println!(
+                    "{}",
+                    cli::success(&format!("VM '{}' created successfully", vm_name))
+                );
             }
             Err(e) => {
-                println!("{}", cli::error(&format!("Failed to create VM '{}': {}", vm_name, e)));
+                println!(
+                    "{}",
+                    cli::error(&format!("Failed to create VM '{}': {}", vm_name, e))
+                );
             }
         }
 
@@ -394,7 +477,10 @@ pub async fn handle_deploy(
                     println!("{}", cli::success(&format!("VM '{}' started", vm_name)));
                 }
                 Err(e) => {
-                    println!("{}", cli::error(&format!("Failed to start VM '{}': {}", vm_name, e)));
+                    println!(
+                        "{}",
+                        cli::error(&format!("Failed to start VM '{}': {}", vm_name, e))
+                    );
                 }
             }
         }
@@ -415,10 +501,9 @@ pub fn handle_blueprint_create(
     use anyhow::Context;
 
     // Load blueprint from file
-    let content = std::fs::read_to_string(from_file)
-        .context("Failed to read blueprint file")?;
-    let mut blueprint: Blueprint = serde_yaml::from_str(&content)
-        .context("Failed to parse blueprint YAML")?;
+    let content = std::fs::read_to_string(from_file).context("Failed to read blueprint file")?;
+    let mut blueprint: Blueprint =
+        serde_yaml::from_str(&content).context("Failed to parse blueprint YAML")?;
 
     // Override name if provided
     blueprint.name = name.clone();
@@ -429,30 +514,50 @@ pub fn handle_blueprint_create(
     }
 
     // Create the blueprint
-    let mut manager = BLUEPRINTS.write().map_err(|e| anyhow::anyhow!("Failed to lock blueprints: {}", e))?;
+    let mut manager = BLUEPRINTS
+        .write()
+        .map_err(|e| anyhow::anyhow!("Failed to lock blueprints: {}", e))?;
     manager.create_custom(blueprint)?;
 
-    println!("{}", color::success(&format!("✓ Custom blueprint '{}' created successfully", name)));
-    println!("{}", color::muted(&format!("  Location: ~/.config/zorvia/blueprints/{}.yaml", name)));
-    println!("{}", color::muted(&format!("  Deploy with: zorvia deploy {}", name)));
+    println!(
+        "{}",
+        color::success(&format!(
+            "✓ Custom blueprint '{}' created successfully",
+            name
+        ))
+    );
+    println!(
+        "{}",
+        color::muted(&format!(
+            "  Location: ~/.config/zorvia/blueprints/{}.yaml",
+            name
+        ))
+    );
+    println!(
+        "{}",
+        color::muted(&format!("  Deploy with: zorvia deploy {}", name))
+    );
     Ok(())
 }
 
-pub fn handle_blueprint_edit(
-    name: String,
-    description: Option<String>,
-) -> Result<()> {
+pub fn handle_blueprint_edit(name: String, description: Option<String>) -> Result<()> {
     use crate::blueprints::BLUEPRINTS;
 
-    let mut manager = BLUEPRINTS.write().map_err(|e| anyhow::anyhow!("Failed to lock blueprints: {}", e))?;
+    let mut manager = BLUEPRINTS
+        .write()
+        .map_err(|e| anyhow::anyhow!("Failed to lock blueprints: {}", e))?;
 
     // Load existing blueprint
-    let mut blueprint = manager.get(&name)
+    let mut blueprint = manager
+        .get(&name)
         .ok_or_else(|| anyhow!("Blueprint '{}' not found", name))?;
 
     // Check if builtin
     if manager.is_builtin(&name) {
-        anyhow::bail!("Cannot edit builtin blueprint '{}'. Create a custom blueprint instead.", name);
+        anyhow::bail!(
+            "Cannot edit builtin blueprint '{}'. Create a custom blueprint instead.",
+            name
+        );
     }
 
     // Apply updates
@@ -463,14 +568,19 @@ pub fn handle_blueprint_edit(
     // Update the blueprint
     manager.update_custom(blueprint)?;
 
-    println!("{}", color::success(&format!("✓ Blueprint '{}' updated successfully", name)));
+    println!(
+        "{}",
+        color::success(&format!("✓ Blueprint '{}' updated successfully", name))
+    );
     Ok(())
 }
 
 pub fn handle_blueprint_delete(name: String, yes: bool) -> Result<()> {
     use crate::blueprints::BLUEPRINTS;
 
-    let mut manager = BLUEPRINTS.write().map_err(|e| anyhow::anyhow!("Failed to lock blueprints: {}", e))?;
+    let mut manager = BLUEPRINTS
+        .write()
+        .map_err(|e| anyhow::anyhow!("Failed to lock blueprints: {}", e))?;
 
     // Check if builtin
     if manager.is_builtin(&name) {
@@ -500,21 +610,26 @@ pub fn handle_blueprint_delete(name: String, yes: bool) -> Result<()> {
     // Delete the blueprint
     manager.delete_custom(&name)?;
 
-    println!("{}", color::success(&format!("✓ Blueprint '{}' deleted", name)));
+    println!(
+        "{}",
+        color::success(&format!("✓ Blueprint '{}' deleted", name))
+    );
     Ok(())
 }
 
 pub fn handle_blueprint_validate(file: String, detailed: bool) -> Result<()> {
-    use crate::blueprints::{Blueprint, validator};
+    use crate::blueprints::{validator, Blueprint};
     use anyhow::Context;
 
     // Load blueprint from file
-    let content = std::fs::read_to_string(&file)
-        .context("Failed to read blueprint file")?;
-    let blueprint: Blueprint = serde_yaml::from_str(&content)
-        .context("Failed to parse blueprint YAML")?;
+    let content = std::fs::read_to_string(&file).context("Failed to read blueprint file")?;
+    let blueprint: Blueprint =
+        serde_yaml::from_str(&content).context("Failed to parse blueprint YAML")?;
 
-    println!("{}", color::header(&format!("═══ Validating Blueprint: {} ═══", blueprint.name)));
+    println!(
+        "{}",
+        color::header(&format!("═══ Validating Blueprint: {} ═══", blueprint.name))
+    );
     println!();
 
     // Validate the blueprint
@@ -555,7 +670,10 @@ pub fn handle_blueprint_validate(file: String, detailed: bool) -> Result<()> {
             }
         }
         Err(e) => {
-            println!("{}", color::error(&format!("✗ Blueprint validation failed: {}", e)));
+            println!(
+                "{}",
+                color::error(&format!("✗ Blueprint validation failed: {}", e))
+            );
             std::process::exit(1);
         }
     }
@@ -563,13 +681,16 @@ pub fn handle_blueprint_validate(file: String, detailed: bool) -> Result<()> {
 }
 
 pub async fn handle_health(target: String, detailed: bool, namespace: String) -> Result<()> {
-    use crate::health::VMHealthReport;
     use crate::config::VMConfigBuilder;
+    use crate::health::VMHealthReport;
     use crate::kube;
     use crate::tui::colors::cli;
     use std::fs;
 
-    println!("{}", color::header(&format!("═══ Health Check: {} ═══", target)));
+    println!(
+        "{}",
+        color::header(&format!("═══ Health Check: {} ═══", target))
+    );
     println!();
 
     // Try to load as config file first
@@ -586,10 +707,22 @@ pub async fn handle_health(target: String, detailed: bool, namespace: String) ->
         let vm = client.get_vm(&namespace, &target).await?;
 
         // Convert to VMConfig (simplified)
-        let cpu_cores = vm.spec.template.spec.domain.cpu.as_ref()
+        let cpu_cores = vm
+            .spec
+            .template
+            .spec
+            .domain
+            .cpu
+            .as_ref()
             .and_then(|c| c.cores)
             .unwrap_or(2);
-        let memory = vm.spec.template.spec.domain.memory.as_ref()
+        let memory = vm
+            .spec
+            .template
+            .spec
+            .domain
+            .memory
+            .as_ref()
             .and_then(|m| m.guest.as_deref())
             .unwrap_or("4Gi")
             .to_string();
@@ -607,7 +740,11 @@ pub async fn handle_health(target: String, detailed: bool, namespace: String) ->
     for check in VMHealthReport::check_resources(
         config.cpu.cores,
         &config.memory.size,
-        config.disks.first().map(|d| d.size.as_str()).unwrap_or("20Gi"),
+        config
+            .disks
+            .first()
+            .map(|d| d.size.as_str())
+            .unwrap_or("20Gi"),
     ) {
         report.add_check(check);
     }
@@ -633,7 +770,12 @@ pub async fn handle_health(target: String, detailed: bool, namespace: String) ->
                 crate::health::HealthStatus::Critical => color::error("✗"),
                 _ => color::muted("?"),
             };
-            println!("  {} {} - {}", status_icon, color::label(&check.name), check.message);
+            println!(
+                "  {} {} - {}",
+                status_icon,
+                color::label(&check.name),
+                check.message
+            );
             if let Some(ref rec) = check.recommendation {
                 println!("      {}", color::muted(&format!("→ {}", rec)));
             }
@@ -654,14 +796,25 @@ pub fn handle_recommend(workload: String, alternatives: bool) -> Result<()> {
     use crate::profiles::PROFILES;
     use crate::tui::colors::cli;
 
-    println!("{}", color::header(&format!("═══ Resource Recommendations for: {} ═══", workload)));
+    println!(
+        "{}",
+        color::header(&format!(
+            "═══ Resource Recommendations for: {} ═══",
+            workload
+        ))
+    );
     println!();
 
-    let manager = PROFILES.read().map_err(|e| anyhow::anyhow!("Failed to lock profiles: {}", e))?;
+    let manager = PROFILES
+        .read()
+        .map_err(|e| anyhow::anyhow!("Failed to lock profiles: {}", e))?;
     let recommendations = manager.recommend(&workload);
 
     if recommendations.is_empty() {
-        println!("{}", color::warning("No specific recommendations found for this workload"));
+        println!(
+            "{}",
+            color::warning("No specific recommendations found for this workload")
+        );
         println!("{}", color::muted("Showing general-purpose profiles:"));
         println!();
 
@@ -669,7 +822,8 @@ pub fn handle_recommend(workload: String, alternatives: bool) -> Result<()> {
             if let Some(p) = manager.get(profile) {
                 println!("{} {}", color::value("•"), color::header(&p.name));
                 println!("  {}", color::muted(&p.description));
-                println!("  CPU: {} cores, Memory: {}, Disk: {}",
+                println!(
+                    "  CPU: {} cores, Memory: {}, Disk: {}",
                     color::resource(&p.cpu_cores.to_string(), "cpu"),
                     color::resource(&p.memory, "memory"),
                     color::resource(&p.disk_size, "disk")
@@ -678,34 +832,58 @@ pub fn handle_recommend(workload: String, alternatives: bool) -> Result<()> {
             }
         }
     } else {
-        println!("{}", cli::success(&format!("Found {} matching profile(s):", recommendations.len())));
+        println!(
+            "{}",
+            cli::success(&format!(
+                "Found {} matching profile(s):",
+                recommendations.len()
+            ))
+        );
         println!();
 
         for (i, profile) in recommendations.iter().enumerate() {
-            let marker = if i == 0 { cli::success("★") } else { color::value("•") };
-            let label = if i == 0 { format!("{} (Recommended)", profile.name) } else { profile.name.clone() };
+            let marker = if i == 0 {
+                cli::success("★")
+            } else {
+                color::value("•")
+            };
+            let label = if i == 0 {
+                format!("{} (Recommended)", profile.name)
+            } else {
+                profile.name.clone()
+            };
 
             println!("{} {}", marker, color::header(&label));
             println!("  {}", color::muted(&profile.description));
             println!("  Resources:");
-            println!("    CPU:    {} cores ({} sockets × {} threads)",
+            println!(
+                "    CPU:    {} cores ({} sockets × {} threads)",
                 color::resource(&profile.cpu_cores.to_string(), "cpu"),
                 profile.cpu_sockets,
                 profile.cpu_threads
             );
             println!("    Memory: {}", color::resource(&profile.memory, "memory"));
-            println!("    Disk:   {}", color::resource(&profile.disk_size, "disk"));
+            println!(
+                "    Disk:   {}",
+                color::resource(&profile.disk_size, "disk")
+            );
             println!("  Best for: {}", profile.use_cases.join(", "));
             println!("  Recommended OS: {}", profile.recommended_os.join(", "));
             println!();
 
             if i == 0 {
                 println!("  {}", color::info("Quick create command:"));
-                println!("    {}", color::command(&format!(
-                    "zorvia create my-vm --template {} --profile {}",
-                    profile.recommended_os.first().unwrap_or(&"ubuntu".to_string()),
-                    profile.name
-                )));
+                println!(
+                    "    {}",
+                    color::command(&format!(
+                        "zorvia create my-vm --template {} --profile {}",
+                        profile
+                            .recommended_os
+                            .first()
+                            .unwrap_or(&"ubuntu".to_string()),
+                        profile.name
+                    ))
+                );
                 println!();
             }
         }
@@ -713,12 +891,17 @@ pub fn handle_recommend(workload: String, alternatives: bool) -> Result<()> {
 
     if alternatives {
         println!("{}", color::header("All Available Profiles:"));
-        let manager = PROFILES.read().map_err(|e| anyhow::anyhow!("Failed to lock profiles: {}", e))?;
+        let manager = PROFILES
+            .read()
+            .map_err(|e| anyhow::anyhow!("Failed to lock profiles: {}", e))?;
         for profile in manager.list() {
             println!("  {} {}", color::value("•"), color::label(&profile.name));
         }
         println!();
-        println!("{}", color::muted("Use 'zorvia profiles' to see all profiles"));
+        println!(
+            "{}",
+            color::muted("Use 'zorvia profiles' to see all profiles")
+        );
     }
     Ok(())
 }

@@ -18,8 +18,7 @@ impl BlueprintStorage {
 
         // Create directory if it doesn't exist
         if !config_dir.exists() {
-            fs::create_dir_all(&config_dir)
-                .context("Failed to create blueprints directory")?;
+            fs::create_dir_all(&config_dir).context("Failed to create blueprints directory")?;
         }
 
         Ok(Self { config_dir })
@@ -27,8 +26,7 @@ impl BlueprintStorage {
 
     /// Get the blueprints directory path
     fn get_blueprints_dir() -> Result<PathBuf> {
-        let config_dir = dirs::config_dir()
-            .context("Could not determine config directory")?;
+        let config_dir = dirs::config_dir().context("Could not determine config directory")?;
 
         Ok(config_dir.join("zorvia").join("blueprints"))
     }
@@ -42,8 +40,8 @@ impl BlueprintStorage {
     pub fn save(&self, blueprint: &Blueprint) -> Result<()> {
         let path = self.blueprint_path(&blueprint.name);
 
-        let yaml = serde_yaml::to_string(blueprint)
-            .context("Failed to serialize blueprint to YAML")?;
+        let yaml =
+            serde_yaml::to_string(blueprint).context("Failed to serialize blueprint to YAML")?;
 
         fs::write(&path, yaml)
             .with_context(|| format!("Failed to write blueprint to {}", path.display()))?;
@@ -77,8 +75,8 @@ impl BlueprintStorage {
             return Ok(blueprints);
         }
 
-        let entries = fs::read_dir(&self.config_dir)
-            .context("Failed to read blueprints directory")?;
+        let entries =
+            fs::read_dir(&self.config_dir).context("Failed to read blueprints directory")?;
 
         for entry in entries {
             let entry = entry.context("Failed to read directory entry")?;
@@ -90,7 +88,8 @@ impl BlueprintStorage {
             }
 
             // Get blueprint name from filename
-            let name = path.file_stem()
+            let name = path
+                .file_stem()
                 .and_then(|s| s.to_str())
                 .map(|s| s.to_string());
 
@@ -138,8 +137,8 @@ impl BlueprintStorage {
             return Ok(names);
         }
 
-        let entries = fs::read_dir(&self.config_dir)
-            .context("Failed to read blueprints directory")?;
+        let entries =
+            fs::read_dir(&self.config_dir).context("Failed to read blueprints directory")?;
 
         for entry in entries {
             let entry = entry.context("Failed to read directory entry")?;

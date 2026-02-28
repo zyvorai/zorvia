@@ -1,7 +1,7 @@
 // Schedules - Scheduled automation tasks
 
+use chrono::{DateTime, Datelike, NaiveTime, Timelike, Utc, Weekday};
 use serde::{Deserialize, Serialize};
-use chrono::{DateTime, Utc, Weekday, NaiveTime, Timelike, Datelike};
 
 /// Scheduled task
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -21,7 +21,11 @@ pub struct ScheduledTask {
 impl ScheduledTask {
     pub fn new(name: impl Into<String>, schedule: Schedule, rule_id: impl Into<String>) -> Self {
         let name_str = name.into();
-        let id = format!("task-{}-{}", name_str.to_lowercase().replace(' ', "-"), Utc::now().timestamp());
+        let id = format!(
+            "task-{}-{}",
+            name_str.to_lowercase().replace(' ', "-"),
+            Utc::now().timestamp()
+        );
 
         Self {
             id,
@@ -128,18 +132,10 @@ impl Schedule {
                     None
                 }
             }
-            Schedule::Hourly { minute } => {
-                Some(self.next_hourly(from, *minute))
-            }
-            Schedule::Daily { time } => {
-                Some(self.next_daily(from, time))
-            }
-            Schedule::Weekly { weekday, time } => {
-                Some(self.next_weekly(from, *weekday, time))
-            }
-            Schedule::Monthly { day, time } => {
-                Some(self.next_monthly(from, *day, time))
-            }
+            Schedule::Hourly { minute } => Some(self.next_hourly(from, *minute)),
+            Schedule::Daily { time } => Some(self.next_daily(from, time)),
+            Schedule::Weekly { weekday, time } => Some(self.next_weekly(from, *weekday, time)),
+            Schedule::Monthly { day, time } => Some(self.next_monthly(from, *day, time)),
             Schedule::Interval { seconds } => {
                 Some(from + chrono::Duration::seconds(*seconds as i64))
             }
@@ -168,7 +164,12 @@ impl Schedule {
         next
     }
 
-    fn next_weekly(&self, from: DateTime<Utc>, weekday: Weekday, time: &NaiveTime) -> DateTime<Utc> {
+    fn next_weekly(
+        &self,
+        from: DateTime<Utc>,
+        weekday: Weekday,
+        time: &NaiveTime,
+    ) -> DateTime<Utc> {
         let mut next = from;
         loop {
             next += chrono::Duration::days(1);
@@ -210,9 +211,7 @@ pub struct ScheduleManager {
 
 impl ScheduleManager {
     pub fn new() -> Self {
-        Self {
-            tasks: Vec::new(),
-        }
+        Self { tasks: Vec::new() }
     }
 
     pub fn add_task(&mut self, task: ScheduledTask) {
@@ -237,15 +236,11 @@ impl ScheduleManager {
     }
 
     pub fn due_tasks(&self, now: DateTime<Utc>) -> Vec<&ScheduledTask> {
-        self.tasks.iter()
-            .filter(|t| t.is_due(now))
-            .collect()
+        self.tasks.iter().filter(|t| t.is_due(now)).collect()
     }
 
     pub fn enabled_tasks(&self) -> Vec<&ScheduledTask> {
-        self.tasks.iter()
-            .filter(|t| t.enabled)
-            .collect()
+        self.tasks.iter().filter(|t| t.enabled).collect()
     }
 
     pub fn task_count(&self) -> usize {
@@ -374,8 +369,7 @@ mod tests {
     #[test]
     fn test_disabled_task_not_due() {
         let schedule = Schedule::interval(60);
-        let mut task = ScheduledTask::new("Test Task", schedule, "rule-1")
-            .disable();
+        let mut task = ScheduledTask::new("Test Task", schedule, "rule-1").disable();
 
         let now = Utc::now();
         task.next_run = Some(now - chrono::Duration::seconds(1));
@@ -425,12 +419,13 @@ mod tests {
     fn test_schedule_manager_enabled_tasks() {
         let mut manager = ScheduleManager::new();
 
-        manager.add_task(
-            ScheduledTask::new("Enabled", Schedule::interval(60), "rule-1")
-        );
-        manager.add_task(
-            ScheduledTask::new("Disabled", Schedule::interval(60), "rule-2").disable()
-        );
+        manager.add_task(ScheduledTask::new(
+            "Enabled",
+            Schedule::interval(60),
+            "rule-1",
+        ));
+        manager
+            .add_task(ScheduledTask::new("Disabled", Schedule::interval(60), "rule-2").disable());
 
         let enabled = manager.enabled_tasks();
         assert_eq!(enabled.len(), 1);
@@ -440,9 +435,11 @@ mod tests {
     fn test_update_next_runs() {
         let mut manager = ScheduleManager::new();
 
-        manager.add_task(
-            ScheduledTask::new("Task 1", Schedule::interval(60), "rule-1")
-        );
+        manager.add_task(ScheduledTask::new(
+            "Task 1",
+            Schedule::interval(60),
+            "rule-1",
+        ));
 
         let now = Utc::now();
         manager.update_next_runs(now);

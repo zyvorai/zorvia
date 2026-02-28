@@ -1,12 +1,12 @@
-use serde::{Deserialize, Serialize};
 use chrono::{DateTime, Utc};
+use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
 pub mod completions;
 pub mod config_templates;
 pub mod diff;
-pub mod init;
 pub mod info;
+pub mod init;
 
 /// Developer experience configuration
 #[derive(Debug, Clone, Serialize, Deserialize)]

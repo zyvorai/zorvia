@@ -1,19 +1,19 @@
 // Security & Compliance - VM security management and compliance checking
 
-use serde::{Deserialize, Serialize};
 use chrono::{DateTime, Utc};
+use serde::{Deserialize, Serialize};
 
-pub mod scan;
-pub mod hardening;
-pub mod compliance;
 pub mod audit;
+pub mod compliance;
+pub mod hardening;
+pub mod scan;
 
 /// Security assessment for a VM
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SecurityAssessment {
     pub vm_name: String,
     pub assessed_at: DateTime<Utc>,
-    pub overall_score: u8,  // 0-100
+    pub overall_score: u8, // 0-100
     pub risk_level: RiskLevel,
     pub vulnerabilities: Vec<Vulnerability>,
     pub compliance_status: ComplianceStatus,
@@ -34,13 +34,19 @@ impl SecurityAssessment {
     }
 
     pub fn calculate_score(&mut self) {
-        let critical_vulns = self.vulnerabilities.iter()
+        let critical_vulns = self
+            .vulnerabilities
+            .iter()
             .filter(|v| v.severity == Severity::Critical)
             .count();
-        let high_vulns = self.vulnerabilities.iter()
+        let high_vulns = self
+            .vulnerabilities
+            .iter()
             .filter(|v| v.severity == Severity::High)
             .count();
-        let medium_vulns = self.vulnerabilities.iter()
+        let medium_vulns = self
+            .vulnerabilities
+            .iter()
             .filter(|v| v.severity == Severity::Medium)
             .count();
 
@@ -69,13 +75,15 @@ impl SecurityAssessment {
     }
 
     pub fn critical_count(&self) -> usize {
-        self.vulnerabilities.iter()
+        self.vulnerabilities
+            .iter()
             .filter(|v| v.severity == Severity::Critical)
             .count()
     }
 
     pub fn high_count(&self) -> usize {
-        self.vulnerabilities.iter()
+        self.vulnerabilities
+            .iter()
             .filter(|v| v.severity == Severity::High)
             .count()
     }
@@ -187,7 +195,11 @@ pub struct SecurityRecommendation {
 }
 
 impl SecurityRecommendation {
-    pub fn new(title: impl Into<String>, category: RecommendationCategory, priority: Priority) -> Self {
+    pub fn new(
+        title: impl Into<String>,
+        category: RecommendationCategory,
+        priority: Priority,
+    ) -> Self {
         Self {
             title: title.into(),
             description: String::new(),
@@ -255,12 +267,8 @@ impl ComplianceStatus {
             return;
         }
 
-        let total_controls: usize = self.frameworks.iter()
-            .map(|f| f.total_controls)
-            .sum();
-        let passed_controls: usize = self.frameworks.iter()
-            .map(|f| f.passed_controls)
-            .sum();
+        let total_controls: usize = self.frameworks.iter().map(|f| f.total_controls).sum();
+        let passed_controls: usize = self.frameworks.iter().map(|f| f.passed_controls).sum();
 
         self.compliance_percentage = if total_controls > 0 {
             ((passed_controls as f64 / total_controls as f64) * 100.0) as u8
@@ -268,8 +276,7 @@ impl ComplianceStatus {
             0
         };
 
-        self.overall_compliant = self.frameworks.iter()
-            .all(|f| f.compliant);
+        self.overall_compliant = self.frameworks.iter().all(|f| f.compliant);
     }
 }
 
@@ -328,7 +335,7 @@ mod tests {
 
         assessment.add_vulnerability(
             Vulnerability::new("VULN-001", "Critical vulnerability", Severity::Critical)
-                .with_cvss(9.8)
+                .with_cvss(9.8),
         );
 
         assessment.calculate_score();
@@ -359,9 +366,7 @@ mod tests {
         assessment.calculate_score();
 
         // Add critical vulnerability
-        assessment.add_vulnerability(
-            Vulnerability::new("V1", "Critical", Severity::Critical)
-        );
+        assessment.add_vulnerability(Vulnerability::new("V1", "Critical", Severity::Critical));
         assessment.calculate_score();
         assert_eq!(assessment.risk_level, RiskLevel::Medium);
     }
@@ -377,8 +382,7 @@ mod tests {
     fn test_compliance_status() {
         let mut status = ComplianceStatus::new();
 
-        let framework = ComplianceFramework::new("PCI-DSS", "4.0")
-            .with_results(100, 95, 5);
+        let framework = ComplianceFramework::new("PCI-DSS", "4.0").with_results(100, 95, 5);
 
         status.add_framework(framework);
 
@@ -388,8 +392,7 @@ mod tests {
 
     #[test]
     fn test_compliance_framework() {
-        let framework = ComplianceFramework::new("CIS", "1.0")
-            .with_results(50, 50, 0);
+        let framework = ComplianceFramework::new("CIS", "1.0").with_results(50, 50, 0);
 
         assert!(framework.compliant);
         assert_eq!(framework.compliance_rate(), 100.0);
@@ -400,7 +403,7 @@ mod tests {
         let rec = SecurityRecommendation::new(
             "Update OpenSSL",
             RecommendationCategory::Patching,
-            Priority::Critical
+            Priority::Critical,
         )
         .with_description("OpenSSL has critical vulnerabilities")
         .add_step("Update to version 3.0.8")
@@ -414,15 +417,9 @@ mod tests {
     fn test_vulnerability_counts() {
         let mut assessment = SecurityAssessment::new("test-vm");
 
-        assessment.add_vulnerability(
-            Vulnerability::new("V1", "Critical", Severity::Critical)
-        );
-        assessment.add_vulnerability(
-            Vulnerability::new("V2", "High", Severity::High)
-        );
-        assessment.add_vulnerability(
-            Vulnerability::new("V3", "High", Severity::High)
-        );
+        assessment.add_vulnerability(Vulnerability::new("V1", "Critical", Severity::Critical));
+        assessment.add_vulnerability(Vulnerability::new("V2", "High", Severity::High));
+        assessment.add_vulnerability(Vulnerability::new("V3", "High", Severity::High));
 
         assert_eq!(assessment.critical_count(), 1);
         assert_eq!(assessment.high_count(), 2);

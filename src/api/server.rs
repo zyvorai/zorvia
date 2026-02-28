@@ -68,9 +68,9 @@ impl ServerStats {
         }
 
         // Rolling average
-        self.avg_response_ms =
-            (self.avg_response_ms * (self.total_requests - 1) as f64 + duration_ms)
-                / self.total_requests as f64;
+        self.avg_response_ms = (self.avg_response_ms * (self.total_requests - 1) as f64
+            + duration_ms)
+            / self.total_requests as f64;
     }
 
     pub fn success_rate(&self) -> f64 {
@@ -117,9 +117,8 @@ impl ApiServer {
     }
 
     pub fn uptime_secs(&self) -> Option<i64> {
-        self.started_at.map(|started| {
-            (Utc::now() - started).num_seconds()
-        })
+        self.started_at
+            .map(|started| (Utc::now() - started).num_seconds())
     }
 
     pub fn api_version(&self) -> &str {
@@ -227,11 +226,21 @@ pub fn default_endpoints() -> Vec<Endpoint> {
         Endpoint::new("GET", "/api/v1/profiles/:name", "Get profile details"),
         // Blueprints
         Endpoint::new("GET", "/api/v1/blueprints", "List multi-VM blueprints"),
-        Endpoint::new("POST", "/api/v1/blueprints/:name/deploy", "Deploy a blueprint").with_auth(),
+        Endpoint::new(
+            "POST",
+            "/api/v1/blueprints/:name/deploy",
+            "Deploy a blueprint",
+        )
+        .with_auth(),
         // Snapshots
         Endpoint::new("GET", "/api/v1/vms/:name/snapshots", "List VM snapshots"),
         Endpoint::new("POST", "/api/v1/vms/:name/snapshots", "Create VM snapshot").with_auth(),
-        Endpoint::new("POST", "/api/v1/snapshots/:id/restore", "Restore from snapshot").with_auth(),
+        Endpoint::new(
+            "POST",
+            "/api/v1/snapshots/:id/restore",
+            "Restore from snapshot",
+        )
+        .with_auth(),
         // Health
         Endpoint::new("GET", "/api/v1/health", "API health check").without_rate_limit(),
         Endpoint::new("GET", "/api/v1/vms/:name/health", "VM health check"),

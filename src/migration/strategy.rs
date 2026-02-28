@@ -86,10 +86,10 @@ impl Default for NodeSelector {
 /// Node selection criterion
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum SelectionCriterion {
-    MinimumMemory(u64),         // Bytes
-    MinimumCPU(u32),            // Millicores
-    PreferLowLoad,              // Prefer nodes with lower CPU load
-    PreferMoreMemory,           // Prefer nodes with more available memory
+    MinimumMemory(u64),           // Bytes
+    MinimumCPU(u32),              // Millicores
+    PreferLowLoad,                // Prefer nodes with lower CPU load
+    PreferMoreMemory,             // Prefer nodes with more available memory
     RequireLabel(String, String), // Require specific node label
 }
 
@@ -97,7 +97,7 @@ pub enum SelectionCriterion {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AntiAffinityRule {
     pub vm_selector: HashMap<String, String>,
-    pub topology_key: String,  // e.g., "kubernetes.io/hostname"
+    pub topology_key: String, // e.g., "kubernetes.io/hostname"
 }
 
 impl AntiAffinityRule {
@@ -118,9 +118,9 @@ impl AntiAffinityRule {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct NodeInfo {
     pub name: String,
-    pub available_memory: u64,  // Bytes
-    pub available_cpu: u32,     // Millicores
-    pub cpu_load: f64,          // 0.0 to 1.0
+    pub available_memory: u64, // Bytes
+    pub available_cpu: u32,    // Millicores
+    pub cpu_load: f64,         // 0.0 to 1.0
     pub vm_count: usize,
     pub labels: HashMap<String, String>,
     pub taints: Vec<Taint>,
@@ -269,9 +269,15 @@ mod tests {
         let strategy = MigrationStrategy::new(selector);
 
         let nodes = vec![
-            NodeInfo::new("node1").with_resources(8 * 1024 * 1024 * 1024, 4000).with_load(0.3),
-            NodeInfo::new("node2").with_resources(16 * 1024 * 1024 * 1024, 8000).with_load(0.5),
-            NodeInfo::new("node3").with_resources(4 * 1024 * 1024 * 1024, 2000).with_load(0.1),
+            NodeInfo::new("node1")
+                .with_resources(8 * 1024 * 1024 * 1024, 4000)
+                .with_load(0.3),
+            NodeInfo::new("node2")
+                .with_resources(16 * 1024 * 1024 * 1024, 8000)
+                .with_load(0.5),
+            NodeInfo::new("node3")
+                .with_resources(4 * 1024 * 1024 * 1024, 2000)
+                .with_load(0.1),
         ];
 
         let target = strategy.select_target(&nodes);
@@ -283,8 +289,7 @@ mod tests {
 
     #[test]
     fn test_anti_affinity_rule() {
-        let rule = AntiAffinityRule::new("kubernetes.io/hostname")
-            .with_label("app", "database");
+        let rule = AntiAffinityRule::new("kubernetes.io/hostname").with_label("app", "database");
 
         assert_eq!(rule.topology_key, "kubernetes.io/hostname");
         assert_eq!(rule.vm_selector.get("app"), Some(&"database".to_string()));
@@ -296,11 +301,10 @@ mod tests {
             .add_criterion(SelectionCriterion::MinimumMemory(16 * 1024 * 1024 * 1024))
             .add_criterion(SelectionCriterion::MinimumCPU(8000));
 
-        let node_ok = NodeInfo::new("node-ok")
-            .with_resources(20 * 1024 * 1024 * 1024, 10000);
+        let node_ok = NodeInfo::new("node-ok").with_resources(20 * 1024 * 1024 * 1024, 10000);
 
-        let node_low_mem = NodeInfo::new("node-low-mem")
-            .with_resources(8 * 1024 * 1024 * 1024, 10000);
+        let node_low_mem =
+            NodeInfo::new("node-low-mem").with_resources(8 * 1024 * 1024 * 1024, 10000);
 
         assert!(selector.score_node(&node_ok) > 0);
         assert_eq!(selector.score_node(&node_low_mem), 0);

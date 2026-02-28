@@ -1,16 +1,16 @@
 // Metrics - Metric collection and aggregation
 
-use serde::{Deserialize, Serialize};
 use chrono::{DateTime, Utc};
+use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
 /// Metric type
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub enum MetricType {
-    Counter,    // Monotonically increasing value
-    Gauge,      // Value that can go up or down
-    Histogram,  // Distribution of values
-    Summary,    // Similar to histogram with quantiles
+    Counter,   // Monotonically increasing value
+    Gauge,     // Value that can go up or down
+    Histogram, // Distribution of values
+    Summary,   // Similar to histogram with quantiles
 }
 
 /// Metric
@@ -99,12 +99,16 @@ impl MetricCollector {
 
     /// Get metrics by type
     pub fn by_type(&self, metric_type: MetricType) -> Vec<&Metric> {
-        self.metrics.iter().filter(|m| m.metric_type == metric_type).collect()
+        self.metrics
+            .iter()
+            .filter(|m| m.metric_type == metric_type)
+            .collect()
     }
 
     /// Get latest value for a metric
     pub fn latest_value(&self, name: &str) -> Option<f64> {
-        self.metrics.iter()
+        self.metrics
+            .iter()
             .filter(|m| m.name == name)
             .next_back()
             .map(|m| m.value)
@@ -138,12 +142,18 @@ impl MetricAggregator {
 
     /// Calculate max of metric values
     pub fn max(metrics: &[Metric]) -> Option<f64> {
-        metrics.iter().map(|m| m.value).max_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal))
+        metrics
+            .iter()
+            .map(|m| m.value)
+            .max_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal))
     }
 
     /// Calculate min of metric values
     pub fn min(metrics: &[Metric]) -> Option<f64> {
-        metrics.iter().map(|m| m.value).min_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal))
+        metrics
+            .iter()
+            .map(|m| m.value)
+            .min_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal))
     }
 
     /// Calculate rate of change (per second)
@@ -156,7 +166,10 @@ impl MetricAggregator {
         let last = metrics.last()?;
 
         let value_diff = last.value - first.value;
-        let time_diff = last.timestamp.signed_duration_since(first.timestamp).num_seconds() as f64;
+        let time_diff = last
+            .timestamp
+            .signed_duration_since(first.timestamp)
+            .num_seconds() as f64;
 
         if time_diff > 0.0 {
             Some(value_diff / time_diff)
@@ -360,23 +373,31 @@ impl MetricsSnapshot {
             return;
         }
 
-        self.cluster_cpu_usage = self.vm_metrics.iter()
+        self.cluster_cpu_usage = self
+            .vm_metrics
+            .iter()
             .map(|m| m.cpu_usage_percent)
-            .sum::<f64>() / self.vm_metrics.len() as f64;
+            .sum::<f64>()
+            / self.vm_metrics.len() as f64;
 
-        self.cluster_memory_usage = self.vm_metrics.iter()
+        self.cluster_memory_usage = self
+            .vm_metrics
+            .iter()
             .map(|m| m.memory_usage_percent)
-            .sum::<f64>() / self.vm_metrics.len() as f64;
+            .sum::<f64>()
+            / self.vm_metrics.len() as f64;
     }
 
     pub fn high_cpu_vms(&self, threshold: f64) -> Vec<&VMMetrics> {
-        self.vm_metrics.iter()
+        self.vm_metrics
+            .iter()
             .filter(|m| m.is_high_cpu(threshold))
             .collect()
     }
 
     pub fn high_memory_vms(&self, threshold: f64) -> Vec<&VMMetrics> {
-        self.vm_metrics.iter()
+        self.vm_metrics
+            .iter()
             .filter(|m| m.is_high_memory(threshold))
             .collect()
     }
@@ -448,8 +469,7 @@ mod tests {
     fn test_metric_rate() {
         let now = Utc::now();
         let metrics = vec![
-            Metric::new("requests", MetricType::Counter, 100.0)
-                .with_timestamp(now),
+            Metric::new("requests", MetricType::Counter, 100.0).with_timestamp(now),
             Metric::new("requests", MetricType::Counter, 200.0)
                 .with_timestamp(now + Duration::seconds(10)),
         ];
@@ -472,8 +492,7 @@ mod tests {
 
         assert!(query.matches(&metric));
 
-        let wrong_query = MetricQuery::new()
-            .with_name("memory_usage");
+        let wrong_query = MetricQuery::new().with_name("memory_usage");
 
         assert!(!wrong_query.matches(&metric));
     }
@@ -481,16 +500,15 @@ mod tests {
     #[test]
     fn test_metric_query_time_range() {
         let now = Utc::now();
-        let metric = Metric::new("cpu", MetricType::Gauge, 50.0)
-            .with_timestamp(now);
+        let metric = Metric::new("cpu", MetricType::Gauge, 50.0).with_timestamp(now);
 
-        let query = MetricQuery::new()
-            .with_time_range(now - Duration::hours(1), now + Duration::hours(1));
+        let query =
+            MetricQuery::new().with_time_range(now - Duration::hours(1), now + Duration::hours(1));
 
         assert!(query.matches(&metric));
 
-        let past_query = MetricQuery::new()
-            .with_time_range(now - Duration::hours(2), now - Duration::hours(1));
+        let past_query =
+            MetricQuery::new().with_time_range(now - Duration::hours(2), now - Duration::hours(1));
 
         assert!(!past_query.matches(&metric));
     }
@@ -514,9 +532,21 @@ mod tests {
     fn test_metrics_snapshot() {
         let mut snapshot = MetricsSnapshot::new();
 
-        snapshot.add_vm_metrics(VMMetrics::new("vm1").with_cpu(50.0).with_memory(40.0, 2_000_000_000));
-        snapshot.add_vm_metrics(VMMetrics::new("vm2").with_cpu(70.0).with_memory(60.0, 3_000_000_000));
-        snapshot.add_vm_metrics(VMMetrics::new("vm3").with_cpu(90.0).with_memory(80.0, 4_000_000_000));
+        snapshot.add_vm_metrics(
+            VMMetrics::new("vm1")
+                .with_cpu(50.0)
+                .with_memory(40.0, 2_000_000_000),
+        );
+        snapshot.add_vm_metrics(
+            VMMetrics::new("vm2")
+                .with_cpu(70.0)
+                .with_memory(60.0, 3_000_000_000),
+        );
+        snapshot.add_vm_metrics(
+            VMMetrics::new("vm3")
+                .with_cpu(90.0)
+                .with_memory(80.0, 4_000_000_000),
+        );
 
         assert_eq!(snapshot.total_vms, 3);
         assert_eq!(snapshot.cluster_cpu_usage, 70.0);
@@ -527,9 +557,21 @@ mod tests {
     fn test_high_resource_vms() {
         let mut snapshot = MetricsSnapshot::new();
 
-        snapshot.add_vm_metrics(VMMetrics::new("vm1").with_cpu(50.0).with_memory(40.0, 2_000_000_000));
-        snapshot.add_vm_metrics(VMMetrics::new("vm2").with_cpu(85.0).with_memory(90.0, 4_000_000_000));
-        snapshot.add_vm_metrics(VMMetrics::new("vm3").with_cpu(30.0).with_memory(50.0, 2_500_000_000));
+        snapshot.add_vm_metrics(
+            VMMetrics::new("vm1")
+                .with_cpu(50.0)
+                .with_memory(40.0, 2_000_000_000),
+        );
+        snapshot.add_vm_metrics(
+            VMMetrics::new("vm2")
+                .with_cpu(85.0)
+                .with_memory(90.0, 4_000_000_000),
+        );
+        snapshot.add_vm_metrics(
+            VMMetrics::new("vm3")
+                .with_cpu(30.0)
+                .with_memory(50.0, 2_500_000_000),
+        );
 
         let high_cpu = snapshot.high_cpu_vms(80.0);
         assert_eq!(high_cpu.len(), 1);

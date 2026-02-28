@@ -57,7 +57,9 @@ impl ProgressBar {
             .border_style(Style::default().fg(colors::ORANGE))
             .title(Span::styled(
                 &self.title,
-                Style::default().fg(colors::ORANGE).add_modifier(Modifier::BOLD),
+                Style::default()
+                    .fg(colors::ORANGE)
+                    .add_modifier(Modifier::BOLD),
             ))
             .title_alignment(Alignment::Center);
 
@@ -68,9 +70,9 @@ impl ProgressBar {
         let chunks = Layout::default()
             .direction(Direction::Vertical)
             .constraints([
-                Constraint::Length(3),  // Message
-                Constraint::Length(3),  // Progress bar
-                Constraint::Min(0),     // Spacer
+                Constraint::Length(3), // Message
+                Constraint::Length(3), // Progress bar
+                Constraint::Min(0),    // Spacer
             ])
             .split(inner);
 
@@ -85,7 +87,11 @@ impl ProgressBar {
             // Spinner animation
             let spinner = Paragraph::new("⠋ Working...")
                 .alignment(Alignment::Center)
-                .style(Style::default().fg(colors::ORANGE).add_modifier(Modifier::BOLD));
+                .style(
+                    Style::default()
+                        .fg(colors::ORANGE)
+                        .add_modifier(Modifier::BOLD),
+                );
             f.render_widget(spinner, chunks[1]);
         } else {
             let percent = (self.progress * 100.0) as u16;

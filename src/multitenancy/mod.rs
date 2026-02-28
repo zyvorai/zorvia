@@ -1,12 +1,12 @@
 // Multi-tenancy & RBAC - Role-based access control and tenant isolation
 
-use serde::{Deserialize, Serialize};
 use chrono::{DateTime, Utc};
+use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet};
 
-pub mod roles;
 pub mod permissions;
 pub mod quotas;
+pub mod roles;
 pub mod tenants;
 
 /// User identity
@@ -73,7 +73,7 @@ pub struct Group {
     pub id: String,
     pub name: String,
     pub description: String,
-    pub members: HashSet<String>,  // User IDs
+    pub members: HashSet<String>, // User IDs
     pub roles: Vec<String>,
     pub created_at: DateTime<Utc>,
 }
@@ -122,9 +122,9 @@ impl Group {
 /// Resource scope
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub enum ResourceScope {
-    Cluster,                           // Cluster-wide
-    Namespace { namespace: String },   // Specific namespace
-    Resource { namespace: String, resource: String },  // Specific resource
+    Cluster,                                          // Cluster-wide
+    Namespace { namespace: String },                  // Specific namespace
+    Resource { namespace: String, resource: String }, // Specific resource
 }
 
 /// Access decision
@@ -140,7 +140,9 @@ impl AccessDecision {
     }
 
     pub fn deny(reason: impl Into<String>) -> Self {
-        AccessDecision::Deny { reason: reason.into() }
+        AccessDecision::Deny {
+            reason: reason.into(),
+        }
     }
 }
 
@@ -307,8 +309,7 @@ mod tests {
 
     #[test]
     fn test_user_deactivation() {
-        let user = User::new("test", "test@example.com")
-            .deactivate();
+        let user = User::new("test", "test@example.com").deactivate();
 
         assert!(!user.active);
     }
@@ -324,8 +325,7 @@ mod tests {
 
     #[test]
     fn test_group_creation() {
-        let group = Group::new("Engineering Team")
-            .with_description("Software engineering team");
+        let group = Group::new("Engineering Team").with_description("Software engineering team");
 
         assert_eq!(group.name, "Engineering Team");
         assert!(!group.description.is_empty());
@@ -376,12 +376,16 @@ mod tests {
             "vm",
             ResourceScope::Namespace {
                 namespace: "default".to_string(),
-            }
-        ).with_metadata("team", "engineering");
+            },
+        )
+        .with_metadata("team", "engineering");
 
         assert_eq!(context.action, "create");
         assert_eq!(context.resource_type, "vm");
-        assert_eq!(context.metadata.get("team"), Some(&"engineering".to_string()));
+        assert_eq!(
+            context.metadata.get("team"),
+            Some(&"engineering".to_string())
+        );
     }
 
     #[test]
@@ -435,8 +439,7 @@ mod tests {
     fn test_get_user_roles() {
         let mut manager = AccessControlManager::new();
 
-        let user = User::new("dave", "dave@example.com")
-            .add_role("developer");
+        let user = User::new("dave", "dave@example.com").add_role("developer");
 
         let mut group = Group::new("Admins");
         group.add_role("admin".to_string());

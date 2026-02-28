@@ -33,7 +33,11 @@ pub enum CredentialType {
 }
 
 impl ProviderCredentials {
-    pub fn new(provider: CloudProvider, credential_type: CredentialType, region: impl Into<String>) -> Self {
+    pub fn new(
+        provider: CloudProvider,
+        credential_type: CredentialType,
+        region: impl Into<String>,
+    ) -> Self {
         let id = format!("cred-{:?}-{}", provider, Utc::now().timestamp_micros());
 
         Self {
@@ -53,7 +57,11 @@ impl ProviderCredentials {
         }
     }
 
-    pub fn with_access_key(mut self, access_key: impl Into<String>, secret_key: impl Into<String>) -> Self {
+    pub fn with_access_key(
+        mut self,
+        access_key: impl Into<String>,
+        secret_key: impl Into<String>,
+    ) -> Self {
         self.access_key = Some(access_key.into());
         self.secret_key = Some(secret_key.into());
         self
@@ -123,7 +131,11 @@ impl ProviderConfig {
         credential_id: impl Into<String>,
     ) -> Self {
         let name_str = name.into();
-        let id = format!("prov-{}-{}", name_str.to_lowercase().replace(' ', "-"), Utc::now().timestamp());
+        let id = format!(
+            "prov-{}-{}",
+            name_str.to_lowercase().replace(' ', "-"),
+            Utc::now().timestamp()
+        );
 
         Self {
             id,
@@ -231,7 +243,10 @@ impl ProviderManager {
     }
 
     pub fn expired_credentials(&self) -> Vec<&ProviderCredentials> {
-        self.credentials.values().filter(|c| c.is_expired()).collect()
+        self.credentials
+            .values()
+            .filter(|c| c.is_expired())
+            .collect()
     }
 
     pub fn configs_by_provider(&self, provider: &CloudProvider) -> Vec<&ProviderConfig> {
@@ -258,7 +273,8 @@ mod tests {
 
     #[test]
     fn test_provider_credentials() {
-        let creds = ProviderCredentials::new(CloudProvider::AWS, CredentialType::AccessKey, "us-east-1");
+        let creds =
+            ProviderCredentials::new(CloudProvider::AWS, CredentialType::AccessKey, "us-east-1");
 
         assert_eq!(creds.provider, CloudProvider::AWS);
         assert_eq!(creds.credential_type, CredentialType::AccessKey);
@@ -268,50 +284,77 @@ mod tests {
 
     #[test]
     fn test_credentials_with_access_key() {
-        let creds = ProviderCredentials::new(CloudProvider::AWS, CredentialType::AccessKey, "us-east-1")
-            .with_access_key("AKIAIOSFODNN7EXAMPLE", "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY");
+        let creds =
+            ProviderCredentials::new(CloudProvider::AWS, CredentialType::AccessKey, "us-east-1")
+                .with_access_key(
+                    "AKIAIOSFODNN7EXAMPLE",
+                    "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY",
+                );
 
         assert_eq!(creds.access_key, Some("AKIAIOSFODNN7EXAMPLE".to_string()));
-        assert_eq!(creds.secret_key, Some("wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY".to_string()));
+        assert_eq!(
+            creds.secret_key,
+            Some("wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY".to_string())
+        );
     }
 
     #[test]
     fn test_credentials_with_tenant() {
-        let creds = ProviderCredentials::new(CloudProvider::Azure, CredentialType::ServicePrincipal, "eastus")
-            .with_tenant("tenant-123");
+        let creds = ProviderCredentials::new(
+            CloudProvider::Azure,
+            CredentialType::ServicePrincipal,
+            "eastus",
+        )
+        .with_tenant("tenant-123");
 
         assert_eq!(creds.tenant_id, Some("tenant-123".to_string()));
     }
 
     #[test]
     fn test_credentials_with_subscription() {
-        let creds = ProviderCredentials::new(CloudProvider::Azure, CredentialType::ServicePrincipal, "eastus")
-            .with_subscription("sub-456");
+        let creds = ProviderCredentials::new(
+            CloudProvider::Azure,
+            CredentialType::ServicePrincipal,
+            "eastus",
+        )
+        .with_subscription("sub-456");
 
         assert_eq!(creds.subscription_id, Some("sub-456".to_string()));
     }
 
     #[test]
     fn test_credentials_with_project() {
-        let creds = ProviderCredentials::new(CloudProvider::GCP, CredentialType::ServiceAccount, "us-central1")
-            .with_project("my-project");
+        let creds = ProviderCredentials::new(
+            CloudProvider::GCP,
+            CredentialType::ServiceAccount,
+            "us-central1",
+        )
+        .with_project("my-project");
 
         assert_eq!(creds.project_id, Some("my-project".to_string()));
     }
 
     #[test]
     fn test_credentials_with_service_account() {
-        let creds = ProviderCredentials::new(CloudProvider::GCP, CredentialType::ServiceAccount, "us-central1")
-            .with_service_account("service@project.iam.gserviceaccount.com");
+        let creds = ProviderCredentials::new(
+            CloudProvider::GCP,
+            CredentialType::ServiceAccount,
+            "us-central1",
+        )
+        .with_service_account("service@project.iam.gserviceaccount.com");
 
-        assert_eq!(creds.service_account, Some("service@project.iam.gserviceaccount.com".to_string()));
+        assert_eq!(
+            creds.service_account,
+            Some("service@project.iam.gserviceaccount.com".to_string())
+        );
     }
 
     #[test]
     fn test_credentials_with_expiry() {
         let expiry = Utc::now() + chrono::Duration::days(30);
-        let creds = ProviderCredentials::new(CloudProvider::AWS, CredentialType::OAuth2, "us-east-1")
-            .with_expiry(expiry);
+        let creds =
+            ProviderCredentials::new(CloudProvider::AWS, CredentialType::OAuth2, "us-east-1")
+                .with_expiry(expiry);
 
         assert_eq!(creds.expires_at, Some(expiry));
     }
@@ -319,26 +362,30 @@ mod tests {
     #[test]
     fn test_credentials_is_expired() {
         let past = Utc::now() - chrono::Duration::days(1);
-        let creds = ProviderCredentials::new(CloudProvider::AWS, CredentialType::AccessKey, "us-east-1")
-            .with_expiry(past);
+        let creds =
+            ProviderCredentials::new(CloudProvider::AWS, CredentialType::AccessKey, "us-east-1")
+                .with_expiry(past);
 
         assert!(creds.is_expired());
 
         let future = Utc::now() + chrono::Duration::days(30);
-        let creds2 = ProviderCredentials::new(CloudProvider::AWS, CredentialType::AccessKey, "us-east-1")
-            .with_expiry(future);
+        let creds2 =
+            ProviderCredentials::new(CloudProvider::AWS, CredentialType::AccessKey, "us-east-1")
+                .with_expiry(future);
 
         assert!(!creds2.is_expired());
     }
 
     #[test]
     fn test_credentials_is_valid() {
-        let creds = ProviderCredentials::new(CloudProvider::AWS, CredentialType::AccessKey, "us-east-1");
+        let creds =
+            ProviderCredentials::new(CloudProvider::AWS, CredentialType::AccessKey, "us-east-1");
         assert!(creds.is_valid());
 
         let past = Utc::now() - chrono::Duration::days(1);
-        let creds2 = ProviderCredentials::new(CloudProvider::AWS, CredentialType::OAuth2, "us-east-1")
-            .with_expiry(past);
+        let creds2 =
+            ProviderCredentials::new(CloudProvider::AWS, CredentialType::OAuth2, "us-east-1")
+                .with_expiry(past);
         assert!(!creds2.is_valid());
     }
 
@@ -361,42 +408,75 @@ mod tests {
 
     #[test]
     fn test_config_with_rate_limit() {
-        let config = ProviderConfig::new("test", CloudProvider::AWS, "https://endpoint", "us-east-1", "cred-1")
-            .with_rate_limit(1000);
+        let config = ProviderConfig::new(
+            "test",
+            CloudProvider::AWS,
+            "https://endpoint",
+            "us-east-1",
+            "cred-1",
+        )
+        .with_rate_limit(1000);
 
         assert_eq!(config.rate_limit, Some(1000));
     }
 
     #[test]
     fn test_config_with_timeout() {
-        let config = ProviderConfig::new("test", CloudProvider::Azure, "https://endpoint", "eastus", "cred-1")
-            .with_timeout(60);
+        let config = ProviderConfig::new(
+            "test",
+            CloudProvider::Azure,
+            "https://endpoint",
+            "eastus",
+            "cred-1",
+        )
+        .with_timeout(60);
 
         assert_eq!(config.timeout_seconds, 60);
     }
 
     #[test]
     fn test_config_with_retries() {
-        let config = ProviderConfig::new("test", CloudProvider::GCP, "https://endpoint", "us-central1", "cred-1")
-            .with_retries(5);
+        let config = ProviderConfig::new(
+            "test",
+            CloudProvider::GCP,
+            "https://endpoint",
+            "us-central1",
+            "cred-1",
+        )
+        .with_retries(5);
 
         assert_eq!(config.retry_attempts, 5);
     }
 
     #[test]
     fn test_config_add_metadata() {
-        let mut config = ProviderConfig::new("test", CloudProvider::AWS, "https://endpoint", "us-east-1", "cred-1");
+        let mut config = ProviderConfig::new(
+            "test",
+            CloudProvider::AWS,
+            "https://endpoint",
+            "us-east-1",
+            "cred-1",
+        );
 
         config.add_metadata("environment", "production");
         config.add_metadata("team", "platform");
 
         assert_eq!(config.metadata.len(), 2);
-        assert_eq!(config.metadata.get("environment"), Some(&"production".to_string()));
+        assert_eq!(
+            config.metadata.get("environment"),
+            Some(&"production".to_string())
+        );
     }
 
     #[test]
     fn test_config_enable_disable() {
-        let mut config = ProviderConfig::new("test", CloudProvider::AWS, "https://endpoint", "us-east-1", "cred-1");
+        let mut config = ProviderConfig::new(
+            "test",
+            CloudProvider::AWS,
+            "https://endpoint",
+            "us-east-1",
+            "cred-1",
+        );
 
         assert!(config.enabled);
 
@@ -411,7 +491,8 @@ mod tests {
     fn test_provider_manager() {
         let mut manager = ProviderManager::new();
 
-        let creds = ProviderCredentials::new(CloudProvider::AWS, CredentialType::AccessKey, "us-east-1");
+        let creds =
+            ProviderCredentials::new(CloudProvider::AWS, CredentialType::AccessKey, "us-east-1");
         let id = manager.add_credentials(creds);
 
         assert_eq!(manager.credentials_count(), 1);
@@ -422,7 +503,13 @@ mod tests {
     fn test_manager_add_config() {
         let mut manager = ProviderManager::new();
 
-        let config = ProviderConfig::new("test", CloudProvider::AWS, "https://endpoint", "us-east-1", "cred-1");
+        let config = ProviderConfig::new(
+            "test",
+            CloudProvider::AWS,
+            "https://endpoint",
+            "us-east-1",
+            "cred-1",
+        );
         let id = manager.add_config(config);
 
         assert_eq!(manager.config_count(), 1);
@@ -433,9 +520,21 @@ mod tests {
     fn test_manager_credentials_by_provider() {
         let mut manager = ProviderManager::new();
 
-        manager.add_credentials(ProviderCredentials::new(CloudProvider::AWS, CredentialType::AccessKey, "us-east-1"));
-        manager.add_credentials(ProviderCredentials::new(CloudProvider::Azure, CredentialType::ServicePrincipal, "eastus"));
-        manager.add_credentials(ProviderCredentials::new(CloudProvider::AWS, CredentialType::OAuth2, "us-west-2"));
+        manager.add_credentials(ProviderCredentials::new(
+            CloudProvider::AWS,
+            CredentialType::AccessKey,
+            "us-east-1",
+        ));
+        manager.add_credentials(ProviderCredentials::new(
+            CloudProvider::Azure,
+            CredentialType::ServicePrincipal,
+            "eastus",
+        ));
+        manager.add_credentials(ProviderCredentials::new(
+            CloudProvider::AWS,
+            CredentialType::OAuth2,
+            "us-west-2",
+        ));
 
         let aws_creds = manager.credentials_by_provider(&CloudProvider::AWS);
         assert_eq!(aws_creds.len(), 2);
@@ -445,11 +544,13 @@ mod tests {
     fn test_manager_valid_credentials() {
         let mut manager = ProviderManager::new();
 
-        let creds1 = ProviderCredentials::new(CloudProvider::AWS, CredentialType::AccessKey, "us-east-1");
+        let creds1 =
+            ProviderCredentials::new(CloudProvider::AWS, CredentialType::AccessKey, "us-east-1");
 
         let past = Utc::now() - chrono::Duration::days(1);
-        let creds2 = ProviderCredentials::new(CloudProvider::Azure, CredentialType::OAuth2, "eastus")
-            .with_expiry(past);
+        let creds2 =
+            ProviderCredentials::new(CloudProvider::Azure, CredentialType::OAuth2, "eastus")
+                .with_expiry(past);
 
         manager.add_credentials(creds1);
         manager.add_credentials(creds2);
@@ -463,10 +564,15 @@ mod tests {
         let mut manager = ProviderManager::new();
 
         let past = Utc::now() - chrono::Duration::days(1);
-        let creds1 = ProviderCredentials::new(CloudProvider::AWS, CredentialType::OAuth2, "us-east-1")
-            .with_expiry(past);
+        let creds1 =
+            ProviderCredentials::new(CloudProvider::AWS, CredentialType::OAuth2, "us-east-1")
+                .with_expiry(past);
 
-        let creds2 = ProviderCredentials::new(CloudProvider::Azure, CredentialType::ServicePrincipal, "eastus");
+        let creds2 = ProviderCredentials::new(
+            CloudProvider::Azure,
+            CredentialType::ServicePrincipal,
+            "eastus",
+        );
 
         manager.add_credentials(creds1);
         manager.add_credentials(creds2);
@@ -479,9 +585,27 @@ mod tests {
     fn test_manager_configs_by_provider() {
         let mut manager = ProviderManager::new();
 
-        manager.add_config(ProviderConfig::new("c1", CloudProvider::AWS, "e1", "us-east-1", "cred-1"));
-        manager.add_config(ProviderConfig::new("c2", CloudProvider::Azure, "e2", "eastus", "cred-2"));
-        manager.add_config(ProviderConfig::new("c3", CloudProvider::AWS, "e3", "us-west-2", "cred-3"));
+        manager.add_config(ProviderConfig::new(
+            "c1",
+            CloudProvider::AWS,
+            "e1",
+            "us-east-1",
+            "cred-1",
+        ));
+        manager.add_config(ProviderConfig::new(
+            "c2",
+            CloudProvider::Azure,
+            "e2",
+            "eastus",
+            "cred-2",
+        ));
+        manager.add_config(ProviderConfig::new(
+            "c3",
+            CloudProvider::AWS,
+            "e3",
+            "us-west-2",
+            "cred-3",
+        ));
 
         let aws_configs = manager.configs_by_provider(&CloudProvider::AWS);
         assert_eq!(aws_configs.len(), 2);

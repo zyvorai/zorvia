@@ -5,9 +5,9 @@ use std::collections::HashMap;
 /// mTLS mode for service mesh
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub enum MTLSMode {
-    Strict,      // Only mTLS traffic is allowed
-    Permissive,  // Both plaintext and mTLS traffic are allowed
-    Disabled,    // mTLS is disabled
+    Strict,     // Only mTLS traffic is allowed
+    Permissive, // Both plaintext and mTLS traffic are allowed
+    Disabled,   // mTLS is disabled
 }
 
 impl std::fmt::Display for MTLSMode {
@@ -34,7 +34,11 @@ pub struct PeerAuthentication {
 impl PeerAuthentication {
     pub fn new(name: impl Into<String>, namespace: impl Into<String>) -> Self {
         let name_str = name.into();
-        let id = format!("pa-{}-{}", name_str.to_lowercase().replace(' ', "-"), Utc::now().timestamp());
+        let id = format!(
+            "pa-{}-{}",
+            name_str.to_lowercase().replace(' ', "-"),
+            Utc::now().timestamp()
+        );
 
         Self {
             id,
@@ -111,7 +115,11 @@ pub struct AuthorizationCondition {
 impl AuthorizationPolicy {
     pub fn new(name: impl Into<String>, namespace: impl Into<String>) -> Self {
         let name_str = name.into();
-        let id = format!("ap-{}-{}", name_str.to_lowercase().replace(' ', "-"), Utc::now().timestamp());
+        let id = format!(
+            "ap-{}-{}",
+            name_str.to_lowercase().replace(' ', "-"),
+            Utc::now().timestamp()
+        );
 
         Self {
             id,
@@ -160,7 +168,11 @@ impl Certificate {
         subject: impl Into<String>,
     ) -> Self {
         let name_str = name.into();
-        let id = format!("cert-{}-{}", name_str.to_lowercase().replace(' ', "-"), Utc::now().timestamp());
+        let id = format!(
+            "cert-{}-{}",
+            name_str.to_lowercase().replace(' ', "-"),
+            Utc::now().timestamp()
+        );
 
         Self {
             id,
@@ -316,8 +328,7 @@ mod tests {
 
     #[test]
     fn test_peer_auth_builder() {
-        let auth = PeerAuthentication::new("auth", "default")
-            .with_mtls_mode(MTLSMode::Permissive);
+        let auth = PeerAuthentication::new("auth", "default").with_mtls_mode(MTLSMode::Permissive);
 
         assert_eq!(auth.mtls_mode, MTLSMode::Permissive);
     }
@@ -345,8 +356,8 @@ mod tests {
 
     #[test]
     fn test_authorization_policy_builder() {
-        let policy = AuthorizationPolicy::new("policy", "default")
-            .with_action(AuthorizationAction::Deny);
+        let policy =
+            AuthorizationPolicy::new("policy", "default").with_action(AuthorizationAction::Deny);
 
         assert_eq!(policy.action, AuthorizationAction::Deny);
     }

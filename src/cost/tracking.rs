@@ -1,7 +1,7 @@
 // Cost Tracking - Track resource costs over time
 
-use serde::{Deserialize, Serialize};
 use chrono::{DateTime, Utc};
+use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
 /// Cost entry for a specific time period
@@ -87,7 +87,11 @@ impl CostTracker {
     }
 
     /// Get costs by namespace
-    pub fn costs_by_namespace(&self, start: DateTime<Utc>, end: DateTime<Utc>) -> HashMap<String, f64> {
+    pub fn costs_by_namespace(
+        &self,
+        start: DateTime<Utc>,
+        end: DateTime<Utc>,
+    ) -> HashMap<String, f64> {
         let mut costs = HashMap::new();
 
         for entry in &self.entries {
@@ -100,7 +104,12 @@ impl CostTracker {
     }
 
     /// Get costs by tag
-    pub fn costs_by_tag(&self, tag_key: &str, start: DateTime<Utc>, end: DateTime<Utc>) -> HashMap<String, f64> {
+    pub fn costs_by_tag(
+        &self,
+        tag_key: &str,
+        start: DateTime<Utc>,
+        end: DateTime<Utc>,
+    ) -> HashMap<String, f64> {
         let mut costs = HashMap::new();
 
         for entry in &self.entries {
@@ -115,7 +124,12 @@ impl CostTracker {
     }
 
     /// Get top N most expensive VMs
-    pub fn top_vms(&self, n: usize, start: DateTime<Utc>, end: DateTime<Utc>) -> Vec<(String, f64)> {
+    pub fn top_vms(
+        &self,
+        n: usize,
+        start: DateTime<Utc>,
+        end: DateTime<Utc>,
+    ) -> Vec<(String, f64)> {
         let mut vm_costs: Vec<_> = self.costs_by_vm(start, end).into_iter().collect();
         vm_costs.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap_or(std::cmp::Ordering::Equal));
         vm_costs.truncate(n);
@@ -123,7 +137,11 @@ impl CostTracker {
     }
 
     /// Calculate cost trend (change compared to previous period)
-    pub fn cost_trend(&self, current_start: DateTime<Utc>, current_end: DateTime<Utc>) -> CostTrend {
+    pub fn cost_trend(
+        &self,
+        current_start: DateTime<Utc>,
+        current_end: DateTime<Utc>,
+    ) -> CostTrend {
         let current_cost = self.total_cost(current_start, current_end);
 
         let period_duration = current_end.signed_duration_since(current_start);
@@ -202,7 +220,7 @@ impl std::fmt::Display for TrendDirection {
 /// Cost allocation
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CostAllocation {
-    pub dimension: String,  // "team", "project", "environment", etc.
+    pub dimension: String, // "team", "project", "environment", etc.
     pub allocations: HashMap<String, AllocationDetail>,
     pub total_cost: f64,
 }
@@ -218,14 +236,15 @@ impl CostAllocation {
 
     pub fn add_cost(&mut self, key: impl Into<String>, cost: f64, vm_count: usize) {
         let key = key.into();
-        let detail = self.allocations.entry(key.clone()).or_insert_with(|| {
-            AllocationDetail {
+        let detail = self
+            .allocations
+            .entry(key.clone())
+            .or_insert_with(|| AllocationDetail {
                 name: key,
                 cost: 0.0,
                 vm_count: 0,
                 percentage: 0.0,
-            }
-        });
+            });
 
         detail.cost += cost;
         detail.vm_count += vm_count;
@@ -242,7 +261,11 @@ impl CostAllocation {
 
     pub fn get_sorted_allocations(&self) -> Vec<&AllocationDetail> {
         let mut allocations: Vec<_> = self.allocations.values().collect();
-        allocations.sort_by(|a, b| b.cost.partial_cmp(&a.cost).unwrap_or(std::cmp::Ordering::Equal));
+        allocations.sort_by(|a, b| {
+            b.cost
+                .partial_cmp(&a.cost)
+                .unwrap_or(std::cmp::Ordering::Equal)
+        });
         allocations
     }
 }
@@ -323,20 +346,12 @@ mod tests {
         let mut tracker = CostTracker::new();
         let now = Utc::now();
 
-        tracker.add_entry(
-            CostEntry::new("vm1", "default", 50.0)
-                .with_tag("team", "engineering")
-        );
-        tracker.add_entry(
-            CostEntry::new("vm2", "default", 30.0)
-                .with_tag("team", "engineering")
-        );
-        tracker.add_entry(
-            CostEntry::new("vm3", "prod", 20.0)
-                .with_tag("team", "sales")
-        );
+        tracker.add_entry(CostEntry::new("vm1", "default", 50.0).with_tag("team", "engineering"));
+        tracker.add_entry(CostEntry::new("vm2", "default", 30.0).with_tag("team", "engineering"));
+        tracker.add_entry(CostEntry::new("vm3", "prod", 20.0).with_tag("team", "sales"));
 
-        let costs = tracker.costs_by_tag("team", now - Duration::hours(1), now + Duration::hours(1));
+        let costs =
+            tracker.costs_by_tag("team", now - Duration::hours(1), now + Duration::hours(1));
 
         assert_eq!(costs.get("engineering"), Some(&80.0));
         assert_eq!(costs.get("sales"), Some(&20.0));

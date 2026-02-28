@@ -144,8 +144,17 @@ impl QuickJumpMenu {
             .borders(Borders::ALL)
             .border_style(Style::default().fg(colors::ORANGE))
             .title(Span::styled(
-                format!("🚀 Quick Jump{}", if !self.query.is_empty() { format!(": {}", self.query) } else { String::new() }),
-                Style::default().fg(colors::ORANGE).add_modifier(Modifier::BOLD),
+                format!(
+                    "🚀 Quick Jump{}",
+                    if !self.query.is_empty() {
+                        format!(": {}", self.query)
+                    } else {
+                        String::new()
+                    }
+                ),
+                Style::default()
+                    .fg(colors::ORANGE)
+                    .add_modifier(Modifier::BOLD),
             ))
             .title_alignment(Alignment::Center);
 
@@ -156,8 +165,8 @@ impl QuickJumpMenu {
         let chunks = Layout::default()
             .direction(Direction::Vertical)
             .constraints([
-                Constraint::Min(0),     // Items
-                Constraint::Length(3),  // Help text
+                Constraint::Min(0),    // Items
+                Constraint::Length(3), // Help text
             ])
             .split(inner);
 
@@ -180,7 +189,9 @@ impl QuickJumpMenu {
                 };
 
                 let prefix = if is_selected { "▶ " } else { "  " };
-                let number_style = Style::default().fg(colors::INFO).add_modifier(Modifier::BOLD);
+                let number_style = Style::default()
+                    .fg(colors::INFO)
+                    .add_modifier(Modifier::BOLD);
 
                 let content = vec![
                     Line::from(vec![
@@ -202,12 +213,10 @@ impl QuickJumpMenu {
         f.render_widget(list, chunks[0]);
 
         // Help text
-        let help = Paragraph::new(vec![
-            Line::from(Span::styled(
-                "↑↓: Navigate │ Enter: Select │ Esc: Cancel │ Type: Search",
-                Style::default().fg(colors::TEXT_MUTED),
-            )),
-        ])
+        let help = Paragraph::new(vec![Line::from(Span::styled(
+            "↑↓: Navigate │ Enter: Select │ Esc: Cancel │ Type: Search",
+            Style::default().fg(colors::TEXT_MUTED),
+        ))])
         .alignment(Alignment::Center);
 
         f.render_widget(help, chunks[1]);

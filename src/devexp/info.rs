@@ -110,8 +110,7 @@ impl Default for ConfigInfo {
 
 impl EnvironmentInfo {
     pub fn collect(namespace: &str) -> Self {
-        let k8s = KubernetesInfo::new()
-            .with_namespace(namespace);
+        let k8s = KubernetesInfo::new().with_namespace(namespace);
 
         let config = ConfigInfo::new();
 
@@ -251,12 +250,11 @@ pub fn run_diagnostics() -> Vec<DiagnosticCheck> {
     let mut checks = Vec::new();
 
     // Check kubeconfig
-    let kubeconfig = std::env::var("KUBECONFIG")
-        .unwrap_or_else(|_| {
-            dirs::home_dir()
-                .map(|h| format!("{}/.kube/config", h.to_string_lossy()))
-                .unwrap_or_default()
-        });
+    let kubeconfig = std::env::var("KUBECONFIG").unwrap_or_else(|_| {
+        dirs::home_dir()
+            .map(|h| format!("{}/.kube/config", h.to_string_lossy()))
+            .unwrap_or_default()
+    });
 
     if std::path::Path::new(&kubeconfig).exists() {
         checks.push(DiagnosticCheck::pass(
@@ -264,10 +262,10 @@ pub fn run_diagnostics() -> Vec<DiagnosticCheck> {
             format!("Found at {}", kubeconfig),
         ));
     } else {
-        checks.push(DiagnosticCheck::warning(
-            "kubeconfig",
-            "No kubeconfig found",
-        ).with_details("Set KUBECONFIG env var or place config at ~/.kube/config"));
+        checks.push(
+            DiagnosticCheck::warning("kubeconfig", "No kubeconfig found")
+                .with_details("Set KUBECONFIG env var or place config at ~/.kube/config"),
+        );
     }
 
     // Check config directory
@@ -281,10 +279,10 @@ pub fn run_diagnostics() -> Vec<DiagnosticCheck> {
             format!("Config directory exists at {}", config_dir),
         ));
     } else {
-        checks.push(DiagnosticCheck::warning(
-            "config-dir",
-            "Config directory not found",
-        ).with_details(format!("Run 'zorvia init' to create {}", config_dir)));
+        checks.push(
+            DiagnosticCheck::warning("config-dir", "Config directory not found")
+                .with_details(format!("Run 'zorvia init' to create {}", config_dir)),
+        );
     }
 
     // Check OS
@@ -399,8 +397,7 @@ mod tests {
 
     #[test]
     fn test_diagnostic_check_with_details() {
-        let check = DiagnosticCheck::pass("test", "OK")
-            .with_details("Additional info");
+        let check = DiagnosticCheck::pass("test", "OK").with_details("Additional info");
         assert_eq!(check.details, Some("Additional info".to_string()));
     }
 

@@ -18,8 +18,7 @@ impl ProfileStorage {
 
         // Create directory if it doesn't exist
         if !config_dir.exists() {
-            fs::create_dir_all(&config_dir)
-                .context("Failed to create profiles directory")?;
+            fs::create_dir_all(&config_dir).context("Failed to create profiles directory")?;
         }
 
         Ok(Self { config_dir })
@@ -27,8 +26,7 @@ impl ProfileStorage {
 
     /// Get the profiles directory path
     fn get_profiles_dir() -> Result<PathBuf> {
-        let config_dir = dirs::config_dir()
-            .context("Could not determine config directory")?;
+        let config_dir = dirs::config_dir().context("Could not determine config directory")?;
 
         Ok(config_dir.join("zorvia").join("profiles"))
     }
@@ -42,8 +40,7 @@ impl ProfileStorage {
     pub fn save(&self, profile: &Profile) -> Result<()> {
         let path = self.profile_path(&profile.name);
 
-        let yaml = serde_yaml::to_string(profile)
-            .context("Failed to serialize profile to YAML")?;
+        let yaml = serde_yaml::to_string(profile).context("Failed to serialize profile to YAML")?;
 
         fs::write(&path, yaml)
             .with_context(|| format!("Failed to write profile to {}", path.display()))?;
@@ -77,8 +74,8 @@ impl ProfileStorage {
             return Ok(profiles);
         }
 
-        let entries = fs::read_dir(&self.config_dir)
-            .context("Failed to read profiles directory")?;
+        let entries =
+            fs::read_dir(&self.config_dir).context("Failed to read profiles directory")?;
 
         for entry in entries {
             let entry = entry.context("Failed to read directory entry")?;
@@ -90,7 +87,8 @@ impl ProfileStorage {
             }
 
             // Get profile name from filename
-            let name = path.file_stem()
+            let name = path
+                .file_stem()
                 .and_then(|s| s.to_str())
                 .map(|s| s.to_string());
 
@@ -138,8 +136,8 @@ impl ProfileStorage {
             return Ok(names);
         }
 
-        let entries = fs::read_dir(&self.config_dir)
-            .context("Failed to read profiles directory")?;
+        let entries =
+            fs::read_dir(&self.config_dir).context("Failed to read profiles directory")?;
 
         for entry in entries {
             let entry = entry.context("Failed to read directory entry")?;

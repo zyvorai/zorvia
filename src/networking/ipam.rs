@@ -36,7 +36,11 @@ impl IPPool {
         capacity: u32,
     ) -> Self {
         let name_str = name.into();
-        let id = format!("pool-{}-{}", name_str.to_lowercase().replace(' ', "-"), Utc::now().timestamp());
+        let id = format!(
+            "pool-{}-{}",
+            name_str.to_lowercase().replace(' ', "-"),
+            Utc::now().timestamp()
+        );
 
         Self {
             id,
@@ -96,11 +100,7 @@ pub struct IPAllocation {
 }
 
 impl IPAllocation {
-    pub fn new(
-        pool_id: impl Into<String>,
-        ip_address: IpAddr,
-        owner: impl Into<String>,
-    ) -> Self {
+    pub fn new(pool_id: impl Into<String>, ip_address: IpAddr, owner: impl Into<String>) -> Self {
         let pool_id_str = pool_id.into();
         let id = format!("alloc-{}-{}", pool_id_str, Utc::now().timestamp_micros());
 
@@ -176,7 +176,11 @@ impl Subnet {
         netmask: impl Into<String>,
     ) -> Self {
         let name_str = name.into();
-        let id = format!("subnet-{}-{}", name_str.to_lowercase().replace(' ', "-"), Utc::now().timestamp());
+        let id = format!(
+            "subnet-{}-{}",
+            name_str.to_lowercase().replace(' ', "-"),
+            Utc::now().timestamp()
+        );
 
         Self {
             id,
@@ -293,11 +297,17 @@ impl IPAMManager {
     }
 
     pub fn active_allocations(&self) -> Vec<&IPAllocation> {
-        self.allocations.values().filter(|a| a.is_active()).collect()
+        self.allocations
+            .values()
+            .filter(|a| a.is_active())
+            .collect()
     }
 
     pub fn expired_allocations(&self) -> Vec<&IPAllocation> {
-        self.allocations.values().filter(|a| a.is_expired()).collect()
+        self.allocations
+            .values()
+            .filter(|a| a.is_expired())
+            .collect()
     }
 
     pub fn exhausted_pools(&self) -> Vec<&IPPool> {
@@ -305,7 +315,10 @@ impl IPAMManager {
     }
 
     pub fn nearly_exhausted_pools(&self) -> Vec<&IPPool> {
-        self.pools.values().filter(|p| p.is_nearly_exhausted()).collect()
+        self.pools
+            .values()
+            .filter(|p| p.is_nearly_exhausted())
+            .collect()
     }
 
     pub fn total_capacity(&self) -> u32 {
@@ -347,8 +360,7 @@ mod tests {
         let end = IpAddr::V4(Ipv4Addr::new(10, 0, 1, 254));
         let gateway = IpAddr::V4(Ipv4Addr::new(10, 0, 1, 1));
 
-        let pool = IPPool::new("test-pool", "10.0.1.0/24", start, end, 244)
-            .with_gateway(gateway);
+        let pool = IPPool::new("test-pool", "10.0.1.0/24", start, end, 244).with_gateway(gateway);
 
         assert_eq!(pool.gateway, Some(gateway));
     }
@@ -432,27 +444,31 @@ mod tests {
     #[test]
     fn test_allocation_with_mac() {
         let ip = IpAddr::V4(Ipv4Addr::new(10, 0, 1, 10));
-        let allocation = IPAllocation::new("pool-1", ip, "vm-1")
-            .with_mac("00:11:22:33:44:55");
+        let allocation = IPAllocation::new("pool-1", ip, "vm-1").with_mac("00:11:22:33:44:55");
 
-        assert_eq!(allocation.mac_address, Some("00:11:22:33:44:55".to_string()));
+        assert_eq!(
+            allocation.mac_address,
+            Some("00:11:22:33:44:55".to_string())
+        );
     }
 
     #[test]
     fn test_allocation_with_hostname() {
         let ip = IpAddr::V4(Ipv4Addr::new(10, 0, 1, 10));
-        let allocation = IPAllocation::new("pool-1", ip, "vm-1")
-            .with_hostname("web-server.example.com");
+        let allocation =
+            IPAllocation::new("pool-1", ip, "vm-1").with_hostname("web-server.example.com");
 
-        assert_eq!(allocation.hostname, Some("web-server.example.com".to_string()));
+        assert_eq!(
+            allocation.hostname,
+            Some("web-server.example.com".to_string())
+        );
     }
 
     #[test]
     fn test_allocation_with_expiry() {
         let ip = IpAddr::V4(Ipv4Addr::new(10, 0, 1, 10));
         let expiry = Utc::now() + chrono::Duration::hours(24);
-        let allocation = IPAllocation::new("pool-1", ip, "vm-1")
-            .with_expiry(expiry);
+        let allocation = IPAllocation::new("pool-1", ip, "vm-1").with_expiry(expiry);
 
         assert_eq!(allocation.expires_at, Some(expiry));
     }
@@ -483,8 +499,7 @@ mod tests {
         assert!(!allocation1.is_expired());
 
         let past_expiry = Utc::now() - chrono::Duration::hours(1);
-        let allocation2 = IPAllocation::new("pool-1", ip, "vm-2")
-            .with_expiry(past_expiry);
+        let allocation2 = IPAllocation::new("pool-1", ip, "vm-2").with_expiry(past_expiry);
         assert!(allocation2.is_expired());
     }
 
@@ -520,16 +535,15 @@ mod tests {
 
     #[test]
     fn test_subnet_with_vlan() {
-        let subnet = Subnet::new("test", "10.0.1.0/24", "10.0.1.0", "255.255.255.0")
-            .with_vlan(100);
+        let subnet = Subnet::new("test", "10.0.1.0/24", "10.0.1.0", "255.255.255.0").with_vlan(100);
 
         assert_eq!(subnet.vlan_id, Some(100));
     }
 
     #[test]
     fn test_subnet_with_zone() {
-        let subnet = Subnet::new("test", "10.0.1.0/24", "10.0.1.0", "255.255.255.0")
-            .with_zone("us-west-1a");
+        let subnet =
+            Subnet::new("test", "10.0.1.0/24", "10.0.1.0", "255.255.255.0").with_zone("us-west-1a");
 
         assert_eq!(subnet.zone, Some("us-west-1a".to_string()));
     }

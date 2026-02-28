@@ -75,7 +75,11 @@ pub struct BGPRoute {
 impl BGPRoute {
     pub fn new(prefix: impl Into<String>, next_hop: impl Into<String>) -> Self {
         let prefix_str = prefix.into();
-        let id = format!("route-{}-{}", prefix_str.replace('/', "-"), Utc::now().timestamp_micros());
+        let id = format!(
+            "route-{}-{}",
+            prefix_str.replace('/', "-"),
+            Utc::now().timestamp_micros()
+        );
 
         Self {
             id,
@@ -225,8 +229,8 @@ mod tests {
 
     #[test]
     fn test_route_with_as_path() {
-        let route = BGPRoute::new("10.0.0.0/24", "192.168.1.1")
-            .with_as_path(vec![65000, 65001, 65002]);
+        let route =
+            BGPRoute::new("10.0.0.0/24", "192.168.1.1").with_as_path(vec![65000, 65001, 65002]);
 
         assert_eq!(route.as_path.len(), 3);
         assert_eq!(route.as_path_length(), 3);
@@ -234,8 +238,7 @@ mod tests {
 
     #[test]
     fn test_route_with_local_pref() {
-        let route = BGPRoute::new("10.0.0.0/24", "192.168.1.1")
-            .with_local_pref(100);
+        let route = BGPRoute::new("10.0.0.0/24", "192.168.1.1").with_local_pref(100);
 
         assert_eq!(route.local_pref, Some(100));
     }

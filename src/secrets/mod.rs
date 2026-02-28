@@ -2,11 +2,11 @@ use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
+pub mod access;
 pub mod encryption;
+pub mod keys;
 pub mod rotation;
 pub mod vault;
-pub mod access;
-pub mod keys;
 
 /// Secret type
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -53,7 +53,11 @@ impl Secret {
         encrypted_value: impl Into<String>,
     ) -> Self {
         let name_str = name.into();
-        let id = format!("secret-{}-{}", name_str.to_lowercase().replace(' ', "-"), Utc::now().timestamp());
+        let id = format!(
+            "secret-{}-{}",
+            name_str.to_lowercase().replace(' ', "-"),
+            Utc::now().timestamp()
+        );
 
         Self {
             id,
@@ -107,7 +111,8 @@ impl Secret {
     }
 
     pub fn days_until_expiry(&self) -> Option<i64> {
-        self.expires_at.map(|expiry| (expiry - Utc::now()).num_days())
+        self.expires_at
+            .map(|expiry| (expiry - Utc::now()).num_days())
     }
 }
 
@@ -249,8 +254,8 @@ mod tests {
     #[test]
     fn test_secret_with_expiry() {
         let expiry = Utc::now() + chrono::Duration::days(30);
-        let secret = Secret::new("api-token", SecretType::APIToken, "enc-token")
-            .with_expiry(expiry);
+        let secret =
+            Secret::new("api-token", SecretType::APIToken, "enc-token").with_expiry(expiry);
 
         assert_eq!(secret.expires_at, Some(expiry));
     }
@@ -303,13 +308,11 @@ mod tests {
     #[test]
     fn test_secret_is_expired() {
         let past = Utc::now() - chrono::Duration::days(1);
-        let secret1 = Secret::new("token1", SecretType::APIToken, "data")
-            .with_expiry(past);
+        let secret1 = Secret::new("token1", SecretType::APIToken, "data").with_expiry(past);
         assert!(secret1.is_expired());
 
         let future = Utc::now() + chrono::Duration::days(30);
-        let secret2 = Secret::new("token2", SecretType::APIToken, "data")
-            .with_expiry(future);
+        let secret2 = Secret::new("token2", SecretType::APIToken, "data").with_expiry(future);
         assert!(!secret2.is_expired());
 
         let secret3 = Secret::new("token3", SecretType::APIToken, "data");
@@ -326,16 +329,14 @@ mod tests {
         assert!(!secret2.is_active());
 
         let past = Utc::now() - chrono::Duration::days(1);
-        let secret3 = Secret::new("token3", SecretType::APIToken, "data")
-            .with_expiry(past);
+        let secret3 = Secret::new("token3", SecretType::APIToken, "data").with_expiry(past);
         assert!(!secret3.is_active());
     }
 
     #[test]
     fn test_secret_days_until_expiry() {
         let future = Utc::now() + chrono::Duration::days(15);
-        let secret = Secret::new("token", SecretType::APIToken, "data")
-            .with_expiry(future);
+        let secret = Secret::new("token", SecretType::APIToken, "data").with_expiry(future);
 
         let days = secret.days_until_expiry().unwrap();
         assert!(days >= 14 && days <= 15);

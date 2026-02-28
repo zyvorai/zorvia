@@ -26,12 +26,13 @@ pub struct AllocationRule {
 }
 
 impl AllocationRule {
-    pub fn new(
-        name: impl Into<String>,
-        method: AllocationMethod,
-    ) -> Self {
+    pub fn new(name: impl Into<String>, method: AllocationMethod) -> Self {
         let name_str = name.into();
-        let id = format!("rule-{}-{}", name_str.to_lowercase().replace(' ', "-"), Utc::now().timestamp());
+        let id = format!(
+            "rule-{}-{}",
+            name_str.to_lowercase().replace(' ', "-"),
+            Utc::now().timestamp()
+        );
 
         Self {
             id,
@@ -91,7 +92,12 @@ impl CostAllocation {
     ) -> Self {
         let cc_id = cost_center_id.into();
         let res_id = resource_id.into();
-        let id = format!("alloc-{}-{}-{}", cc_id, res_id, Utc::now().timestamp_micros());
+        let id = format!(
+            "alloc-{}-{}-{}",
+            cc_id,
+            res_id,
+            Utc::now().timestamp_micros()
+        );
 
         let now = Utc::now();
         Self {
@@ -310,12 +316,8 @@ mod tests {
 
     #[test]
     fn test_cost_allocation() {
-        let allocation = CostAllocation::new(
-            "cc-eng",
-            "vm-123",
-            500.0,
-            AllocationMethod::DirectTag,
-        );
+        let allocation =
+            CostAllocation::new("cc-eng", "vm-123", 500.0, AllocationMethod::DirectTag);
 
         assert_eq!(allocation.cost_center_id, "cc-eng");
         assert_eq!(allocation.resource_id, "vm-123");
@@ -352,7 +354,10 @@ mod tests {
         allocation.add_metadata("owner", "john");
 
         assert_eq!(allocation.metadata.len(), 2);
-        assert_eq!(allocation.metadata.get("project"), Some(&"alpha".to_string()));
+        assert_eq!(
+            allocation.metadata.get("project"),
+            Some(&"alpha".to_string())
+        );
     }
 
     #[test]
@@ -437,9 +442,24 @@ mod tests {
     fn test_manager_allocations_by_cost_center() {
         let mut manager = AllocationManager::new();
 
-        manager.add_allocation(CostAllocation::new("cc-eng", "vm-1", 100.0, AllocationMethod::DirectTag));
-        manager.add_allocation(CostAllocation::new("cc-ops", "vm-2", 200.0, AllocationMethod::DirectTag));
-        manager.add_allocation(CostAllocation::new("cc-eng", "vm-3", 150.0, AllocationMethod::DirectTag));
+        manager.add_allocation(CostAllocation::new(
+            "cc-eng",
+            "vm-1",
+            100.0,
+            AllocationMethod::DirectTag,
+        ));
+        manager.add_allocation(CostAllocation::new(
+            "cc-ops",
+            "vm-2",
+            200.0,
+            AllocationMethod::DirectTag,
+        ));
+        manager.add_allocation(CostAllocation::new(
+            "cc-eng",
+            "vm-3",
+            150.0,
+            AllocationMethod::DirectTag,
+        ));
 
         let eng_allocations = manager.allocations_by_cost_center("cc-eng");
         assert_eq!(eng_allocations.len(), 2);
@@ -449,9 +469,24 @@ mod tests {
     fn test_manager_total_allocated_to_cost_center() {
         let mut manager = AllocationManager::new();
 
-        manager.add_allocation(CostAllocation::new("cc-eng", "vm-1", 100.0, AllocationMethod::DirectTag));
-        manager.add_allocation(CostAllocation::new("cc-eng", "vm-2", 250.0, AllocationMethod::DirectTag));
-        manager.add_allocation(CostAllocation::new("cc-ops", "vm-3", 150.0, AllocationMethod::DirectTag));
+        manager.add_allocation(CostAllocation::new(
+            "cc-eng",
+            "vm-1",
+            100.0,
+            AllocationMethod::DirectTag,
+        ));
+        manager.add_allocation(CostAllocation::new(
+            "cc-eng",
+            "vm-2",
+            250.0,
+            AllocationMethod::DirectTag,
+        ));
+        manager.add_allocation(CostAllocation::new(
+            "cc-ops",
+            "vm-3",
+            150.0,
+            AllocationMethod::DirectTag,
+        ));
 
         assert_eq!(manager.total_allocated_to_cost_center("cc-eng"), 350.0);
         assert_eq!(manager.total_allocated_to_cost_center("cc-ops"), 150.0);
@@ -461,9 +496,24 @@ mod tests {
     fn test_manager_allocations_by_method() {
         let mut manager = AllocationManager::new();
 
-        manager.add_allocation(CostAllocation::new("cc-1", "vm-1", 100.0, AllocationMethod::DirectTag));
-        manager.add_allocation(CostAllocation::new("cc-2", "vm-2", 200.0, AllocationMethod::Proportional));
-        manager.add_allocation(CostAllocation::new("cc-3", "vm-3", 150.0, AllocationMethod::DirectTag));
+        manager.add_allocation(CostAllocation::new(
+            "cc-1",
+            "vm-1",
+            100.0,
+            AllocationMethod::DirectTag,
+        ));
+        manager.add_allocation(CostAllocation::new(
+            "cc-2",
+            "vm-2",
+            200.0,
+            AllocationMethod::Proportional,
+        ));
+        manager.add_allocation(CostAllocation::new(
+            "cc-3",
+            "vm-3",
+            150.0,
+            AllocationMethod::DirectTag,
+        ));
 
         let direct_tag = manager.allocations_by_method(&AllocationMethod::DirectTag);
         assert_eq!(direct_tag.len(), 2);

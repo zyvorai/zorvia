@@ -1,13 +1,13 @@
 // Observability & Analytics - Comprehensive monitoring and insights
 
-use serde::{Deserialize, Serialize};
 use chrono::{DateTime, Utc};
+use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
-pub mod logs;
-pub mod metrics;
 pub mod alerts;
 pub mod insights;
+pub mod logs;
+pub mod metrics;
 
 /// Observability configuration
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -120,11 +120,17 @@ impl TimeSeries {
     }
 
     pub fn max(&self) -> Option<f64> {
-        self.data_points.iter().map(|p| p.value).max_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal))
+        self.data_points
+            .iter()
+            .map(|p| p.value)
+            .max_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal))
     }
 
     pub fn min(&self) -> Option<f64> {
-        self.data_points.iter().map(|p| p.value).min_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal))
+        self.data_points
+            .iter()
+            .map(|p| p.value)
+            .min_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal))
     }
 
     pub fn percentile(&self, p: f64) -> Option<f64> {
@@ -141,7 +147,8 @@ impl TimeSeries {
 
     /// Get data points within a time range
     pub fn range(&self, start: DateTime<Utc>, end: DateTime<Utc>) -> Vec<&DataPoint> {
-        self.data_points.iter()
+        self.data_points
+            .iter()
             .filter(|p| p.timestamp >= start && p.timestamp <= end)
             .collect()
     }
@@ -235,8 +242,14 @@ impl SystemHealth {
             return;
         }
 
-        let has_unhealthy = self.checks.iter().any(|c| c.status == HealthStatus::Unhealthy);
-        let has_degraded = self.checks.iter().any(|c| c.status == HealthStatus::Degraded);
+        let has_unhealthy = self
+            .checks
+            .iter()
+            .any(|c| c.status == HealthStatus::Unhealthy);
+        let has_degraded = self
+            .checks
+            .iter()
+            .any(|c| c.status == HealthStatus::Degraded);
 
         self.overall_status = if has_unhealthy {
             HealthStatus::Unhealthy
@@ -252,7 +265,10 @@ impl SystemHealth {
     }
 
     pub fn unhealthy_count(&self) -> usize {
-        self.checks.iter().filter(|c| c.status == HealthStatus::Unhealthy).count()
+        self.checks
+            .iter()
+            .filter(|c| c.status == HealthStatus::Unhealthy)
+            .count()
     }
 }
 
@@ -276,7 +292,11 @@ pub struct Span {
 }
 
 impl Span {
-    pub fn new(span_id: impl Into<String>, trace_id: impl Into<String>, name: impl Into<String>) -> Self {
+    pub fn new(
+        span_id: impl Into<String>,
+        trace_id: impl Into<String>,
+        name: impl Into<String>,
+    ) -> Self {
         Self {
             span_id: span_id.into(),
             trace_id: trace_id.into(),
@@ -303,7 +323,9 @@ impl Span {
         self.completed_at = Some(Utc::now());
         if let Some(completed) = self.completed_at {
             self.duration_ms = Some(
-                completed.signed_duration_since(self.started_at).num_milliseconds() as u64
+                completed
+                    .signed_duration_since(self.started_at)
+                    .num_milliseconds() as u64,
             );
         }
     }
@@ -320,7 +342,7 @@ mod tests {
             .with_log_retention(60)
             .with_metric_retention(180)
             .add_alert_channel(AlertChannel::Slack {
-                webhook_url: "https://hooks.slack.com/test".to_string()
+                webhook_url: "https://hooks.slack.com/test".to_string(),
             });
 
         assert_eq!(config.log_retention_days, 60);

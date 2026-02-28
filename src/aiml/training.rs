@@ -1,7 +1,7 @@
 // Training Job Management - ML training orchestration
 
-use serde::{Deserialize, Serialize};
 use chrono::{DateTime, Utc};
+use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
 use super::{MLFramework, WorkloadStatus};
@@ -35,7 +35,11 @@ impl TrainingJob {
         dataset_path: impl Into<String>,
     ) -> Self {
         let name_str = name.into();
-        let id = format!("train-{}-{}", name_str.to_lowercase().replace(' ', "-"), Utc::now().timestamp());
+        let id = format!(
+            "train-{}-{}",
+            name_str.to_lowercase().replace(' ', "-"),
+            Utc::now().timestamp()
+        );
 
         Self {
             id,
@@ -62,7 +66,12 @@ impl TrainingJob {
         self
     }
 
-    pub fn with_hyperparameters(mut self, epochs: u32, batch_size: u32, learning_rate: f64) -> Self {
+    pub fn with_hyperparameters(
+        mut self,
+        epochs: u32,
+        batch_size: u32,
+        learning_rate: f64,
+    ) -> Self {
         self.epochs = epochs;
         self.batch_size = batch_size;
         self.learning_rate = learning_rate;
@@ -168,9 +177,7 @@ impl TrainingJobManager {
     }
 
     pub fn by_status(&self, status: WorkloadStatus) -> Vec<&TrainingJob> {
-        self.jobs.values()
-            .filter(|j| j.status == status)
-            .collect()
+        self.jobs.values().filter(|j| j.status == status).collect()
     }
 
     pub fn running_jobs(&self) -> Vec<&TrainingJob> {
@@ -198,9 +205,14 @@ mod tests {
 
     #[test]
     fn test_training_job() {
-        let job = TrainingJob::new("image-classifier", MLFramework::PyTorch, "resnet50", "/data/imagenet")
-            .with_output("/models/resnet50")
-            .with_hyperparameters(100, 64, 0.01);
+        let job = TrainingJob::new(
+            "image-classifier",
+            MLFramework::PyTorch,
+            "resnet50",
+            "/data/imagenet",
+        )
+        .with_output("/models/resnet50")
+        .with_hyperparameters(100, 64, 0.01);
 
         assert_eq!(job.name, "image-classifier");
         assert_eq!(job.framework, MLFramework::PyTorch);
@@ -212,8 +224,13 @@ mod tests {
 
     #[test]
     fn test_job_distributed() {
-        let job = TrainingJob::new("distributed-training", MLFramework::TensorFlow, "bert", "/data/corpus")
-            .with_distributed(4);
+        let job = TrainingJob::new(
+            "distributed-training",
+            MLFramework::TensorFlow,
+            "bert",
+            "/data/corpus",
+        )
+        .with_distributed(4);
 
         assert!(job.distributed);
         assert_eq!(job.num_workers, 4);
@@ -277,8 +294,14 @@ mod tests {
         job.add_hyperparameter("optimizer", "adam");
         job.add_hyperparameter("momentum", "0.9");
 
-        assert_eq!(job.hyperparameters.get("optimizer"), Some(&"adam".to_string()));
-        assert_eq!(job.hyperparameters.get("momentum"), Some(&"0.9".to_string()));
+        assert_eq!(
+            job.hyperparameters.get("optimizer"),
+            Some(&"adam".to_string())
+        );
+        assert_eq!(
+            job.hyperparameters.get("momentum"),
+            Some(&"0.9".to_string())
+        );
     }
 
     #[test]

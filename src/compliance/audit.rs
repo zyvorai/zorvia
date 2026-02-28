@@ -180,7 +180,11 @@ impl AuditTrail {
         self.entries.retain(|e| e.timestamp > cutoff);
     }
 
-    pub fn entries_in_range(&self, start: DateTime<Utc>, end: DateTime<Utc>) -> Vec<&AuditLogEntry> {
+    pub fn entries_in_range(
+        &self,
+        start: DateTime<Utc>,
+        end: DateTime<Utc>,
+    ) -> Vec<&AuditLogEntry> {
         self.entries
             .iter()
             .filter(|e| e.timestamp >= start && e.timestamp <= end)
@@ -200,9 +204,15 @@ mod tests {
 
     #[test]
     fn test_audit_event_type_display() {
-        assert_eq!(AuditEventType::ResourceCreated.to_string(), "Resource Created");
+        assert_eq!(
+            AuditEventType::ResourceCreated.to_string(),
+            "Resource Created"
+        );
         assert_eq!(AuditEventType::AccessDenied.to_string(), "Access Denied");
-        assert_eq!(AuditEventType::Custom("MyEvent".to_string()).to_string(), "Custom: MyEvent");
+        assert_eq!(
+            AuditEventType::Custom("MyEvent".to_string()).to_string(),
+            "Custom: MyEvent"
+        );
     }
 
     #[test]
@@ -395,18 +405,36 @@ mod tests {
         let mut trail = AuditTrail::new(90);
 
         trail.log(
-            AuditLogEntry::new(AuditEventType::AccessGranted, "user1", "VM", "vm-1", "access")
-                .with_result(ActionResult::Success),
+            AuditLogEntry::new(
+                AuditEventType::AccessGranted,
+                "user1",
+                "VM",
+                "vm-1",
+                "access",
+            )
+            .with_result(ActionResult::Success),
         );
 
         trail.log(
-            AuditLogEntry::new(AuditEventType::AccessDenied, "user2", "VM", "vm-2", "access")
-                .with_result(ActionResult::Failure),
+            AuditLogEntry::new(
+                AuditEventType::AccessDenied,
+                "user2",
+                "VM",
+                "vm-2",
+                "access",
+            )
+            .with_result(ActionResult::Failure),
         );
 
         trail.log(
-            AuditLogEntry::new(AuditEventType::ResourceDeleted, "user3", "VM", "vm-3", "delete")
-                .with_result(ActionResult::Failure),
+            AuditLogEntry::new(
+                AuditEventType::ResourceDeleted,
+                "user3",
+                "VM",
+                "vm-3",
+                "delete",
+            )
+            .with_result(ActionResult::Failure),
         );
 
         let failed = trail.failed_actions();
@@ -560,8 +588,14 @@ mod tests {
 
     #[test]
     fn test_audit_event_type_equality() {
-        assert_eq!(AuditEventType::ResourceCreated, AuditEventType::ResourceCreated);
-        assert_ne!(AuditEventType::ResourceCreated, AuditEventType::ResourceModified);
+        assert_eq!(
+            AuditEventType::ResourceCreated,
+            AuditEventType::ResourceCreated
+        );
+        assert_ne!(
+            AuditEventType::ResourceCreated,
+            AuditEventType::ResourceModified
+        );
     }
 
     #[test]

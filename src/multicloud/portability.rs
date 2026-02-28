@@ -55,7 +55,11 @@ impl WorkloadMigration {
         strategy: MigrationStrategy,
     ) -> Self {
         let name_str = name.into();
-        let id = format!("mig-{}-{}", name_str.to_lowercase().replace(' ', "-"), Utc::now().timestamp());
+        let id = format!(
+            "mig-{}-{}",
+            name_str.to_lowercase().replace(' ', "-"),
+            Utc::now().timestamp()
+        );
 
         Self {
             id,
@@ -133,7 +137,11 @@ impl PortabilityConfig {
         preferred_provider: CloudProvider,
     ) -> Self {
         let name_str = name.into();
-        let id = format!("port-{}-{}", name_str.to_lowercase().replace(' ', "-"), Utc::now().timestamp());
+        let id = format!(
+            "port-{}-{}",
+            name_str.to_lowercase().replace(' ', "-"),
+            Utc::now().timestamp()
+        );
 
         Self {
             id,
@@ -240,11 +248,17 @@ impl PortabilityManager {
     }
 
     pub fn in_progress_migrations(&self) -> Vec<&WorkloadMigration> {
-        self.migrations.values().filter(|m| m.is_in_progress()).collect()
+        self.migrations
+            .values()
+            .filter(|m| m.is_in_progress())
+            .collect()
     }
 
     pub fn completed_migrations(&self) -> Vec<&WorkloadMigration> {
-        self.migrations.values().filter(|m| m.is_complete()).collect()
+        self.migrations
+            .values()
+            .filter(|m| m.is_complete())
+            .collect()
     }
 
     pub fn cross_provider_migrations(&self) -> Vec<&WorkloadMigration> {
@@ -464,8 +478,8 @@ mod tests {
 
     #[test]
     fn test_config_enable_auto_failover() {
-        let config = PortabilityConfig::new("config", "wl-1", CloudProvider::AWS)
-            .enable_auto_failover();
+        let config =
+            PortabilityConfig::new("config", "wl-1", CloudProvider::AWS).enable_auto_failover();
 
         assert!(config.auto_migrate_on_failure);
     }
@@ -481,16 +495,16 @@ mod tests {
 
     #[test]
     fn test_config_disable_validation() {
-        let config = PortabilityConfig::new("config", "wl-1", CloudProvider::GCP)
-            .disable_validation();
+        let config =
+            PortabilityConfig::new("config", "wl-1", CloudProvider::GCP).disable_validation();
 
         assert!(!config.validation_enabled);
     }
 
     #[test]
     fn test_config_disable_rollback() {
-        let config = PortabilityConfig::new("config", "wl-1", CloudProvider::AWS)
-            .disable_rollback();
+        let config =
+            PortabilityConfig::new("config", "wl-1", CloudProvider::AWS).disable_rollback();
 
         assert!(!config.rollback_enabled);
     }
@@ -529,10 +543,26 @@ mod tests {
     fn test_manager_migrations_by_status() {
         let mut manager = PortabilityManager::new();
 
-        let mut migration1 = WorkloadMigration::new("m1", "wl-1", CloudProvider::AWS, "us-east-1", CloudProvider::Azure, "eastus", MigrationStrategy::LiveMigration);
+        let mut migration1 = WorkloadMigration::new(
+            "m1",
+            "wl-1",
+            CloudProvider::AWS,
+            "us-east-1",
+            CloudProvider::Azure,
+            "eastus",
+            MigrationStrategy::LiveMigration,
+        );
         migration1.start();
 
-        let migration2 = WorkloadMigration::new("m2", "wl-2", CloudProvider::GCP, "us-central1", CloudProvider::AWS, "us-east-1", MigrationStrategy::SnapshotAndRestore);
+        let migration2 = WorkloadMigration::new(
+            "m2",
+            "wl-2",
+            CloudProvider::GCP,
+            "us-central1",
+            CloudProvider::AWS,
+            "us-east-1",
+            MigrationStrategy::SnapshotAndRestore,
+        );
 
         manager.add_migration(migration1);
         manager.add_migration(migration2);
@@ -545,10 +575,26 @@ mod tests {
     fn test_manager_in_progress_migrations() {
         let mut manager = PortabilityManager::new();
 
-        let mut migration1 = WorkloadMigration::new("m1", "wl-1", CloudProvider::AWS, "us-east-1", CloudProvider::Azure, "eastus", MigrationStrategy::BlueGreen);
+        let mut migration1 = WorkloadMigration::new(
+            "m1",
+            "wl-1",
+            CloudProvider::AWS,
+            "us-east-1",
+            CloudProvider::Azure,
+            "eastus",
+            MigrationStrategy::BlueGreen,
+        );
         migration1.start();
 
-        let migration2 = WorkloadMigration::new("m2", "wl-2", CloudProvider::GCP, "us-central1", CloudProvider::AWS, "us-east-1", MigrationStrategy::Canary);
+        let migration2 = WorkloadMigration::new(
+            "m2",
+            "wl-2",
+            CloudProvider::GCP,
+            "us-central1",
+            CloudProvider::AWS,
+            "us-east-1",
+            MigrationStrategy::Canary,
+        );
 
         manager.add_migration(migration1);
         manager.add_migration(migration2);
@@ -561,10 +607,26 @@ mod tests {
     fn test_manager_completed_migrations() {
         let mut manager = PortabilityManager::new();
 
-        let mut migration1 = WorkloadMigration::new("m1", "wl-1", CloudProvider::AWS, "us-east-1", CloudProvider::Azure, "eastus", MigrationStrategy::LiveMigration);
+        let mut migration1 = WorkloadMigration::new(
+            "m1",
+            "wl-1",
+            CloudProvider::AWS,
+            "us-east-1",
+            CloudProvider::Azure,
+            "eastus",
+            MigrationStrategy::LiveMigration,
+        );
         migration1.set_status(MigrationStatus::Completed);
 
-        let migration2 = WorkloadMigration::new("m2", "wl-2", CloudProvider::GCP, "us-central1", CloudProvider::AWS, "us-east-1", MigrationStrategy::SnapshotAndRestore);
+        let migration2 = WorkloadMigration::new(
+            "m2",
+            "wl-2",
+            CloudProvider::GCP,
+            "us-central1",
+            CloudProvider::AWS,
+            "us-east-1",
+            MigrationStrategy::SnapshotAndRestore,
+        );
 
         manager.add_migration(migration1);
         manager.add_migration(migration2);
@@ -577,8 +639,24 @@ mod tests {
     fn test_manager_cross_provider_migrations() {
         let mut manager = PortabilityManager::new();
 
-        let migration1 = WorkloadMigration::new("m1", "wl-1", CloudProvider::AWS, "us-east-1", CloudProvider::Azure, "eastus", MigrationStrategy::LiveMigration);
-        let migration2 = WorkloadMigration::new("m2", "wl-2", CloudProvider::AWS, "us-east-1", CloudProvider::AWS, "us-west-2", MigrationStrategy::SnapshotAndRestore);
+        let migration1 = WorkloadMigration::new(
+            "m1",
+            "wl-1",
+            CloudProvider::AWS,
+            "us-east-1",
+            CloudProvider::Azure,
+            "eastus",
+            MigrationStrategy::LiveMigration,
+        );
+        let migration2 = WorkloadMigration::new(
+            "m2",
+            "wl-2",
+            CloudProvider::AWS,
+            "us-east-1",
+            CloudProvider::AWS,
+            "us-west-2",
+            MigrationStrategy::SnapshotAndRestore,
+        );
 
         manager.add_migration(migration1);
         manager.add_migration(migration2);
@@ -591,9 +669,33 @@ mod tests {
     fn test_manager_migrations_by_strategy() {
         let mut manager = PortabilityManager::new();
 
-        manager.add_migration(WorkloadMigration::new("m1", "wl-1", CloudProvider::AWS, "us-east-1", CloudProvider::Azure, "eastus", MigrationStrategy::LiveMigration));
-        manager.add_migration(WorkloadMigration::new("m2", "wl-2", CloudProvider::GCP, "us-central1", CloudProvider::AWS, "us-east-1", MigrationStrategy::SnapshotAndRestore));
-        manager.add_migration(WorkloadMigration::new("m3", "wl-3", CloudProvider::Azure, "eastus", CloudProvider::GCP, "us-central1", MigrationStrategy::LiveMigration));
+        manager.add_migration(WorkloadMigration::new(
+            "m1",
+            "wl-1",
+            CloudProvider::AWS,
+            "us-east-1",
+            CloudProvider::Azure,
+            "eastus",
+            MigrationStrategy::LiveMigration,
+        ));
+        manager.add_migration(WorkloadMigration::new(
+            "m2",
+            "wl-2",
+            CloudProvider::GCP,
+            "us-central1",
+            CloudProvider::AWS,
+            "us-east-1",
+            MigrationStrategy::SnapshotAndRestore,
+        ));
+        manager.add_migration(WorkloadMigration::new(
+            "m3",
+            "wl-3",
+            CloudProvider::Azure,
+            "eastus",
+            CloudProvider::GCP,
+            "us-central1",
+            MigrationStrategy::LiveMigration,
+        ));
 
         let live_migrations = manager.migrations_by_strategy(&MigrationStrategy::LiveMigration);
         assert_eq!(live_migrations.len(), 2);
@@ -603,8 +705,8 @@ mod tests {
     fn test_manager_configs_with_auto_failover() {
         let mut manager = PortabilityManager::new();
 
-        let config1 = PortabilityConfig::new("c1", "wl-1", CloudProvider::AWS)
-            .enable_auto_failover();
+        let config1 =
+            PortabilityConfig::new("c1", "wl-1", CloudProvider::AWS).enable_auto_failover();
         let config2 = PortabilityConfig::new("c2", "wl-2", CloudProvider::Azure);
 
         manager.add_config(config1);
@@ -618,8 +720,8 @@ mod tests {
     fn test_manager_configs_with_cost_optimization() {
         let mut manager = PortabilityManager::new();
 
-        let config1 = PortabilityConfig::new("c1", "wl-1", CloudProvider::AWS)
-            .enable_cost_optimization(20);
+        let config1 =
+            PortabilityConfig::new("c1", "wl-1", CloudProvider::AWS).enable_cost_optimization(20);
         let config2 = PortabilityConfig::new("c2", "wl-2", CloudProvider::Azure);
 
         manager.add_config(config1);
@@ -631,8 +733,14 @@ mod tests {
 
     #[test]
     fn test_migration_strategy_equality() {
-        assert_eq!(MigrationStrategy::LiveMigration, MigrationStrategy::LiveMigration);
-        assert_ne!(MigrationStrategy::LiveMigration, MigrationStrategy::BlueGreen);
+        assert_eq!(
+            MigrationStrategy::LiveMigration,
+            MigrationStrategy::LiveMigration
+        );
+        assert_ne!(
+            MigrationStrategy::LiveMigration,
+            MigrationStrategy::BlueGreen
+        );
     }
 
     #[test]

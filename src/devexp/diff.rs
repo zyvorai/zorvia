@@ -166,10 +166,22 @@ impl ConfigDiffer {
 
         let summary = DiffSummary {
             total_fields: entries.len(),
-            added: entries.iter().filter(|e| e.diff_type == DiffType::Added).count(),
-            removed: entries.iter().filter(|e| e.diff_type == DiffType::Removed).count(),
-            modified: entries.iter().filter(|e| e.diff_type == DiffType::Modified).count(),
-            unchanged: entries.iter().filter(|e| e.diff_type == DiffType::Unchanged).count(),
+            added: entries
+                .iter()
+                .filter(|e| e.diff_type == DiffType::Added)
+                .count(),
+            removed: entries
+                .iter()
+                .filter(|e| e.diff_type == DiffType::Removed)
+                .count(),
+            modified: entries
+                .iter()
+                .filter(|e| e.diff_type == DiffType::Modified)
+                .count(),
+            unchanged: entries
+                .iter()
+                .filter(|e| e.diff_type == DiffType::Unchanged)
+                .count(),
         };
 
         ConfigDiff {
@@ -251,10 +263,7 @@ impl ConfigDiffer {
 
         output.push_str(&format!(
             "\nSummary: {} added, {} removed, {} modified, {} unchanged\n",
-            diff.summary.added,
-            diff.summary.removed,
-            diff.summary.modified,
-            diff.summary.unchanged,
+            diff.summary.added, diff.summary.removed, diff.summary.modified, diff.summary.unchanged,
         ));
 
         output

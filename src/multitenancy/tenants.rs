@@ -1,7 +1,7 @@
 // Tenant Management - Multi-tenant organization and isolation
 
-use serde::{Deserialize, Serialize};
 use chrono::{DateTime, Utc};
+use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet};
 
 use super::quotas::ResourceQuota;
@@ -22,7 +22,11 @@ pub struct Tenant {
 }
 
 impl Tenant {
-    pub fn new(name: impl Into<String>, owner_id: impl Into<String>, contact_email: impl Into<String>) -> Self {
+    pub fn new(
+        name: impl Into<String>,
+        owner_id: impl Into<String>,
+        contact_email: impl Into<String>,
+    ) -> Self {
         let name_str = name.into();
         let id = format!("tenant-{}", name_str.to_lowercase().replace(' ', "-"));
 
@@ -83,9 +87,9 @@ impl Tenant {
 /// Tenant isolation policy
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub enum IsolationLevel {
-    Strict,     // Complete isolation - no cross-tenant access
-    Moderate,   // Isolated by default, cross-tenant allowed with permissions
-    Relaxed,    // Minimal isolation, shared resources allowed
+    Strict,   // Complete isolation - no cross-tenant access
+    Moderate, // Isolated by default, cross-tenant allowed with permissions
+    Relaxed,  // Minimal isolation, shared resources allowed
 }
 
 /// Tenant configuration
@@ -187,8 +191,7 @@ impl TenantManager {
     }
 
     pub fn get_tenant_by_namespace(&self, namespace: &str) -> Option<&Tenant> {
-        self.tenants.values()
-            .find(|t| t.has_namespace(namespace))
+        self.tenants.values().find(|t| t.has_namespace(namespace))
     }
 
     pub fn is_cross_tenant_allowed(&self, from_tenant: &str, to_tenant: &str) -> bool {
@@ -216,9 +219,7 @@ impl TenantManager {
     }
 
     pub fn namespace_count(&self) -> usize {
-        self.tenants.values()
-            .map(|t| t.namespace_count())
-            .sum()
+        self.tenants.values().map(|t| t.namespace_count()).sum()
     }
 }
 
@@ -287,8 +288,8 @@ pub enum TenantOperation {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use super::super::quotas::ResourceLimits;
+    use super::*;
 
     #[test]
     fn test_tenant_creation() {
@@ -405,8 +406,8 @@ mod tests {
         let tenant = Tenant::new("Test", "user-1", "test@example.com");
         let tenant_id = manager.create_tenant(tenant);
 
-        let quota = ResourceQuota::new("test-quota", "default")
-            .with_limits(ResourceLimits::small());
+        let quota =
+            ResourceQuota::new("test-quota", "default").with_limits(ResourceLimits::small());
 
         manager.set_quota(&tenant_id, quota);
 
@@ -427,8 +428,7 @@ mod tests {
         assert!(manager.is_cross_tenant_allowed(&tenant_id, &tenant_id));
 
         // Moderate with flag - allowed
-        let config = TenantConfig::new(&tenant_id)
-            .with_isolation(IsolationLevel::Moderate);
+        let config = TenantConfig::new(&tenant_id).with_isolation(IsolationLevel::Moderate);
         manager.update_config(&tenant_id, config);
 
         assert!(!manager.is_cross_tenant_allowed(&tenant_id, "other-tenant"));
@@ -436,8 +436,7 @@ mod tests {
 
     #[test]
     fn test_isolation_validator_strict() {
-        let config = TenantConfig::new("tenant-1")
-            .with_isolation(IsolationLevel::Strict);
+        let config = TenantConfig::new("tenant-1").with_isolation(IsolationLevel::Strict);
 
         let operation = TenantOperation::CrossTenantAccess {
             from: "tenant-1".to_string(),
@@ -450,8 +449,7 @@ mod tests {
 
     #[test]
     fn test_isolation_validator_same_tenant() {
-        let config = TenantConfig::new("tenant-1")
-            .with_isolation(IsolationLevel::Strict);
+        let config = TenantConfig::new("tenant-1").with_isolation(IsolationLevel::Strict);
 
         let operation = TenantOperation::CrossTenantAccess {
             from: "tenant-1".to_string(),
@@ -526,8 +524,7 @@ mod tests {
 
     #[test]
     fn test_isolation_validator_relaxed() {
-        let config = TenantConfig::new("tenant-1")
-            .with_isolation(IsolationLevel::Relaxed);
+        let config = TenantConfig::new("tenant-1").with_isolation(IsolationLevel::Relaxed);
 
         let operation = TenantOperation::CrossTenantAccess {
             from: "tenant-1".to_string(),

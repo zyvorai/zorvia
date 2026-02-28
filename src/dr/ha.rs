@@ -50,7 +50,11 @@ pub struct HAConfig {
 impl HAConfig {
     pub fn new(name: impl Into<String>) -> Self {
         let name_str = name.into();
-        let id = format!("ha-{}-{}", name_str.to_lowercase().replace(' ', "-"), Utc::now().timestamp());
+        let id = format!(
+            "ha-{}-{}",
+            name_str.to_lowercase().replace(' ', "-"),
+            Utc::now().timestamp()
+        );
 
         Self {
             id,
@@ -78,7 +82,12 @@ impl HAConfig {
         self
     }
 
-    pub fn with_health_check(mut self, check_type: HealthCheckType, interval: u64, timeout: u64) -> Self {
+    pub fn with_health_check(
+        mut self,
+        check_type: HealthCheckType,
+        interval: u64,
+        timeout: u64,
+    ) -> Self {
         self.health_check_type = check_type;
         self.health_check_interval_seconds = interval;
         self.health_check_timeout_seconds = timeout;
@@ -127,7 +136,11 @@ pub struct HAMember {
 impl HAMember {
     pub fn new(name: impl Into<String>, resource_id: impl Into<String>, is_primary: bool) -> Self {
         let name_str = name.into();
-        let id = format!("member-{}-{}", name_str.to_lowercase().replace(' ', "-"), Utc::now().timestamp());
+        let id = format!(
+            "member-{}-{}",
+            name_str.to_lowercase().replace(' ', "-"),
+            Utc::now().timestamp()
+        );
 
         Self {
             id,
@@ -183,7 +196,11 @@ pub struct HAGroup {
 impl HAGroup {
     pub fn new(name: impl Into<String>, config: HAConfig) -> Self {
         let name_str = name.into();
-        let id = format!("group-{}-{}", name_str.to_lowercase().replace(' ', "-"), Utc::now().timestamp());
+        let id = format!(
+            "group-{}-{}",
+            name_str.to_lowercase().replace(' ', "-"),
+            Utc::now().timestamp()
+        );
 
         Self {
             id,
@@ -285,7 +302,10 @@ impl HAManager {
     }
 
     pub fn by_mode(&self, mode: &HAMode) -> Vec<&HAGroup> {
-        self.groups.values().filter(|g| &g.config.mode == mode).collect()
+        self.groups
+            .values()
+            .filter(|g| &g.config.mode == mode)
+            .collect()
     }
 }
 
@@ -465,7 +485,9 @@ mod tests {
 
     #[test]
     fn test_group_needs_healing() {
-        let config = HAConfig::new("Test HA").with_replicas(2, 4).with_auto_healing(true);
+        let config = HAConfig::new("Test HA")
+            .with_replicas(2, 4)
+            .with_auto_healing(true);
         let mut group = HAGroup::new("Group", config);
 
         let mut member1 = HAMember::new("M1", "vm-1", true);
@@ -533,7 +555,9 @@ mod tests {
     fn test_manager_groups_needing_healing() {
         let mut manager = HAManager::new();
 
-        let config1 = HAConfig::new("HA1").with_replicas(2, 4).with_auto_healing(true);
+        let config1 = HAConfig::new("HA1")
+            .with_replicas(2, 4)
+            .with_auto_healing(true);
         let mut group1 = HAGroup::new("G1", config1);
         let mut m1 = HAMember::new("M1", "vm-1", true);
         m1.update_health(false);

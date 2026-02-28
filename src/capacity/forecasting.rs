@@ -29,7 +29,11 @@ pub struct ResourceForecast {
 
 impl ResourceForecast {
     pub fn new(resource_type: ResourceType, current: f64, method: ForecastMethod) -> Self {
-        let id = format!("forecast-{}-{}", resource_type, Utc::now().timestamp_micros());
+        let id = format!(
+            "forecast-{}-{}",
+            resource_type,
+            Utc::now().timestamp_micros()
+        );
 
         Self {
             id,
@@ -61,7 +65,8 @@ impl ResourceForecast {
     }
 
     pub fn days_until_exhaustion(&self) -> Option<i64> {
-        self.exhaustion_date.map(|date| (date - Utc::now()).num_days())
+        self.exhaustion_date
+            .map(|date| (date - Utc::now()).num_days())
     }
 
     pub fn is_critical(&self) -> bool {
@@ -143,7 +148,8 @@ mod tests {
 
     #[test]
     fn test_forecast_add_prediction() {
-        let mut forecast = ResourceForecast::new(ResourceType::Memory, 500.0, ForecastMethod::Exponential);
+        let mut forecast =
+            ResourceForecast::new(ResourceType::Memory, 500.0, ForecastMethod::Exponential);
 
         forecast.add_prediction(7, 550.0);
         forecast.add_prediction(14, 600.0);
@@ -155,7 +161,8 @@ mod tests {
 
     #[test]
     fn test_forecast_growth_rate() {
-        let mut forecast = ResourceForecast::new(ResourceType::Storage, 1000.0, ForecastMethod::Linear);
+        let mut forecast =
+            ResourceForecast::new(ResourceType::Storage, 1000.0, ForecastMethod::Linear);
 
         forecast.set_growth_rate(5.5);
         assert_eq!(forecast.growth_rate_percent, 5.5);
@@ -177,7 +184,8 @@ mod tests {
 
     #[test]
     fn test_forecast_not_critical() {
-        let mut forecast = ResourceForecast::new(ResourceType::Memory, 60.0, ForecastMethod::SeasonalTrend);
+        let mut forecast =
+            ResourceForecast::new(ResourceType::Memory, 60.0, ForecastMethod::SeasonalTrend);
 
         let exhaustion = Utc::now() + chrono::Duration::days(90);
         forecast.set_exhaustion_date(exhaustion);
@@ -200,9 +208,21 @@ mod tests {
     fn test_manager_by_resource_type() {
         let mut manager = ForecastManager::new();
 
-        manager.add_forecast(ResourceForecast::new(ResourceType::CPU, 75.0, ForecastMethod::Linear));
-        manager.add_forecast(ResourceForecast::new(ResourceType::Memory, 500.0, ForecastMethod::Exponential));
-        manager.add_forecast(ResourceForecast::new(ResourceType::CPU, 80.0, ForecastMethod::MovingAverage));
+        manager.add_forecast(ResourceForecast::new(
+            ResourceType::CPU,
+            75.0,
+            ForecastMethod::Linear,
+        ));
+        manager.add_forecast(ResourceForecast::new(
+            ResourceType::Memory,
+            500.0,
+            ForecastMethod::Exponential,
+        ));
+        manager.add_forecast(ResourceForecast::new(
+            ResourceType::CPU,
+            80.0,
+            ForecastMethod::MovingAverage,
+        ));
 
         let cpu_forecasts = manager.by_resource_type(&ResourceType::CPU);
         assert_eq!(cpu_forecasts.len(), 2);
@@ -215,7 +235,8 @@ mod tests {
         let mut forecast1 = ResourceForecast::new(ResourceType::CPU, 90.0, ForecastMethod::Linear);
         forecast1.set_exhaustion_date(Utc::now() + chrono::Duration::days(20));
 
-        let mut forecast2 = ResourceForecast::new(ResourceType::Memory, 70.0, ForecastMethod::Exponential);
+        let mut forecast2 =
+            ResourceForecast::new(ResourceType::Memory, 70.0, ForecastMethod::Exponential);
         forecast2.set_exhaustion_date(Utc::now() + chrono::Duration::days(60));
 
         manager.add_forecast(forecast1);
@@ -232,10 +253,12 @@ mod tests {
         let mut forecast1 = ResourceForecast::new(ResourceType::CPU, 75.0, ForecastMethod::Linear);
         forecast1.set_growth_rate(8.5);
 
-        let mut forecast2 = ResourceForecast::new(ResourceType::Memory, 500.0, ForecastMethod::Exponential);
+        let mut forecast2 =
+            ResourceForecast::new(ResourceType::Memory, 500.0, ForecastMethod::Exponential);
         forecast2.set_growth_rate(3.2);
 
-        let mut forecast3 = ResourceForecast::new(ResourceType::Storage, 1000.0, ForecastMethod::SeasonalTrend);
+        let mut forecast3 =
+            ResourceForecast::new(ResourceType::Storage, 1000.0, ForecastMethod::SeasonalTrend);
         forecast3.set_growth_rate(12.0);
 
         manager.add_forecast(forecast1);

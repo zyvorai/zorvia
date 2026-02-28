@@ -117,12 +117,7 @@ impl Menu {
         let area = f.area();
 
         // Calculate menu dimensions
-        let max_label_len = self
-            .items
-            .iter()
-            .map(|i| i.label.len())
-            .max()
-            .unwrap_or(10);
+        let max_label_len = self.items.iter().map(|i| i.label.len()).max().unwrap_or(10);
         let width = (max_label_len + 8).min(40) as u16; // +8 for borders and key indicator
         let height = (self.items.len() + 2).min(15) as u16; // +2 for borders
 
@@ -143,7 +138,9 @@ impl Menu {
             .border_style(Style::default().fg(colors::ORANGE))
             .title(Span::styled(
                 &self.title,
-                Style::default().fg(colors::ORANGE).add_modifier(Modifier::BOLD),
+                Style::default()
+                    .fg(colors::ORANGE)
+                    .add_modifier(Modifier::BOLD),
             ))
             .title_alignment(Alignment::Center);
 

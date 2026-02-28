@@ -1,7 +1,7 @@
 // Synchronization - GitOps sync logic and strategies
 
-use serde::{Deserialize, Serialize};
 use chrono::{DateTime, Utc};
+use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
 /// Sync strategy
@@ -116,7 +116,10 @@ impl SyncedResource {
     }
 
     pub fn is_healthy(&self) -> bool {
-        matches!(self.state, ResourceSyncState::Synced | ResourceSyncState::Progressing)
+        matches!(
+            self.state,
+            ResourceSyncState::Synced | ResourceSyncState::Progressing
+        )
     }
 }
 
@@ -223,8 +226,12 @@ impl SyncResult {
 
     pub fn duration_seconds(&self) -> i64 {
         match self.completed_at {
-            Some(completed) => completed.signed_duration_since(self.started_at).num_seconds(),
-            None => Utc::now().signed_duration_since(self.started_at).num_seconds(),
+            Some(completed) => completed
+                .signed_duration_since(self.started_at)
+                .num_seconds(),
+            None => Utc::now()
+                .signed_duration_since(self.started_at)
+                .num_seconds(),
         }
     }
 
@@ -331,9 +338,7 @@ mod tests {
 
     #[test]
     fn test_sync_policy_options() {
-        let policy = SyncPolicy::manual()
-            .with_prune()
-            .disable_self_heal();
+        let policy = SyncPolicy::manual().with_prune().disable_self_heal();
 
         assert_eq!(policy.strategy, SyncStrategy::Manual);
         assert!(policy.auto_prune);

@@ -1,7 +1,7 @@
 // Triggers - Event triggers for automation
 
-use serde::{Deserialize, Serialize};
 use chrono::{DateTime, Utc};
+use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
 /// Event trigger manager
@@ -25,7 +25,8 @@ impl TriggerManager {
 
     pub fn trigger_event(&self, event: &Event) -> Vec<String> {
         if let Some(handlers) = self.event_handlers.get(&event.event_type) {
-            handlers.iter()
+            handlers
+                .iter()
                 .filter(|h| h.matches(event))
                 .map(|h| h.rule_id.clone())
                 .collect()
@@ -174,13 +175,17 @@ pub struct MetricThresholdTrigger {
 }
 
 impl MetricThresholdTrigger {
-    pub fn new(metric_name: impl Into<String>, threshold: f64, operator: ThresholdOperator) -> Self {
+    pub fn new(
+        metric_name: impl Into<String>,
+        threshold: f64,
+        operator: ThresholdOperator,
+    ) -> Self {
         Self {
             metric_name: metric_name.into(),
             threshold,
             operator,
-            duration_seconds: 300,  // 5 minutes default
-            evaluation_period: 60,   // 1 minute default
+            duration_seconds: 300, // 5 minutes default
+            evaluation_period: 60, // 1 minute default
         }
     }
 
@@ -230,8 +235,8 @@ mod tests {
 
         assert_eq!(manager.handler_count(), 1);
 
-        let event = Event::new(EventTypes::VM_STARTED, "test-vm")
-            .add_data("namespace", "production");
+        let event =
+            Event::new(EventTypes::VM_STARTED, "test-vm").add_data("namespace", "production");
 
         let triggered = manager.trigger_event(&event);
         assert_eq!(triggered.len(), 1);
@@ -292,9 +297,10 @@ mod tests {
 
     #[test]
     fn test_metric_threshold_trigger() {
-        let trigger = MetricThresholdTrigger::new("cpu_usage", 80.0, ThresholdOperator::GreaterThan)
-            .with_duration(600)
-            .with_evaluation_period(120);
+        let trigger =
+            MetricThresholdTrigger::new("cpu_usage", 80.0, ThresholdOperator::GreaterThan)
+                .with_duration(600)
+                .with_evaluation_period(120);
 
         assert_eq!(trigger.metric_name, "cpu_usage");
         assert_eq!(trigger.threshold, 80.0);
@@ -315,7 +321,8 @@ mod tests {
         assert!(lt.evaluate(49.0));
         assert!(!lt.evaluate(50.0));
 
-        let gte = MetricThresholdTrigger::new("metric", 50.0, ThresholdOperator::GreaterThanOrEqual);
+        let gte =
+            MetricThresholdTrigger::new("metric", 50.0, ThresholdOperator::GreaterThanOrEqual);
         assert!(gte.evaluate(50.0));
         assert!(gte.evaluate(51.0));
 
@@ -337,11 +344,11 @@ mod tests {
 
         manager.register_handler(
             EventTypes::VM_STARTED,
-            EventHandler::new("rule-1", EventTypes::VM_STARTED)
+            EventHandler::new("rule-1", EventTypes::VM_STARTED),
         );
         manager.register_handler(
             EventTypes::VM_STARTED,
-            EventHandler::new("rule-2", EventTypes::VM_STARTED)
+            EventHandler::new("rule-2", EventTypes::VM_STARTED),
         );
 
         let event = Event::new(EventTypes::VM_STARTED, "test-vm");

@@ -53,30 +53,25 @@ impl CompletionShell {
 
     pub fn install_instructions(&self) -> String {
         match self {
-            CompletionShell::Bash => {
-                "# Add to ~/.bashrc:\n\
+            CompletionShell::Bash => "# Add to ~/.bashrc:\n\
                  source <(zorvia completions bash)\n\
                  # Or save to file:\n\
-                 zorvia completions bash > /etc/bash_completion.d/zorvia".to_string()
-            }
-            CompletionShell::Zsh => {
-                "# Add to ~/.zshrc:\n\
+                 zorvia completions bash > /etc/bash_completion.d/zorvia"
+                .to_string(),
+            CompletionShell::Zsh => "# Add to ~/.zshrc:\n\
                  source <(zorvia completions zsh)\n\
                  # Or save to file:\n\
-                 zorvia completions zsh > ~/.zsh/completions/_zorvia".to_string()
-            }
-            CompletionShell::Fish => {
-                "# Save to fish completions directory:\n\
-                 zorvia completions fish > ~/.config/fish/completions/zorvia.fish".to_string()
-            }
-            CompletionShell::PowerShell => {
-                "# Add to PowerShell profile:\n\
-                 zorvia completions powershell | Out-String | Invoke-Expression".to_string()
-            }
-            CompletionShell::Elvish => {
-                "# Add to ~/.elvish/rc.elv:\n\
-                 eval (zorvia completions elvish | slurp)".to_string()
-            }
+                 zorvia completions zsh > ~/.zsh/completions/_zorvia"
+                .to_string(),
+            CompletionShell::Fish => "# Save to fish completions directory:\n\
+                 zorvia completions fish > ~/.config/fish/completions/zorvia.fish"
+                .to_string(),
+            CompletionShell::PowerShell => "# Add to PowerShell profile:\n\
+                 zorvia completions powershell | Out-String | Invoke-Expression"
+                .to_string(),
+            CompletionShell::Elvish => "# Add to ~/.elvish/rc.elv:\n\
+                 eval (zorvia completions elvish | slurp)"
+                .to_string(),
         }
     }
 }
@@ -350,9 +345,18 @@ mod tests {
         assert_eq!(CompletionShell::parse("bash"), Some(CompletionShell::Bash));
         assert_eq!(CompletionShell::parse("zsh"), Some(CompletionShell::Zsh));
         assert_eq!(CompletionShell::parse("fish"), Some(CompletionShell::Fish));
-        assert_eq!(CompletionShell::parse("powershell"), Some(CompletionShell::PowerShell));
-        assert_eq!(CompletionShell::parse("pwsh"), Some(CompletionShell::PowerShell));
-        assert_eq!(CompletionShell::parse("elvish"), Some(CompletionShell::Elvish));
+        assert_eq!(
+            CompletionShell::parse("powershell"),
+            Some(CompletionShell::PowerShell)
+        );
+        assert_eq!(
+            CompletionShell::parse("pwsh"),
+            Some(CompletionShell::PowerShell)
+        );
+        assert_eq!(
+            CompletionShell::parse("elvish"),
+            Some(CompletionShell::Elvish)
+        );
         assert_eq!(CompletionShell::parse("unknown"), None);
     }
 
@@ -383,8 +387,7 @@ mod tests {
 
     #[test]
     fn test_completion_generator_with_binary_name() {
-        let gen = CompletionGenerator::new(CompletionShell::Zsh)
-            .with_binary_name("vc");
+        let gen = CompletionGenerator::new(CompletionShell::Zsh).with_binary_name("vc");
         assert_eq!(gen.binary_name, "vc");
     }
 

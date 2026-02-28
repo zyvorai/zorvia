@@ -37,11 +37,7 @@ pub struct IoTDevice {
 }
 
 impl IoTDevice {
-    pub fn new(
-        id: impl Into<String>,
-        name: impl Into<String>,
-        device_type: DeviceType,
-    ) -> Self {
+    pub fn new(id: impl Into<String>, name: impl Into<String>, device_type: DeviceType) -> Self {
         Self {
             id: id.into(),
             name: name.into(),
@@ -158,16 +154,15 @@ mod tests {
 
     #[test]
     fn test_device_with_firmware() {
-        let device = IoTDevice::new("dev-001", "Sensor", DeviceType::Sensor)
-            .with_firmware("2.1.0");
+        let device = IoTDevice::new("dev-001", "Sensor", DeviceType::Sensor).with_firmware("2.1.0");
 
         assert_eq!(device.firmware_version, "2.1.0");
     }
 
     #[test]
     fn test_device_assign_to_node() {
-        let device = IoTDevice::new("dev-001", "Sensor", DeviceType::Sensor)
-            .assign_to_node("edge-node-1");
+        let device =
+            IoTDevice::new("dev-001", "Sensor", DeviceType::Sensor).assign_to_node("edge-node-1");
 
         assert_eq!(device.edge_node_id, Some("edge-node-1".to_string()));
         assert!(device.is_assigned());
@@ -190,7 +185,10 @@ mod tests {
         device.add_attribute("unit", "celsius");
 
         assert_eq!(device.attributes.len(), 2);
-        assert_eq!(device.attributes.get("location"), Some(&"warehouse-1".to_string()));
+        assert_eq!(
+            device.attributes.get("location"),
+            Some(&"warehouse-1".to_string())
+        );
     }
 
     #[test]
@@ -220,9 +218,15 @@ mod tests {
     fn test_manager_devices_by_node() {
         let mut manager = DeviceManager::new();
 
-        manager.add_device(IoTDevice::new("dev-001", "S1", DeviceType::Sensor).assign_to_node("node-1"));
-        manager.add_device(IoTDevice::new("dev-002", "S2", DeviceType::Sensor).assign_to_node("node-2"));
-        manager.add_device(IoTDevice::new("dev-003", "S3", DeviceType::Sensor).assign_to_node("node-1"));
+        manager.add_device(
+            IoTDevice::new("dev-001", "S1", DeviceType::Sensor).assign_to_node("node-1"),
+        );
+        manager.add_device(
+            IoTDevice::new("dev-002", "S2", DeviceType::Sensor).assign_to_node("node-2"),
+        );
+        manager.add_device(
+            IoTDevice::new("dev-003", "S3", DeviceType::Sensor).assign_to_node("node-1"),
+        );
 
         let node1_devices = manager.devices_by_node("node-1");
         assert_eq!(node1_devices.len(), 2);
@@ -249,7 +253,9 @@ mod tests {
         let mut manager = DeviceManager::new();
 
         manager.add_device(IoTDevice::new("dev-001", "S1", DeviceType::Sensor));
-        manager.add_device(IoTDevice::new("dev-002", "S2", DeviceType::Sensor).assign_to_node("node-1"));
+        manager.add_device(
+            IoTDevice::new("dev-002", "S2", DeviceType::Sensor).assign_to_node("node-1"),
+        );
 
         let unassigned = manager.unassigned_devices();
         assert_eq!(unassigned.len(), 1);

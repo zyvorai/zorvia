@@ -44,7 +44,11 @@ impl DataSyncPolicy {
         interval_seconds: u32,
     ) -> Self {
         let name_str = name.into();
-        let id = format!("sync-{}-{}", name_str.to_lowercase().replace(' ', "-"), Utc::now().timestamp());
+        let id = format!(
+            "sync-{}-{}",
+            name_str.to_lowercase().replace(' ', "-"),
+            Utc::now().timestamp()
+        );
 
         Self {
             id,
@@ -200,7 +204,10 @@ impl SyncManager {
     }
 
     pub fn high_priority_policies(&self) -> Vec<&DataSyncPolicy> {
-        self.policies.values().filter(|p| p.is_high_priority()).collect()
+        self.policies
+            .values()
+            .filter(|p| p.is_high_priority())
+            .collect()
     }
 
     pub fn active_operations(&self) -> Vec<&SyncOperation> {
@@ -208,7 +215,10 @@ impl SyncManager {
     }
 
     pub fn completed_operations(&self) -> Vec<&SyncOperation> {
-        self.operations.values().filter(|o| o.is_complete()).collect()
+        self.operations
+            .values()
+            .filter(|o| o.is_complete())
+            .collect()
     }
 
     pub fn total_bytes_synced(&self) -> u64 {
@@ -394,12 +404,10 @@ mod tests {
         let mut manager = SyncManager::new();
 
         manager.add_policy(
-            DataSyncPolicy::new("P1", SyncDirection::EdgeToCloud, "s", "d", 60)
-                .with_priority(9)
+            DataSyncPolicy::new("P1", SyncDirection::EdgeToCloud, "s", "d", 60).with_priority(9),
         );
         manager.add_policy(
-            DataSyncPolicy::new("P2", SyncDirection::CloudToEdge, "s", "d", 60)
-                .with_priority(5)
+            DataSyncPolicy::new("P2", SyncDirection::CloudToEdge, "s", "d", 60).with_priority(5),
         );
 
         let high_priority = manager.high_priority_policies();

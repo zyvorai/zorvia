@@ -74,7 +74,11 @@ impl CloudWorkload {
         placement_strategy: PlacementStrategy,
     ) -> Self {
         let name_str = name.into();
-        let id = format!("wl-{}-{}", name_str.to_lowercase().replace(' ', "-"), Utc::now().timestamp());
+        let id = format!(
+            "wl-{}-{}",
+            name_str.to_lowercase().replace(' ', "-"),
+            Utc::now().timestamp()
+        );
 
         Self {
             id,
@@ -134,7 +138,10 @@ impl CloudWorkload {
     }
 
     pub fn is_active(&self) -> bool {
-        matches!(self.status, WorkloadStatus::Running | WorkloadStatus::Paused | WorkloadStatus::Migrating)
+        matches!(
+            self.status,
+            WorkloadStatus::Running | WorkloadStatus::Paused | WorkloadStatus::Migrating
+        )
     }
 
     pub fn estimated_monthly_cost(&self) -> f64 {
@@ -168,12 +175,13 @@ pub enum DistributionPolicy {
 }
 
 impl WorkloadDistribution {
-    pub fn new(
-        name: impl Into<String>,
-        distribution_policy: DistributionPolicy,
-    ) -> Self {
+    pub fn new(name: impl Into<String>, distribution_policy: DistributionPolicy) -> Self {
         let name_str = name.into();
-        let id = format!("dist-{}-{}", name_str.to_lowercase().replace(' ', "-"), Utc::now().timestamp());
+        let id = format!(
+            "dist-{}-{}",
+            name_str.to_lowercase().replace(' ', "-"),
+            Utc::now().timestamp()
+        );
 
         Self {
             id,
@@ -307,7 +315,10 @@ impl WorkloadManager {
     }
 
     pub fn distributions_with_auto_scale(&self) -> Vec<&WorkloadDistribution> {
-        self.distributions.values().filter(|d| d.auto_scale).collect()
+        self.distributions
+            .values()
+            .filter(|d| d.auto_scale)
+            .collect()
     }
 }
 
@@ -340,8 +351,14 @@ mod tests {
 
     #[test]
     fn test_workload_with_resources() {
-        let workload = CloudWorkload::new("app", WorkloadType::VM, CloudProvider::Azure, "eastus", PlacementStrategy::PerformanceOptimized)
-            .with_resources(8, 16, 100);
+        let workload = CloudWorkload::new(
+            "app",
+            WorkloadType::VM,
+            CloudProvider::Azure,
+            "eastus",
+            PlacementStrategy::PerformanceOptimized,
+        )
+        .with_resources(8, 16, 100);
 
         assert_eq!(workload.resource_requirements.cpu_cores, 8);
         assert_eq!(workload.resource_requirements.memory_gb, 16);
@@ -350,31 +367,58 @@ mod tests {
 
     #[test]
     fn test_workload_with_network_bandwidth() {
-        let workload = CloudWorkload::new("app", WorkloadType::VM, CloudProvider::GCP, "us-central1", PlacementStrategy::LatencyOptimized)
-            .with_network_bandwidth(1000);
+        let workload = CloudWorkload::new(
+            "app",
+            WorkloadType::VM,
+            CloudProvider::GCP,
+            "us-central1",
+            PlacementStrategy::LatencyOptimized,
+        )
+        .with_network_bandwidth(1000);
 
-        assert_eq!(workload.resource_requirements.network_bandwidth_mbps, Some(1000));
+        assert_eq!(
+            workload.resource_requirements.network_bandwidth_mbps,
+            Some(1000)
+        );
     }
 
     #[test]
     fn test_workload_with_gpu() {
-        let workload = CloudWorkload::new("ml-app", WorkloadType::Container, CloudProvider::AWS, "us-west-2", PlacementStrategy::PerformanceOptimized)
-            .with_gpu(4);
+        let workload = CloudWorkload::new(
+            "ml-app",
+            WorkloadType::Container,
+            CloudProvider::AWS,
+            "us-west-2",
+            PlacementStrategy::PerformanceOptimized,
+        )
+        .with_gpu(4);
 
         assert_eq!(workload.resource_requirements.gpu_count, Some(4));
     }
 
     #[test]
     fn test_workload_with_cost() {
-        let workload = CloudWorkload::new("app", WorkloadType::VM, CloudProvider::AWS, "us-east-1", PlacementStrategy::CostOptimized)
-            .with_cost(0.5);
+        let workload = CloudWorkload::new(
+            "app",
+            WorkloadType::VM,
+            CloudProvider::AWS,
+            "us-east-1",
+            PlacementStrategy::CostOptimized,
+        )
+        .with_cost(0.5);
 
         assert_eq!(workload.cost_per_hour, 0.5);
     }
 
     #[test]
     fn test_workload_add_tag() {
-        let mut workload = CloudWorkload::new("app", WorkloadType::Container, CloudProvider::Azure, "eastus", PlacementStrategy::CostOptimized);
+        let mut workload = CloudWorkload::new(
+            "app",
+            WorkloadType::Container,
+            CloudProvider::Azure,
+            "eastus",
+            PlacementStrategy::CostOptimized,
+        );
 
         workload.add_tag("environment", "production");
         workload.add_tag("team", "backend");
@@ -384,7 +428,13 @@ mod tests {
 
     #[test]
     fn test_workload_set_status() {
-        let mut workload = CloudWorkload::new("app", WorkloadType::VM, CloudProvider::GCP, "us-central1", PlacementStrategy::PerformanceOptimized);
+        let mut workload = CloudWorkload::new(
+            "app",
+            WorkloadType::VM,
+            CloudProvider::GCP,
+            "us-central1",
+            PlacementStrategy::PerformanceOptimized,
+        );
 
         workload.set_status(WorkloadStatus::Running);
         assert_eq!(workload.status, WorkloadStatus::Running);
@@ -392,7 +442,13 @@ mod tests {
 
     #[test]
     fn test_workload_is_running() {
-        let mut workload = CloudWorkload::new("app", WorkloadType::Container, CloudProvider::AWS, "us-east-1", PlacementStrategy::CostOptimized);
+        let mut workload = CloudWorkload::new(
+            "app",
+            WorkloadType::Container,
+            CloudProvider::AWS,
+            "us-east-1",
+            PlacementStrategy::CostOptimized,
+        );
 
         assert!(!workload.is_running());
 
@@ -402,7 +458,13 @@ mod tests {
 
     #[test]
     fn test_workload_is_active() {
-        let mut workload = CloudWorkload::new("app", WorkloadType::VM, CloudProvider::Azure, "eastus", PlacementStrategy::PerformanceOptimized);
+        let mut workload = CloudWorkload::new(
+            "app",
+            WorkloadType::VM,
+            CloudProvider::Azure,
+            "eastus",
+            PlacementStrategy::PerformanceOptimized,
+        );
 
         workload.set_status(WorkloadStatus::Running);
         assert!(workload.is_active());
@@ -416,8 +478,14 @@ mod tests {
 
     #[test]
     fn test_workload_estimated_monthly_cost() {
-        let workload = CloudWorkload::new("app", WorkloadType::VM, CloudProvider::AWS, "us-east-1", PlacementStrategy::CostOptimized)
-            .with_cost(1.0);
+        let workload = CloudWorkload::new(
+            "app",
+            WorkloadType::VM,
+            CloudProvider::AWS,
+            "us-east-1",
+            PlacementStrategy::CostOptimized,
+        )
+        .with_cost(1.0);
 
         let monthly_cost = workload.estimated_monthly_cost();
         assert_eq!(monthly_cost, 720.0); // 1.0 * 24 * 30
@@ -425,10 +493,16 @@ mod tests {
 
     #[test]
     fn test_workload_distribution() {
-        let distribution = WorkloadDistribution::new("global-distribution", DistributionPolicy::GeographicDistribution);
+        let distribution = WorkloadDistribution::new(
+            "global-distribution",
+            DistributionPolicy::GeographicDistribution,
+        );
 
         assert_eq!(distribution.name, "global-distribution");
-        assert_eq!(distribution.distribution_policy, DistributionPolicy::GeographicDistribution);
+        assert_eq!(
+            distribution.distribution_policy,
+            DistributionPolicy::GeographicDistribution
+        );
         assert_eq!(distribution.replication_factor, 1);
         assert!(!distribution.auto_scale);
     }
@@ -445,7 +519,8 @@ mod tests {
 
     #[test]
     fn test_distribution_add_provider() {
-        let mut distribution = WorkloadDistribution::new("dist", DistributionPolicy::WeightedDistribution);
+        let mut distribution =
+            WorkloadDistribution::new("dist", DistributionPolicy::WeightedDistribution);
 
         distribution.add_provider(CloudProvider::AWS);
         distribution.add_provider(CloudProvider::Azure);
@@ -466,8 +541,9 @@ mod tests {
 
     #[test]
     fn test_distribution_with_replication() {
-        let distribution = WorkloadDistribution::new("dist", DistributionPolicy::GeographicDistribution)
-            .with_replication(3);
+        let distribution =
+            WorkloadDistribution::new("dist", DistributionPolicy::GeographicDistribution)
+                .with_replication(3);
 
         assert_eq!(distribution.replication_factor, 3);
     }
@@ -476,7 +552,13 @@ mod tests {
     fn test_workload_manager() {
         let mut manager = WorkloadManager::new();
 
-        let workload = CloudWorkload::new("app", WorkloadType::VM, CloudProvider::AWS, "us-east-1", PlacementStrategy::CostOptimized);
+        let workload = CloudWorkload::new(
+            "app",
+            WorkloadType::VM,
+            CloudProvider::AWS,
+            "us-east-1",
+            PlacementStrategy::CostOptimized,
+        );
         let id = manager.add_workload(workload);
 
         assert_eq!(manager.workload_count(), 1);
@@ -498,9 +580,27 @@ mod tests {
     fn test_manager_workloads_by_provider() {
         let mut manager = WorkloadManager::new();
 
-        manager.add_workload(CloudWorkload::new("w1", WorkloadType::VM, CloudProvider::AWS, "us-east-1", PlacementStrategy::CostOptimized));
-        manager.add_workload(CloudWorkload::new("w2", WorkloadType::Container, CloudProvider::Azure, "eastus", PlacementStrategy::PerformanceOptimized));
-        manager.add_workload(CloudWorkload::new("w3", WorkloadType::VM, CloudProvider::AWS, "us-west-2", PlacementStrategy::CostOptimized));
+        manager.add_workload(CloudWorkload::new(
+            "w1",
+            WorkloadType::VM,
+            CloudProvider::AWS,
+            "us-east-1",
+            PlacementStrategy::CostOptimized,
+        ));
+        manager.add_workload(CloudWorkload::new(
+            "w2",
+            WorkloadType::Container,
+            CloudProvider::Azure,
+            "eastus",
+            PlacementStrategy::PerformanceOptimized,
+        ));
+        manager.add_workload(CloudWorkload::new(
+            "w3",
+            WorkloadType::VM,
+            CloudProvider::AWS,
+            "us-west-2",
+            PlacementStrategy::CostOptimized,
+        ));
 
         let aws_workloads = manager.workloads_by_provider(&CloudProvider::AWS);
         assert_eq!(aws_workloads.len(), 2);
@@ -510,9 +610,27 @@ mod tests {
     fn test_manager_workloads_by_type() {
         let mut manager = WorkloadManager::new();
 
-        manager.add_workload(CloudWorkload::new("w1", WorkloadType::VM, CloudProvider::AWS, "us-east-1", PlacementStrategy::CostOptimized));
-        manager.add_workload(CloudWorkload::new("w2", WorkloadType::Container, CloudProvider::Azure, "eastus", PlacementStrategy::PerformanceOptimized));
-        manager.add_workload(CloudWorkload::new("w3", WorkloadType::VM, CloudProvider::GCP, "us-central1", PlacementStrategy::CostOptimized));
+        manager.add_workload(CloudWorkload::new(
+            "w1",
+            WorkloadType::VM,
+            CloudProvider::AWS,
+            "us-east-1",
+            PlacementStrategy::CostOptimized,
+        ));
+        manager.add_workload(CloudWorkload::new(
+            "w2",
+            WorkloadType::Container,
+            CloudProvider::Azure,
+            "eastus",
+            PlacementStrategy::PerformanceOptimized,
+        ));
+        manager.add_workload(CloudWorkload::new(
+            "w3",
+            WorkloadType::VM,
+            CloudProvider::GCP,
+            "us-central1",
+            PlacementStrategy::CostOptimized,
+        ));
 
         let vms = manager.workloads_by_type(&WorkloadType::VM);
         assert_eq!(vms.len(), 2);
@@ -522,10 +640,22 @@ mod tests {
     fn test_manager_running_workloads() {
         let mut manager = WorkloadManager::new();
 
-        let mut workload1 = CloudWorkload::new("w1", WorkloadType::VM, CloudProvider::AWS, "us-east-1", PlacementStrategy::CostOptimized);
+        let mut workload1 = CloudWorkload::new(
+            "w1",
+            WorkloadType::VM,
+            CloudProvider::AWS,
+            "us-east-1",
+            PlacementStrategy::CostOptimized,
+        );
         workload1.set_status(WorkloadStatus::Running);
 
-        let workload2 = CloudWorkload::new("w2", WorkloadType::Container, CloudProvider::Azure, "eastus", PlacementStrategy::PerformanceOptimized);
+        let workload2 = CloudWorkload::new(
+            "w2",
+            WorkloadType::Container,
+            CloudProvider::Azure,
+            "eastus",
+            PlacementStrategy::PerformanceOptimized,
+        );
 
         manager.add_workload(workload1);
         manager.add_workload(workload2);
@@ -538,13 +668,31 @@ mod tests {
     fn test_manager_active_workloads() {
         let mut manager = WorkloadManager::new();
 
-        let mut workload1 = CloudWorkload::new("w1", WorkloadType::VM, CloudProvider::AWS, "us-east-1", PlacementStrategy::CostOptimized);
+        let mut workload1 = CloudWorkload::new(
+            "w1",
+            WorkloadType::VM,
+            CloudProvider::AWS,
+            "us-east-1",
+            PlacementStrategy::CostOptimized,
+        );
         workload1.set_status(WorkloadStatus::Running);
 
-        let mut workload2 = CloudWorkload::new("w2", WorkloadType::Container, CloudProvider::Azure, "eastus", PlacementStrategy::PerformanceOptimized);
+        let mut workload2 = CloudWorkload::new(
+            "w2",
+            WorkloadType::Container,
+            CloudProvider::Azure,
+            "eastus",
+            PlacementStrategy::PerformanceOptimized,
+        );
         workload2.set_status(WorkloadStatus::Paused);
 
-        let mut workload3 = CloudWorkload::new("w3", WorkloadType::VM, CloudProvider::GCP, "us-central1", PlacementStrategy::CostOptimized);
+        let mut workload3 = CloudWorkload::new(
+            "w3",
+            WorkloadType::VM,
+            CloudProvider::GCP,
+            "us-central1",
+            PlacementStrategy::CostOptimized,
+        );
         workload3.set_status(WorkloadStatus::Terminated);
 
         manager.add_workload(workload1);
@@ -559,9 +707,27 @@ mod tests {
     fn test_manager_workloads_by_strategy() {
         let mut manager = WorkloadManager::new();
 
-        manager.add_workload(CloudWorkload::new("w1", WorkloadType::VM, CloudProvider::AWS, "us-east-1", PlacementStrategy::CostOptimized));
-        manager.add_workload(CloudWorkload::new("w2", WorkloadType::Container, CloudProvider::Azure, "eastus", PlacementStrategy::PerformanceOptimized));
-        manager.add_workload(CloudWorkload::new("w3", WorkloadType::VM, CloudProvider::GCP, "us-central1", PlacementStrategy::CostOptimized));
+        manager.add_workload(CloudWorkload::new(
+            "w1",
+            WorkloadType::VM,
+            CloudProvider::AWS,
+            "us-east-1",
+            PlacementStrategy::CostOptimized,
+        ));
+        manager.add_workload(CloudWorkload::new(
+            "w2",
+            WorkloadType::Container,
+            CloudProvider::Azure,
+            "eastus",
+            PlacementStrategy::PerformanceOptimized,
+        ));
+        manager.add_workload(CloudWorkload::new(
+            "w3",
+            WorkloadType::VM,
+            CloudProvider::GCP,
+            "us-central1",
+            PlacementStrategy::CostOptimized,
+        ));
 
         let cost_optimized = manager.workloads_by_strategy(&PlacementStrategy::CostOptimized);
         assert_eq!(cost_optimized.len(), 2);
@@ -571,12 +737,24 @@ mod tests {
     fn test_manager_total_monthly_cost() {
         let mut manager = WorkloadManager::new();
 
-        let mut workload1 = CloudWorkload::new("w1", WorkloadType::VM, CloudProvider::AWS, "us-east-1", PlacementStrategy::CostOptimized)
-            .with_cost(1.0);
+        let mut workload1 = CloudWorkload::new(
+            "w1",
+            WorkloadType::VM,
+            CloudProvider::AWS,
+            "us-east-1",
+            PlacementStrategy::CostOptimized,
+        )
+        .with_cost(1.0);
         workload1.set_status(WorkloadStatus::Running);
 
-        let mut workload2 = CloudWorkload::new("w2", WorkloadType::Container, CloudProvider::Azure, "eastus", PlacementStrategy::PerformanceOptimized)
-            .with_cost(0.5);
+        let mut workload2 = CloudWorkload::new(
+            "w2",
+            WorkloadType::Container,
+            CloudProvider::Azure,
+            "eastus",
+            PlacementStrategy::PerformanceOptimized,
+        )
+        .with_cost(0.5);
         workload2.set_status(WorkloadStatus::Running);
 
         manager.add_workload(workload1);
@@ -590,8 +768,8 @@ mod tests {
     fn test_manager_distributions_with_auto_scale() {
         let mut manager = WorkloadManager::new();
 
-        let distribution1 = WorkloadDistribution::new("d1", DistributionPolicy::RoundRobin)
-            .enable_auto_scale(1, 5);
+        let distribution1 =
+            WorkloadDistribution::new("d1", DistributionPolicy::RoundRobin).enable_auto_scale(1, 5);
         let distribution2 = WorkloadDistribution::new("d2", DistributionPolicy::CostOptimized);
 
         manager.add_distribution(distribution1);
@@ -609,8 +787,14 @@ mod tests {
 
     #[test]
     fn test_placement_strategy_equality() {
-        assert_eq!(PlacementStrategy::CostOptimized, PlacementStrategy::CostOptimized);
-        assert_ne!(PlacementStrategy::CostOptimized, PlacementStrategy::PerformanceOptimized);
+        assert_eq!(
+            PlacementStrategy::CostOptimized,
+            PlacementStrategy::CostOptimized
+        );
+        assert_ne!(
+            PlacementStrategy::CostOptimized,
+            PlacementStrategy::PerformanceOptimized
+        );
     }
 
     #[test]
@@ -621,7 +805,13 @@ mod tests {
 
     #[test]
     fn test_distribution_policy_equality() {
-        assert_eq!(DistributionPolicy::RoundRobin, DistributionPolicy::RoundRobin);
-        assert_ne!(DistributionPolicy::RoundRobin, DistributionPolicy::WeightedDistribution);
+        assert_eq!(
+            DistributionPolicy::RoundRobin,
+            DistributionPolicy::RoundRobin
+        );
+        assert_ne!(
+            DistributionPolicy::RoundRobin,
+            DistributionPolicy::WeightedDistribution
+        );
     }
 }

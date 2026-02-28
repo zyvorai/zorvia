@@ -1,5 +1,5 @@
-use anyhow::Result;
 use crate::tui::colors::cli as color;
+use anyhow::Result;
 
 pub fn handle_logs_query(
     level: Option<String>,
@@ -7,7 +7,7 @@ pub fn handle_logs_query(
     search: Option<String>,
     limit: usize,
 ) -> Result<()> {
-    use crate::observability::logs::{LogQuery, LogLevel};
+    use crate::observability::logs::{LogLevel, LogQuery};
 
     println!("{}", color::header("Querying Logs"));
     println!();
@@ -76,10 +76,22 @@ pub fn handle_metrics_collect(vm: String) -> Result<()> {
 
     println!("  CPU Usage:      {:.1}%", metrics.cpu_usage_percent);
     println!("  Memory Usage:   {:.1}%", metrics.memory_usage_percent);
-    println!("  Disk Read:      {:.2} MB/s", metrics.disk_read_bytes_per_sec / 1_000_000.0);
-    println!("  Disk Write:     {:.2} MB/s", metrics.disk_write_bytes_per_sec / 1_000_000.0);
-    println!("  Network RX:     {:.2} MB/s", metrics.network_rx_bytes_per_sec / 1_000_000.0);
-    println!("  Network TX:     {:.2} MB/s", metrics.network_tx_bytes_per_sec / 1_000_000.0);
+    println!(
+        "  Disk Read:      {:.2} MB/s",
+        metrics.disk_read_bytes_per_sec / 1_000_000.0
+    );
+    println!(
+        "  Disk Write:     {:.2} MB/s",
+        metrics.disk_write_bytes_per_sec / 1_000_000.0
+    );
+    println!(
+        "  Network RX:     {:.2} MB/s",
+        metrics.network_rx_bytes_per_sec / 1_000_000.0
+    );
+    println!(
+        "  Network TX:     {:.2} MB/s",
+        metrics.network_tx_bytes_per_sec / 1_000_000.0
+    );
     println!();
     println!("{}", color::success("✓ Metrics collected successfully"));
     Ok(())
@@ -105,7 +117,10 @@ pub fn handle_metrics_snapshot(cpu_threshold: f64, memory_threshold: f64) -> Res
     let snapshot = MetricsSnapshot::new();
     println!("  Total VMs:          {}", snapshot.total_vms);
     println!("  Cluster CPU Avg:    {:.1}%", snapshot.cluster_cpu_usage);
-    println!("  Cluster Memory Avg: {:.1}%", snapshot.cluster_memory_usage);
+    println!(
+        "  Cluster Memory Avg: {:.1}%",
+        snapshot.cluster_memory_usage
+    );
     println!("  CPU Threshold:      {}%", cpu_threshold);
     println!("  Memory Threshold:   {}%", memory_threshold);
     println!();
@@ -113,11 +128,18 @@ pub fn handle_metrics_snapshot(cpu_threshold: f64, memory_threshold: f64) -> Res
     Ok(())
 }
 
-pub fn handle_alerts_list(enabled_only: bool, severity: Option<String>, output: String) -> Result<()> {
+pub fn handle_alerts_list(
+    enabled_only: bool,
+    severity: Option<String>,
+    output: String,
+) -> Result<()> {
     println!("{}", color::header("Alert Rules"));
     println!();
 
-    println!("  Filter: {}", if enabled_only { "Enabled only" } else { "All" });
+    println!(
+        "  Filter: {}",
+        if enabled_only { "Enabled only" } else { "All" }
+    );
     if let Some(sev) = &severity {
         println!("  Severity: {}", color::value(sev));
     }
@@ -135,9 +157,14 @@ pub fn handle_alerts_create(
     threshold: f64,
     duration: i64,
 ) -> Result<()> {
-    use crate::observability::alerts::{AlertRule, AlertSeverity, AlertCondition, ThresholdOperator};
+    use crate::observability::alerts::{
+        AlertCondition, AlertRule, AlertSeverity, ThresholdOperator,
+    };
 
-    println!("{}", color::header(&format!("Creating Alert Rule: {}", name)));
+    println!(
+        "{}",
+        color::header(&format!("Creating Alert Rule: {}", name))
+    );
     println!();
 
     let alert_severity = match severity.to_lowercase().as_str() {
@@ -189,7 +216,10 @@ pub fn handle_alerts_active(severity: Option<String>, output: String) -> Result<
 }
 
 pub fn handle_alerts_resolve(alert_id: String) -> Result<()> {
-    println!("{}", color::header(&format!("Resolving Alert: {}", alert_id)));
+    println!(
+        "{}",
+        color::header(&format!("Resolving Alert: {}", alert_id))
+    );
     println!();
 
     println!("  Alert ID: {}", color::value(&alert_id));
@@ -260,7 +290,7 @@ pub fn handle_trends_analyze(metric: String, window: i64, threshold: f64) -> Res
 }
 
 pub fn handle_health_check(component: Option<String>, output: String) -> Result<()> {
-    use crate::observability::{SystemHealth, HealthCheck, HealthStatus};
+    use crate::observability::{HealthCheck, HealthStatus, SystemHealth};
 
     println!("{}", color::header("System Health Check"));
     println!();
@@ -272,7 +302,10 @@ pub fn handle_health_check(component: Option<String>, output: String) -> Result<
     if let Some(comp) = &component {
         println!("  Component: {}", color::value(comp));
     } else {
-        println!("  Overall Status: {}", color::success(&health.overall_status.to_string()));
+        println!(
+            "  Overall Status: {}",
+            color::success(&health.overall_status.to_string())
+        );
         println!("  Healthy:   {}", health.healthy_count());
         println!("  Unhealthy: {}", health.unhealthy_count());
     }

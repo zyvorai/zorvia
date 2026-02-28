@@ -1,7 +1,7 @@
 // Backup Scheduling - Automated backup scheduling
 
+use chrono::{DateTime, Datelike, NaiveTime, Timelike, Utc, Weekday};
 use serde::{Deserialize, Serialize};
-use chrono::{DateTime, Utc, Weekday, NaiveTime, Timelike, Datelike};
 
 /// Backup schedule
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -43,18 +43,10 @@ impl BackupSchedule {
         }
 
         match &self.schedule_type {
-            ScheduleType::Hourly { minute } => {
-                Some(self.next_hourly(from, *minute))
-            }
-            ScheduleType::Daily { time } => {
-                Some(self.next_daily(from, time))
-            }
-            ScheduleType::Weekly { weekday, time } => {
-                Some(self.next_weekly(from, *weekday, time))
-            }
-            ScheduleType::Monthly { day, time } => {
-                Some(self.next_monthly(from, *day, time))
-            }
+            ScheduleType::Hourly { minute } => Some(self.next_hourly(from, *minute)),
+            ScheduleType::Daily { time } => Some(self.next_daily(from, time)),
+            ScheduleType::Weekly { weekday, time } => Some(self.next_weekly(from, *weekday, time)),
+            ScheduleType::Monthly { day, time } => Some(self.next_monthly(from, *day, time)),
             ScheduleType::Cron { expression: _ } => {
                 // Simplified - in production would use cron parser
                 Some(from + chrono::Duration::hours(1))
@@ -80,7 +72,12 @@ impl BackupSchedule {
         next
     }
 
-    fn next_weekly(&self, from: DateTime<Utc>, weekday: Weekday, time: &NaiveTime) -> DateTime<Utc> {
+    fn next_weekly(
+        &self,
+        from: DateTime<Utc>,
+        weekday: Weekday,
+        time: &NaiveTime,
+    ) -> DateTime<Utc> {
         let mut next = from;
         loop {
             next += chrono::Duration::days(1);
@@ -192,10 +189,7 @@ impl ScheduleManager {
     pub fn get_due_schedules(&self, now: DateTime<Utc>) -> Vec<&BackupSchedule> {
         self.schedules
             .iter()
-            .filter(|s| {
-                s.enabled
-                    && s.next_run.map(|next| next <= now).unwrap_or(true)
-            })
+            .filter(|s| s.enabled && s.next_run.map(|next| next <= now).unwrap_or(true))
             .collect()
     }
 
@@ -299,17 +293,16 @@ mod tests {
     #[test]
     fn test_calculate_next_run_hourly() {
         let schedule = BackupSchedule::new("hourly", ScheduleType::hourly(30));
-        
+
         let now = Utc::now().with_minute(0).unwrap();
         let next = schedule.calculate_next_run(now).unwrap();
-        
+
         assert_eq!(next.minute(), 30);
     }
 
     #[test]
     fn test_disabled_schedule() {
-        let schedule = BackupSchedule::new("disabled", ScheduleType::daily(2, 0))
-            .disable();
+        let schedule = BackupSchedule::new("disabled", ScheduleType::daily(2, 0)).disable();
 
         assert!(!schedule.enabled);
         assert!(schedule.calculate_next_run(Utc::now()).is_none());
@@ -319,15 +312,9 @@ mod tests {
     fn test_get_enabled_schedules() {
         let mut manager = ScheduleManager::new();
 
-        manager.add_schedule(
-            BackupSchedule::new("enabled1", ScheduleType::daily(2, 0))
-        );
-        manager.add_schedule(
-            BackupSchedule::new("disabled", ScheduleType::daily(3, 0)).disable()
-        );
-        manager.add_schedule(
-            BackupSchedule::new("enabled2", ScheduleType::daily(4, 0))
-        );
+        manager.add_schedule(BackupSchedule::new("enabled1", ScheduleType::daily(2, 0)));
+        manager.add_schedule(BackupSchedule::new("disabled", ScheduleType::daily(3, 0)).disable());
+        manager.add_schedule(BackupSchedule::new("enabled2", ScheduleType::daily(4, 0)));
 
         let enabled = manager.get_enabled();
         assert_eq!(enabled.len(), 2);

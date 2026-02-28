@@ -80,9 +80,15 @@ pub struct DiskConfig {
 pub enum DiskSource {
     Blank,
     #[serde(rename = "pvc")]
-    PVC { name: String },
-    ContainerDisk { image: String },
-    DataVolume { name: String },
+    PVC {
+        name: String,
+    },
+    ContainerDisk {
+        image: String,
+    },
+    DataVolume {
+        name: String,
+    },
 }
 
 /// Network interface configuration
@@ -105,11 +111,12 @@ fn default_interface_model() -> String {
 #[derive(Default)]
 pub enum NetworkType {
     Bridge,
-    Multus { name: String },
+    Multus {
+        name: String,
+    },
     #[default]
     Pod,
 }
-
 
 /// Cloud-init configuration
 #[derive(Debug, Clone, Serialize, Deserialize)]

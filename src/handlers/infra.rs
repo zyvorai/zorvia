@@ -1,6 +1,6 @@
-use anyhow::{anyhow, Result};
-use crate::tui::colors::cli as color;
 use crate::output::{format_output, OutputFormat};
+use crate::tui::colors::cli as color;
+use anyhow::{anyhow, Result};
 
 // ========== SNAPSHOT HANDLERS ==========
 
@@ -16,16 +16,18 @@ pub async fn handle_snapshot_create(
     let manager = SnapshotManager::new(namespace).await?;
 
     // Auto-generate snapshot name if not provided
-    let snapshot_name = name.unwrap_or_else(|| {
-        format!("{}-snapshot-{}", vm, Utc::now().format("%Y%m%d-%H%M%S"))
-    });
+    let snapshot_name =
+        name.unwrap_or_else(|| format!("{}-snapshot-{}", vm, Utc::now().format("%Y%m%d-%H%M%S")));
 
     let mut config = SnapshotConfig::new(&vm, &snapshot_name);
     if let Some(desc) = description {
         config = config.with_description(desc);
     }
 
-    println!("{}", color::header(&format!("Creating snapshot for VM: {}", vm)));
+    println!(
+        "{}",
+        color::header(&format!("Creating snapshot for VM: {}", vm))
+    );
     println!("  Snapshot name: {}", color::value(&snapshot_name));
     if let Some(desc) = &config.description {
         println!("  Description:   {}", color::muted(desc));
@@ -38,7 +40,10 @@ pub async fn handle_snapshot_create(
             println!("  Status:    {}", color::vm_status("InProgress"));
             println!();
             println!("{}", color::info("Check snapshot status with:"));
-            println!("  {}", color::command(&format!("zorvia snapshot-get {}", snapshot_name)));
+            println!(
+                "  {}",
+                color::command(&format!("zorvia snapshot-get {}", snapshot_name))
+            );
         }
         Err(e) => {
             println!("{} Failed to create snapshot: {}", color::error("✗"), e);
@@ -59,10 +64,19 @@ pub async fn handle_snapshot_list(
     let manager = SnapshotManager::new(namespace).await?;
 
     let snapshots = if let Some(vm_name) = vm {
-        println!("{}", color::header(&format!("Snapshots for VM: {}", vm_name)));
+        println!(
+            "{}",
+            color::header(&format!("Snapshots for VM: {}", vm_name))
+        );
         manager.list_snapshots_for_vm(&vm_name).await?
     } else {
-        println!("{}", color::header(&format!("All Snapshots in namespace: {}", color::namespace(namespace))));
+        println!(
+            "{}",
+            color::header(&format!(
+                "All Snapshots in namespace: {}",
+                color::namespace(namespace)
+            ))
+        );
         manager.list_all_snapshots().await?
     };
 
@@ -73,7 +87,8 @@ pub async fn handle_snapshot_list(
 
     if output == "table" {
         println!();
-        println!("{:<30} {:<20} {:<12} {:<10} {:<10}",
+        println!(
+            "{:<30} {:<20} {:<12} {:<10} {:<10}",
             color::label("NAME"),
             color::label("VM"),
             color::label("STATUS"),
@@ -90,7 +105,8 @@ pub async fn handle_snapshot_list(
                 snapshots::SnapshotStatus::Unknown => color::vm_status("Unknown"),
             };
 
-            println!("{:<30} {:<20} {:<12} {:<10} {:<10}",
+            println!(
+                "{:<30} {:<20} {:<12} {:<10} {:<10}",
                 snapshot.name,
                 snapshot.vm_name,
                 status_str,
@@ -150,11 +166,14 @@ pub async fn handle_snapshot_get(name: String, output: String, namespace: &str) 
             println!("  Duration:    {}", duration);
         }
 
-        println!("  Ready:       {}", if snapshot.ready_to_use {
-            color::success("Yes")
-        } else {
-            color::muted("No")
-        });
+        println!(
+            "  Ready:       {}",
+            if snapshot.ready_to_use {
+                color::success("Yes")
+            } else {
+                color::muted("No")
+            }
+        );
 
         if let Some(error) = &snapshot.error {
             println!("  Error:       {}", color::error(error));
@@ -167,7 +186,10 @@ pub async fn handle_snapshot_delete(name: String, yes: bool, namespace: &str) ->
     use crate::snapshots::SnapshotManager;
 
     if !yes {
-        print!("Are you sure you want to delete snapshot '{}'? [y/N] ", name);
+        print!(
+            "Are you sure you want to delete snapshot '{}'? [y/N] ",
+            name
+        );
         use std::io::{self, Write};
         io::stdout().flush()?;
 
@@ -211,8 +233,14 @@ pub async fn handle_snapshot_restore(
         let default_vm = snapshot.replace("-snapshot", "");
         let vm_name = target.as_deref().unwrap_or(&default_vm);
 
-        println!("{}", color::header(&format!("Restoring VM in-place: {}", vm_name)));
-        println!("{}", color::warning("⚠ This will overwrite the current VM state"));
+        println!(
+            "{}",
+            color::header(&format!("Restoring VM in-place: {}", vm_name))
+        );
+        println!(
+            "{}",
+            color::warning("⚠ This will overwrite the current VM state")
+        );
         println!();
 
         match manager.restore_in_place(vm_name, &snapshot).await {
@@ -231,7 +259,10 @@ pub async fn handle_snapshot_restore(
         let default_target = format!("{}-restored", snapshot);
         let target_vm = target.as_deref().unwrap_or(&default_target);
 
-        println!("{}", color::header(&format!("Restoring snapshot to new VM: {}", target_vm)));
+        println!(
+            "{}",
+            color::header(&format!("Restoring snapshot to new VM: {}", target_vm))
+        );
         println!("  Snapshot:  {}", color::value(&snapshot));
         println!("  Target VM: {}", color::value(target_vm));
         if start {
@@ -246,7 +277,10 @@ pub async fn handle_snapshot_restore(
                 println!("  Status:       {}", color::vm_status("InProgress"));
                 println!();
                 if start {
-                    println!("{}", color::info("VM will be started after restore completes"));
+                    println!(
+                        "{}",
+                        color::info("VM will be started after restore completes")
+                    );
                 }
             }
             Err(e) => {
@@ -266,8 +300,14 @@ pub async fn handle_monitor_live(vm: String, interval: u64, namespace: &str) -> 
     let collector = MetricsCollector::new(namespace);
     let reporter = MonitoringReporter::new();
 
-    println!("{}", color::header(&format!("Live Monitoring: {} (Press Ctrl+C to stop)", vm)));
-    println!("{}", color::muted(&format!("Update interval: {} seconds", interval)));
+    println!(
+        "{}",
+        color::header(&format!("Live Monitoring: {} (Press Ctrl+C to stop)", vm))
+    );
+    println!(
+        "{}",
+        color::muted(&format!("Update interval: {} seconds", interval))
+    );
     println!();
 
     // Simple loop for demonstration (in a real TUI, this would be in a terminal UI)
@@ -303,13 +343,18 @@ pub async fn handle_monitor_stats(
     output: String,
     namespace: &str,
 ) -> Result<()> {
-    use crate::monitoring::{MetricsCollector, PerformanceAnalyzer, MonitoringReporter, ReportFormat};
+    use crate::monitoring::{
+        MetricsCollector, MonitoringReporter, PerformanceAnalyzer, ReportFormat,
+    };
 
     let collector = MetricsCollector::new(namespace);
     let analyzer = PerformanceAnalyzer::with_default_thresholds();
     let reporter = MonitoringReporter::new();
 
-    println!("{}", color::header(&format!("Performance Statistics: {}", vm)));
+    println!(
+        "{}",
+        color::header(&format!("Performance Statistics: {}", vm))
+    );
     println!("  Period: {}", color::value(&period));
     println!();
 
@@ -345,10 +390,13 @@ pub async fn handle_monitor_compare(
     output: String,
     namespace: &str,
 ) -> Result<()> {
-    use crate::monitoring::{MetricsCollector, PerformanceAnalyzer, MonitoringReporter};
+    use crate::monitoring::{MetricsCollector, MonitoringReporter, PerformanceAnalyzer};
 
     if vms.len() < 2 {
-        println!("{} At least 2 VMs are required for comparison", color::error("✗"));
+        println!(
+            "{} At least 2 VMs are required for comparison",
+            color::error("✗")
+        );
         return Err(anyhow!("Need at least 2 VMs"));
     }
 
@@ -368,8 +416,12 @@ pub async fn handle_monitor_compare(
                 reports.push(report);
             }
             Err(e) => {
-                println!("{} Failed to collect metrics for {}: {}",
-                    color::error("✗"), vm_name, e);
+                println!(
+                    "{} Failed to collect metrics for {}: {}",
+                    color::error("✗"),
+                    vm_name,
+                    e
+                );
             }
         }
     }
@@ -399,7 +451,7 @@ pub async fn handle_monitor_top(
     limit: usize,
     namespace: &str,
 ) -> Result<()> {
-    use crate::monitoring::{MetricsCollector, PerformanceAnalyzer, MonitoringReporter};
+    use crate::monitoring::{MetricsCollector, MonitoringReporter, PerformanceAnalyzer};
 
     // Mock VMs for demonstration
     let vms = ["prod-db", "prod-web", "test-vm", "dev-vm", "cache-vm"];
@@ -408,7 +460,10 @@ pub async fn handle_monitor_top(
     let analyzer = PerformanceAnalyzer::with_default_thresholds();
     let reporter = MonitoringReporter::new();
 
-    println!("{}", color::header(&format!("Top {} VMs by {}", limit.min(vms.len()), sort_by)));
+    println!(
+        "{}",
+        color::header(&format!("Top {} VMs by {}", limit.min(vms.len()), sort_by))
+    );
     println!();
 
     let mut reports = Vec::new();
@@ -423,15 +478,37 @@ pub async fn handle_monitor_top(
     // Sort based on sort_by parameter
     reports.sort_by(|a, b| {
         match sort_by.as_str() {
-            "cpu" => b.current_metrics.cpu.usage_percent.partial_cmp(&a.current_metrics.cpu.usage_percent).unwrap_or(std::cmp::Ordering::Equal),
-            "memory" => b.current_metrics.memory.usage_percent.partial_cmp(&a.current_metrics.memory.usage_percent).unwrap_or(std::cmp::Ordering::Equal),
-            "disk" => b.current_metrics.disk.usage_percent.partial_cmp(&a.current_metrics.disk.usage_percent).unwrap_or(std::cmp::Ordering::Equal),
+            "cpu" => b
+                .current_metrics
+                .cpu
+                .usage_percent
+                .partial_cmp(&a.current_metrics.cpu.usage_percent)
+                .unwrap_or(std::cmp::Ordering::Equal),
+            "memory" => b
+                .current_metrics
+                .memory
+                .usage_percent
+                .partial_cmp(&a.current_metrics.memory.usage_percent)
+                .unwrap_or(std::cmp::Ordering::Equal),
+            "disk" => b
+                .current_metrics
+                .disk
+                .usage_percent
+                .partial_cmp(&a.current_metrics.disk.usage_percent)
+                .unwrap_or(std::cmp::Ordering::Equal),
             _ => b.performance_score.cmp(&a.performance_score), // default: score
         }
     });
 
-    let comparison: Vec<_> = reports.into_iter()
-        .map(|r| (r.vm_name, r.performance_score, r.status.as_str().to_string()))
+    let comparison: Vec<_> = reports
+        .into_iter()
+        .map(|r| {
+            (
+                r.vm_name,
+                r.performance_score,
+                r.status.as_str().to_string(),
+            )
+        })
         .collect();
 
     println!("{}", reporter.format_comparison(comparison));
@@ -454,8 +531,7 @@ pub async fn handle_disk_expand(
     use crate::disk::{DiskConfig, DiskExpansion, DiskInfo};
 
     let pvc_name = pvc.as_deref().unwrap_or(&disk);
-    let config = DiskConfig::new(&disk, pvc_name)
-        .with_sizes("unknown", &size);
+    let config = DiskConfig::new(&disk, pvc_name).with_sizes("unknown", &size);
 
     let expansion = DiskExpansion::new(namespace);
     let expansion_plan = expansion.create_plan(&vm, &config)?;
@@ -475,15 +551,22 @@ pub async fn handle_disk_expand(
             } else {
                 color::muted("○")
             };
-            println!("  {} Step {}: {}", status, step.step_number, step.description);
+            println!(
+                "  {} Step {}: {}",
+                status, step.step_number, step.description
+            );
             println!("     {}", color::muted(&format!("$ {}", step.command)));
         }
 
         println!();
         let increase_gi = DiskInfo::parse_size(&size) / (1024 * 1024 * 1024);
-        println!("{}", color::info(&format!("ℹ Estimated time: {}",
-            expansion.estimate_duration(increase_gi)
-        )));
+        println!(
+            "{}",
+            color::info(&format!(
+                "ℹ Estimated time: {}",
+                expansion.estimate_duration(increase_gi)
+            ))
+        );
     } else {
         // Execute expansion
         println!("{}", color::header(&format!("Expanding disk: {}", disk)));
@@ -498,7 +581,10 @@ pub async fn handle_disk_expand(
                 println!();
                 println!("{}", color::warning("⚠ Next steps (run inside VM):"));
                 println!("  1. Rescan disk:");
-                println!("     {}", color::command("echo 1 | sudo tee /sys/class/block/vda/device/rescan"));
+                println!(
+                    "     {}",
+                    color::command("echo 1 | sudo tee /sys/class/block/vda/device/rescan")
+                );
                 println!("  2. Expand filesystem (see: zorvia disk-script)");
             }
             Err(e) => {
@@ -511,8 +597,8 @@ pub async fn handle_disk_expand(
 }
 
 pub fn handle_disk_health(vm: String, detailed: bool) -> Result<()> {
-    use crate::disk::{DiskInfo, DiskHealthCheck};
     use crate::disk::health::DiskHealthStatus;
+    use crate::disk::{DiskHealthCheck, DiskInfo};
 
     println!("{}", color::header(&format!("Disk Health: {}", vm)));
     println!();
@@ -577,7 +663,10 @@ pub fn handle_disk_health(vm: String, detailed: bool) -> Result<()> {
 
             if status != DiskHealthStatus::Healthy {
                 let recommended = checker.recommend_expansion_size(disk, 60.0);
-                println!("    {}", color::warning(&format!("→ Recommended size: {}", recommended)));
+                println!(
+                    "    {}",
+                    color::warning(&format!("→ Recommended size: {}", recommended))
+                );
             }
         }
     }
@@ -593,7 +682,10 @@ pub fn handle_disk_health(vm: String, detailed: bool) -> Result<()> {
 
     if health.needs_expansion {
         println!();
-        println!("{}", color::info("ℹ Use 'zorvia disk-expand' to expand disks"));
+        println!(
+            "{}",
+            color::info("ℹ Use 'zorvia disk-expand' to expand disks")
+        );
     }
     Ok(())
 }
@@ -604,7 +696,7 @@ pub fn handle_disk_script(
     output: Option<String>,
     dry_run: bool,
 ) -> Result<()> {
-    use crate::disk::{FilesystemType, ExpansionScript, ScriptGenerator};
+    use crate::disk::{ExpansionScript, FilesystemType, ScriptGenerator};
 
     let fs_type = FilesystemType::from_string(&filesystem);
     let script_config = ExpansionScript::new(fs_type.clone(), &device)
@@ -616,7 +708,11 @@ pub fn handle_disk_script(
 
     if let Some(output_file) = output {
         std::fs::write(&output_file, &script)?;
-        println!("{} Script written to: {}", color::success("✓"), color::path(&output_file));
+        println!(
+            "{} Script written to: {}",
+            color::success("✓"),
+            color::path(&output_file)
+        );
         println!();
         println!("{}", color::info("To execute:"));
         println!("  {}", color::command(&format!("chmod +x {}", output_file)));
@@ -627,15 +723,14 @@ pub fn handle_disk_script(
 
     println!();
     println!("{}", color::header("Quick One-Liner:"));
-    println!("{}", color::command(&ScriptGenerator::generate_oneliner(&fs_type, &device)));
+    println!(
+        "{}",
+        color::command(&ScriptGenerator::generate_oneliner(&fs_type, &device))
+    );
     Ok(())
 }
 
-pub fn handle_disk_usage(
-    vm: Option<String>,
-    sort_by: String,
-    output: String,
-) -> Result<()> {
+pub fn handle_disk_usage(vm: Option<String>, sort_by: String, output: String) -> Result<()> {
     use crate::disk::DiskInfo;
 
     println!("{}", color::header("Disk Usage"));
@@ -677,7 +772,11 @@ pub fn handle_disk_usage(
 
     // Sort disks
     match sort_by.as_str() {
-        "usage" => disks.sort_by(|a, b| b.usage_percent.partial_cmp(&a.usage_percent).unwrap_or(std::cmp::Ordering::Equal)),
+        "usage" => disks.sort_by(|a, b| {
+            b.usage_percent
+                .partial_cmp(&a.usage_percent)
+                .unwrap_or(std::cmp::Ordering::Equal)
+        }),
         "size" => disks.sort_by(|a, b| {
             let a_size = DiskInfo::parse_size(&a.size);
             let b_size = DiskInfo::parse_size(&b.size);
@@ -699,7 +798,8 @@ pub fn handle_disk_usage(
         println!("{}", yaml);
     } else {
         // Table format
-        println!("{:<20} {:<12} {:<12} {:<12} {:<10}",
+        println!(
+            "{:<20} {:<12} {:<12} {:<12} {:<10}",
             color::label("VM"),
             color::label("SIZE"),
             color::label("USED"),
@@ -717,12 +817,9 @@ pub fn handle_disk_usage(
                 format!("{:.1}%", disk.usage_percent)
             };
 
-            println!("{:<20} {:<12} {:<12} {:<12} {}",
-                disk.name,
-                disk.size,
-                disk.used,
-                disk.available,
-                usage_str
+            println!(
+                "{:<20} {:<12} {:<12} {:<12} {}",
+                disk.name, disk.size, disk.used, disk.available, usage_str
             );
         }
     }
@@ -769,7 +866,8 @@ pub fn handle_network_list(vm: String, output: String) -> Result<()> {
         println!("{}", yaml);
     } else {
         // Table format
-        println!("{:<12} {:<15} {:<20} {:<18} {:<12} {}",
+        println!(
+            "{:<12} {:<15} {:<20} {:<18} {:<12} {}",
             color::label("NAME"),
             color::label("NETWORK"),
             color::label("MAC ADDRESS"),
@@ -786,7 +884,8 @@ pub fn handle_network_list(vm: String, output: String) -> Result<()> {
                 network::InterfaceState::Unknown => color::muted("UNKNOWN"),
             };
 
-            println!("{:<12} {:<15} {:<20} {:<18} {:<12} {}",
+            println!(
+                "{:<12} {:<15} {:<20} {:<18} {:<12} {}",
                 iface.name,
                 iface.network,
                 iface.mac_address,
@@ -848,7 +947,8 @@ pub fn handle_network_bandwidth(
     metrics.tx_errors = 2;
     monitor.add_sample(metrics.clone());
 
-    println!("{:<15} {:<15} {:<15} {:<12} {:<12}",
+    println!(
+        "{:<15} {:<15} {:<15} {:<12} {:<12}",
         color::label("INTERFACE"),
         color::label("RX"),
         color::label("TX"),
@@ -857,7 +957,8 @@ pub fn handle_network_bandwidth(
     );
     println!("{}", "-".repeat(75));
 
-    println!("{:<15} {:<15} {:<15} {:<12} {:<12}",
+    println!(
+        "{:<15} {:<15} {:<15} {:<12} {:<12}",
         iface_name,
         BandwidthMetrics::format_bytes(metrics.rx_bytes),
         BandwidthMetrics::format_bytes(metrics.tx_bytes),
@@ -869,13 +970,33 @@ pub fn handle_network_bandwidth(
     println!("{}", color::header("Statistics:"));
     println!("  RX Packets:  {}", metrics.rx_packets);
     println!("  TX Packets:  {}", metrics.tx_packets);
-    println!("  RX Errors:   {}", if metrics.rx_errors > 0 { color::warning(&metrics.rx_errors.to_string()) } else { metrics.rx_errors.to_string() });
-    println!("  TX Errors:   {}", if metrics.tx_errors > 0 { color::warning(&metrics.tx_errors.to_string()) } else { metrics.tx_errors.to_string() });
+    println!(
+        "  RX Errors:   {}",
+        if metrics.rx_errors > 0 {
+            color::warning(&metrics.rx_errors.to_string())
+        } else {
+            metrics.rx_errors.to_string()
+        }
+    );
+    println!(
+        "  TX Errors:   {}",
+        if metrics.tx_errors > 0 {
+            color::warning(&metrics.tx_errors.to_string())
+        } else {
+            metrics.tx_errors.to_string()
+        }
+    );
     println!("  Error Rate:  {:.3}%", metrics.error_rate());
 
     if watch {
         println!();
-        println!("{}", color::info(&format!("ℹ Watch mode not yet implemented. Use --interval {} for update rate.", interval)));
+        println!(
+            "{}",
+            color::info(&format!(
+                "ℹ Watch mode not yet implemented. Use --interval {} for update rate.",
+                interval
+            ))
+        );
     }
     Ok(())
 }
@@ -887,10 +1008,13 @@ pub fn handle_network_traffic(
     top: usize,
     output: String,
 ) -> Result<()> {
-    use crate::network::traffic::{TrafficAnalyzer, TrafficFlow, Protocol};
     use crate::network::bandwidth::BandwidthMetrics;
+    use crate::network::traffic::{Protocol, TrafficAnalyzer, TrafficFlow};
 
-    println!("{}", color::header(&format!("Network Traffic Analysis: {}", vm)));
+    println!(
+        "{}",
+        color::header(&format!("Network Traffic Analysis: {}", vm))
+    );
     if let Some(iface) = &interface {
         println!("  Interface: {}", color::value(iface));
     }
@@ -927,14 +1051,18 @@ pub fn handle_network_traffic(
         println!("{}", color::header("Traffic Summary:"));
         println!("  Total Flows:    {}", summary.total_flows);
         println!("  Active Flows:   {}", summary.active_flows);
-        println!("  Total Bytes:    {}", BandwidthMetrics::format_bytes(summary.total_bytes));
+        println!(
+            "  Total Bytes:    {}",
+            BandwidthMetrics::format_bytes(summary.total_bytes)
+        );
         println!("  Total Packets:  {}", summary.total_packets);
 
         println!();
         println!("{}", color::header("Protocol Breakdown:"));
         for (proto, stats) in &summary.protocol_breakdown {
             let percentage = summary.protocol_percent(proto);
-            println!("  {:<8} {:<12} ({:.1}%)",
+            println!(
+                "  {:<8} {:<12} ({:.1}%)",
                 proto,
                 BandwidthMetrics::format_bytes(stats.bytes),
                 percentage
@@ -944,7 +1072,8 @@ pub fn handle_network_traffic(
         if !summary.top_talkers.is_empty() {
             println!();
             println!("{}", color::header(&format!("Top {} Talkers:", top)));
-            println!("{:<18} {:<15} {:<15} {:<15}",
+            println!(
+                "{:<18} {:<15} {:<15} {:<15}",
                 color::label("IP ADDRESS"),
                 color::label("SENT"),
                 color::label("RECEIVED"),
@@ -953,7 +1082,8 @@ pub fn handle_network_traffic(
             println!("{}", "-".repeat(70));
 
             for talker in &summary.top_talkers {
-                println!("{:<18} {:<15} {:<15} {:<15}",
+                println!(
+                    "{:<18} {:<15} {:<15} {:<15}",
                     talker.ip_address,
                     BandwidthMetrics::format_bytes(talker.bytes_sent),
                     BandwidthMetrics::format_bytes(talker.bytes_received),
@@ -977,16 +1107,13 @@ pub fn handle_network_policies(all_namespaces: bool, output: String) -> Result<(
     // Mock policy data
     let policies = vec![
         {
-            let selector = VMSelector::default()
-                .with_label("app".to_string(), "web".to_string());
-            NetworkPolicy::new("web-policy")
-                .with_vm_selector(selector)
+            let selector = VMSelector::default().with_label("app".to_string(), "web".to_string());
+            NetworkPolicy::new("web-policy").with_vm_selector(selector)
         },
         {
-            let selector = VMSelector::default()
-                .with_label("app".to_string(), "database".to_string());
-            NetworkPolicy::new("database-policy")
-                .with_vm_selector(selector)
+            let selector =
+                VMSelector::default().with_label("app".to_string(), "database".to_string());
+            NetworkPolicy::new("database-policy").with_vm_selector(selector)
         },
     ];
 
@@ -997,7 +1124,8 @@ pub fn handle_network_policies(all_namespaces: bool, output: String) -> Result<(
         let yaml = serde_yaml::to_string(&policies)?;
         println!("{}", yaml);
     } else {
-        println!("{:<25} {:<12} {:<12} {}",
+        println!(
+            "{:<25} {:<12} {:<12} {}",
             color::label("NAME"),
             color::label("INGRESS"),
             color::label("EGRESS"),
@@ -1006,13 +1134,16 @@ pub fn handle_network_policies(all_namespaces: bool, output: String) -> Result<(
         println!("{}", "-".repeat(70));
 
         for policy in &policies {
-            let selector_str = policy.vm_selector.labels
+            let selector_str = policy
+                .vm_selector
+                .labels
                 .iter()
                 .map(|(k, v)| format!("{}={}", k, v))
                 .collect::<Vec<_>>()
                 .join(",");
 
-            println!("{:<25} {:<12} {:<12} {}",
+            println!(
+                "{:<25} {:<12} {:<12} {}",
                 policy.name,
                 policy.ingress_rules.len(),
                 policy.egress_rules.len(),
@@ -1026,10 +1157,8 @@ pub fn handle_network_policies(all_namespaces: bool, output: String) -> Result<(
 pub fn handle_network_policy(name: String, output: String) -> Result<()> {
     use crate::network::policies::{NetworkPolicy, VMSelector};
 
-    let selector = VMSelector::default()
-        .with_label("app".to_string(), "web".to_string());
-    let policy = NetworkPolicy::new(name)
-        .with_vm_selector(selector);
+    let selector = VMSelector::default().with_label("app".to_string(), "web".to_string());
+    let policy = NetworkPolicy::new(name).with_vm_selector(selector);
 
     if output == "json" {
         let json = serde_json::to_string_pretty(&policy)?;

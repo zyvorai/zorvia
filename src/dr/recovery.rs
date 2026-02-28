@@ -22,7 +22,11 @@ impl RecoveryPoint {
         snapshot_id: impl Into<String>,
     ) -> Self {
         let name_str = name.into();
-        let id = format!("rp-{}-{}", name_str.to_lowercase().replace(' ', "-"), Utc::now().timestamp());
+        let id = format!(
+            "rp-{}-{}",
+            name_str.to_lowercase().replace(' ', "-"),
+            Utc::now().timestamp()
+        );
 
         Self {
             id,
@@ -107,7 +111,11 @@ impl RecoveryOperation {
         initiated_by: impl Into<String>,
     ) -> Self {
         let name_str = name.into();
-        let id = format!("rec-{}-{}", name_str.to_lowercase().replace(' ', "-"), Utc::now().timestamp());
+        let id = format!(
+            "rec-{}-{}",
+            name_str.to_lowercase().replace(' ', "-"),
+            Utc::now().timestamp()
+        );
 
         Self {
             id,
@@ -135,7 +143,11 @@ impl RecoveryOperation {
     }
 
     pub fn complete(&mut self, success: bool, error: Option<String>) {
-        self.status = if success { RecoveryStatus::Completed } else { RecoveryStatus::Failed };
+        self.status = if success {
+            RecoveryStatus::Completed
+        } else {
+            RecoveryStatus::Failed
+        };
         self.completed_at = Some(Utc::now());
         self.duration_seconds = Some((Utc::now() - self.started_at).num_seconds() as u64);
         self.success = success;

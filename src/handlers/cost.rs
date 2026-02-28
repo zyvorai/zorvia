@@ -1,5 +1,5 @@
-use anyhow::Result;
 use crate::tui::colors::cli as color;
+use anyhow::Result;
 
 pub fn handle_cost_analyze(vm: Option<String>, period: String, output: String) -> Result<()> {
     use crate::cost::CostCalculator;
@@ -18,7 +18,7 @@ pub fn handle_cost_analyze(vm: Option<String>, period: String, output: String) -
         4,
         8,
         20,
-        730.0
+        730.0,
     );
 
     println!("Cost Breakdown:");
@@ -26,7 +26,10 @@ pub fn handle_cost_analyze(vm: Option<String>, period: String, output: String) -
     println!("  Memory:   ${:.2}", cost.memory_cost);
     println!("  Storage:  ${:.2}", cost.storage_cost);
     println!("  Network:  ${:.2}", cost.network_cost);
-    println!("  Total:    {}", color::value(&format!("${:.2}", cost.total_cost)));
+    println!(
+        "  Total:    {}",
+        color::value(&format!("${:.2}", cost.total_cost))
+    );
     println!();
     println!("  Runtime:  {:.1} hours", cost.runtime_hours);
     println!("  Cost/hr:  ${:.4}", cost.cost_per_hour());
@@ -43,7 +46,12 @@ pub fn handle_cost_analyze(vm: Option<String>, period: String, output: String) -
     Ok(())
 }
 
-pub fn handle_cost_summary(namespace: Option<String>, period: String, group_by: Option<String>, output: String) -> Result<()> {
+pub fn handle_cost_summary(
+    namespace: Option<String>,
+    period: String,
+    group_by: Option<String>,
+    output: String,
+) -> Result<()> {
     use crate::cost::CostSummary;
 
     println!("{}", color::header("Cost Summary"));
@@ -59,7 +67,10 @@ pub fn handle_cost_summary(namespace: Option<String>, period: String, group_by: 
     let summary = CostSummary::new();
 
     println!("Summary:");
-    println!("  Total Cost:       {}", color::value(&format!("${:.2}", summary.total_cost)));
+    println!(
+        "  Total Cost:       {}",
+        color::value(&format!("${:.2}", summary.total_cost))
+    );
     println!("  VM Count:         {}", summary.vm_count);
     println!("  Avg Cost/VM:      ${:.2}", summary.average_cost_per_vm());
     println!();
@@ -82,8 +93,12 @@ pub fn handle_cost_summary(namespace: Option<String>, period: String, group_by: 
     Ok(())
 }
 
-pub fn handle_cost_report(report_type: String, format: String, output: Option<String>) -> Result<()> {
-    use crate::cost::reports::{ReportGenerator, ReportExporter};
+pub fn handle_cost_report(
+    report_type: String,
+    format: String,
+    output: Option<String>,
+) -> Result<()> {
+    use crate::cost::reports::{ReportExporter, ReportGenerator};
     use chrono::Utc;
 
     println!("{}", color::header(&format!("{} Cost Report", report_type)));
@@ -96,11 +111,15 @@ pub fn handle_cost_report(report_type: String, format: String, output: Option<St
     };
 
     println!("  Report ID:   {}", report.report_id);
-    println!("  Period:      {} to {}",
+    println!(
+        "  Period:      {} to {}",
         report.period_start.format("%Y-%m-%d"),
         report.period_end.format("%Y-%m-%d")
     );
-    println!("  Total Cost:  {}", color::value(&format!("${:.2}", report.summary.total_cost)));
+    println!(
+        "  Total Cost:  {}",
+        color::value(&format!("${:.2}", report.summary.total_cost))
+    );
     println!();
 
     let content = if format == "csv" {
@@ -113,7 +132,10 @@ pub fn handle_cost_report(report_type: String, format: String, output: Option<St
 
     if let Some(file_path) = output {
         std::fs::write(&file_path, content)?;
-        println!("{}", color::success(&format!("Report saved to: {}", file_path)));
+        println!(
+            "{}",
+            color::success(&format!("Report saved to: {}", file_path))
+        );
     } else {
         println!("{}", content);
     }
@@ -121,7 +143,7 @@ pub fn handle_cost_report(report_type: String, format: String, output: Option<St
 }
 
 pub fn handle_budget_list(output: String) -> Result<()> {
-    use crate::cost::budgets::{BudgetManager, Budget, BudgetPeriod, BudgetScope};
+    use crate::cost::budgets::{Budget, BudgetManager, BudgetPeriod, BudgetScope};
 
     println!("{}", color::header("Budgets"));
     println!();
@@ -131,11 +153,11 @@ pub fn handle_budget_list(output: String) -> Result<()> {
     // Example budgets
     manager.add_budget(
         Budget::new("monthly-budget", 5000.0, BudgetPeriod::Monthly)
-            .with_scope(BudgetScope::Global)
+            .with_scope(BudgetScope::Global),
     );
     manager.add_budget(
         Budget::new("dev-budget", 1000.0, BudgetPeriod::Monthly)
-            .with_scope(BudgetScope::Namespace("dev".to_string()))
+            .with_scope(BudgetScope::Namespace("dev".to_string())),
     );
 
     if output == "json" {
@@ -145,7 +167,8 @@ pub fn handle_budget_list(output: String) -> Result<()> {
         let yaml = serde_yaml::to_string(&manager.all_budgets())?;
         println!("{}", yaml);
     } else {
-        println!("{:<20} {:<15} {:<15} {:<10}",
+        println!(
+            "{:<20} {:<15} {:<15} {:<10}",
             color::label("NAME"),
             color::label("AMOUNT"),
             color::label("PERIOD"),
@@ -154,7 +177,8 @@ pub fn handle_budget_list(output: String) -> Result<()> {
         println!("{}", "-".repeat(65));
 
         for budget in manager.all_budgets() {
-            println!("{:<20} ${:<14.2} {:<15} {}",
+            println!(
+                "{:<20} ${:<14.2} {:<15} {}",
                 budget.name,
                 budget.amount,
                 budget.period.to_string(),
@@ -165,8 +189,14 @@ pub fn handle_budget_list(output: String) -> Result<()> {
     Ok(())
 }
 
-pub fn handle_budget_create(name: String, amount: f64, period: String, scope: String, alert_threshold: Option<f64>) -> Result<()> {
-    use crate::cost::budgets::{Budget, BudgetPeriod, BudgetScope, BudgetAlert, NotificationType};
+pub fn handle_budget_create(
+    name: String,
+    amount: f64,
+    period: String,
+    scope: String,
+    alert_threshold: Option<f64>,
+) -> Result<()> {
+    use crate::cost::budgets::{Budget, BudgetAlert, BudgetPeriod, BudgetScope, NotificationType};
 
     println!("{}", color::header(&format!("Creating Budget: {}", name)));
     println!();
@@ -189,17 +219,17 @@ pub fn handle_budget_create(name: String, amount: f64, period: String, scope: St
         BudgetScope::Global
     };
 
-    let mut budget = Budget::new(&name, amount, budget_period)
-        .with_scope(budget_scope);
+    let mut budget = Budget::new(&name, amount, budget_period).with_scope(budget_scope);
 
     if let Some(threshold) = alert_threshold {
-        budget = budget.add_alert(
-            BudgetAlert::new(threshold, NotificationType::Email)
-        );
+        budget = budget.add_alert(BudgetAlert::new(threshold, NotificationType::Email));
     }
 
     println!("  Name:       {}", color::value(&budget.name));
-    println!("  Amount:     {}", color::value(&format!("${:.2}", budget.amount)));
+    println!(
+        "  Amount:     {}",
+        color::value(&format!("${:.2}", budget.amount))
+    );
     println!("  Period:     {}", budget.period);
     println!("  Scope:      {}", budget.scope);
     if !budget.alerts.is_empty() {
@@ -220,16 +250,22 @@ pub fn handle_budget_status(name: String, output: String) -> Result<()> {
 
     println!("{}", color::header(&format!("Budget Status: {}", name)));
     println!();
-    println!("  Amount:       {}", color::value(&format!("${:.2}", status.amount)));
+    println!(
+        "  Amount:       {}",
+        color::value(&format!("${:.2}", status.amount))
+    );
     println!("  Current:      ${:.2}", status.current_spend);
     println!("  Remaining:    ${:.2}", status.remaining);
     println!("  Utilization:  {}%", status.utilization_percent as u8);
-    println!("  Status:       {}", match status.status {
-        crate::cost::budgets::Status::Healthy => color::success("Healthy"),
-        crate::cost::budgets::Status::Warning => color::warning("Warning"),
-        crate::cost::budgets::Status::Critical => color::error("Critical"),
-        crate::cost::budgets::Status::Exceeded => color::error("Exceeded"),
-    });
+    println!(
+        "  Status:       {}",
+        match status.status {
+            crate::cost::budgets::Status::Healthy => color::success("Healthy"),
+            crate::cost::budgets::Status::Warning => color::warning("Warning"),
+            crate::cost::budgets::Status::Critical => color::error("Critical"),
+            crate::cost::budgets::Status::Exceeded => color::error("Exceeded"),
+        }
+    );
 
     if output == "json" {
         println!();
@@ -243,7 +279,11 @@ pub fn handle_budget_status(name: String, output: String) -> Result<()> {
     Ok(())
 }
 
-pub fn handle_cost_optimize(vm: Option<String>, high_priority_only: bool, output: String) -> Result<()> {
+pub fn handle_cost_optimize(
+    vm: Option<String>,
+    high_priority_only: bool,
+    output: String,
+) -> Result<()> {
     use crate::cost::optimization::OptimizationEngine;
 
     println!("{}", color::header("Cost Optimization Recommendations"));
@@ -260,7 +300,10 @@ pub fn handle_cost_optimize(vm: Option<String>, high_priority_only: bool, output
         report.recommendations.iter().collect()
     };
 
-    println!("Potential Savings: {}", color::value(&format!("${:.2}/month", report.total_potential_savings)));
+    println!(
+        "Potential Savings: {}",
+        color::value(&format!("${:.2}/month", report.total_potential_savings))
+    );
     println!("Recommendations:   {}", recommendations.len());
     println!();
 
@@ -271,7 +314,8 @@ pub fn handle_cost_optimize(vm: Option<String>, high_priority_only: bool, output
         let yaml = serde_yaml::to_string(&recommendations)?;
         println!("{}", yaml);
     } else {
-        println!("{:<15} {:<25} {:<10} {:<15} {}",
+        println!(
+            "{:<15} {:<25} {:<10} {:<15} {}",
             color::label("PRIORITY"),
             color::label("TYPE"),
             color::label("SAVINGS"),
@@ -288,7 +332,8 @@ pub fn handle_cost_optimize(vm: Option<String>, high_priority_only: bool, output
                 crate::cost::optimization::Priority::Low => color::info("Low"),
             };
 
-            println!("{:<15} {:<25} ${:<9.2} {:<15.1}% {}",
+            println!(
+                "{:<15} {:<25} ${:<9.2} {:<15.1}% {}",
                 priority_str,
                 rec.recommendation_type.to_string(),
                 rec.potential_savings,
@@ -311,15 +356,24 @@ pub fn handle_cost_waste(waste_type: Option<String>, min_waste: f64, output: Str
     println!();
 
     // Example waste reports
-    let wastes = [OptimizationEngine::detect_storage_waste(100, 10.0),
+    let wastes = [
+        OptimizationEngine::detect_storage_waste(100, 10.0),
         OptimizationEngine::detect_old_snapshots(10, 120, 5.0)
-            .ok_or_else(|| anyhow::anyhow!("Failed to detect old snapshots"))?];
+            .ok_or_else(|| anyhow::anyhow!("Failed to detect old snapshots"))?,
+    ];
 
-    let filtered: Vec<_> = wastes.iter()
+    let filtered: Vec<_> = wastes
+        .iter()
         .filter(|w| w.monthly_waste >= min_waste)
         .collect();
 
-    println!("Total Monthly Waste: {}", color::error(&format!("${:.2}", filtered.iter().map(|w| w.monthly_waste).sum::<f64>())));
+    println!(
+        "Total Monthly Waste: {}",
+        color::error(&format!(
+            "${:.2}",
+            filtered.iter().map(|w| w.monthly_waste).sum::<f64>()
+        ))
+    );
     println!("Waste Items:         {}", filtered.len());
     println!();
 
@@ -330,7 +384,8 @@ pub fn handle_cost_waste(waste_type: Option<String>, min_waste: f64, output: Str
         let yaml = serde_yaml::to_string(&filtered)?;
         println!("{}", yaml);
     } else {
-        println!("{:<20} {:<20} {:<15} {}",
+        println!(
+            "{:<20} {:<20} {:<15} {}",
             color::label("RESOURCE"),
             color::label("TYPE"),
             color::label("MONTHLY WASTE"),
@@ -339,7 +394,8 @@ pub fn handle_cost_waste(waste_type: Option<String>, min_waste: f64, output: Str
         println!("{}", "-".repeat(80));
 
         for waste in filtered {
-            println!("{:<20} {:<20} ${:<14.2} {}",
+            println!(
+                "{:<20} {:<20} ${:<14.2} {}",
                 waste.vm_name,
                 format!("{:?}", waste.waste_type),
                 waste.monthly_waste,
@@ -365,16 +421,31 @@ pub fn handle_cost_forecast(budget: Option<f64>, period: String, output: String)
 
     println!("Forecast:");
     println!("  Current Spend:    ${:.2}", forecast.current_spend);
-    println!("  Projected Spend:  {}", color::value(&format!("${:.2}", forecast.projected_spend)));
+    println!(
+        "  Projected Spend:  {}",
+        color::value(&format!("${:.2}", forecast.projected_spend))
+    );
     println!("  Confidence:       {}%", forecast.confidence as u8);
     println!("  Method:           {:?}", forecast.forecast_method);
     println!();
 
     if let Some(budget_amount) = budget {
         if forecast.is_over_budget(budget_amount) {
-            println!("{}", color::error(&format!("⚠ Forecast exceeds budget by ${:.2}", forecast.projected_spend - budget_amount)));
+            println!(
+                "{}",
+                color::error(&format!(
+                    "⚠ Forecast exceeds budget by ${:.2}",
+                    forecast.projected_spend - budget_amount
+                ))
+            );
         } else {
-            println!("{}", color::success(&format!("✓ Forecast within budget (${:.2} remaining)", budget_amount - forecast.projected_spend)));
+            println!(
+                "{}",
+                color::success(&format!(
+                    "✓ Forecast within budget (${:.2} remaining)",
+                    budget_amount - forecast.projected_spend
+                ))
+            );
         }
     }
 

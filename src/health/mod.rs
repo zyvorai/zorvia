@@ -24,7 +24,7 @@ pub struct VMHealthReport {
     pub vm_name: String,
     pub overall_status: HealthStatus,
     pub checks: Vec<HealthCheck>,
-    pub score: u8,  // 0-100
+    pub score: u8, // 0-100
     pub recommendations: Vec<String>,
 }
 
@@ -86,7 +86,8 @@ impl VMHealthReport {
         self.score = (health_score - warning_penalty - critical_penalty).max(0.0) as u8;
 
         // Collect recommendations
-        self.recommendations = self.checks
+        self.recommendations = self
+            .checks
             .iter()
             .filter_map(|c| c.recommendation.clone())
             .collect();
@@ -102,13 +103,18 @@ impl VMHealthReport {
                 name: "CPU Allocation".to_string(),
                 status: HealthStatus::Warning,
                 message: "Single CPU core may limit performance".to_string(),
-                recommendation: Some("Consider allocating at least 2 CPU cores for better performance".to_string()),
+                recommendation: Some(
+                    "Consider allocating at least 2 CPU cores for better performance".to_string(),
+                ),
             });
         } else if cpu >= 8 {
             checks.push(HealthCheck {
                 name: "CPU Allocation".to_string(),
                 status: HealthStatus::Healthy,
-                message: format!("{} CPU cores allocated - excellent for demanding workloads", cpu),
+                message: format!(
+                    "{} CPU cores allocated - excellent for demanding workloads",
+                    cpu
+                ),
                 recommendation: None,
             });
         } else {
@@ -127,13 +133,18 @@ impl VMHealthReport {
                 name: "Memory Allocation".to_string(),
                 status: HealthStatus::Warning,
                 message: format!("{} memory is low", memory),
-                recommendation: Some("Consider allocating at least 2Gi memory for stability".to_string()),
+                recommendation: Some(
+                    "Consider allocating at least 2Gi memory for stability".to_string(),
+                ),
             });
         } else if memory_gb >= 16.0 {
             checks.push(HealthCheck {
                 name: "Memory Allocation".to_string(),
                 status: HealthStatus::Healthy,
-                message: format!("{} memory - excellent for memory-intensive workloads", memory),
+                message: format!(
+                    "{} memory - excellent for memory-intensive workloads",
+                    memory
+                ),
                 recommendation: None,
             });
         } else {
@@ -158,7 +169,10 @@ impl VMHealthReport {
             checks.push(HealthCheck {
                 name: "Disk Space".to_string(),
                 status: HealthStatus::Healthy,
-                message: format!("{} disk space - excellent for data-intensive applications", disk),
+                message: format!(
+                    "{} disk space - excellent for data-intensive applications",
+                    disk
+                ),
                 recommendation: None,
             });
         } else {
@@ -191,7 +205,9 @@ impl VMHealthReport {
                         name: "Workload Match".to_string(),
                         status: HealthStatus::Warning,
                         message: "Database workloads typically need more resources".to_string(),
-                        recommendation: Some("Recommended: 4+ CPU cores and 8Gi+ memory for databases".to_string()),
+                        recommendation: Some(
+                            "Recommended: 4+ CPU cores and 8Gi+ memory for databases".to_string(),
+                        ),
                     }
                 }
             }
@@ -208,26 +224,24 @@ impl VMHealthReport {
                         name: "Workload Match".to_string(),
                         status: HealthStatus::Warning,
                         message: "Web servers should have adequate resources".to_string(),
-                        recommendation: Some("Recommended: 2+ CPU cores and 4Gi+ memory for web servers".to_string()),
+                        recommendation: Some(
+                            "Recommended: 2+ CPU cores and 4Gi+ memory for web servers".to_string(),
+                        ),
                     }
                 }
             }
-            "development" => {
-                HealthCheck {
-                    name: "Workload Match".to_string(),
-                    status: HealthStatus::Healthy,
-                    message: "Resources suitable for development".to_string(),
-                    recommendation: None,
-                }
-            }
-            _ => {
-                HealthCheck {
-                    name: "Workload Match".to_string(),
-                    status: HealthStatus::Healthy,
-                    message: "General purpose resource allocation".to_string(),
-                    recommendation: None,
-                }
-            }
+            "development" => HealthCheck {
+                name: "Workload Match".to_string(),
+                status: HealthStatus::Healthy,
+                message: "Resources suitable for development".to_string(),
+                recommendation: None,
+            },
+            _ => HealthCheck {
+                name: "Workload Match".to_string(),
+                status: HealthStatus::Healthy,
+                message: "General purpose resource allocation".to_string(),
+                recommendation: None,
+            },
         }
     }
 }
@@ -287,7 +301,9 @@ mod tests {
     fn test_resource_checks() {
         let checks = VMHealthReport::check_resources(2, "4Gi", "20Gi");
         assert_eq!(checks.len(), 3);
-        assert!(checks.iter().all(|c| c.status == HealthStatus::Healthy || c.status == HealthStatus::Warning));
+        assert!(checks
+            .iter()
+            .all(|c| c.status == HealthStatus::Healthy || c.status == HealthStatus::Warning));
     }
 
     #[test]

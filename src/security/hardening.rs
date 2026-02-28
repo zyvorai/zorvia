@@ -1,7 +1,7 @@
 // Security Hardening - Apply security hardening configurations to VMs
 
-use serde::{Deserialize, Serialize};
 use chrono::{DateTime, Utc};
+use serde::{Deserialize, Serialize};
 
 /// Hardening profile
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -42,11 +42,11 @@ impl HardeningProfile {
 /// Security baseline
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub enum SecurityBaseline {
-    CIS,           // CIS Benchmark
-    STIG,          // DISA STIG
-    PciDss,       // PCI Data Security Standard
-    NIST,          // NIST SP 800-53
-    Custom,        // Custom baseline
+    CIS,    // CIS Benchmark
+    STIG,   // DISA STIG
+    PciDss, // PCI Data Security Standard
+    NIST,   // NIST SP 800-53
+    Custom, // Custom baseline
 }
 
 impl std::fmt::Display for SecurityBaseline {
@@ -78,7 +78,7 @@ impl HardeningRule {
         id: impl Into<String>,
         title: impl Into<String>,
         category: HardeningCategory,
-        severity: RuleSeverity
+        severity: RuleSeverity,
     ) -> Self {
         Self {
             id: id.into(),
@@ -212,7 +212,11 @@ pub struct AppliedRule {
 }
 
 impl AppliedRule {
-    pub fn new(rule_id: impl Into<String>, rule_title: impl Into<String>, result: RuleResult) -> Self {
+    pub fn new(
+        rule_id: impl Into<String>,
+        rule_title: impl Into<String>,
+        result: RuleResult,
+    ) -> Self {
         Self {
             rule_id: rule_id.into(),
             rule_title: rule_title.into(),
@@ -237,15 +241,13 @@ pub enum RuleResult {
 }
 
 /// Hardening statistics
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[derive(Default)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct HardeningStatistics {
     pub total: usize,
     pub applied: usize,
     pub skipped: usize,
     pub failed: usize,
 }
-
 
 /// Hardening engine
 pub struct HardeningEngine;
@@ -260,33 +262,33 @@ impl HardeningEngine {
                     "CIS-1.1",
                     "Disable unnecessary services",
                     HardeningCategory::Services,
-                    RuleSeverity::High
+                    RuleSeverity::High,
                 )
                 .with_description("Disable services not required for operation")
                 .with_remediation("systemctl disable <service>")
-                .automated()
+                .automated(),
             )
             .add_rule(
                 HardeningRule::new(
                     "CIS-2.1",
                     "Configure SSH hardening",
                     HardeningCategory::NetworkSecurity,
-                    RuleSeverity::Critical
+                    RuleSeverity::Critical,
                 )
                 .with_description("Apply secure SSH configuration")
                 .with_remediation("Update /etc/ssh/sshd_config")
-                .automated()
+                .automated(),
             )
             .add_rule(
                 HardeningRule::new(
                     "CIS-3.1",
                     "Enable firewall",
                     HardeningCategory::NetworkSecurity,
-                    RuleSeverity::Critical
+                    RuleSeverity::Critical,
                 )
                 .with_description("Enable and configure host firewall")
                 .with_remediation("systemctl enable firewalld")
-                .automated()
+                .automated(),
             )
     }
 
@@ -299,20 +301,20 @@ impl HardeningEngine {
                     "STIG-001",
                     "Enforce password complexity",
                     HardeningCategory::AccessControl,
-                    RuleSeverity::High
+                    RuleSeverity::High,
                 )
                 .with_description("Configure PAM for password complexity")
-                .automated()
+                .automated(),
             )
             .add_rule(
                 HardeningRule::new(
                     "STIG-002",
                     "Enable audit logging",
                     HardeningCategory::Auditing,
-                    RuleSeverity::High
+                    RuleSeverity::High,
                 )
                 .with_description("Configure comprehensive audit logging")
-                .automated()
+                .automated(),
             )
     }
 
@@ -361,14 +363,12 @@ mod tests {
     fn test_hardening_profile() {
         let profile = HardeningProfile::new("Test Profile", SecurityBaseline::CIS)
             .with_description("Test hardening profile")
-            .add_rule(
-                HardeningRule::new(
-                    "RULE-001",
-                    "Test rule",
-                    HardeningCategory::SystemConfiguration,
-                    RuleSeverity::High
-                )
-            );
+            .add_rule(HardeningRule::new(
+                "RULE-001",
+                "Test rule",
+                HardeningCategory::SystemConfiguration,
+                RuleSeverity::High,
+            ));
 
         assert_eq!(profile.name, "Test Profile");
         assert_eq!(profile.baseline, SecurityBaseline::CIS);
@@ -381,7 +381,7 @@ mod tests {
             "RULE-001",
             "Disable telnet",
             HardeningCategory::Services,
-            RuleSeverity::Critical
+            RuleSeverity::Critical,
         )
         .with_description("Telnet is insecure")
         .with_remediation("systemctl disable telnet")
@@ -396,15 +396,9 @@ mod tests {
     fn test_hardening_result() {
         let mut result = HardeningResult::new("test-vm", "CIS");
 
-        result.add_applied_rule(
-            AppliedRule::new("R1", "Rule 1", RuleResult::Applied)
-        );
-        result.add_applied_rule(
-            AppliedRule::new("R2", "Rule 2", RuleResult::Applied)
-        );
-        result.add_applied_rule(
-            AppliedRule::new("R3", "Rule 3", RuleResult::Failed)
-        );
+        result.add_applied_rule(AppliedRule::new("R1", "Rule 1", RuleResult::Applied));
+        result.add_applied_rule(AppliedRule::new("R2", "Rule 2", RuleResult::Applied));
+        result.add_applied_rule(AppliedRule::new("R3", "Rule 3", RuleResult::Failed));
 
         assert_eq!(result.statistics.total, 3);
         assert_eq!(result.statistics.applied, 2);

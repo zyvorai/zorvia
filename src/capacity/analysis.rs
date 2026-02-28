@@ -64,7 +64,9 @@ impl ResourceAnalysis {
 
     fn calculate_waste(&mut self) {
         if self.peak_utilization > 0.0 {
-            self.waste_percent = ((self.peak_utilization - self.average_utilization) / self.peak_utilization) * 100.0;
+            self.waste_percent = ((self.peak_utilization - self.average_utilization)
+                / self.peak_utilization)
+                * 100.0;
         }
     }
 

@@ -65,7 +65,10 @@ fn validate_vm_spec(vm: &VMSpec) -> Result<()> {
     // Validate CPU if specified
     if let Some(cpu) = vm.cpu {
         if cpu == 0 {
-            return Err(anyhow!("VM '{}': CPU cores must be greater than 0", vm.name));
+            return Err(anyhow!(
+                "VM '{}': CPU cores must be greater than 0",
+                vm.name
+            ));
         }
         if cpu > 128 {
             return Err(anyhow!("VM '{}': CPU cores cannot exceed 128", vm.name));

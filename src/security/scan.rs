@@ -1,8 +1,8 @@
 // Vulnerability Scanning - Scan VMs for security vulnerabilities
 
-use serde::{Deserialize, Serialize};
+use super::{Severity, Vulnerability};
 use chrono::{DateTime, Utc};
-use super::{Vulnerability, Severity};
+use serde::{Deserialize, Serialize};
 
 /// Vulnerability scan configuration
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -21,10 +21,7 @@ impl ScanConfig {
         Self {
             vm_name: vm_name.into(),
             scan_type,
-            enabled_scanners: vec![
-                Scanner::OSPackages,
-                Scanner::ConfigFiles,
-            ],
+            enabled_scanners: vec![Scanner::OSPackages, Scanner::ConfigFiles],
             scan_depth: ScanDepth::Standard,
             include_os_packages: true,
             include_containers: false,
@@ -65,20 +62,20 @@ pub enum ScanType {
 /// Scanner type
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub enum Scanner {
-    OSPackages,     // OS package vulnerabilities (CVE scanning)
-    Containers,     // Container image scanning
-    ConfigFiles,    // Configuration security issues
-    Secrets,        // Exposed secrets detection
-    Malware,        // Malware scanning
-    Network,        // Network vulnerability scanning
+    OSPackages,  // OS package vulnerabilities (CVE scanning)
+    Containers,  // Container image scanning
+    ConfigFiles, // Configuration security issues
+    Secrets,     // Exposed secrets detection
+    Malware,     // Malware scanning
+    Network,     // Network vulnerability scanning
 }
 
 /// Scan depth
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub enum ScanDepth {
-    Quick,      // Surface-level scan
-    Standard,   // Standard depth
-    Deep,       // Deep analysis
+    Quick,    // Surface-level scan
+    Standard, // Standard depth
+    Deep,     // Deep analysis
 }
 
 /// Scan result
@@ -96,7 +93,11 @@ pub struct ScanResult {
 }
 
 impl ScanResult {
-    pub fn new(scan_id: impl Into<String>, vm_name: impl Into<String>, scan_type: ScanType) -> Self {
+    pub fn new(
+        scan_id: impl Into<String>,
+        vm_name: impl Into<String>,
+        scan_type: ScanType,
+    ) -> Self {
         Self {
             scan_id: scan_id.into(),
             vm_name: vm_name.into(),
@@ -135,8 +136,12 @@ impl ScanResult {
 
     pub fn duration_secs(&self) -> i64 {
         match self.completed_at {
-            Some(completed) => completed.signed_duration_since(self.started_at).num_seconds(),
-            None => Utc::now().signed_duration_since(self.started_at).num_seconds(),
+            Some(completed) => completed
+                .signed_duration_since(self.started_at)
+                .num_seconds(),
+            None => Utc::now()
+                .signed_duration_since(self.started_at)
+                .num_seconds(),
         }
     }
 
@@ -166,8 +171,7 @@ impl std::fmt::Display for ScanStatus {
 }
 
 /// Scan statistics
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[derive(Default)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct ScanStatistics {
     pub total: usize,
     pub critical: usize,
@@ -179,14 +183,13 @@ pub struct ScanStatistics {
     pub files_scanned: usize,
 }
 
-
 impl ScanStatistics {
     pub fn risk_score(&self) -> f64 {
         // Weighted risk score
-        (self.critical as f64 * 10.0) +
-        (self.high as f64 * 5.0) +
-        (self.medium as f64 * 2.0) +
-        (self.low as f64 * 0.5)
+        (self.critical as f64 * 10.0)
+            + (self.high as f64 * 5.0)
+            + (self.medium as f64 * 2.0)
+            + (self.low as f64 * 0.5)
     }
 }
 
@@ -224,12 +227,12 @@ impl VulnerabilityScanner {
             Vulnerability::new(
                 "VULN-OS-001",
                 "OpenSSL vulnerable to CVE-2024-0001",
-                Severity::High
+                Severity::High,
             )
             .with_description("OpenSSL version contains known vulnerability")
             .with_cvss(7.5)
             .with_cve("CVE-2024-0001")
-            .with_package("openssl", Some("3.0.8".to_string()))
+            .with_package("openssl", Some("3.0.8".to_string())),
         );
     }
 
@@ -237,25 +240,17 @@ impl VulnerabilityScanner {
         result.statistics.files_scanned = 50;
 
         result.add_vulnerability(
-            Vulnerability::new(
-                "VULN-CFG-001",
-                "SSH permits root login",
-                Severity::Medium
-            )
-            .with_description("SSH configuration allows direct root login")
-            .with_cvss(5.0)
+            Vulnerability::new("VULN-CFG-001", "SSH permits root login", Severity::Medium)
+                .with_description("SSH configuration allows direct root login")
+                .with_cvss(5.0),
         );
     }
 
     fn scan_containers(result: &mut ScanResult) {
         result.add_vulnerability(
-            Vulnerability::new(
-                "VULN-CTR-001",
-                "Container running as root",
-                Severity::High
-            )
-            .with_description("Container process running with root privileges")
-            .with_cvss(7.0)
+            Vulnerability::new("VULN-CTR-001", "Container running as root", Severity::High)
+                .with_description("Container process running with root privileges")
+                .with_cvss(7.0),
         );
     }
 
@@ -286,12 +281,12 @@ mod tests {
     fn test_scan_result() {
         let mut result = ScanResult::new("scan-001", "test-vm", ScanType::Standard);
 
-        result.add_vulnerability(
-            Vulnerability::new("V1", "Critical vuln", Severity::Critical)
-        );
-        result.add_vulnerability(
-            Vulnerability::new("V2", "High vuln", Severity::High)
-        );
+        result.add_vulnerability(Vulnerability::new(
+            "V1",
+            "Critical vuln",
+            Severity::Critical,
+        ));
+        result.add_vulnerability(Vulnerability::new("V2", "High vuln", Severity::High));
 
         assert_eq!(result.statistics.total, 2);
         assert_eq!(result.statistics.critical, 1);
