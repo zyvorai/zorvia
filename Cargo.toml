@@ -11,7 +11,7 @@ documentation = "https://docs.rs/zorvia"
 readme = "README.md"
 keywords = ["kubevirt", "kubernetes", "virtual-machine", "kvm", "cli"]
 categories = ["command-line-utilities", "virtualization"]
-rust-version = "1.70"
+rust-version = "1.76"
 
 [[bin]]
 name = "zorvia"
