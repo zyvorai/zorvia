@@ -158,7 +158,7 @@ pub fn handle_budget_list(output: String) -> Result<()> {
                 budget.name,
                 budget.amount,
                 budget.period.to_string(),
-                budget.scope.to_string()
+                budget.scope
             );
         }
     }
@@ -311,11 +311,9 @@ pub fn handle_cost_waste(waste_type: Option<String>, min_waste: f64, output: Str
     println!();
 
     // Example waste reports
-    let wastes = vec![
-        OptimizationEngine::detect_storage_waste(100, 10.0),
+    let wastes = [OptimizationEngine::detect_storage_waste(100, 10.0),
         OptimizationEngine::detect_old_snapshots(10, 120, 5.0)
-            .ok_or_else(|| anyhow::anyhow!("Failed to detect old snapshots"))?,
-    ];
+            .ok_or_else(|| anyhow::anyhow!("Failed to detect old snapshots"))?];
 
     let filtered: Vec<_> = wastes.iter()
         .filter(|w| w.monthly_waste >= min_waste)

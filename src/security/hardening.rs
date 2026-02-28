@@ -238,6 +238,7 @@ pub enum RuleResult {
 
 /// Hardening statistics
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Default)]
 pub struct HardeningStatistics {
     pub total: usize,
     pub applied: usize,
@@ -245,16 +246,6 @@ pub struct HardeningStatistics {
     pub failed: usize,
 }
 
-impl Default for HardeningStatistics {
-    fn default() -> Self {
-        Self {
-            total: 0,
-            applied: 0,
-            skipped: 0,
-            failed: 0,
-        }
-    }
-}
 
 /// Hardening engine
 pub struct HardeningEngine;

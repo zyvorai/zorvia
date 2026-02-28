@@ -153,7 +153,7 @@ fn render_blueprint_details(
 
         // VM list
         let vm_items: Vec<ListItem> = blueprint.vms.iter().map(|vm| {
-            let profile = vm.profile.as_ref().map(|p| p.as_str()).unwrap_or("default");
+            let profile = vm.profile.as_deref().unwrap_or("default");
             let content = format!("  • {} ({})", vm.name, profile);
             ListItem::new(content).style(Style::default().fg(colors::TEXT))
         }).collect();

@@ -264,7 +264,7 @@ impl RepositoryManager {
 
     fn generate_repo_id(&self, url: &str) -> String {
         // Simple ID generation from URL
-        url.split('/').last().unwrap_or("repo")
+        url.split('/').next_back().unwrap_or("repo")
             .trim_end_matches(".git")
             .to_string()
     }

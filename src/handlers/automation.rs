@@ -8,12 +8,10 @@ pub fn handle_automation_list(enabled_only: bool, output: String) -> Result<()> 
     println!();
 
     // Example rules
-    let rules = vec![
-        AutomationRule::new("Auto Stop Idle VMs", Trigger::Manual),
+    let rules = [AutomationRule::new("Auto Stop Idle VMs", Trigger::Manual),
         AutomationRule::new("Nightly Backup", Trigger::Schedule {
             cron: "0 2 * * *".to_string()
-        }),
-    ];
+        })];
 
     let filtered: Vec<_> = if enabled_only {
         rules.iter().filter(|r| r.enabled).collect()
@@ -302,10 +300,8 @@ pub fn handle_schedule_list(enabled_only: bool, output: String) -> Result<()> {
     println!("{}", color::header("Scheduled Tasks"));
     println!();
 
-    let tasks = vec![
-        ScheduledTask::new("Daily Backup", Schedule::daily(2, 0), "rule-123"),
-        ScheduledTask::new("Hourly Health Check", Schedule::hourly(0), "rule-456"),
-    ];
+    let tasks = [ScheduledTask::new("Daily Backup", Schedule::daily(2, 0), "rule-123"),
+        ScheduledTask::new("Hourly Health Check", Schedule::hourly(0), "rule-456")];
 
     let filtered: Vec<_> = if enabled_only {
         tasks.iter().filter(|t| t.enabled).collect()

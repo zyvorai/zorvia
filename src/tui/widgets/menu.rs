@@ -108,9 +108,8 @@ impl Menu {
         self.items
             .iter()
             .position(|item| item.key == key && item.enabled)
-            .map(|index| {
+            .inspect(|&index| {
                 self.selected = index;
-                index
             })
     }
 

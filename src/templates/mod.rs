@@ -143,7 +143,7 @@ impl TemplateManager {
             };
 
             families.entry(family.to_string())
-                .or_insert_with(Vec::new)
+                .or_default()
                 .push(name.clone());
         }
 

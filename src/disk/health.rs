@@ -214,7 +214,7 @@ impl DiskHealthCheck {
 
         // Round up to nearest 10Gi
         let gi = recommended_bytes / (1024 * 1024 * 1024);
-        let rounded_gi = ((gi + 9) / 10) * 10;
+        let rounded_gi = gi.div_ceil(10) * 10;
 
         format!("{}Gi", rounded_gi)
     }

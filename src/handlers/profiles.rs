@@ -64,6 +64,7 @@ pub fn handle_profile(name: String, output: String) -> Result<()> {
     Ok(())
 }
 
+#[allow(clippy::too_many_arguments)]
 pub fn handle_profile_create(
     name: String,
     cpus: u32,
@@ -115,6 +116,7 @@ pub fn handle_profile_create(
     Ok(())
 }
 
+#[allow(clippy::too_many_arguments)]
 pub fn handle_profile_edit(
     name: String,
     cpus: Option<u32>,
@@ -600,7 +602,7 @@ pub async fn handle_health(target: String, detailed: bool, namespace: String) ->
     for check in VMHealthReport::check_resources(
         config.cpu.cores,
         &config.memory.size,
-        &config.disks.first().map(|d| d.size.as_str()).unwrap_or("20Gi"),
+        config.disks.first().map(|d| d.size.as_str()).unwrap_or("20Gi"),
     ) {
         report.add_check(check);
     }
@@ -658,7 +660,7 @@ pub fn handle_recommend(workload: String, alternatives: bool) -> Result<()> {
         println!("{}", color::muted("Showing general-purpose profiles:"));
         println!();
 
-        for profile in vec!["dev", "test", "prod"] {
+        for profile in ["dev", "test", "prod"] {
             if let Some(p) = manager.get(profile) {
                 println!("{} {}", color::value("•"), color::header(&p.name));
                 println!("  {}", color::muted(&p.description));

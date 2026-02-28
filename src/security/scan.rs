@@ -167,6 +167,7 @@ impl std::fmt::Display for ScanStatus {
 
 /// Scan statistics
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Default)]
 pub struct ScanStatistics {
     pub total: usize,
     pub critical: usize,
@@ -178,20 +179,6 @@ pub struct ScanStatistics {
     pub files_scanned: usize,
 }
 
-impl Default for ScanStatistics {
-    fn default() -> Self {
-        Self {
-            total: 0,
-            critical: 0,
-            high: 0,
-            medium: 0,
-            low: 0,
-            info: 0,
-            packages_scanned: 0,
-            files_scanned: 0,
-        }
-    }
-}
 
 impl ScanStatistics {
     pub fn risk_score(&self) -> f64 {

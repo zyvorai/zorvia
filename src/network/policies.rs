@@ -69,17 +69,11 @@ impl NetworkPolicy {
 
 /// VM selector for policy targeting
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Default)]
 pub struct VMSelector {
     pub labels: HashMap<String, String>,
 }
 
-impl Default for VMSelector {
-    fn default() -> Self {
-        Self {
-            labels: HashMap::new(),
-        }
-    }
-}
 
 impl VMSelector {
     pub fn with_label(mut self, key: impl Into<String>, value: impl Into<String>) -> Self {

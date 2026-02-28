@@ -230,7 +230,7 @@ pub fn handle_api_key_create(name: String, permissions: String, rate_limit: Opti
         .map(|p| p.trim().to_string())
         .collect();
 
-    let mut key = ApiKey::new(&name, &format!("hash-{}", Utc::now().timestamp()))
+    let mut key = ApiKey::new(&name, format!("hash-{}", Utc::now().timestamp()))
         .with_permissions(perms.clone());
 
     if let Some(limit) = rate_limit {

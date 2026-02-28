@@ -240,7 +240,7 @@ impl ObservabilityManager {
 
     pub fn add_span(&mut self, trace_id: impl Into<String>, span: TracingSpan) {
         let trace = trace_id.into();
-        self.spans.entry(trace).or_insert_with(Vec::new).push(span);
+        self.spans.entry(trace).or_default().push(span);
     }
 
     pub fn get_trace(&self, trace_id: &str) -> Option<&Vec<TracingSpan>> {

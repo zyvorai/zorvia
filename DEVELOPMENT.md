@@ -1,180 +1,199 @@
 # Development Status
 
-## ✅ Completed (v0.1.0)
+## Project Statistics
+
+- **Lines of Code**: ~76,400
+- **Modules**: 37 public modules + 11 handler modules
+- **Templates**: 44 OS templates
+- **CLI Commands**: 145
+- **Resource Profiles**: 8 built-in
+- **Deployment Blueprints**: 5 built-in
+- **Tests**: 2,032 (all passing)
+- **Compiler Warnings**: 0
+- **Dependencies**: 24 core + 1 dev
+
+## Architecture
+
+```
+src/
+├── lib.rs              (575 lines - thin routing layer)
+├── main.rs             (binary entry point)
+├── handlers/           (11 modules - command implementations)
+│   ├── vm.rs           (core VM CRUD operations)
+│   ├── profiles.rs     (profiles, blueprints, deploy, health)
+│   ├── infra.rs        (snapshots, monitoring, disk, network)
+│   ├── backup.rs       (backup, disaster recovery, migration)
+│   ├── security.rs     (scanning, hardening, compliance, audit)
+│   ├── cost.rs         (cost analysis, budgets, optimization)
+│   ├── automation.rs   (rules, workflows, schedules)
+│   ├── observability.rs (logs, metrics, alerts, insights)
+│   ├── multitenancy.rs (tenants, users, roles, quotas, groups)
+│   ├── devexp.rs       (completions, config templates, diff, init)
+│   └── api.rs          (REST API, webhooks, TUI)
+├── cli/                (command-line parsing with clap)
+├── config/             (VM configuration types, builder, validator)
+├── kube/               (Kubernetes client, CRD types, converter)
+├── templates/          (44 OS templates)
+├── tui/                (terminal UI with ratatui)
+├── profiles/           (resource profile system)
+├── blueprints/         (multi-VM deployment templates)
+├── snapshots/          (KubeVirt snapshot management)
+├── monitoring/         (metrics collection and analysis)
+├── health/             (VM health checks and scoring)
+├── backup/             (backup, recovery, scheduling)
+├── migration/          (live migration, HA, evacuation)
+├── security/           (scanning, hardening, compliance, audit)
+├── cost/               (cost tracking, budgets, optimization)
+├── automation/         (rules, workflows, schedules)
+├── observability/      (logs, metrics, alerts, insights)
+├── multitenancy/       (tenants, RBAC, quotas)
+├── api/                (REST API, OpenAPI, webhooks)
+├── devexp/             (completions, config templates, diff, init)
+└── [12 more modules]   (networking, finops, edge, secrets, etc.)
+```
+
+## Completed Features
 
 ### Core Infrastructure
-- [x] Project structure initialized
-- [x] Cargo.toml with all dependencies
-- [x] Module organization (cli, config, templates, output, etc.)
-- [x] Error handling with thiserror
-- [x] Logging with env_logger
-
-### Configuration System
-- [x] Core type definitions (VMConfig, CPUConfig, MemoryConfig, etc.)
-- [x] DiskConfig with multiple source types (Blank, PVC, ContainerDisk, DataVolume)
-- [x] NetworkConfig with Pod, Bridge, and Multus support
-- [x] Cloud-init configuration support
+- [x] KubeVirt CRD definitions and Kubernetes client
+- [x] VM CRUD operations (create, list, get, delete, start, stop, restart)
+- [x] VM cloning, export, batch operations
+- [x] Interactive creation wizard
+- [x] Configuration validation (46 tests)
+- [x] 44 OS templates (Ubuntu, Fedora, CentOS, Debian, RHEL, Windows, etc.)
 - [x] Builder pattern for VMConfig
-- [x] Comprehensive validation:
-  - VM name validation (Kubernetes-compliant)
-  - CPU configuration validation
-  - Memory size validation (Mi, Gi, Ti units)
-  - Disk configuration validation
-  - Interface uniqueness validation
-  - Boot order validation
+- [x] YAML/JSON output formatting
 
-### Template System
-- [x] Template manager with built-in templates
-- [x] Templates for: Ubuntu, CentOS, Fedora, Debian, RHEL, Windows
-- [x] Default cloud-init configurations
-- [x] Template listing and inspection
-- [x] Template-based VM creation with overrides
+### Resource Profiles & Blueprints
+- [x] 8 built-in profiles (minimal, dev, test, web, prod, database, microservice, high-perf)
+- [x] Custom profile CRUD with filesystem persistence
+- [x] 5 built-in blueprints (LAMP, K8s cluster, 3-tier, CI/CD, dev-stack)
+- [x] Custom blueprint CRUD with validation
+- [x] Blueprint deployment with dependency ordering
+- [x] Topological sort and cycle detection
 
-### Output & Serialization
-- [x] YAML output format
-- [x] JSON output format
-- [x] Pretty-printing
-- [x] File output support
+### Snapshots & Backup
+- [x] KubeVirt snapshot CRD integration
+- [x] Snapshot create/list/get/delete/restore
+- [x] Retention policies with enforcement
+- [x] Backup create/list/verify with compression
+- [x] Backup scheduling (daily, hourly, weekly)
+- [x] Disaster recovery plans and execution
 
-### CLI Commands
-- [x] `create` - Create VMs from templates or files
-- [x] `generate` - Generate manifests without creating
-- [x] `templates` - List available templates
-- [x] `template` - Show template details
-- [x] `validate` - Validate configuration files
-- [x] Stub commands: `list`, `get`, `delete`, `start`, `stop`, `restart`
+### Monitoring & Health
+- [x] Live VM monitoring with metrics
+- [x] Health checks with scoring (0-100)
+- [x] Resource recommendations
+- [x] Performance comparison across VMs
+- [x] Top resource consumers view
 
-### Features
-- [x] Template-based creation with CLI overrides
-- [x] Configuration file loading (YAML/JSON)
-- [x] Dry-run mode
-- [x] Verbose logging
-- [x] Comprehensive help text
-- [x] Environment variable support (KUBECONFIG, ZORVIA_NAMESPACE)
+### Network & Migration
+- [x] Network interface management
+- [x] Traffic analysis and bandwidth monitoring
+- [x] Network policies (Kubernetes + Cilium)
+- [x] Live migration with progress tracking
+- [x] HA configuration and failover
+- [x] Node evacuation planning
 
-### Testing
-- [x] Unit tests for builder
-- [x] Unit tests for validator
-- [x] Unit tests for templates
-- [x] Unit tests for output formatters
-- [x] Example configuration files
+### Security & Compliance
+- [x] Vulnerability scanning (quick/standard/deep/compliance)
+- [x] Security assessment with scoring
+- [x] CIS and STIG hardening profiles
+- [x] Compliance checking (PCI-DSS, HIPAA, SOC2, GDPR, NIST)
+- [x] Audit logging and statistics
 
-### Documentation
-- [x] README with quick start guide
-- [x] CLI help documentation
-- [x] Example configurations
-- [x] Code documentation
+### Cost Management
+- [x] Cost analysis per VM and namespace
+- [x] Budget management with alerts
+- [x] Cost optimization recommendations
+- [x] Waste detection and reporting
+- [x] Cost forecasting
 
-## ⏳ TODO (Future Phases)
+### Automation & Orchestration
+- [x] Automation rules with triggers (schedule, event, metric)
+- [x] Multi-step workflows with templates
+- [x] Scheduled task management
+- [x] Workflow execution tracking
 
-### Phase 3: Kubernetes Integration
-- [ ] KubeVirt CRD definitions
-- [ ] Kubernetes client wrapper
-- [ ] VM manifest generation (KubeVirt format)
-- [ ] Create VM on cluster
-- [ ] List VMs from cluster
-- [ ] Get VM details
-- [ ] Delete VM
-- [ ] Start/Stop/Restart VM operations
-- [ ] Watch VM status
+### Observability
+- [x] Log querying with filtering
+- [x] Metrics collection and aggregation
+- [x] Alert rule management
+- [x] Insight generation and recommendations
+- [x] Trend analysis
 
-### Phase 4: Advanced Features
-- [ ] PVC creation and management
-- [ ] DataVolume support (CDI)
-- [ ] Advanced networking (Multus, SR-IOV)
-- [ ] VM snapshots
-- [ ] VM cloning
-- [ ] Live migration support
-- [ ] Resource quota validation
-- [ ] Node affinity/anti-affinity
-- [ ] VM presets
+### Multi-Tenancy & RBAC
+- [x] Tenant management with namespaces
+- [x] User and group management
+- [x] Role-based access control
+- [x] Resource quotas with presets
 
-### Phase 5: UX Enhancements
-- [ ] Interactive VM creation wizard
-- [ ] TUI for VM monitoring
-- [ ] Progress bars for long operations
-- [ ] Colored output
-- [ ] VM logs streaming
-- [ ] Console access (VNC/Serial)
+### Developer Experience
+- [x] Shell completions (bash, zsh, fish, powershell, elvish)
+- [x] Configuration template save/load/list
+- [x] YAML config diff tool
+- [x] Project initialization scaffolding
+- [x] Environment info and diagnostics
 
-### Phase 6: Extensibility
-- [ ] Plugin system for custom templates
-- [ ] Remote template registry
-- [ ] Custom validation rules
-- [ ] Hooks for pre/post operations
-- [ ] Configuration profiles
+### API & Interface
+- [x] REST API server with OpenAPI spec
+- [x] API key management
+- [x] Webhook management with event filtering
+- [x] Interactive TUI with ratatui
+- [x] TUI VM creation and snapshot creation
 
-### Phase 7: Ecosystem
-- [ ] Terraform provider
-- [ ] Kubernetes operator mode
-- [ ] REST API server
-- [ ] Web dashboard
-- [ ] CI/CD integrations
+### Additional Modules
+- [x] FinOps (allocation, budgets, optimization, waste, reports)
+- [x] Advanced networking (IPAM, BGP, DNS, QoS, topology)
+- [x] Service mesh integration
+- [x] Disaster recovery (failover, HA, replication)
+- [x] Edge computing (nodes, sync, telemetry)
+- [x] Secrets management (encryption, rotation)
+- [x] Multi-cloud (providers, federation, connectivity, portability)
+- [x] Capacity planning
+- [x] AI/ML (GPU management, inference)
+- [x] GitOps integration
 
-## 🚀 Quick Test Commands
+## Quick Test Commands
 
 ```bash
-# Build the project
+# Build
 cargo build
 
-# Run tests
+# Run all tests
 cargo test
 
 # List templates
-./target/debug/zorvia templates
+cargo run -- templates
 
 # Show template details
-./target/debug/zorvia template ubuntu
+cargo run -- template ubuntu
 
 # Generate a VM manifest
-./target/debug/zorvia generate my-vm --template fedora --cpus 4 --memory 8Gi
+cargo run -- generate my-vm --template fedora --cpus 4 --memory 8Gi
 
 # Validate a configuration
-./target/debug/zorvia validate examples/basic-vm.yaml
+cargo run -- validate examples/basic-vm.yaml
 
 # Create from template (dry-run)
-./target/debug/zorvia create test-vm --template ubuntu --dry-run
+cargo run -- create test-vm --template ubuntu --dry-run
 
-# Create from file
-./target/debug/zorvia create custom-vm --from-file examples/ubuntu-cloud-init.yaml --dry-run
+# List profiles
+cargo run -- profiles
+
+# List blueprints
+cargo run -- blueprints
+
+# Launch TUI
+cargo run -- tui --interactive
 ```
 
-## 📊 Project Statistics
+## Design Decisions
 
-- **Lines of Code**: ~1500+
-- **Modules**: 8
-- **Templates**: 6
-- **CLI Commands**: 11
-- **Tests**: 8 (all passing)
-- **Dependencies**: 14 core + 1 dev
-
-## 🎯 Next Steps
-
-1. **KubeVirt API Integration**
-   - Add kubevirt-api dependency
-   - Implement VirtualMachine CRD
-   - Create manifest builder for KubeVirt format
-   - Implement apply/delete operations
-
-2. **Testing Infrastructure**
-   - Integration tests with mock Kubernetes
-   - E2E tests with kind cluster
-   - Benchmark tests for performance
-
-3. **Documentation**
-   - API documentation
-   - Architecture guide
-   - Contributing guide
-   - User guide with examples
-
-## 🐛 Known Issues
-
-None at this time.
-
-## 💡 Design Decisions
-
-1. **Separation of Concerns**: Config types are separate from Kubernetes CRDs, allowing flexibility
-2. **Builder Pattern**: Makes programmatic VM creation ergonomic
-3. **Template System**: Uses lazy_static for efficient template loading
-4. **Validation First**: All configs validated before any operations
-5. **Async-First**: Built on Tokio for future Kubernetes operations
+1. **Handler-based architecture**: All command logic in `src/handlers/` modules, `lib.rs` is a thin router
+2. **Separation of concerns**: Config types separate from Kubernetes CRDs
+3. **Builder pattern**: Ergonomic programmatic VM creation
+4. **Template system**: Uses `once_cell` for efficient template loading
+5. **Validation first**: All configs validated before operations
+6. **Async-first**: Built on Tokio for Kubernetes operations
+7. **Proper error handling**: No unsafe `.unwrap()` in production code, `anyhow` for error propagation

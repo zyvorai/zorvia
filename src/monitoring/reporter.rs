@@ -42,9 +42,9 @@ impl MonitoringReporter {
     fn format_table(&self, report: &PerformanceReport) -> String {
         let mut output = String::new();
 
-        output.push_str(&format!("╔═══════════════════════════════════════════════╗\n"));
+        output.push_str("╔═══════════════════════════════════════════════╗\n");
         output.push_str(&format!("║  Performance Report: {:<24}║\n", report.vm_name));
-        output.push_str(&format!("╚═══════════════════════════════════════════════╝\n\n"));
+        output.push_str("╚═══════════════════════════════════════════════╝\n\n");
 
         output.push_str(&format!("Performance Score: {}/100 [{}]\n\n",
             report.performance_score,
@@ -71,7 +71,7 @@ impl MonitoringReporter {
 
         output.push_str(&format!("  Disk:    {:>6.1}%  ", metrics.disk.usage_percent));
         output.push_str(&self.create_bar(metrics.disk.usage_percent, 30));
-        output.push_str("\n");
+        output.push('\n');
 
         output.push_str(&format!("\n  Disk I/O:     ↑ {:.1} MB/s  ↓ {:.1} MB/s  ({} IOPS)\n",
             metrics.disk.read_mb_per_sec(),
@@ -94,7 +94,7 @@ impl MonitoringReporter {
                     bottleneck.current_usage
                 ));
             }
-            output.push_str("\n");
+            output.push('\n');
         }
 
         // Recommendations
@@ -126,13 +126,7 @@ impl MonitoringReporter {
         let filled = ((percentage / 100.0) * width as f64) as usize;
         let empty = width - filled;
 
-        let bar_char = if percentage >= 90.0 {
-            "▓" // Critical
-        } else if percentage >= 70.0 {
-            "▓" // Warning
-        } else {
-            "▓" // Normal
-        };
+        let bar_char = "▓";
 
         let mut bar = String::new();
         bar.push('[');
@@ -158,7 +152,7 @@ impl MonitoringReporter {
             "VM NAME", "SCORE", "STATUS"
         ));
         output.push_str(&"-".repeat(58));
-        output.push_str("\n");
+        output.push('\n');
 
         for (name, score, status) in vms {
             output.push_str(&format!("{:<30} {:>10} {:>15}\n",

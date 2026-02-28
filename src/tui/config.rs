@@ -7,6 +7,7 @@ use std::path::PathBuf;
 
 /// Main TUI configuration
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Default)]
 pub struct TuiConfig {
     #[serde(default)]
     pub theme: ThemeConfig,
@@ -18,16 +19,6 @@ pub struct TuiConfig {
     pub keybindings: KeybindingsConfig,
 }
 
-impl Default for TuiConfig {
-    fn default() -> Self {
-        Self {
-            theme: ThemeConfig::default(),
-            ui: UiConfig::default(),
-            behavior: BehaviorConfig::default(),
-            keybindings: KeybindingsConfig::default(),
-        }
-    }
-}
 
 impl TuiConfig {
     /// Load configuration from default location (~/.config/zorvia/tui.toml)

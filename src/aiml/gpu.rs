@@ -161,9 +161,7 @@ impl GPUPool {
                 } else {
                     true
                 }
-            })
-            .filter(|g| g.memory_total_mb >= requirements.min_memory_mb)
-            .next();
+            }).find(|g| g.memory_total_mb >= requirements.min_memory_mb);
 
         if let Some(gpu) = gpu {
             let gpu_id = gpu.id.clone();

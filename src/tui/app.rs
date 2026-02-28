@@ -267,11 +267,8 @@ impl App {
 
     /// Handle VM details view keys
     async fn handle_vm_details_key(&mut self, key: KeyEvent) -> Result<()> {
-        match key.code {
-            KeyCode::Backspace => {
-                self.current_view = View::VmList;
-            }
-            _ => {}
+        if key.code == KeyCode::Backspace {
+            self.current_view = View::VmList;
         }
         Ok(())
     }

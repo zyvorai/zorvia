@@ -191,7 +191,7 @@ impl ResourceUsage {
     }
 
     pub fn can_fit(&self, request: &ResourceRequest, limits: &ResourceLimits) -> bool {
-        self.vms + 1 <= limits.max_vms &&
+        self.vms < limits.max_vms &&
         self.cpu_cores + request.cpu_cores <= limits.max_cpu_cores &&
         self.memory_gi + request.memory_gi <= limits.max_memory_gi &&
         self.storage_gi + request.storage_gi <= limits.max_storage_gi

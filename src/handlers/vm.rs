@@ -41,6 +41,7 @@ fn load_or_create_config(
     }
 }
 
+#[allow(clippy::too_many_arguments)]
 pub async fn handle_create(
     name: String,
     template: Option<String>,
@@ -150,7 +151,7 @@ pub async fn handle_list(
             let json = output::to_json(&vms)?;
             println!("{}", json);
         }
-        "table" | _ => {
+        _ => {
             use crate::tui::colors::vm_status_symbol;
 
             // Print header with theme colors
@@ -277,6 +278,7 @@ pub async fn handle_restart(
     Ok(())
 }
 
+#[allow(clippy::too_many_arguments)]
 pub fn handle_generate(
     name: String,
     template: Option<String>,

@@ -151,7 +151,7 @@ impl CostManager {
     pub fn cost_by_tag(&self, key: &str, value: &str) -> f64 {
         self.metrics
             .iter()
-            .filter(|m| m.tags.get(key).map_or(false, |v| v == value))
+            .filter(|m| m.tags.get(key).is_some_and(|v| v == value))
             .map(|m| m.cost)
             .sum()
     }

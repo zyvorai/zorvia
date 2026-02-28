@@ -154,7 +154,7 @@ impl Schedule {
         let naive = from.naive_utc();
         let mut next = naive.with_minute(minute).unwrap().and_utc();
         if next <= from {
-            next = next + chrono::Duration::hours(1);
+            next += chrono::Duration::hours(1);
         }
         next
     }
@@ -163,7 +163,7 @@ impl Schedule {
         let date = from.date_naive();
         let mut next = date.and_time(*time).and_utc();
         if next <= from {
-            next = next + chrono::Duration::days(1);
+            next += chrono::Duration::days(1);
         }
         next
     }
@@ -171,7 +171,7 @@ impl Schedule {
     fn next_weekly(&self, from: DateTime<Utc>, weekday: Weekday, time: &NaiveTime) -> DateTime<Utc> {
         let mut next = from;
         loop {
-            next = next + chrono::Duration::days(1);
+            next += chrono::Duration::days(1);
             if next.naive_utc().weekday() == weekday {
                 let date = next.date_naive();
                 next = date.and_time(*time).and_utc();
@@ -186,7 +186,7 @@ impl Schedule {
     fn next_monthly(&self, from: DateTime<Utc>, day: u32, time: &NaiveTime) -> DateTime<Utc> {
         let mut next = from;
         loop {
-            next = next + chrono::Duration::days(1);
+            next += chrono::Duration::days(1);
             if next.naive_utc().day() == day {
                 let date = next.date_naive();
                 next = date.and_time(*time).and_utc();

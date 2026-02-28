@@ -402,7 +402,7 @@ pub async fn handle_monitor_top(
     use crate::monitoring::{MetricsCollector, PerformanceAnalyzer, MonitoringReporter};
 
     // Mock VMs for demonstration
-    let vms = vec!["prod-db", "prod-web", "test-vm", "dev-vm", "cache-vm"];
+    let vms = ["prod-db", "prod-web", "test-vm", "dev-vm", "cache-vm"];
 
     let collector = MetricsCollector::new(namespace);
     let analyzer = PerformanceAnalyzer::with_default_thresholds();
@@ -414,12 +414,9 @@ pub async fn handle_monitor_top(
     let mut reports = Vec::new();
 
     for vm_name in vms.iter().take(limit) {
-        match collector.collect(vm_name).await {
-            Ok(metrics) => {
-                let report = analyzer.analyze(vm_name, &metrics);
-                reports.push(report);
-            }
-            Err(_) => {}
+        if let Ok(metrics) = collector.collect(vm_name).await {
+            let report = analyzer.analyze(vm_name, &metrics);
+            reports.push(report);
         }
     }
 

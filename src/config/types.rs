@@ -102,17 +102,14 @@ fn default_interface_model() -> String {
 /// Network type options
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
+#[derive(Default)]
 pub enum NetworkType {
     Bridge,
     Multus { name: String },
+    #[default]
     Pod,
 }
 
-impl Default for NetworkType {
-    fn default() -> Self {
-        NetworkType::Pod
-    }
-}
 
 /// Cloud-init configuration
 #[derive(Debug, Clone, Serialize, Deserialize)]

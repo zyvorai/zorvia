@@ -366,7 +366,7 @@ mod tests {
         let mut manager = SecretManager::new();
 
         let reference = SecretReference::new("secret-1", "app-1", "auth");
-        let id = manager.add_reference(reference);
+        let _id = manager.add_reference(reference);
 
         assert_eq!(manager.reference_count(), 1);
     }

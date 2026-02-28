@@ -19,7 +19,7 @@ impl TriggerManager {
     pub fn register_handler(&mut self, event_type: impl Into<String>, handler: EventHandler) {
         self.event_handlers
             .entry(event_type.into())
-            .or_insert_with(Vec::new)
+            .or_default()
             .push(handler);
     }
 
