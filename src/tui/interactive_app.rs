@@ -530,27 +530,88 @@ impl InteractiveApp {
     /// Create VM from input dialog
     async fn create_vm_from_input(&mut self, input: &InputDialog) -> Result<()> {
         let name = input.get_value(0).unwrap_or("");
-        let _template = input.get_value(1).unwrap_or("ubuntu-22.04");
-        let _profile = input.get_value(2).unwrap_or("dev");
+        let template_name = input.get_value(1).unwrap_or("ubuntu-22.04");
+        let profile_name = input.get_value(2).unwrap_or("dev");
+
+        if name.is_empty() {
+            self.notifications.error("VM name cannot be empty".to_string());
+            return Ok(());
+        }
 
         self.notifications.info(format!("Creating VM '{}'...", name));
 
-        // TODO: Implement actual VM creation
-        // For now, just show success
-        self.notifications.success(format!("VM '{}' created successfully", name));
+        // Look up template
+        let template = crate::templates::TEMPLATES.get(template_name);
+        if template.is_none() {
+            self.notifications.error(format!("Unknown template: {}", template_name));
+            return Ok(());
+        }
+        let mut config = template.unwrap();
+        config.name = name.to_string();
+        config.namespace = self.state.namespace.clone();
+
+        // Apply profile overrides
+        let profiles = crate::profiles::PROFILES.read()
+            .map_err(|e| anyhow::anyhow!("Failed to lock profiles: {}", e))?;
+        if let Some(profile) = profiles.get(profile_name) {
+            config.cpu.cores = profile.cpu_cores;
+            config.cpu.sockets = profile.cpu_sockets;
+            config.cpu.threads = profile.cpu_threads;
+            config.memory.size = profile.memory.clone();
+        }
+
+        // Create VM via Kubernetes API
+        match crate::kube::KubeClient::new().await {
+            Ok(client) => {
+                match client.create_vm(&config).await {
+                    Ok(_) => {
+                        self.notifications.success(format!("VM '{}' created successfully", name));
+                        // Refresh VM list
+                        let _ = self.state.refresh_vms().await;
+                    }
+                    Err(e) => {
+                        self.notifications.error(format!("Failed to create VM: {}", e));
+                    }
+                }
+            }
+            Err(e) => {
+                self.notifications.error(format!("Failed to connect to cluster: {}", e));
+            }
+        }
 
         Ok(())
     }
 
     /// Create snapshot from input dialog
     async fn create_snapshot_from_input(&mut self, input: &InputDialog) -> Result<()> {
-        let _vm_name = input.get_value(0).unwrap_or("");
+        let vm_name = input.get_value(0).unwrap_or("");
         let snapshot_name = input.get_value(1).unwrap_or("");
+
+        if vm_name.is_empty() || snapshot_name.is_empty() {
+            self.notifications.error("VM name and snapshot name are required".to_string());
+            return Ok(());
+        }
 
         self.notifications.info(format!("Creating snapshot '{}'...", snapshot_name));
 
-        // TODO: Implement actual snapshot creation
-        self.notifications.success(format!("Snapshot '{}' created", snapshot_name));
+        // Create snapshot via KubeVirt API
+        match crate::snapshots::SnapshotManager::new(&self.state.namespace).await {
+            Ok(manager) => {
+                let config = crate::snapshots::SnapshotConfig::new(vm_name, snapshot_name);
+                match manager.create_snapshot(&config).await {
+                    Ok(_) => {
+                        self.notifications.success(format!("Snapshot '{}' created", snapshot_name));
+                        let _ = self.state.refresh_snapshots().await;
+                    }
+                    Err(e) => {
+                        self.notifications.error(format!("Failed to create snapshot: {}", e));
+                    }
+                }
+            }
+            Err(e) => {
+                self.notifications.error(format!("Failed to connect to cluster: {}", e));
+            }
+        }
 
         Ok(())
     }

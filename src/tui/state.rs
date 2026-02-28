@@ -60,12 +60,39 @@ impl VmInfo {
             })
             .unwrap_or_else(|| "Unknown".to_string());
 
-        // Extract additional info
-        let disk = "50 GiB".to_string(); // TODO: Extract from volumes
-        let ip = "10.244.0.x".to_string(); // TODO: Extract from status
+        // Extract disk info from volumes
+        let disk = vm.spec.template.spec.volumes.as_ref()
+            .map(|volumes| {
+                // Sum up empty disk capacities, count PVCs
+                let mut parts = Vec::new();
+                for vol in volumes {
+                    if let Some(ref empty) = vol.empty_disk {
+                        parts.push(empty.capacity.clone());
+                    } else if let Some(ref pvc) = vol.persistent_volume_claim {
+                        parts.push(format!("pvc:{}", pvc.claim_name));
+                    } else if let Some(ref dv) = vol.data_volume {
+                        parts.push(format!("dv:{}", dv.name));
+                    } else if vol.container_disk.is_some() {
+                        parts.push("container".to_string());
+                    }
+                }
+                if parts.is_empty() { "None".to_string() } else { parts.join(", ") }
+            })
+            .unwrap_or_else(|| "None".to_string());
+
+        // Extract node name from conditions or status
         let node = vm.status.as_ref()
-            .and_then(|s| s.print_able_status.clone())
-            .unwrap_or_else(|| "unknown".to_string());
+            .and_then(|s| {
+                s.conditions.as_ref().and_then(|conds| {
+                    conds.iter()
+                        .find(|c| c.type_ == "Ready" && c.status == "True")
+                        .and_then(|c| c.message.clone())
+                })
+            })
+            .unwrap_or_else(|| "N/A".to_string());
+
+        // IP is not available in VM spec/status - needs VMI status
+        let ip = "N/A".to_string();
 
         Self {
             name,
