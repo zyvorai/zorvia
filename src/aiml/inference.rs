@@ -124,9 +124,29 @@ impl InferenceMetrics {
             self.failed_requests += 1;
         }
 
-        // Simple running average (in production, use proper percentile tracking)
-        self.avg_latency_ms = (self.avg_latency_ms * (self.total_requests - 1) as f64 + latency_ms)
+        // Running average
+        self.avg_latency_ms = (self.avg_latency_ms * (self.total_requests - 1) as f64
+            + latency_ms)
             / self.total_requests as f64;
+
+        // Track approximate percentiles using max-biased estimation.
+        // P95/P99 converge toward the high end of observed latencies.
+        if self.total_requests == 1 {
+            self.p95_latency_ms = latency_ms;
+            self.p99_latency_ms = latency_ms;
+        } else {
+            // Exponential moving approach: slowly converge toward the target percentile
+            if latency_ms > self.p95_latency_ms {
+                self.p95_latency_ms += (latency_ms - self.p95_latency_ms) * 0.05;
+            } else {
+                self.p95_latency_ms -= (self.p95_latency_ms - latency_ms) * 0.005;
+            }
+            if latency_ms > self.p99_latency_ms {
+                self.p99_latency_ms += (latency_ms - self.p99_latency_ms) * 0.01;
+            } else {
+                self.p99_latency_ms -= (self.p99_latency_ms - latency_ms) * 0.001;
+            }
+        }
     }
 
     pub fn success_rate(&self) -> f64 {

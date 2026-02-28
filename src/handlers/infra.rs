@@ -310,10 +310,10 @@ pub async fn handle_monitor_live(vm: String, interval: u64, namespace: &str) -> 
     );
     println!();
 
-    // Simple loop for demonstration (in a real TUI, this would be in a terminal UI)
-    for i in 0..10 {
-        if i > 0 {
-            // Clear screen (simple version)
+    // Monitor until interrupted (Ctrl+C) or connection fails
+    let mut iteration = 0u64;
+    loop {
+        if iteration > 0 {
             println!("\n{}", "═".repeat(80));
         }
 
@@ -327,8 +327,14 @@ pub async fn handle_monitor_live(vm: String, interval: u64, namespace: &str) -> 
             }
         }
 
-        if i < 9 {
-            tokio::time::sleep(tokio::time::Duration::from_secs(interval)).await;
+        iteration += 1;
+
+        // Wait for interval or Ctrl+C
+        tokio::select! {
+            _ = tokio::time::sleep(tokio::time::Duration::from_secs(interval)) => {}
+            _ = tokio::signal::ctrl_c() => {
+                break;
+            }
         }
     }
 

@@ -3,6 +3,58 @@
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
+/// Check if an IP address matches a CIDR notation string.
+/// Supports: "*" (match all), "10.0.0.5" (exact match), "10.0.0.0/24" (CIDR range).
+fn ip_matches_cidr(ip: &str, cidr: &str) -> bool {
+    if cidr == "*" {
+        return true;
+    }
+
+    if let Some(slash_pos) = cidr.find('/') {
+        let network = &cidr[..slash_pos];
+        let prefix_len: u32 = match cidr[slash_pos + 1..].parse() {
+            Ok(v) if v <= 32 => v,
+            _ => return false,
+        };
+
+        let ip_bits = match ip_to_u32(ip) {
+            Some(v) => v,
+            None => return false,
+        };
+        let net_bits = match ip_to_u32(network) {
+            Some(v) => v,
+            None => return false,
+        };
+
+        if prefix_len == 0 {
+            return true;
+        }
+        let mask = !0u32 << (32 - prefix_len);
+        (ip_bits & mask) == (net_bits & mask)
+    } else {
+        // Exact IP match
+        ip == cidr
+    }
+}
+
+/// Parse an IPv4 address string to a u32.
+fn ip_to_u32(ip: &str) -> Option<u32> {
+    let octets: Vec<u8> = ip
+        .split('.')
+        .filter_map(|s| s.parse::<u8>().ok())
+        .collect();
+    if octets.len() == 4 {
+        Some(
+            (octets[0] as u32) << 24
+                | (octets[1] as u32) << 16
+                | (octets[2] as u32) << 8
+                | octets[3] as u32,
+        )
+    } else {
+        None
+    }
+}
+
 /// Network policy for VM traffic control
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct NetworkPolicy {
@@ -129,22 +181,7 @@ impl IngressRule {
     /// Check if rule matches traffic
     pub fn matches(&self, source: &str, port: u16, protocol: &str) -> bool {
         let cidr_match = self.from_cidrs.is_empty()
-            || self.from_cidrs.iter().any(|cidr| {
-                // Simplified CIDR matching - in production use proper IP parsing
-                if cidr == "*" {
-                    return true;
-                }
-                // For CIDR notation like "10.0.0.0/24", check if source IP is in range
-                if let Some(slash_pos) = cidr.find('/') {
-                    let network = &cidr[..slash_pos];
-                    // Simple prefix matching for demo - take first 3 octets for /24
-                    let prefix_len = network.split('.').take(3).collect::<Vec<_>>().join(".");
-                    source.starts_with(&prefix_len)
-                } else {
-                    // Exact match for single IP
-                    source == cidr
-                }
-            });
+            || self.from_cidrs.iter().any(|cidr| ip_matches_cidr(source, cidr));
 
         let port_match =
             self.ports.is_empty() || self.ports.iter().any(|p| p.matches(port, protocol));
@@ -194,22 +231,7 @@ impl EgressRule {
     /// Check if rule matches traffic
     pub fn matches(&self, dest: &str, port: u16, protocol: &str) -> bool {
         let cidr_match = self.to_cidrs.is_empty()
-            || self.to_cidrs.iter().any(|cidr| {
-                // Simplified CIDR matching - in production use proper IP parsing
-                if cidr == "*" {
-                    return true;
-                }
-                // For CIDR notation like "10.0.0.0/24", check if dest IP is in range
-                if let Some(slash_pos) = cidr.find('/') {
-                    let network = &cidr[..slash_pos];
-                    // Simple prefix matching for demo - take first 3 octets for /24
-                    let prefix_len = network.split('.').take(3).collect::<Vec<_>>().join(".");
-                    dest.starts_with(&prefix_len)
-                } else {
-                    // Exact match for single IP
-                    dest == cidr
-                }
-            });
+            || self.to_cidrs.iter().any(|cidr| ip_matches_cidr(dest, cidr));
 
         let port_match =
             self.ports.is_empty() || self.ports.iter().any(|p| p.matches(port, protocol));

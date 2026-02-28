@@ -139,10 +139,7 @@ impl Schedule {
             Schedule::Interval { seconds } => {
                 Some(from + chrono::Duration::seconds(*seconds as i64))
             }
-            Schedule::Cron { .. } => {
-                // Simplified - would use cron parser in production
-                Some(from + chrono::Duration::hours(1))
-            }
+            Schedule::Cron { expression } => self.next_cron(from, expression)
         }
     }
 
@@ -202,6 +199,64 @@ impl Schedule {
         }
         next
     }
+
+    /// Parse a cron expression (minute hour day month weekday) and find the next run time.
+    fn next_cron(&self, from: DateTime<Utc>, expression: &str) -> Option<DateTime<Utc>> {
+        let fields: Vec<&str> = expression.split_whitespace().collect();
+        if fields.len() < 5 {
+            return None;
+        }
+
+        let mut candidate = from + chrono::Duration::minutes(1);
+        candidate = candidate
+            .date_naive()
+            .and_time(
+                NaiveTime::from_hms_opt(
+                    candidate.naive_utc().hour(),
+                    candidate.naive_utc().minute(),
+                    0,
+                )
+                .unwrap(),
+            )
+            .and_utc();
+
+        for _ in 0..(366 * 24 * 60) {
+            let min = candidate.naive_utc().minute();
+            let hour = candidate.naive_utc().hour();
+            let day = candidate.naive_utc().day();
+            let month = candidate.naive_utc().month();
+            let weekday = candidate.naive_utc().weekday().num_days_from_sunday();
+
+            if cron_field_matches(fields[0], min)
+                && cron_field_matches(fields[1], hour)
+                && cron_field_matches(fields[2], day)
+                && cron_field_matches(fields[3], month)
+                && cron_field_matches(fields[4], weekday)
+            {
+                return Some(candidate);
+            }
+
+            candidate += chrono::Duration::minutes(1);
+        }
+
+        None
+    }
+}
+
+/// Check if a cron field matches a value. Supports '*', 'N', and '*/N'.
+fn cron_field_matches(field: &str, value: u32) -> bool {
+    if field == "*" {
+        return true;
+    }
+    if let Some(step) = field.strip_prefix("*/") {
+        if let Ok(s) = step.parse::<u32>() {
+            return s > 0 && value % s == 0;
+        }
+    }
+    if let Ok(n) = field.parse::<u32>() {
+        return value == n;
+    }
+    false
 }
 
 /// Schedule manager

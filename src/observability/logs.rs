@@ -277,14 +277,54 @@ impl LogAnalyzer {
     }
 
     fn extract_pattern(message: &str) -> String {
-        // Simple pattern extraction - in production would use regex
-        if message.contains("ERROR") {
-            "ERROR_PATTERN".to_string()
-        } else if message.contains("WARN") {
-            "WARNING_PATTERN".to_string()
-        } else {
-            "INFO_PATTERN".to_string()
+        // Extract meaningful patterns by normalizing variable parts of log messages.
+        // Replace UUIDs, IPs, numbers, timestamps, and hex strings with placeholders.
+        let mut pattern = message.to_string();
+
+        // Normalize common variable parts to create groupable patterns
+        // Replace quoted strings
+        while let Some(start) = pattern.find('"') {
+            if let Some(end) = pattern[start + 1..].find('"') {
+                pattern.replace_range(start..=start + 1 + end, "<STR>");
+            } else {
+                break;
+            }
         }
+
+        // Replace sequences of digits (timestamps, IDs, ports, etc.)
+        let mut result = String::with_capacity(pattern.len());
+        let mut in_digits = false;
+        for ch in pattern.chars() {
+            if ch.is_ascii_digit() {
+                if !in_digits {
+                    result.push_str("<N>");
+                    in_digits = true;
+                }
+            } else {
+                in_digits = false;
+                result.push(ch);
+            }
+        }
+
+        // Classify by severity keyword for grouping
+        let prefix = if result.contains("ERROR") || result.contains("error") {
+            "ERR:"
+        } else if result.contains("WARN") || result.contains("warn") {
+            "WARN:"
+        } else if result.contains("FATAL") || result.contains("CRIT") {
+            "CRIT:"
+        } else {
+            "INFO:"
+        };
+
+        // Truncate to keep patterns manageable
+        let truncated = if result.len() > 80 {
+            format!("{}...", &result[..80])
+        } else {
+            result
+        };
+
+        format!("{}{}", prefix, truncated)
     }
 
     /// Find anomalies in log frequency

@@ -317,6 +317,15 @@ pub enum ExportFormat {
 }
 
 /// Report exporter
+/// Escape a field for CSV output: quote if it contains commas, quotes, or newlines.
+fn csv_escape(field: &str) -> String {
+    if field.contains(',') || field.contains('"') || field.contains('\n') {
+        format!("\"{}\"", field.replace('"', "\"\""))
+    } else {
+        field.to_string()
+    }
+}
+
 pub struct ReportExporter;
 
 impl ReportExporter {
@@ -325,7 +334,7 @@ impl ReportExporter {
         serde_json::to_string_pretty(report)
     }
 
-    /// Export to CSV format (simplified)
+    /// Export to CSV format with proper field escaping
     pub fn to_csv(report: &CostReport) -> String {
         let mut csv = String::from(
             "VM Name,Namespace,CPU Cost,Memory Cost,Storage Cost,Network Cost,Total Cost\n",
@@ -334,8 +343,8 @@ impl ReportExporter {
         for vm_cost in &report.vm_costs {
             csv.push_str(&format!(
                 "{},{},{:.2},{:.2},{:.2},{:.2},{:.2}\n",
-                vm_cost.vm_name,
-                vm_cost.namespace,
+                csv_escape(&vm_cost.vm_name),
+                csv_escape(&vm_cost.namespace),
                 vm_cost.cpu_cost,
                 vm_cost.memory_cost,
                 vm_cost.storage_cost,
