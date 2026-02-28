@@ -30,7 +30,7 @@ impl std::fmt::Display for ApiVersion {
 }
 
 impl ApiVersion {
-    pub fn from_str(s: &str) -> Option<Self> {
+    pub fn parse(s: &str) -> Option<Self> {
         match s.to_lowercase().as_str() {
             "v1" => Some(ApiVersion::V1),
             "v2" => Some(ApiVersion::V2),
@@ -244,8 +244,8 @@ mod tests {
 
     #[test]
     fn test_api_version_from_str() {
-        assert_eq!(ApiVersion::from_str("v1"), Some(ApiVersion::V1));
-        assert_eq!(ApiVersion::from_str("v2"), Some(ApiVersion::V2));
+        assert_eq!(ApiVersion::parse("v1"), Some(ApiVersion::V1));
+        assert_eq!(ApiVersion::parse("v2"), Some(ApiVersion::V2));
     }
 
     #[test]

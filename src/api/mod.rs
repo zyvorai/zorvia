@@ -52,7 +52,7 @@ impl std::fmt::Display for AuthMethod {
 }
 
 impl AuthMethod {
-    pub fn from_str(s: &str) -> Option<Self> {
+    pub fn parse(s: &str) -> Option<Self> {
         match s.to_lowercase().as_str() {
             "none" => Some(AuthMethod::None),
             "api-key" | "apikey" => Some(AuthMethod::ApiKey),
@@ -217,7 +217,7 @@ impl std::fmt::Display for HttpMethod {
 }
 
 impl HttpMethod {
-    pub fn from_str(s: &str) -> Option<Self> {
+    pub fn parse(s: &str) -> Option<Self> {
         match s.to_uppercase().as_str() {
             "GET" => Some(HttpMethod::GET),
             "POST" => Some(HttpMethod::POST),
@@ -591,12 +591,12 @@ mod tests {
 
     #[test]
     fn test_auth_method_from_str() {
-        assert_eq!(AuthMethod::from_str("bearer"), Some(AuthMethod::Bearer));
-        assert_eq!(AuthMethod::from_str("token"), Some(AuthMethod::Bearer));
-        assert_eq!(AuthMethod::from_str("apikey"), Some(AuthMethod::ApiKey));
-        assert_eq!(AuthMethod::from_str("oauth2"), Some(AuthMethod::OAuth2));
-        assert_eq!(AuthMethod::from_str("mtls"), Some(AuthMethod::MTLS));
-        assert_eq!(AuthMethod::from_str("unknown"), None);
+        assert_eq!(AuthMethod::parse("bearer"), Some(AuthMethod::Bearer));
+        assert_eq!(AuthMethod::parse("token"), Some(AuthMethod::Bearer));
+        assert_eq!(AuthMethod::parse("apikey"), Some(AuthMethod::ApiKey));
+        assert_eq!(AuthMethod::parse("oauth2"), Some(AuthMethod::OAuth2));
+        assert_eq!(AuthMethod::parse("mtls"), Some(AuthMethod::MTLS));
+        assert_eq!(AuthMethod::parse("unknown"), None);
     }
 
     #[test]
@@ -635,9 +635,9 @@ mod tests {
 
     #[test]
     fn test_http_method_from_str() {
-        assert_eq!(HttpMethod::from_str("GET"), Some(HttpMethod::GET));
-        assert_eq!(HttpMethod::from_str("post"), Some(HttpMethod::POST));
-        assert_eq!(HttpMethod::from_str("INVALID"), None);
+        assert_eq!(HttpMethod::parse("GET"), Some(HttpMethod::GET));
+        assert_eq!(HttpMethod::parse("post"), Some(HttpMethod::POST));
+        assert_eq!(HttpMethod::parse("INVALID"), None);
     }
 
     #[test]

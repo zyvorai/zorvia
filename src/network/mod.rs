@@ -73,7 +73,7 @@ impl InterfaceType {
         }
     }
 
-    pub fn from_str(s: &str) -> Self {
+    pub fn parse(s: &str) -> Self {
         match s.to_lowercase().as_str() {
             "masquerade" => InterfaceType::Masquerade,
             "sriov" => InterfaceType::SRIOV,
@@ -167,8 +167,8 @@ mod tests {
         assert_eq!(InterfaceType::SRIOV.as_str(), "sriov");
         assert_eq!(InterfaceType::Multus.as_str(), "multus");
 
-        assert_eq!(InterfaceType::from_str("bridge"), InterfaceType::Bridge);
-        assert_eq!(InterfaceType::from_str("masquerade"), InterfaceType::Masquerade);
+        assert_eq!(InterfaceType::parse("bridge"), InterfaceType::Bridge);
+        assert_eq!(InterfaceType::parse("masquerade"), InterfaceType::Masquerade);
     }
 
     #[test]

@@ -37,7 +37,7 @@ impl std::fmt::Display for ProjectType {
 }
 
 impl ProjectType {
-    pub fn from_str(s: &str) -> Option<Self> {
+    pub fn parse(s: &str) -> Option<Self> {
         match s.to_lowercase().as_str() {
             "basic" => Some(ProjectType::Basic),
             "development" | "dev" => Some(ProjectType::Development),
@@ -383,15 +383,15 @@ mod tests {
 
     #[test]
     fn test_project_type_from_str() {
-        assert_eq!(ProjectType::from_str("basic"), Some(ProjectType::Basic));
-        assert_eq!(ProjectType::from_str("dev"), Some(ProjectType::Development));
-        assert_eq!(ProjectType::from_str("development"), Some(ProjectType::Development));
-        assert_eq!(ProjectType::from_str("prod"), Some(ProjectType::Production));
-        assert_eq!(ProjectType::from_str("production"), Some(ProjectType::Production));
-        assert_eq!(ProjectType::from_str("micro"), Some(ProjectType::Microservices));
-        assert_eq!(ProjectType::from_str("data"), Some(ProjectType::DataPipeline));
-        assert_eq!(ProjectType::from_str("pipeline"), Some(ProjectType::DataPipeline));
-        assert_eq!(ProjectType::from_str("unknown"), None);
+        assert_eq!(ProjectType::parse("basic"), Some(ProjectType::Basic));
+        assert_eq!(ProjectType::parse("dev"), Some(ProjectType::Development));
+        assert_eq!(ProjectType::parse("development"), Some(ProjectType::Development));
+        assert_eq!(ProjectType::parse("prod"), Some(ProjectType::Production));
+        assert_eq!(ProjectType::parse("production"), Some(ProjectType::Production));
+        assert_eq!(ProjectType::parse("micro"), Some(ProjectType::Microservices));
+        assert_eq!(ProjectType::parse("data"), Some(ProjectType::DataPipeline));
+        assert_eq!(ProjectType::parse("pipeline"), Some(ProjectType::DataPipeline));
+        assert_eq!(ProjectType::parse("unknown"), None);
     }
 
     #[test]

@@ -4,7 +4,7 @@ use crate::tui::colors::cli as color;
 pub fn handle_completions(shell: String, output: Option<String>, install: bool) -> Result<()> {
     use crate::devexp::completions::{CompletionGenerator, CompletionShell};
 
-    let shell_type = CompletionShell::from_str(&shell)
+    let shell_type = CompletionShell::parse(&shell)
         .ok_or_else(|| anyhow!("Unknown shell: {}. Supported: bash, zsh, fish, powershell, elvish", shell))?;
 
     if install {
@@ -49,7 +49,7 @@ pub fn handle_config_save(
 
     let desc = description.unwrap_or_else(|| format!("Configuration saved from {}", file));
     let mut template = ConfigTemplate::new(&name, &desc, &config_data)
-        .with_category(ConfigCategory::from_str(&category));
+        .with_category(ConfigCategory::parse(&category));
 
     if let Some(tag_str) = tags {
         for tag in tag_str.split(',') {
@@ -202,7 +202,7 @@ pub fn handle_init(
     println!("{}", color::header(&format!("Initializing Project: {}", name)));
     println!();
 
-    let pt = ProjectType::from_str(&project_type)
+    let pt = ProjectType::parse(&project_type)
         .unwrap_or(ProjectType::Basic);
 
     let mut init = ProjectInit::new(&name, pt.clone())

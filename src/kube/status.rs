@@ -192,30 +192,38 @@ pub struct ResourceSummary {
 
 impl ResourceSummary {
     pub fn from_vms(vms: &[VirtualMachine]) -> Self {
-        let mut summary = ResourceSummary::default();
-        summary.total_vms = vms.len();
+        let mut running_vms = 0;
+        let mut stopped_vms = 0;
+        let mut total_cpu_cores = 0u32;
+        let mut total_memory_gi = 0.0f64;
 
         for vm in vms {
             if vm.spec.running.unwrap_or(false) {
-                summary.running_vms += 1;
+                running_vms += 1;
             } else {
-                summary.stopped_vms += 1;
+                stopped_vms += 1;
             }
 
             if let Some(cpu) = &vm.spec.template.spec.domain.cpu {
-                summary.total_cpu_cores += cpu.cores.unwrap_or(0);
+                total_cpu_cores += cpu.cores.unwrap_or(0);
             }
 
             if let Some(memory) = &vm.spec.template.spec.domain.memory {
                 if let Some(mem_str) = &memory.guest {
                     if let Some(mem_gi) = parse_memory_to_gi(mem_str) {
-                        summary.total_memory_gi += mem_gi;
+                        total_memory_gi += mem_gi;
                     }
                 }
             }
         }
 
-        summary
+        Self {
+            total_vms: vms.len(),
+            running_vms,
+            stopped_vms,
+            total_cpu_cores,
+            total_memory_gi,
+        }
     }
 
     pub fn display(&self) {

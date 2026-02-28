@@ -50,7 +50,7 @@ impl std::fmt::Display for ConfigCategory {
 }
 
 impl ConfigCategory {
-    pub fn from_str(s: &str) -> Self {
+    pub fn parse(s: &str) -> Self {
         match s.to_lowercase().as_str() {
             "development" | "dev" => ConfigCategory::Development,
             "testing" | "test" => ConfigCategory::Testing,
@@ -333,15 +333,15 @@ mod tests {
 
     #[test]
     fn test_config_category_from_str() {
-        assert_eq!(ConfigCategory::from_str("dev"), ConfigCategory::Development);
-        assert_eq!(ConfigCategory::from_str("development"), ConfigCategory::Development);
-        assert_eq!(ConfigCategory::from_str("test"), ConfigCategory::Testing);
-        assert_eq!(ConfigCategory::from_str("prod"), ConfigCategory::Production);
-        assert_eq!(ConfigCategory::from_str("db"), ConfigCategory::Database);
-        assert_eq!(ConfigCategory::from_str("web"), ConfigCategory::WebServer);
-        assert_eq!(ConfigCategory::from_str("cicd"), ConfigCategory::CICDRunner);
-        assert_eq!(ConfigCategory::from_str("ml"), ConfigCategory::MachineLearning);
-        assert_eq!(ConfigCategory::from_str("custom"), ConfigCategory::Custom("custom".to_string()));
+        assert_eq!(ConfigCategory::parse("dev"), ConfigCategory::Development);
+        assert_eq!(ConfigCategory::parse("development"), ConfigCategory::Development);
+        assert_eq!(ConfigCategory::parse("test"), ConfigCategory::Testing);
+        assert_eq!(ConfigCategory::parse("prod"), ConfigCategory::Production);
+        assert_eq!(ConfigCategory::parse("db"), ConfigCategory::Database);
+        assert_eq!(ConfigCategory::parse("web"), ConfigCategory::WebServer);
+        assert_eq!(ConfigCategory::parse("cicd"), ConfigCategory::CICDRunner);
+        assert_eq!(ConfigCategory::parse("ml"), ConfigCategory::MachineLearning);
+        assert_eq!(ConfigCategory::parse("custom"), ConfigCategory::Custom("custom".to_string()));
     }
 
     #[test]

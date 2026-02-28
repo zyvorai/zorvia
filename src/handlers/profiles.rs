@@ -293,9 +293,13 @@ pub async fn handle_deploy(
     use crate::tui::colors::cli;
     use crate::kube;
 
-    let manager = BLUEPRINTS.read().map_err(|e| anyhow::anyhow!("Failed to lock blueprints: {}", e))?;
-    let bp = manager.get(&blueprint)
-        .ok_or_else(|| anyhow!("Blueprint not found: {}", blueprint))?;
+    // Clone blueprint data and drop lock before any await points
+    let bp = {
+        let manager = BLUEPRINTS.read().map_err(|e| anyhow::anyhow!("Failed to lock blueprints: {}", e))?;
+        manager.get(&blueprint)
+            .ok_or_else(|| anyhow!("Blueprint not found: {}", blueprint))?
+            .clone()
+    };
 
     let vm_prefix = prefix.unwrap_or_else(|| blueprint.clone());
 
@@ -311,8 +315,8 @@ pub async fn handle_deploy(
             println!("  {}. {}", i + 1, cli::vm_name(&vm_name));
             println!("     Template: {}", vm_spec.template);
             if let Some(profile_name) = &vm_spec.profile {
-                let manager = PROFILES.read().map_err(|e| anyhow::anyhow!("Failed to lock profiles: {}", e))?;
-                if let Some(profile) = manager.get(profile_name) {
+                let profiles = PROFILES.read().map_err(|e| anyhow::anyhow!("Failed to lock profiles: {}", e))?;
+                if let Some(profile) = profiles.get(profile_name) {
                     println!("     Profile: {} ({}, {})",
                         profile_name,
                         color::resource(&profile.cpu_cores.to_string(), "cpu"),
@@ -343,15 +347,16 @@ pub async fn handle_deploy(
         config.name = vm_name.clone();
         config.namespace = namespace.clone();
 
-        // Apply profile if specified
+        // Apply profile if specified (scope lock to avoid holding across await)
         if let Some(profile_name) = &vm_spec.profile {
-            let manager = PROFILES.read().map_err(|e| anyhow::anyhow!("Failed to lock profiles: {}", e))?;
-            if let Some(profile) = manager.get(profile_name) {
+            let profiles = PROFILES.read().map_err(|e| anyhow::anyhow!("Failed to lock profiles: {}", e))?;
+            if let Some(profile) = profiles.get(profile_name) {
                 config.cpu.cores = profile.cpu_cores;
                 config.cpu.sockets = profile.cpu_sockets;
                 config.cpu.threads = profile.cpu_threads;
                 config.memory.size = profile.memory.clone();
             }
+            drop(profiles);
         }
 
         // Apply custom overrides

@@ -9,7 +9,7 @@ pub enum OutputFormat {
 }
 
 impl OutputFormat {
-    pub fn from_str(s: &str) -> Option<Self> {
+    pub fn parse_format(s: &str) -> Option<Self> {
         match s.to_lowercase().as_str() {
             "yaml" | "yml" => Some(Self::Yaml),
             "json" => Some(Self::Json),
@@ -85,13 +85,13 @@ mod tests {
     #[test]
     fn test_output_format_from_str() {
         assert!(matches!(
-            OutputFormat::from_str("yaml"),
+            OutputFormat::parse_format("yaml"),
             Some(OutputFormat::Yaml)
         ));
         assert!(matches!(
-            OutputFormat::from_str("json"),
+            OutputFormat::parse_format("json"),
             Some(OutputFormat::Json)
         ));
-        assert!(OutputFormat::from_str("invalid").is_none());
+        assert!(OutputFormat::parse_format("invalid").is_none());
     }
 }

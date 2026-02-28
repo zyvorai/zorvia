@@ -550,14 +550,16 @@ impl InteractiveApp {
         config.name = name.to_string();
         config.namespace = self.state.namespace.clone();
 
-        // Apply profile overrides
-        let profiles = crate::profiles::PROFILES.read()
-            .map_err(|e| anyhow::anyhow!("Failed to lock profiles: {}", e))?;
-        if let Some(profile) = profiles.get(profile_name) {
-            config.cpu.cores = profile.cpu_cores;
-            config.cpu.sockets = profile.cpu_sockets;
-            config.cpu.threads = profile.cpu_threads;
-            config.memory.size = profile.memory.clone();
+        // Apply profile overrides (drop lock before await)
+        {
+            let profiles = crate::profiles::PROFILES.read()
+                .map_err(|e| anyhow::anyhow!("Failed to lock profiles: {}", e))?;
+            if let Some(profile) = profiles.get(profile_name) {
+                config.cpu.cores = profile.cpu_cores;
+                config.cpu.sockets = profile.cpu_sockets;
+                config.cpu.threads = profile.cpu_threads;
+                config.memory.size = profile.memory.clone();
+            }
         }
 
         // Create VM via Kubernetes API

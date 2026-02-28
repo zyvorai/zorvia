@@ -82,7 +82,7 @@ pub async fn handle_create(
     // Validate configuration
     validate_vm_config(&config)?;
 
-    let format = OutputFormat::from_str(&output)
+    let format = OutputFormat::parse_format(&output)
         .ok_or_else(|| anyhow!("Invalid output format: {}", output))?;
 
     if dry_run {
@@ -205,7 +205,7 @@ pub async fn handle_get(
     let client = kube::KubeClient::new().await?;
     let vm = client.get_vm(namespace, &name).await?;
 
-    let format = OutputFormat::from_str(&output)
+    let format = OutputFormat::parse_format(&output)
         .ok_or_else(|| anyhow!("Invalid output format: {}", output))?;
 
     let formatted = format_output(&vm, format)?;
@@ -312,7 +312,7 @@ pub fn handle_generate(
     // Validate configuration
     validate_vm_config(&config)?;
 
-    let output_format = OutputFormat::from_str(&format)
+    let output_format = OutputFormat::parse_format(&format)
         .ok_or_else(|| anyhow!("Invalid output format: {}", format))?;
 
     let manifest = if kubevirt {
@@ -349,7 +349,7 @@ pub fn handle_template(
         .get(&name)
         .ok_or_else(|| anyhow!("Template not found: {}", name))?;
 
-    let format = OutputFormat::from_str(&output)
+    let format = OutputFormat::parse_format(&output)
         .ok_or_else(|| anyhow!("Invalid output format: {}", output))?;
 
     let manifest = format_output(&config, format)?;

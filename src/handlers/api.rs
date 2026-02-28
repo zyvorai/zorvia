@@ -23,7 +23,7 @@ pub fn handle_api_serve(
         }
     }
 
-    let auth_method = AuthMethod::from_str(&auth)
+    let auth_method = AuthMethod::parse(&auth)
         .unwrap_or(AuthMethod::None);
     config = config.with_auth(auth_method.clone());
 

@@ -30,7 +30,7 @@ impl std::fmt::Display for CompletionShell {
 }
 
 impl CompletionShell {
-    pub fn from_str(s: &str) -> Option<Self> {
+    pub fn parse(s: &str) -> Option<Self> {
         match s.to_lowercase().as_str() {
             "bash" => Some(CompletionShell::Bash),
             "zsh" => Some(CompletionShell::Zsh),
@@ -347,13 +347,13 @@ mod tests {
 
     #[test]
     fn test_completion_shell_from_str() {
-        assert_eq!(CompletionShell::from_str("bash"), Some(CompletionShell::Bash));
-        assert_eq!(CompletionShell::from_str("zsh"), Some(CompletionShell::Zsh));
-        assert_eq!(CompletionShell::from_str("fish"), Some(CompletionShell::Fish));
-        assert_eq!(CompletionShell::from_str("powershell"), Some(CompletionShell::PowerShell));
-        assert_eq!(CompletionShell::from_str("pwsh"), Some(CompletionShell::PowerShell));
-        assert_eq!(CompletionShell::from_str("elvish"), Some(CompletionShell::Elvish));
-        assert_eq!(CompletionShell::from_str("unknown"), None);
+        assert_eq!(CompletionShell::parse("bash"), Some(CompletionShell::Bash));
+        assert_eq!(CompletionShell::parse("zsh"), Some(CompletionShell::Zsh));
+        assert_eq!(CompletionShell::parse("fish"), Some(CompletionShell::Fish));
+        assert_eq!(CompletionShell::parse("powershell"), Some(CompletionShell::PowerShell));
+        assert_eq!(CompletionShell::parse("pwsh"), Some(CompletionShell::PowerShell));
+        assert_eq!(CompletionShell::parse("elvish"), Some(CompletionShell::Elvish));
+        assert_eq!(CompletionShell::parse("unknown"), None);
     }
 
     #[test]

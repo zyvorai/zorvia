@@ -64,7 +64,7 @@ impl std::fmt::Display for ShellType {
 }
 
 impl ShellType {
-    pub fn from_str(s: &str) -> Option<Self> {
+    pub fn parse(s: &str) -> Option<Self> {
         match s.to_lowercase().as_str() {
             "bash" => Some(ShellType::Bash),
             "zsh" => Some(ShellType::Zsh),
@@ -254,13 +254,13 @@ mod tests {
 
     #[test]
     fn test_shell_type_from_str() {
-        assert_eq!(ShellType::from_str("bash"), Some(ShellType::Bash));
-        assert_eq!(ShellType::from_str("zsh"), Some(ShellType::Zsh));
-        assert_eq!(ShellType::from_str("fish"), Some(ShellType::Fish));
-        assert_eq!(ShellType::from_str("powershell"), Some(ShellType::PowerShell));
-        assert_eq!(ShellType::from_str("pwsh"), Some(ShellType::PowerShell));
-        assert_eq!(ShellType::from_str("elvish"), Some(ShellType::Elvish));
-        assert_eq!(ShellType::from_str("unknown"), None);
+        assert_eq!(ShellType::parse("bash"), Some(ShellType::Bash));
+        assert_eq!(ShellType::parse("zsh"), Some(ShellType::Zsh));
+        assert_eq!(ShellType::parse("fish"), Some(ShellType::Fish));
+        assert_eq!(ShellType::parse("powershell"), Some(ShellType::PowerShell));
+        assert_eq!(ShellType::parse("pwsh"), Some(ShellType::PowerShell));
+        assert_eq!(ShellType::parse("elvish"), Some(ShellType::Elvish));
+        assert_eq!(ShellType::parse("unknown"), None);
     }
 
     #[test]
