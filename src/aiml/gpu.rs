@@ -4,7 +4,7 @@ use serde::{Deserialize, Serialize};
 use chrono::{DateTime, Utc};
 use std::collections::HashMap;
 
-use super::{GPUVendor, GPUConfig};
+use super::GPUVendor;
 
 /// GPU resource
 #[derive(Debug, Clone, Serialize, Deserialize)]

@@ -1,7 +1,7 @@
 // Insights - Operational insights and recommendations
 
 use serde::{Deserialize, Serialize};
-use chrono::{DateTime, Utc, Duration};
+use chrono::{DateTime, Utc};
 use std::collections::HashMap;
 
 /// Insight type

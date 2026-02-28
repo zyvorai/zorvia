@@ -2,7 +2,7 @@
 
 use serde::{Deserialize, Serialize};
 use chrono::{DateTime, Utc};
-use super::{Action, ActionResult, ExecutionStatus};
+use super::{Action, ExecutionStatus};
 
 /// Workflow definition
 #[derive(Debug, Clone, Serialize, Deserialize)]

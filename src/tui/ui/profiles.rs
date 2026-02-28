@@ -3,9 +3,8 @@
 use crate::tui::{config::TuiConfig, state::AppState};
 use crate::tui::colors::tui as colors;
 use ratatui::{
-    backend::Backend,
     layout::{Alignment, Constraint, Direction, Layout},
-    style::{Color, Modifier, Style},
+    style::{Modifier, Style},
     text::{Line, Span},
     widgets::{Block, Borders, Cell, Paragraph, Row, Table},
     Frame,
@@ -15,7 +14,7 @@ pub fn render(f: &mut Frame, state: &AppState, _config: &TuiConfig) {
     let size = f.area();
 
     // Get profiles list
-    let profiles_manager = crate::profiles::PROFILES.read().unwrap();
+    let profiles_manager = crate::profiles::PROFILES.read().expect("profiles lock poisoned");
     let profiles: Vec<String> = profiles_manager.list().into_iter().map(|p| p.name.clone()).collect();
 
     // Main layout
@@ -69,7 +68,7 @@ fn render_profile_list(
         .style(Style::default().bg(colors::DARK_ORANGE))
         .height(1);
 
-    let profiles_manager = crate::profiles::PROFILES.read().unwrap();
+    let profiles_manager = crate::profiles::PROFILES.read().expect("profiles lock poisoned");
     let rows = profiles.iter().enumerate().map(|(i, name)| {
         let is_selected = i == selected_index;
         let is_builtin = profiles_manager.is_builtin(name);

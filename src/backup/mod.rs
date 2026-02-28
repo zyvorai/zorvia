@@ -1,7 +1,7 @@
 // Backup & Disaster Recovery - VM backup and restore
 
 use serde::{Deserialize, Serialize};
-use chrono::{DateTime, Utc, Duration};
+use chrono::{DateTime, Utc};
 
 /// Backup configuration
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -260,6 +260,7 @@ pub mod verify;
 #[cfg(test)]
 mod tests {
     use super::*;
+    use chrono::Duration;
 
     #[test]
     fn test_backup_config() {

@@ -210,7 +210,7 @@ impl TrafficAnalyzer {
     }
 
     /// Add or update a flow
-    pub fn add_flow(&mut self, mut flow: TrafficFlow) {
+    pub fn add_flow(&mut self, flow: TrafficFlow) {
         let key = flow.flow_key();
 
         if let Some(existing) = self.flows.get_mut(&key) {

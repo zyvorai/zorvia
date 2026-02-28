@@ -35,6 +35,7 @@ pub mod secrets;
 pub mod multicloud;
 pub mod devexp;
 pub mod api;
+pub mod handlers;
 
 use anyhow::{anyhow, Result};
 use cli::{Cli, Commands};
@@ -394,27 +395,21 @@ pub async fn run(cli: Cli) -> Result<()> {
             let source_vm = client.get_vm(&cli.namespace, &source).await?;
 
             // Convert to VMConfig
+            let cpu_ref = source_vm.spec.template.spec.domain.cpu.as_ref()
+                .ok_or_else(|| anyhow::anyhow!("Source VM has no CPU configuration"))?;
+            let mem_ref = source_vm.spec.template.spec.domain.memory.as_ref()
+                .ok_or_else(|| anyhow::anyhow!("Source VM has no memory configuration"))?;
+            let guest_mem = mem_ref.guest.as_ref()
+                .ok_or_else(|| anyhow::anyhow!("Source VM has no guest memory configuration"))?;
+
             let mut config = VMConfigBuilder::new(&target)
                 .namespace(&cli.namespace)
                 .cpu(
-                    source_vm.spec.template.spec.domain.cpu.as_ref().unwrap().cores.unwrap(),
-                    source_vm.spec.template.spec.domain.cpu.as_ref().unwrap().sockets.unwrap(),
-                    source_vm.spec.template.spec.domain.cpu.as_ref().unwrap().threads.unwrap(),
+                    cpu_ref.cores.unwrap_or(1),
+                    cpu_ref.sockets.unwrap_or(1),
+                    cpu_ref.threads.unwrap_or(1),
                 )
-                .memory(
-                    source_vm
-                        .spec
-                        .template
-                        .spec
-                        .domain
-                        .memory
-                        .as_ref()
-                        .unwrap()
-                        .guest
-                        .as_ref()
-                        .unwrap()
-                        .clone(),
-                )
+                .memory(guest_mem.clone())
                 .build();
 
             // Copy labels (but update the name label)
@@ -598,7 +593,8 @@ pub async fn run(cli: Cli) -> Result<()> {
             println!();
 
             // Create VM
-            let mut config = TEMPLATES.get(template_name).unwrap();
+            let mut config = TEMPLATES.get(template_name)
+                .ok_or_else(|| anyhow::anyhow!("Unknown template: {}", template_name))?;
             config.name = vm_name.clone();
             config.namespace = cli.namespace.clone();
             config.cpu.cores = cpu_cores;
@@ -728,7 +724,7 @@ pub async fn run(cli: Cli) -> Result<()> {
         Commands::Profiles { details } => {
             use crate::profiles::PROFILES;
 
-            let manager = PROFILES.read().unwrap();
+            let manager = PROFILES.read().map_err(|e| anyhow::anyhow!("Failed to lock profiles: {}", e))?;
 
             println!("{}", color::header("═══ VM Resource Profiles ═══"));
             println!();
@@ -770,7 +766,7 @@ pub async fn run(cli: Cli) -> Result<()> {
         Commands::Profile { name, output } => {
             use crate::profiles::PROFILES;
 
-            let manager = PROFILES.read().unwrap();
+            let manager = PROFILES.read().map_err(|e| anyhow::anyhow!("Failed to lock profiles: {}", e))?;
             let profile = manager.get(&name)
                 .ok_or_else(|| anyhow!("Profile not found: {}", name))?;
 
@@ -828,7 +824,7 @@ pub async fn run(cli: Cli) -> Result<()> {
             };
 
             // Create the profile
-            let mut manager = PROFILES.write().unwrap();
+            let mut manager = PROFILES.write().map_err(|e| anyhow::anyhow!("Failed to lock profiles: {}", e))?;
             manager.create_custom(profile)?;
 
             println!("{}", color::success(&format!("✓ Custom profile '{}' created successfully", name)));
@@ -849,7 +845,7 @@ pub async fn run(cli: Cli) -> Result<()> {
         } => {
             use crate::profiles::PROFILES;
 
-            let mut manager = PROFILES.write().unwrap();
+            let mut manager = PROFILES.write().map_err(|e| anyhow::anyhow!("Failed to lock profiles: {}", e))?;
 
             // Load existing profile
             let mut profile = manager.get(&name)
@@ -895,7 +891,7 @@ pub async fn run(cli: Cli) -> Result<()> {
         Commands::ProfileDelete { name, yes } => {
             use crate::profiles::PROFILES;
 
-            let mut manager = PROFILES.write().unwrap();
+            let mut manager = PROFILES.write().map_err(|e| anyhow::anyhow!("Failed to lock profiles: {}", e))?;
 
             // Check if builtin
             if manager.is_builtin(&name) {
@@ -932,7 +928,7 @@ pub async fn run(cli: Cli) -> Result<()> {
             use crate::blueprints::BLUEPRINTS;
             use crate::tui::colors::cli;
 
-            let manager = BLUEPRINTS.read().unwrap();
+            let manager = BLUEPRINTS.read().map_err(|e| anyhow::anyhow!("Failed to lock blueprints: {}", e))?;
 
             println!("{}", color::header("═══ Multi-VM Blueprints ═══"));
             println!();
@@ -979,7 +975,7 @@ pub async fn run(cli: Cli) -> Result<()> {
         Commands::Blueprint { name, output } => {
             use crate::blueprints::BLUEPRINTS;
 
-            let manager = BLUEPRINTS.read().unwrap();
+            let manager = BLUEPRINTS.read().map_err(|e| anyhow::anyhow!("Failed to lock blueprints: {}", e))?;
             let blueprint = manager.get(&name)
                 .ok_or_else(|| anyhow!("Blueprint not found: {}", name))?;
 
@@ -1005,7 +1001,7 @@ pub async fn run(cli: Cli) -> Result<()> {
             use crate::profiles::PROFILES;
             use crate::tui::colors::cli;
 
-            let manager = BLUEPRINTS.read().unwrap();
+            let manager = BLUEPRINTS.read().map_err(|e| anyhow::anyhow!("Failed to lock blueprints: {}", e))?;
             let bp = manager.get(&blueprint)
                 .ok_or_else(|| anyhow!("Blueprint not found: {}", blueprint))?;
 
@@ -1023,7 +1019,7 @@ pub async fn run(cli: Cli) -> Result<()> {
                     println!("  {}. {}", i + 1, cli::vm_name(&vm_name));
                     println!("     Template: {}", vm_spec.template);
                     if let Some(profile_name) = &vm_spec.profile {
-                        let manager = PROFILES.read().unwrap();
+                        let manager = PROFILES.read().map_err(|e| anyhow::anyhow!("Failed to lock profiles: {}", e))?;
                         if let Some(profile) = manager.get(profile_name) {
                             println!("     Profile: {} ({}, {})",
                                 profile_name,
@@ -1057,7 +1053,7 @@ pub async fn run(cli: Cli) -> Result<()> {
 
                 // Apply profile if specified
                 if let Some(profile_name) = &vm_spec.profile {
-                    let manager = PROFILES.read().unwrap();
+                    let manager = PROFILES.read().map_err(|e| anyhow::anyhow!("Failed to lock profiles: {}", e))?;
                     if let Some(profile) = manager.get(profile_name) {
                         config.cpu.cores = profile.cpu_cores;
                         config.cpu.sockets = profile.cpu_sockets;
@@ -1135,7 +1131,7 @@ pub async fn run(cli: Cli) -> Result<()> {
             }
 
             // Create the blueprint
-            let mut manager = BLUEPRINTS.write().unwrap();
+            let mut manager = BLUEPRINTS.write().map_err(|e| anyhow::anyhow!("Failed to lock blueprints: {}", e))?;
             manager.create_custom(blueprint)?;
 
             println!("{}", color::success(&format!("✓ Custom blueprint '{}' created successfully", name)));
@@ -1149,7 +1145,7 @@ pub async fn run(cli: Cli) -> Result<()> {
         } => {
             use crate::blueprints::BLUEPRINTS;
 
-            let mut manager = BLUEPRINTS.write().unwrap();
+            let mut manager = BLUEPRINTS.write().map_err(|e| anyhow::anyhow!("Failed to lock blueprints: {}", e))?;
 
             // Load existing blueprint
             let mut blueprint = manager.get(&name)
@@ -1174,7 +1170,7 @@ pub async fn run(cli: Cli) -> Result<()> {
         Commands::BlueprintDelete { name, yes } => {
             use crate::blueprints::BLUEPRINTS;
 
-            let mut manager = BLUEPRINTS.write().unwrap();
+            let mut manager = BLUEPRINTS.write().map_err(|e| anyhow::anyhow!("Failed to lock blueprints: {}", e))?;
 
             // Check if builtin
             if manager.is_builtin(&name) {
@@ -1355,7 +1351,7 @@ pub async fn run(cli: Cli) -> Result<()> {
             println!("{}", color::header(&format!("═══ Resource Recommendations for: {} ═══", workload)));
             println!();
 
-            let manager = PROFILES.read().unwrap();
+            let manager = PROFILES.read().map_err(|e| anyhow::anyhow!("Failed to lock profiles: {}", e))?;
             let recommendations = manager.recommend(&workload);
 
             if recommendations.is_empty() {
@@ -1411,7 +1407,7 @@ pub async fn run(cli: Cli) -> Result<()> {
 
             if alternatives {
                 println!("{}", color::header("All Available Profiles:"));
-                let manager = PROFILES.read().unwrap();
+                let manager = PROFILES.read().map_err(|e| anyhow::anyhow!("Failed to lock profiles: {}", e))?;
                 for profile in manager.list() {
                     println!("  {} {}", color::value("•"), color::label(&profile.name));
                 }
@@ -1450,7 +1446,7 @@ pub async fn run(cli: Cli) -> Result<()> {
             println!();
 
             match manager.create_snapshot(&config).await {
-                Ok(snapshot) => {
+                Ok(_snapshot) => {
                     println!("{} Snapshot creation started", color::success("✓"));
                     println!("  Status:    {}", color::vm_status("InProgress"));
                     println!();
@@ -1827,9 +1823,9 @@ pub async fn run(cli: Cli) -> Result<()> {
             // Sort based on sort_by parameter
             reports.sort_by(|a, b| {
                 match sort_by.as_str() {
-                    "cpu" => b.current_metrics.cpu.usage_percent.partial_cmp(&a.current_metrics.cpu.usage_percent).unwrap(),
-                    "memory" => b.current_metrics.memory.usage_percent.partial_cmp(&a.current_metrics.memory.usage_percent).unwrap(),
-                    "disk" => b.current_metrics.disk.usage_percent.partial_cmp(&a.current_metrics.disk.usage_percent).unwrap(),
+                    "cpu" => b.current_metrics.cpu.usage_percent.partial_cmp(&a.current_metrics.cpu.usage_percent).unwrap_or(std::cmp::Ordering::Equal),
+                    "memory" => b.current_metrics.memory.usage_percent.partial_cmp(&a.current_metrics.memory.usage_percent).unwrap_or(std::cmp::Ordering::Equal),
+                    "disk" => b.current_metrics.disk.usage_percent.partial_cmp(&a.current_metrics.disk.usage_percent).unwrap_or(std::cmp::Ordering::Equal),
                     _ => b.performance_score.cmp(&a.performance_score), // default: score
                 }
             });
@@ -1919,7 +1915,7 @@ pub async fn run(cli: Cli) -> Result<()> {
             println!();
 
             // Mock disk data for demonstration
-            let mut disks = vec![
+            let disks = vec![
                 {
                     let mut d = DiskInfo::new("root");
                     d.mount_point = "/".to_string();
@@ -2076,7 +2072,7 @@ pub async fn run(cli: Cli) -> Result<()> {
 
             // Sort disks
             match sort_by.as_str() {
-                "usage" => disks.sort_by(|a, b| b.usage_percent.partial_cmp(&a.usage_percent).unwrap()),
+                "usage" => disks.sort_by(|a, b| b.usage_percent.partial_cmp(&a.usage_percent).unwrap_or(std::cmp::Ordering::Equal)),
                 "size" => disks.sort_by(|a, b| {
                     let a_size = DiskInfo::parse_size(&a.size);
                     let b_size = DiskInfo::parse_size(&b.size);
@@ -2194,7 +2190,7 @@ pub async fn run(cli: Cli) -> Result<()> {
             }
         }
 
-        Commands::NetworkGet { vm, interface, output } => {
+        Commands::NetworkGet { vm: _, interface, output } => {
             use network::NetworkInterface;
 
             let mut iface = NetworkInterface::new(&interface);
@@ -2420,7 +2416,7 @@ pub async fn run(cli: Cli) -> Result<()> {
         }
 
         Commands::Migrate { vm, target_node, migration_type, plan } => {
-            use migration::{MigrationRequest, MigrationType, MigrationStatus, MigrationState, MigrationPhase};
+            use migration::{MigrationRequest, MigrationType, MigrationStatus};
 
             println!("{}", color::header(&format!("VM Migration: {}", vm)));
             println!();
@@ -2658,7 +2654,7 @@ pub async fn run(cli: Cli) -> Result<()> {
                 println!();
                 println!("{}", color::info("ℹ Use 'zorvia evacuate-node' without --plan to execute"));
             } else {
-                let mut status = EvacuationStatus::new(&node, 5);
+                let status = EvacuationStatus::new(&node, 5);
 
                 println!("{}", color::header("Evacuation Started:"));
                 println!("  Node:         {}", status.node_name);
@@ -2704,7 +2700,7 @@ pub async fn run(cli: Cli) -> Result<()> {
         }
 
         Commands::BackupCreate { vm, name, backup_type, compression, no_encryption } => {
-            use backup::{BackupConfig, BackupType, CompressionType, BackupStatus};
+            use backup::{BackupConfig, BackupType, CompressionType};
 
             let backup_name = name.unwrap_or_else(|| {
                 format!("{}-backup-{}", vm, Utc::now().format("%Y%m%d-%H%M%S"))
@@ -2834,7 +2830,7 @@ pub async fn run(cli: Cli) -> Result<()> {
             println!("{}", color::header(&format!("Restoring from Backup: {}", backup)));
             println!();
 
-            let restore = RestoreOperation::new("restore-001", "original-vm", &backup)
+            let _restore = RestoreOperation::new("restore-001", "original-vm", &backup)
                 .to_new_vm(&target_vm);
 
             println!("  Restore ID:   {}", color::value("restore-001"));
@@ -2969,1666 +2965,160 @@ pub async fn run(cli: Cli) -> Result<()> {
         // ========== SECURITY & COMPLIANCE ==========
 
         Commands::SecurityScan { vm, scan_type, containers, output } => {
-            use security::scan::{ScanConfig, ScanType, VulnerabilityScanner};
-
-            println!("{}", color::header(&format!("Scanning VM: {}", vm)));
-            println!();
-
-            let s_type = match scan_type.as_str() {
-                "quick" => ScanType::Quick,
-                "deep" => ScanType::Deep,
-                "compliance" => ScanType::Compliance,
-                _ => ScanType::Standard,
-            };
-
-            let mut config = ScanConfig::new(&vm, s_type);
-            if containers {
-                config = config.enable_containers();
-            }
-
-            println!("  Scan Type:  {}", color::value(&scan_type));
-            println!("  Containers: {}", if containers { color::success("Yes") } else { "No".to_string() });
-            println!();
-            println!("Scanning...");
-
-            let result = VulnerabilityScanner::scan(&config);
-
-            println!();
-            println!("Scan Results:");
-            println!("  Status:     {}", color::success(&result.status.to_string()));
-            println!("  Total:      {}", color::value(&result.statistics.total.to_string()));
-            println!("  Critical:   {}", if result.statistics.critical > 0 {
-                color::error(&result.statistics.critical.to_string())
-            } else {
-                color::success("0")
-            });
-            println!("  High:       {}", if result.statistics.high > 0 {
-                color::warning(&result.statistics.high.to_string())
-            } else {
-                color::success("0")
-            });
-            println!("  Medium:     {}", result.statistics.medium);
-            println!("  Low:        {}", result.statistics.low);
-            println!();
-
-            if output == "json" {
-                let json = serde_json::to_string_pretty(&result)?;
-                println!("{}", json);
-            } else if output == "yaml" {
-                let yaml = serde_yaml::to_string(&result)?;
-                println!("{}", yaml);
-            }
+            handlers::security::handle_security_scan(vm, scan_type, containers, output)?;
         }
 
         Commands::SecurityAssess { vm, output } => {
-            use security::{SecurityAssessment, Vulnerability, Severity};
-
-            let mut assessment = SecurityAssessment::new(&vm);
-
-            // Example vulnerabilities
-            assessment.add_vulnerability(
-                Vulnerability::new("VULN-001", "OpenSSL vulnerability", Severity::High)
-                    .with_cvss(7.5)
-            );
-            assessment.add_vulnerability(
-                Vulnerability::new("VULN-002", "Kernel vulnerability", Severity::Medium)
-                    .with_cvss(5.0)
-            );
-
-            assessment.calculate_score();
-
-            println!("{}", color::header(&format!("Security Assessment: {}", vm)));
-            println!();
-            println!("  Score:         {}", color::value(&assessment.overall_score.to_string()));
-            println!("  Risk Level:    {}", match assessment.risk_level {
-                security::RiskLevel::Critical => color::error("Critical"),
-                security::RiskLevel::High => color::error("High"),
-                security::RiskLevel::Medium => color::warning("Medium"),
-                security::RiskLevel::Low => color::success("Low"),
-                security::RiskLevel::Unknown => color::muted("Unknown"),
-            });
-            println!("  Vulnerabilities: {}", assessment.vulnerabilities.len());
-            println!("    Critical:    {}", color::error(&assessment.critical_count().to_string()));
-            println!("    High:        {}", color::warning(&assessment.high_count().to_string()));
-            println!();
-
-            if output == "json" {
-                let json = serde_json::to_string_pretty(&assessment)?;
-                println!("{}", json);
-            } else {
-                let yaml = serde_yaml::to_string(&assessment)?;
-                println!("{}", yaml);
-            }
+            handlers::security::handle_security_assess(vm, output)?;
         }
 
         Commands::SecurityHarden { vm, profile, verify_only } => {
-            use security::hardening::{HardeningEngine, SecurityBaseline};
-
-            println!("{}", color::header(&format!("Security Hardening: {}", vm)));
-            println!();
-
-            let baseline = match profile.as_str() {
-                "stig" => SecurityBaseline::STIG,
-                "pci-dss" => SecurityBaseline::PCI_DSS,
-                "nist" => SecurityBaseline::NIST,
-                "custom" => SecurityBaseline::Custom,
-                _ => SecurityBaseline::CIS,
-            };
-
-            let hardening_profile = match profile.as_str() {
-                "stig" => HardeningEngine::stig_profile(),
-                _ => HardeningEngine::cis_profile(),
-            };
-
-            println!("  Profile:     {}", color::value(&baseline.to_string()));
-            println!("  Rules:       {}", hardening_profile.rule_count());
-            println!("  Mode:        {}", if verify_only {
-                color::info("Verify Only")
-            } else {
-                color::warning("Apply")
-            });
-            println!();
-
-            let result = if verify_only {
-                HardeningEngine::verify(&vm, &hardening_profile)
-            } else {
-                HardeningEngine::apply(&vm, &hardening_profile)
-            };
-
-            println!("Results:");
-            println!("  Status:      {}", color::success(&result.status.to_string()));
-            println!("  Applied:     {}", color::success(&result.statistics.applied.to_string()));
-            println!("  Skipped:     {}", result.statistics.skipped);
-            println!("  Failed:      {}", if result.statistics.failed > 0 {
-                color::error(&result.statistics.failed.to_string())
-            } else {
-                color::success("0")
-            });
-            println!("  Success:     {}%", result.success_rate() as u8);
+            handlers::security::handle_security_harden(vm, profile, verify_only)?;
         }
 
         Commands::SecurityProfiles { details } => {
-            use security::hardening::{HardeningEngine, SecurityBaseline};
-
-            println!("{}", color::header("Security Hardening Profiles"));
-            println!();
-
-            let profiles = vec![
-                (SecurityBaseline::CIS, HardeningEngine::cis_profile()),
-                (SecurityBaseline::STIG, HardeningEngine::stig_profile()),
-            ];
-
-            if details {
-                for (baseline, profile) in profiles {
-                    println!("Profile: {}", color::value(&baseline.to_string()));
-                    println!("  Name:        {}", profile.name);
-                    println!("  Description: {}", profile.description);
-                    println!("  Rules:       {}", profile.rule_count());
-                    println!();
-                }
-            } else {
-                println!("{:<20} {:<50} {}",
-                    color::label("PROFILE"),
-                    color::label("DESCRIPTION"),
-                    color::label("RULES")
-                );
-                println!("{}", "-".repeat(80));
-
-                for (baseline, profile) in profiles {
-                    println!("{:<20} {:<50} {}",
-                        baseline.to_string(),
-                        profile.description,
-                        profile.rule_count()
-                    );
-                }
-            }
+            handlers::security::handle_security_profiles(details)?;
         }
 
         Commands::ComplianceCheck { vm, framework, output } => {
-            use security::compliance::{ComplianceChecker, ComplianceFramework};
-
-            println!("{}", color::header(&format!("Compliance Check: {}", vm)));
-            println!();
-
-            let fw = match framework.as_str() {
-                "hipaa" => ComplianceFramework::HIPAA,
-                "soc2" => ComplianceFramework::SOC2,
-                "iso27001" => ComplianceFramework::ISO27001,
-                "gdpr" => ComplianceFramework::GDPR,
-                "nist" => ComplianceFramework::NIST,
-                "cis" => ComplianceFramework::CIS,
-                _ => ComplianceFramework::PCIDSS,
-            };
-
-            println!("  Framework:   {}", color::value(&fw.to_string()));
-            println!();
-            println!("Checking compliance...");
-
-            let report = match framework.as_str() {
-                "hipaa" => ComplianceChecker::check_hipaa(&vm),
-                "soc2" => ComplianceChecker::check_soc2(&vm),
-                _ => ComplianceChecker::check_pci_dss(&vm),
-            };
-
-            println!();
-            println!("Compliance Report:");
-            println!("  Status:      {}", if report.compliant {
-                color::success("Compliant")
-            } else {
-                color::error("Non-Compliant")
-            });
-            println!("  Score:       {}%", report.summary.compliance_score as u8);
-            println!("  Total:       {}", report.summary.total_checks);
-            println!("  Passed:      {}", color::success(&report.summary.passed.to_string()));
-            println!("  Failed:      {}", if report.summary.failed > 0 {
-                color::error(&report.summary.failed.to_string())
-            } else {
-                color::success("0")
-            });
-            println!("  Critical:    {}", if report.summary.critical_failures > 0 {
-                color::error(&report.summary.critical_failures.to_string())
-            } else {
-                color::success("0")
-            });
-            println!();
-
-            if output == "json" {
-                let json = serde_json::to_string_pretty(&report)?;
-                println!("{}", json);
-            } else if output == "yaml" {
-                let yaml = serde_yaml::to_string(&report)?;
-                println!("{}", yaml);
-            }
+            handlers::security::handle_compliance_check(vm, framework, output)?;
         }
 
         Commands::ComplianceReport { vm, report_id, output } => {
-            use security::compliance::{ComplianceChecker};
-
-            let report = ComplianceChecker::check_pci_dss(&vm);
-
-            println!("{}", color::header(&format!("Compliance Report: {}", vm)));
-            println!();
-            println!("  Report ID:   {}", report_id.as_deref().unwrap_or(&report.report_id));
-            println!("  Generated:   {}", report.generated_at.format("%Y-%m-%d %H:%M:%S"));
-            println!();
-
-            if output == "json" {
-                let json = serde_json::to_string_pretty(&report)?;
-                println!("{}", json);
-            } else {
-                let yaml = serde_yaml::to_string(&report)?;
-                println!("{}", yaml);
-            }
+            handlers::security::handle_compliance_report(vm, report_id, output)?;
         }
 
         Commands::AuditList { vm, event_type, severity, security_only, output } => {
-            use security::audit::{AuditLog, AuditEvent, EventType, EventSeverity};
-
-            println!("{}", color::header("Audit Events"));
-            if let Some(ref vm_name) = vm {
-                println!("  VM: {}", color::value(vm_name));
-            }
-            println!();
-
-            // Create example audit log
-            let mut log = AuditLog::new(vm.clone());
-
-            // Add example events
-            log.add_event(
-                AuditEvent::new(EventType::Authentication, "user@example.com", "test-vm", "login")
-                    .with_severity(EventSeverity::Info)
-            );
-            log.add_event(
-                AuditEvent::new(EventType::VMOperation, "admin", "test-vm", "start")
-                    .with_severity(EventSeverity::Info)
-            );
-            log.add_event(
-                AuditEvent::new(EventType::SecurityViolation, "user", "test-vm", "unauthorized")
-                    .with_severity(EventSeverity::Critical)
-            );
-
-            let events: Vec<&AuditEvent> = if security_only {
-                log.security_events()
-            } else {
-                log.events.iter().collect()
-            };
-
-            if output == "json" {
-                let json = serde_json::to_string_pretty(&events)?;
-                println!("{}", json);
-            } else if output == "yaml" {
-                let yaml = serde_yaml::to_string(&events)?;
-                println!("{}", yaml);
-            } else {
-                println!("{:<25} {:<20} {:<15} {:<10} {}",
-                    color::label("TIMESTAMP"),
-                    color::label("TYPE"),
-                    color::label("ACTOR"),
-                    color::label("SEVERITY"),
-                    color::label("ACTION")
-                );
-                println!("{}", "-".repeat(90));
-
-                for event in events {
-                    let severity_str = match event.severity {
-                        EventSeverity::Critical => color::error("Critical"),
-                        EventSeverity::High => color::error("High"),
-                        EventSeverity::Medium => color::warning("Medium"),
-                        EventSeverity::Low => color::info("Low"),
-                        EventSeverity::Info => color::muted("Info"),
-                    };
-
-                    println!("{:<25} {:<20} {:<15} {:<10} {}",
-                        event.timestamp.format("%Y-%m-%d %H:%M:%S"),
-                        event.event_type.to_string(),
-                        event.actor,
-                        severity_str,
-                        event.action
-                    );
-                }
-            }
+            handlers::security::handle_audit_list(vm, event_type, severity, security_only, output)?;
         }
 
         Commands::AuditGet { log_id, output } => {
-            use security::audit::AuditLog;
-
-            let log = AuditLog::new(Some("test-vm".to_string()));
-
-            println!("{}", color::header(&format!("Audit Log: {}", log_id)));
-            println!();
-            println!("  Log ID:      {}", log.log_id);
-            println!("  Events:      {}", log.event_count());
-            println!("  Created:     {}", log.created_at.format("%Y-%m-%d %H:%M:%S"));
-            println!();
-
-            if output == "json" {
-                let json = serde_json::to_string_pretty(&log)?;
-                println!("{}", json);
-            } else {
-                let yaml = serde_yaml::to_string(&log)?;
-                println!("{}", yaml);
-            }
+            handlers::security::handle_audit_get(log_id, output)?;
         }
 
         Commands::AuditStats { vm, period, output } => {
-            use security::audit::{AuditLog, AuditStatistics};
-
-            println!("{}", color::header("Audit Statistics"));
-            if let Some(ref vm_name) = vm {
-                println!("  VM:          {}", color::value(vm_name));
-            }
-            println!("  Period:      {}", period);
-            println!();
-
-            let log = AuditLog::new(vm);
-            let stats = AuditStatistics::from_log(&log);
-
-            if output == "json" {
-                let json = serde_json::to_string_pretty(&stats)?;
-                println!("{}", json);
-            } else if output == "yaml" {
-                let yaml = serde_yaml::to_string(&stats)?;
-                println!("{}", yaml);
-            } else {
-                println!("Summary:");
-                println!("  Total Events:      {}", stats.total_events);
-                println!("  Security Events:   {}", stats.security_events);
-                println!("  Critical Events:   {}", if stats.critical_events > 0 {
-                    color::error(&stats.critical_events.to_string())
-                } else {
-                    color::success("0")
-                });
-                println!("  Failed Events:     {}", if stats.failed_events > 0 {
-                    color::warning(&stats.failed_events.to_string())
-                } else {
-                    color::success("0")
-                });
-            }
+            handlers::security::handle_audit_stats(vm, period, output)?;
         }
 
         // ========== COST MANAGEMENT & OPTIMIZATION ==========
 
-        Commands::CostAnalyze { vm, period, output } => {
-            use cost::{CostCalculator, VMCost};
+        Commands::CostAnalyze { vm, period, output } =>
+            handlers::cost::handle_cost_analyze(vm, period, output)?,
 
-            println!("{}", color::header("Cost Analysis"));
-            if let Some(ref vm_name) = vm {
-                println!("  VM:      {}", color::value(vm_name));
-            }
-            println!("  Period:  {}", period);
-            println!();
+        Commands::CostSummary { namespace, period, group_by, output } =>
+            handlers::cost::handle_cost_summary(namespace, period, group_by, output)?,
 
-            let calculator = CostCalculator::default();
-            let cost = calculator.calculate_vm_cost(
-                vm.as_deref().unwrap_or("example-vm"),
-                "default",
-                4,
-                8,
-                20,
-                730.0
-            );
+        Commands::CostReport { report_type, format, output } =>
+            handlers::cost::handle_cost_report(report_type, format, output)?,
 
-            println!("Cost Breakdown:");
-            println!("  CPU:      ${:.2}", cost.cpu_cost);
-            println!("  Memory:   ${:.2}", cost.memory_cost);
-            println!("  Storage:  ${:.2}", cost.storage_cost);
-            println!("  Network:  ${:.2}", cost.network_cost);
-            println!("  Total:    {}", color::value(&format!("${:.2}", cost.total_cost)));
-            println!();
-            println!("  Runtime:  {:.1} hours", cost.runtime_hours);
-            println!("  Cost/hr:  ${:.4}", cost.cost_per_hour());
+        Commands::BudgetList { output } =>
+            handlers::cost::handle_budget_list(output)?,
 
-            if output == "json" {
-                println!();
-                let json = serde_json::to_string_pretty(&cost)?;
-                println!("{}", json);
-            } else if output == "yaml" {
-                println!();
-                let yaml = serde_yaml::to_string(&cost)?;
-                println!("{}", yaml);
-            }
-        }
+        Commands::BudgetCreate { name, amount, period, scope, alert_threshold } =>
+            handlers::cost::handle_budget_create(name, amount, period, scope, alert_threshold)?,
 
-        Commands::CostSummary { namespace, period, group_by, output } => {
-            use cost::CostSummary;
+        Commands::BudgetStatus { name, output } =>
+            handlers::cost::handle_budget_status(name, output)?,
 
-            println!("{}", color::header("Cost Summary"));
-            if let Some(ref ns) = namespace {
-                println!("  Namespace: {}", color::value(ns));
-            }
-            println!("  Period:    {}", period);
-            if let Some(ref group) = group_by {
-                println!("  Group By:  {}", group);
-            }
-            println!();
+        Commands::CostOptimize { vm, high_priority_only, output } =>
+            handlers::cost::handle_cost_optimize(vm, high_priority_only, output)?,
 
-            let summary = CostSummary::new();
+        Commands::CostWaste { waste_type, min_waste, output } =>
+            handlers::cost::handle_cost_waste(waste_type, min_waste, output)?,
 
-            println!("Summary:");
-            println!("  Total Cost:       {}", color::value(&format!("${:.2}", summary.total_cost)));
-            println!("  VM Count:         {}", summary.vm_count);
-            println!("  Avg Cost/VM:      ${:.2}", summary.average_cost_per_vm());
-            println!();
-            println!("Resource Breakdown:");
-            println!("  CPU:              ${:.2}", summary.cpu_cost);
-            println!("  Memory:           ${:.2}", summary.memory_cost);
-            println!("  Storage:          ${:.2}", summary.storage_cost);
-            println!("  Network:          ${:.2}", summary.network_cost);
-            println!("  Snapshots:        ${:.2}", summary.snapshot_cost);
-
-            if output == "json" {
-                println!();
-                let json = serde_json::to_string_pretty(&summary)?;
-                println!("{}", json);
-            } else if output == "yaml" {
-                println!();
-                let yaml = serde_yaml::to_string(&summary)?;
-                println!("{}", yaml);
-            }
-        }
-
-        Commands::CostReport { report_type, format, output } => {
-            use cost::reports::{ReportGenerator, ReportExporter};
-            use chrono::Utc;
-
-            println!("{}", color::header(&format!("{} Cost Report", report_type)));
-            println!();
-
-            let report = match report_type.as_str() {
-                "monthly" => ReportGenerator::monthly_report(2024, 1),
-                "weekly" => ReportGenerator::weekly_report(Utc::now()),
-                _ => ReportGenerator::custom_report(Utc::now() - chrono::Duration::days(30), Utc::now()),
-            };
-
-            println!("  Report ID:   {}", report.report_id);
-            println!("  Period:      {} to {}",
-                report.period_start.format("%Y-%m-%d"),
-                report.period_end.format("%Y-%m-%d")
-            );
-            println!("  Total Cost:  {}", color::value(&format!("${:.2}", report.summary.total_cost)));
-            println!();
-
-            let content = if format == "csv" {
-                ReportExporter::to_csv(&report)
-            } else if format == "yaml" {
-                serde_yaml::to_string(&report)?
-            } else {
-                ReportExporter::to_json(&report)?
-            };
-
-            if let Some(file_path) = output {
-                std::fs::write(&file_path, content)?;
-                println!("{}", color::success(&format!("Report saved to: {}", file_path)));
-            } else {
-                println!("{}", content);
-            }
-        }
-
-        Commands::BudgetList { output } => {
-            use cost::budgets::{BudgetManager, Budget, BudgetPeriod, BudgetScope};
-
-            println!("{}", color::header("Budgets"));
-            println!();
-
-            let mut manager = BudgetManager::new();
-
-            // Example budgets
-            manager.add_budget(
-                Budget::new("monthly-budget", 5000.0, BudgetPeriod::Monthly)
-                    .with_scope(BudgetScope::Global)
-            );
-            manager.add_budget(
-                Budget::new("dev-budget", 1000.0, BudgetPeriod::Monthly)
-                    .with_scope(BudgetScope::Namespace("dev".to_string()))
-            );
-
-            if output == "json" {
-                let json = serde_json::to_string_pretty(&manager.all_budgets())?;
-                println!("{}", json);
-            } else if output == "yaml" {
-                let yaml = serde_yaml::to_string(&manager.all_budgets())?;
-                println!("{}", yaml);
-            } else {
-                println!("{:<20} {:<15} {:<15} {:<10}",
-                    color::label("NAME"),
-                    color::label("AMOUNT"),
-                    color::label("PERIOD"),
-                    color::label("SCOPE")
-                );
-                println!("{}", "-".repeat(65));
-
-                for budget in manager.all_budgets() {
-                    println!("{:<20} ${:<14.2} {:<15} {}",
-                        budget.name,
-                        budget.amount,
-                        budget.period.to_string(),
-                        budget.scope.to_string()
-                    );
-                }
-            }
-        }
-
-        Commands::BudgetCreate { name, amount, period, scope, alert_threshold } => {
-            use cost::budgets::{Budget, BudgetPeriod, BudgetScope, BudgetAlert, NotificationType};
-
-            println!("{}", color::header(&format!("Creating Budget: {}", name)));
-            println!();
-
-            let budget_period = match period.as_str() {
-                "daily" => BudgetPeriod::Daily,
-                "weekly" => BudgetPeriod::Weekly,
-                "quarterly" => BudgetPeriod::Quarterly,
-                "yearly" => BudgetPeriod::Yearly,
-                _ => BudgetPeriod::Monthly,
-            };
-
-            let budget_scope = if scope == "global" {
-                BudgetScope::Global
-            } else if let Some(ns) = scope.strip_prefix("namespace:") {
-                BudgetScope::Namespace(ns.to_string())
-            } else if let Some(team) = scope.strip_prefix("team:") {
-                BudgetScope::Team(team.to_string())
-            } else {
-                BudgetScope::Global
-            };
-
-            let mut budget = Budget::new(&name, amount, budget_period)
-                .with_scope(budget_scope);
-
-            if let Some(threshold) = alert_threshold {
-                budget = budget.add_alert(
-                    BudgetAlert::new(threshold, NotificationType::Email)
-                );
-            }
-
-            println!("  Name:       {}", color::value(&budget.name));
-            println!("  Amount:     {}", color::value(&format!("${:.2}", budget.amount)));
-            println!("  Period:     {}", budget.period);
-            println!("  Scope:      {}", budget.scope);
-            if !budget.alerts.is_empty() {
-                println!("  Alerts:     {} configured", budget.alerts.len());
-            }
-            println!();
-            println!("{}", color::success("✓ Budget created successfully"));
-        }
-
-        Commands::BudgetStatus { name, output } => {
-            use cost::budgets::{Budget, BudgetPeriod, BudgetStatus};
-
-            let mut budget = Budget::new(&name, 5000.0, BudgetPeriod::Monthly);
-            budget.update_spend(3750.0);
-
-            let status = BudgetStatus::from_budget(&budget);
-
-            println!("{}", color::header(&format!("Budget Status: {}", name)));
-            println!();
-            println!("  Amount:       {}", color::value(&format!("${:.2}", status.amount)));
-            println!("  Current:      ${:.2}", status.current_spend);
-            println!("  Remaining:    ${:.2}", status.remaining);
-            println!("  Utilization:  {}%", status.utilization_percent as u8);
-            println!("  Status:       {}", match status.status {
-                cost::budgets::Status::Healthy => color::success("Healthy"),
-                cost::budgets::Status::Warning => color::warning("Warning"),
-                cost::budgets::Status::Critical => color::error("Critical"),
-                cost::budgets::Status::Exceeded => color::error("Exceeded"),
-            });
-
-            if output == "json" {
-                println!();
-                let json = serde_json::to_string_pretty(&status)?;
-                println!("{}", json);
-            } else if output == "yaml" {
-                println!();
-                let yaml = serde_yaml::to_string(&status)?;
-                println!("{}", yaml);
-            }
-        }
-
-        Commands::CostOptimize { vm, high_priority_only, output } => {
-            use cost::optimization::{OptimizationEngine, OptimizationReport};
-
-            println!("{}", color::header("Cost Optimization Recommendations"));
-            if let Some(ref vm_name) = vm {
-                println!("  VM: {}", color::value(vm_name));
-            }
-            println!();
-
-            let report = OptimizationEngine::generate_report(vm.as_deref().unwrap_or("example-vm"));
-
-            let recommendations = if high_priority_only {
-                report.high_priority_recommendations()
-            } else {
-                report.recommendations.iter().collect()
-            };
-
-            println!("Potential Savings: {}", color::value(&format!("${:.2}/month", report.total_potential_savings)));
-            println!("Recommendations:   {}", recommendations.len());
-            println!();
-
-            if output == "json" {
-                let json = serde_json::to_string_pretty(&recommendations)?;
-                println!("{}", json);
-            } else if output == "yaml" {
-                let yaml = serde_yaml::to_string(&recommendations)?;
-                println!("{}", yaml);
-            } else {
-                println!("{:<15} {:<25} {:<10} {:<15} {}",
-                    color::label("PRIORITY"),
-                    color::label("TYPE"),
-                    color::label("SAVINGS"),
-                    color::label("SAVINGS %"),
-                    color::label("DESCRIPTION")
-                );
-                println!("{}", "-".repeat(90));
-
-                for rec in recommendations {
-                    let priority_str = match rec.priority {
-                        cost::optimization::Priority::Critical => color::error("Critical"),
-                        cost::optimization::Priority::High => color::error("High"),
-                        cost::optimization::Priority::Medium => color::warning("Medium"),
-                        cost::optimization::Priority::Low => color::info("Low"),
-                    };
-
-                    println!("{:<15} {:<25} ${:<9.2} {:<15.1}% {}",
-                        priority_str,
-                        rec.recommendation_type.to_string(),
-                        rec.potential_savings,
-                        rec.savings_percent,
-                        rec.description
-                    );
-                }
-            }
-        }
-
-        Commands::CostWaste { waste_type, min_waste, output } => {
-            use cost::optimization::{OptimizationEngine, WasteType};
-
-            println!("{}", color::header("Cost Waste Report"));
-            if let Some(ref wtype) = waste_type {
-                println!("  Type: {}", wtype);
-            }
-            println!("  Minimum: ${:.2}/month", min_waste);
-            println!();
-
-            // Example waste reports
-            let wastes = vec![
-                OptimizationEngine::detect_storage_waste(100, 10.0),
-                OptimizationEngine::detect_old_snapshots(10, 120, 5.0).unwrap(),
-            ];
-
-            let filtered: Vec<_> = wastes.iter()
-                .filter(|w| w.monthly_waste >= min_waste)
-                .collect();
-
-            println!("Total Monthly Waste: {}", color::error(&format!("${:.2}", filtered.iter().map(|w| w.monthly_waste).sum::<f64>())));
-            println!("Waste Items:         {}", filtered.len());
-            println!();
-
-            if output == "json" {
-                let json = serde_json::to_string_pretty(&filtered)?;
-                println!("{}", json);
-            } else if output == "yaml" {
-                let yaml = serde_yaml::to_string(&filtered)?;
-                println!("{}", yaml);
-            } else {
-                println!("{:<20} {:<20} {:<15} {}",
-                    color::label("RESOURCE"),
-                    color::label("TYPE"),
-                    color::label("MONTHLY WASTE"),
-                    color::label("DETAILS")
-                );
-                println!("{}", "-".repeat(80));
-
-                for waste in filtered {
-                    let severity_str = match waste.severity {
-                        cost::optimization::WasteSeverity::High => color::error("High"),
-                        cost::optimization::WasteSeverity::Medium => color::warning("Medium"),
-                        cost::optimization::WasteSeverity::Low => color::info("Low"),
-                    };
-
-                    println!("{:<20} {:<20} ${:<14.2} {}",
-                        waste.vm_name,
-                        format!("{:?}", waste.waste_type),
-                        waste.monthly_waste,
-                        waste.details
-                    );
-                }
-            }
-        }
-
-        Commands::CostForecast { budget, period, output } => {
-            use cost::budgets::CostForecast;
-
-            println!("{}", color::header("Cost Forecast"));
-            println!("  Period: {}", period);
-            if let Some(b) = budget {
-                println!("  Budget: ${:.2}", b);
-            }
-            println!();
-
-            let mut forecast = CostForecast::new(cost::budgets::BudgetPeriod::Monthly, 1500.0);
-            forecast.project_linear(15.0, 30.0);
-
-            println!("Forecast:");
-            println!("  Current Spend:    ${:.2}", forecast.current_spend);
-            println!("  Projected Spend:  {}", color::value(&format!("${:.2}", forecast.projected_spend)));
-            println!("  Confidence:       {}%", forecast.confidence as u8);
-            println!("  Method:           {:?}", forecast.forecast_method);
-            println!();
-
-            if let Some(budget_amount) = budget {
-                if forecast.is_over_budget(budget_amount) {
-                    println!("{}", color::error(&format!("⚠ Forecast exceeds budget by ${:.2}", forecast.projected_spend - budget_amount)));
-                } else {
-                    println!("{}", color::success(&format!("✓ Forecast within budget (${:.2} remaining)", budget_amount - forecast.projected_spend)));
-                }
-            }
-
-            if output == "json" {
-                println!();
-                let json = serde_json::to_string_pretty(&forecast)?;
-                println!("{}", json);
-            } else if output == "yaml" {
-                println!();
-                let yaml = serde_yaml::to_string(&forecast)?;
-                println!("{}", yaml);
-            }
-        }
+        Commands::CostForecast { budget, period, output } =>
+            handlers::cost::handle_cost_forecast(budget, period, output)?,
 
         // ========== AUTOMATION & ORCHESTRATION ==========
 
-        Commands::AutomationList { enabled_only, output } => {
-            use automation::{AutomationRule, Trigger};
-
-            println!("{}", color::header("Automation Rules"));
-            println!();
-
-            // Example rules
-            let rules = vec![
-                AutomationRule::new("Auto Stop Idle VMs", Trigger::Manual),
-                AutomationRule::new("Nightly Backup", Trigger::Schedule {
-                    cron: "0 2 * * *".to_string()
-                }),
-            ];
-
-            let filtered: Vec<_> = if enabled_only {
-                rules.iter().filter(|r| r.enabled).collect()
-            } else {
-                rules.iter().collect()
-            };
-
-            if output == "json" {
-                let json = serde_json::to_string_pretty(&filtered)?;
-                println!("{}", json);
-            } else if output == "yaml" {
-                let yaml = serde_yaml::to_string(&filtered)?;
-                println!("{}", yaml);
-            } else {
-                println!("{:<30} {:<15} {:<10} {}",
-                    color::label("NAME"),
-                    color::label("TRIGGER"),
-                    color::label("STATUS"),
-                    color::label("EXECUTIONS")
-                );
-                println!("{}", "-".repeat(75));
-
-                for rule in filtered {
-                    let status = if rule.enabled {
-                        color::success("Enabled")
-                    } else {
-                        color::muted("Disabled")
-                    };
-
-                    println!("{:<30} {:<15} {:<10} {}",
-                        rule.name,
-                        format!("{:?}", rule.trigger).split_whitespace().next().unwrap_or("Unknown"),
-                        status,
-                        rule.execution_count
-                    );
-                }
-            }
-        }
-
-        Commands::AutomationCreate { name, description, trigger, enable } => {
-            use automation::{AutomationRule, Trigger};
-
-            println!("{}", color::header(&format!("Creating Automation Rule: {}", name)));
-            println!();
-
-            let trigger_type = match trigger.as_str() {
-                "schedule" => Trigger::Schedule { cron: "0 * * * *".to_string() },
-                "event" => Trigger::Event { event_type: "vm.started".to_string() },
-                "metric" => Trigger::MetricThreshold {
-                    metric: "cpu_usage".to_string(),
-                    threshold: 80.0,
-                    operator: automation::Operator::GreaterThan
-                },
-                _ => Trigger::Manual,
-            };
-
-            let mut rule = AutomationRule::new(&name, trigger_type);
-            if let Some(desc) = description {
-                rule = rule.with_description(desc);
-            }
-            if !enable {
-                rule = rule.disable();
-            }
-
-            println!("  Name:        {}", color::value(&rule.name));
-            println!("  Trigger:     {:?}", rule.trigger);
-            println!("  Status:      {}", if rule.enabled {
-                color::success("Enabled")
-            } else {
-                color::muted("Disabled")
-            });
-            println!();
-            println!("{}", color::success("✓ Automation rule created successfully"));
-        }
-
-        Commands::AutomationGet { rule, output } => {
-            use automation::{AutomationRule, Trigger};
-
-            let automation_rule = AutomationRule::new(&rule, Trigger::Manual)
-                .with_description("Example automation rule");
-
-            println!("{}", color::header(&format!("Automation Rule: {}", rule)));
-            println!();
-
-            if output == "json" {
-                let json = serde_json::to_string_pretty(&automation_rule)?;
-                println!("{}", json);
-            } else {
-                let yaml = serde_yaml::to_string(&automation_rule)?;
-                println!("{}", yaml);
-            }
-        }
-
-        Commands::AutomationRun { rule, dry_run } => {
-            use automation::{ExecutionResult, ExecutionStatus, ActionResult};
-
-            println!("{}", color::header(&format!("Executing Automation Rule: {}", rule)));
-            if dry_run {
-                println!("  Mode: {}", color::info("Dry Run"));
-            }
-            println!();
-
-            let mut result = ExecutionResult::new(&rule);
-            result.add_action_result(ActionResult::success("start-vm", "VM started successfully"));
-            result.add_action_result(ActionResult::success("create-snapshot", "Snapshot created"));
-            result.complete(ExecutionStatus::Completed);
-
-            println!("Execution Results:");
-            println!("  Status:      {}", color::success(&result.status.to_string()));
-            println!("  Duration:    {}s", result.duration_secs());
-            println!("  Successful:  {}", color::success(&result.success_count().to_string()));
-            println!("  Failed:      {}", if result.failure_count() > 0 {
-                color::error(&result.failure_count().to_string())
-            } else {
-                color::success("0")
-            });
-        }
-
-        Commands::WorkflowList { output } => {
-            use automation::workflows::{Workflow, WorkflowTemplates};
-
-            println!("{}", color::header("Workflows"));
-            println!();
-
-            let workflows = vec![
-                WorkflowTemplates::vm_provisioning(),
-                WorkflowTemplates::disaster_recovery(),
-                WorkflowTemplates::maintenance(),
-            ];
-
-            if output == "json" {
-                let json = serde_json::to_string_pretty(&workflows)?;
-                println!("{}", json);
-            } else if output == "yaml" {
-                let yaml = serde_yaml::to_string(&workflows)?;
-                println!("{}", yaml);
-            } else {
-                println!("{:<30} {:<50} {}",
-                    color::label("NAME"),
-                    color::label("DESCRIPTION"),
-                    color::label("STEPS")
-                );
-                println!("{}", "-".repeat(90));
-
-                for workflow in workflows {
-                    println!("{:<30} {:<50} {}",
-                        workflow.name,
-                        workflow.description,
-                        workflow.step_count()
-                    );
-                }
-            }
-        }
-
-        Commands::WorkflowCreate { name, description, template } => {
-            use automation::workflows::{Workflow, WorkflowTemplates};
-
-            println!("{}", color::header(&format!("Creating Workflow: {}", name)));
-            println!();
-
-            let mut workflow = if let Some(tmpl) = template {
-                match tmpl.as_str() {
-                    "provisioning" => WorkflowTemplates::vm_provisioning(),
-                    "disaster-recovery" => WorkflowTemplates::disaster_recovery(),
-                    "maintenance" => WorkflowTemplates::maintenance(),
-                    _ => Workflow::new(&name),
-                }
-            } else {
-                Workflow::new(&name)
-            };
-
-            if let Some(desc) = description {
-                workflow = workflow.with_description(desc);
-            }
-
-            println!("  Name:        {}", color::value(&workflow.name));
-            println!("  Description: {}", workflow.description);
-            println!("  Steps:       {}", workflow.step_count());
-            println!();
-            println!("{}", color::success("✓ Workflow created successfully"));
-        }
-
-        Commands::WorkflowGet { workflow, output } => {
-            use automation::workflows::WorkflowTemplates;
-
-            let wf = WorkflowTemplates::vm_provisioning();
-
-            println!("{}", color::header(&format!("Workflow: {}", workflow)));
-            println!();
-
-            if output == "json" {
-                let json = serde_json::to_string_pretty(&wf)?;
-                println!("{}", json);
-            } else {
-                let yaml = serde_yaml::to_string(&wf)?;
-                println!("{}", yaml);
-            }
-        }
-
-        Commands::WorkflowRun { workflow, watch } => {
-            use automation::workflows::{WorkflowExecutor, WorkflowTemplates};
-
-            println!("{}", color::header(&format!("Executing Workflow: {}", workflow)));
-            println!();
-
-            let wf = WorkflowTemplates::vm_provisioning();
-            let execution = WorkflowExecutor::execute(&wf);
-
-            println!("Execution:");
-            println!("  ID:          {}", execution.execution_id);
-            println!("  Status:      {}", color::success(&execution.status.to_string()));
-            println!("  Duration:    {}s", execution.duration_secs());
-            println!("  Steps:       {}/{} completed",
-                execution.completed_steps().len(),
-                execution.step_results.len()
-            );
-            println!("  Success Rate: {}%", execution.success_rate() as u8);
-        }
-
-        Commands::WorkflowExecutions { workflow, limit, output } => {
-            use automation::workflows::WorkflowExecution;
-
-            println!("{}", color::header("Workflow Executions"));
-            if let Some(ref wf_name) = workflow {
-                println!("  Workflow: {}", color::value(wf_name));
-            }
-            println!("  Limit: {}", limit);
-            println!();
-
-            // Example execution
-            let execution = WorkflowExecution::new("wf-123", "VM Provisioning");
-
-            let executions = vec![execution];
-
-            if output == "json" {
-                let json = serde_json::to_string_pretty(&executions)?;
-                println!("{}", json);
-            } else if output == "yaml" {
-                let yaml = serde_yaml::to_string(&executions)?;
-                println!("{}", yaml);
-            } else {
-                println!("{:<25} {:<30} {:<15} {}",
-                    color::label("ID"),
-                    color::label("WORKFLOW"),
-                    color::label("STATUS"),
-                    color::label("STARTED")
-                );
-                println!("{}", "-".repeat(85));
-
-                for exec in executions {
-                    println!("{:<25} {:<30} {:<15} {}",
-                        exec.execution_id,
-                        exec.workflow_name,
-                        exec.status.to_string(),
-                        exec.started_at.format("%Y-%m-%d %H:%M:%S")
-                    );
-                }
-            }
-        }
-
-        Commands::ScheduleList { enabled_only, output } => {
-            use automation::schedules::{ScheduledTask, Schedule};
-
-            println!("{}", color::header("Scheduled Tasks"));
-            println!();
-
-            let tasks = vec![
-                ScheduledTask::new("Daily Backup", Schedule::daily(2, 0), "rule-123"),
-                ScheduledTask::new("Hourly Health Check", Schedule::hourly(0), "rule-456"),
-            ];
-
-            let filtered: Vec<_> = if enabled_only {
-                tasks.iter().filter(|t| t.enabled).collect()
-            } else {
-                tasks.iter().collect()
-            };
-
-            if output == "json" {
-                let json = serde_json::to_string_pretty(&filtered)?;
-                println!("{}", json);
-            } else if output == "yaml" {
-                let yaml = serde_yaml::to_string(&filtered)?;
-                println!("{}", yaml);
-            } else {
-                println!("{:<30} {:<15} {:<10} {}",
-                    color::label("NAME"),
-                    color::label("SCHEDULE"),
-                    color::label("STATUS"),
-                    color::label("RUN COUNT")
-                );
-                println!("{}", "-".repeat(75));
-
-                for task in filtered {
-                    let status = if task.enabled {
-                        color::success("Enabled")
-                    } else {
-                        color::muted("Disabled")
-                    };
-
-                    println!("{:<30} {:<15} {:<10} {}",
-                        task.name,
-                        "Daily", // Simplified
-                        status,
-                        task.run_count
-                    );
-                }
-            }
-        }
-
-        Commands::ScheduleCreate { name, rule, schedule, enable } => {
-            use automation::schedules::{ScheduledTask, Schedule};
-
-            println!("{}", color::header(&format!("Creating Scheduled Task: {}", name)));
-            println!();
-
-            let sched = if schedule.starts_with("interval:") {
-                let seconds: u64 = schedule.strip_prefix("interval:").unwrap().parse().unwrap_or(3600);
-                Schedule::interval(seconds)
-            } else {
-                match schedule.as_str() {
-                    "hourly" => Schedule::hourly(0),
-                    "daily" => Schedule::daily(2, 0),
-                    "weekly" => Schedule::weekly(chrono::Weekday::Mon, 2, 0),
-                    _ => Schedule::daily(2, 0),
-                }
-            };
-
-            let mut task = ScheduledTask::new(&name, sched, &rule);
-            if !enable {
-                task = task.disable();
-            }
-
-            println!("  Name:     {}", color::value(&task.name));
-            println!("  Rule:     {}", task.rule_id);
-            println!("  Schedule: {}", schedule);
-            println!("  Status:   {}", if task.enabled {
-                color::success("Enabled")
-            } else {
-                color::muted("Disabled")
-            });
-            println!();
-            println!("{}", color::success("✓ Scheduled task created successfully"));
-        }
+        Commands::AutomationList { enabled_only, output } =>
+            handlers::automation::handle_automation_list(enabled_only, output)?,
+        Commands::AutomationCreate { name, description, trigger, enable } =>
+            handlers::automation::handle_automation_create(name, description, trigger, enable)?,
+        Commands::AutomationGet { rule, output } =>
+            handlers::automation::handle_automation_get(rule, output)?,
+        Commands::AutomationRun { rule, dry_run } =>
+            handlers::automation::handle_automation_run(rule, dry_run)?,
+        Commands::WorkflowList { output } =>
+            handlers::automation::handle_workflow_list(output)?,
+        Commands::WorkflowCreate { name, description, template } =>
+            handlers::automation::handle_workflow_create(name, description, template)?,
+        Commands::WorkflowGet { workflow, output } =>
+            handlers::automation::handle_workflow_get(workflow, output)?,
+        Commands::WorkflowRun { workflow, watch } =>
+            handlers::automation::handle_workflow_run(workflow, watch)?,
+        Commands::WorkflowExecutions { workflow, limit, output } =>
+            handlers::automation::handle_workflow_executions(workflow, limit, output)?,
+        Commands::ScheduleList { enabled_only, output } =>
+            handlers::automation::handle_schedule_list(enabled_only, output)?,
+        Commands::ScheduleCreate { name, rule, schedule, enable } =>
+            handlers::automation::handle_schedule_create(name, rule, schedule, enable)?,
 
         // ========== OBSERVABILITY & ANALYTICS ==========
 
-        Commands::LogsQuery { start, end, level, source, search, limit } => {
-            use observability::logs::{LogQuery, LogLevel};
-
-            println!("{}", color::header("Querying Logs"));
-            println!();
-
-            let mut query = LogQuery::new().with_limit(limit);
-
-            if let Some(ref lvl) = level {
-                let log_level = match lvl.to_lowercase().as_str() {
-                    "debug" => LogLevel::Debug,
-                    "info" => LogLevel::Info,
-                    "warning" => LogLevel::Warning,
-                    "error" => LogLevel::Error,
-                    "critical" => LogLevel::Critical,
-                    _ => LogLevel::Info,
-                };
-                query = query.with_level(log_level);
-            }
-
-            if let Some(ref src) = source {
-                query = query.with_source(src);
-            }
-
-            if let Some(ref text) = search {
-                query = query.with_search(text);
-            }
-
-            println!("  Level:  {}", level.as_deref().unwrap_or("all"));
-            println!("  Source: {}", source.as_deref().unwrap_or("all"));
-            println!("  Limit:  {}", limit);
-            println!();
-            println!("{}", color::success("✓ Log query executed"));
-        }
-
-        Commands::LogsStats { group_by } => {
-            println!("{}", color::header("Log Statistics"));
-            println!();
-
-            println!("  Grouped by: {}", color::value(&group_by));
-            println!();
-            println!("{}", color::success("✓ Statistics generated"));
-        }
-
-        Commands::LogsPatterns { min_count } => {
-            println!("{}", color::header("Log Pattern Analysis"));
-            println!();
-
-            println!("  Minimum count: {}", min_count);
-            println!();
-            println!("{}", color::success("✓ Patterns detected"));
-        }
-
-        Commands::MetricsCollect { vm } => {
-            use observability::metrics::VMMetrics;
-
-            println!("{}", color::header(&format!("Collecting Metrics: {}", vm)));
-            println!();
-
-            let metrics = VMMetrics::new(&vm)
-                .with_cpu(45.5)
-                .with_memory(62.3, 2_500_000_000)
-                .with_disk_io(1_000_000.0, 500_000.0)
-                .with_network_io(2_000_000.0, 1_500_000.0);
-
-            println!("  CPU Usage:      {:.1}%", metrics.cpu_usage_percent);
-            println!("  Memory Usage:   {:.1}%", metrics.memory_usage_percent);
-            println!("  Disk Read:      {:.2} MB/s", metrics.disk_read_bytes_per_sec / 1_000_000.0);
-            println!("  Disk Write:     {:.2} MB/s", metrics.disk_write_bytes_per_sec / 1_000_000.0);
-            println!("  Network RX:     {:.2} MB/s", metrics.network_rx_bytes_per_sec / 1_000_000.0);
-            println!("  Network TX:     {:.2} MB/s", metrics.network_tx_bytes_per_sec / 1_000_000.0);
-            println!();
-            println!("{}", color::success("✓ Metrics collected successfully"));
-        }
-
-        Commands::MetricsQuery { name, start, end, aggregation } => {
-            println!("{}", color::header(&format!("Querying Metric: {}", name)));
-            println!();
-
-            println!("  Metric:      {}", color::value(&name));
-            println!("  Aggregation: {}", aggregation);
-            println!();
-            println!("{}", color::success("✓ Query executed"));
-        }
-
-        Commands::MetricsSnapshot { vm, cpu_threshold, memory_threshold } => {
-            use observability::metrics::MetricsSnapshot;
-
-            println!("{}", color::header("Metrics Snapshot"));
-            println!();
-
-            let snapshot = MetricsSnapshot::new();
-            println!("  Total VMs:          {}", snapshot.total_vms);
-            println!("  Cluster CPU Avg:    {:.1}%", snapshot.cluster_cpu_usage);
-            println!("  Cluster Memory Avg: {:.1}%", snapshot.cluster_memory_usage);
-            println!("  CPU Threshold:      {}%", cpu_threshold);
-            println!("  Memory Threshold:   {}%", memory_threshold);
-            println!();
-            println!("{}", color::success("✓ Snapshot captured"));
-        }
-
-        Commands::AlertsList { enabled_only, severity, output } => {
-            println!("{}", color::header("Alert Rules"));
-            println!();
-
-            println!("  Filter: {}", if enabled_only { "Enabled only" } else { "All" });
-            if let Some(sev) = &severity {
-                println!("  Severity: {}", color::value(sev));
-            }
-            println!("  Format: {}", output);
-            println!();
-            println!("{}", color::success("✓ Rules listed"));
-        }
-
-        Commands::AlertsCreate { name, severity, metric, operator, threshold, duration } => {
-            use observability::alerts::{AlertRule, AlertSeverity, AlertCondition, ThresholdOperator};
-
-            println!("{}", color::header(&format!("Creating Alert Rule: {}", name)));
-            println!();
-
-            let alert_severity = match severity.to_lowercase().as_str() {
-                "info" => AlertSeverity::Info,
-                "warning" => AlertSeverity::Warning,
-                "critical" => AlertSeverity::Critical,
-                _ => AlertSeverity::Warning,
-            };
-
-            let op = match operator.to_lowercase().as_str() {
-                "gt" => ThresholdOperator::GreaterThan,
-                "lt" => ThresholdOperator::LessThan,
-                "eq" => ThresholdOperator::Equal,
-                "gte" => ThresholdOperator::GreaterThanOrEqual,
-                "lte" => ThresholdOperator::LessThanOrEqual,
-                _ => ThresholdOperator::GreaterThan,
-            };
-
-            let condition = AlertCondition::MetricThreshold {
-                metric_name: metric.clone(),
-                operator: op,
-                threshold,
-            };
-
-            let rule = AlertRule::new(&name, alert_severity, condition)
-                .with_duration(chrono::Duration::minutes(duration));
-
-            println!("  Name:      {}", color::value(&rule.name));
-            println!("  Severity:  {}", rule.severity);
-            println!("  Metric:    {}", metric);
-            println!("  Threshold: {} {}", operator, threshold);
-            println!("  Duration:  {} minutes", duration);
-            println!();
-            println!("{}", color::success("✓ Alert rule created"));
-        }
-
-        Commands::AlertsActive { severity, output } => {
-            println!("{}", color::header("Active Alerts"));
-            println!();
-
-            if let Some(sev) = &severity {
-                println!("  Severity filter: {}", color::value(sev));
-            }
-            println!("  Format: {}", output);
-            println!();
-            println!("{}", color::success("✓ Active alerts retrieved"));
-        }
-
-        Commands::AlertsResolve { alert_id } => {
-            println!("{}", color::header(&format!("Resolving Alert: {}", alert_id)));
-            println!();
-
-            println!("  Alert ID: {}", color::value(&alert_id));
-            println!();
-            println!("{}", color::success("✓ Alert resolved"));
-        }
-
-        Commands::InsightsGenerate { vm, insight_type, min_severity } => {
-            use observability::insights::{InsightAnalyzer, InsightSeverity};
-
-            println!("{}", color::header("Generating Insights"));
-            println!();
-
-            if let Some(vm_name) = &vm {
-                println!("  VM: {}", color::value(vm_name));
-
-                // Generate sample insights
-                let insights = InsightAnalyzer::analyze_resource_utilization(45.0, 62.0, vm_name);
-                println!("  Generated {} insights", insights.len());
-            } else {
-                println!("  Scope: All VMs");
-            }
-
-            if let Some(itype) = &insight_type {
-                println!("  Type: {}", color::value(itype));
-            }
-            println!("  Min Severity: {}", min_severity);
-            println!();
-            println!("{}", color::success("✓ Insights generated"));
-        }
-
-        Commands::Recommendations { category, min_priority, with_savings, output } => {
-            println!("{}", color::header("Recommendations"));
-            println!();
-
-            if let Some(cat) = &category {
-                println!("  Category: {}", color::value(cat));
-            }
-            println!("  Min Priority: {}", min_priority);
-            println!("  Show Savings: {}", with_savings);
-            println!("  Format: {}", output);
-            println!();
-            println!("{}", color::success("✓ Recommendations generated"));
-        }
-
-        Commands::TrendsAnalyze { metric, window, threshold } => {
-            println!("{}", color::header(&format!("Analyzing Trend: {}", metric)));
-            println!();
-
-            println!("  Metric:    {}", color::value(&metric));
-            println!("  Window:    {} hours", window);
-            println!("  Threshold: {}%", threshold);
-            println!();
-            println!("{}", color::success("✓ Trend analysis complete"));
-        }
-
-        Commands::HealthCheck { component, output } => {
-            use observability::{SystemHealth, HealthCheck, HealthStatus};
-
-            println!("{}", color::header("System Health Check"));
-            println!();
-
-            let mut health = SystemHealth::new();
-            health.add_check(HealthCheck::new("api", HealthStatus::Healthy).with_response_time(15));
-            health.add_check(HealthCheck::new("database", HealthStatus::Healthy).with_response_time(8));
-
-            if let Some(comp) = &component {
-                println!("  Component: {}", color::value(comp));
-            } else {
-                println!("  Overall Status: {}", color::success(&health.overall_status.to_string()));
-                println!("  Healthy:   {}", health.healthy_count());
-                println!("  Unhealthy: {}", health.unhealthy_count());
-            }
-            println!("  Format: {}", output);
-            println!();
-            println!("{}", color::success("✓ Health check complete"));
-        }
+        Commands::LogsQuery { start: _, end: _, level, source, search, limit } =>
+            handlers::observability::handle_logs_query(level, source, search, limit)?,
+        Commands::LogsStats { group_by } =>
+            handlers::observability::handle_logs_stats(group_by)?,
+        Commands::LogsPatterns { min_count } =>
+            handlers::observability::handle_logs_patterns(min_count)?,
+        Commands::MetricsCollect { vm } =>
+            handlers::observability::handle_metrics_collect(vm)?,
+        Commands::MetricsQuery { name, start: _, end: _, aggregation } =>
+            handlers::observability::handle_metrics_query(name, aggregation)?,
+        Commands::MetricsSnapshot { vm: _, cpu_threshold, memory_threshold } =>
+            handlers::observability::handle_metrics_snapshot(cpu_threshold, memory_threshold)?,
+        Commands::AlertsList { enabled_only, severity, output } =>
+            handlers::observability::handle_alerts_list(enabled_only, severity, output)?,
+        Commands::AlertsCreate { name, severity, metric, operator, threshold, duration } =>
+            handlers::observability::handle_alerts_create(name, severity, metric, operator, threshold, duration)?,
+        Commands::AlertsActive { severity, output } =>
+            handlers::observability::handle_alerts_active(severity, output)?,
+        Commands::AlertsResolve { alert_id } =>
+            handlers::observability::handle_alerts_resolve(alert_id)?,
+        Commands::InsightsGenerate { vm, insight_type, min_severity } =>
+            handlers::observability::handle_insights_generate(vm, insight_type, min_severity)?,
+        Commands::Recommendations { category, min_priority, with_savings, output } =>
+            handlers::observability::handle_recommendations(category, min_priority, with_savings, output)?,
+        Commands::TrendsAnalyze { metric, window, threshold } =>
+            handlers::observability::handle_trends_analyze(metric, window, threshold)?,
+        Commands::HealthCheck { component, output } =>
+            handlers::observability::handle_health_check(component, output)?,
 
         // ========== MULTI-TENANCY & RBAC ==========
 
-        Commands::TenantsList { active_only, output } => {
-            use multitenancy::tenants::TenantManager;
-
-            println!("{}", color::header("Tenants"));
-            println!();
-
-            let manager = TenantManager::new();
-            let tenants = if active_only {
-                manager.active_tenants()
-            } else {
-                manager.list_tenants()
-            };
-
-            println!("  Total tenants: {}", tenants.len());
-            println!("  Format: {}", output);
-            println!();
-            println!("{}", color::success("✓ Tenants listed"));
-        }
-
-        Commands::TenantsCreate { name, owner, email, description, namespace } => {
-            use multitenancy::tenants::{Tenant, TenantManager};
-
-            println!("{}", color::header(&format!("Creating Tenant: {}", name)));
-            println!();
-
-            let mut tenant = Tenant::new(&name, &owner, &email);
-
-            if let Some(desc) = description {
-                tenant = tenant.with_description(desc);
-            }
-
-            if let Some(ns) = namespace {
-                tenant.add_namespace(ns);
-            }
-
-            println!("  Name:    {}", color::value(&tenant.name));
-            println!("  Owner:   {}", tenant.owner_id);
-            println!("  Email:   {}", tenant.contact_email);
-            println!();
-            println!("{}", color::success("✓ Tenant created successfully"));
-        }
-
-        Commands::TenantsShow { tenant, output } => {
-            println!("{}", color::header(&format!("Tenant: {}", tenant)));
-            println!();
-
-            println!("  Format: {}", output);
-            println!();
-            println!("{}", color::success("✓ Tenant details retrieved"));
-        }
-
-        Commands::TenantsDelete { tenant, yes } => {
-            println!("{}", color::header(&format!("Deleting Tenant: {}", tenant)));
-            println!();
-
-            if !yes {
-                println!("  Skipped: Confirmation required");
-            } else {
-                println!("  Tenant ID: {}", color::value(&tenant));
-                println!();
-                println!("{}", color::success("✓ Tenant deleted"));
-            }
-        }
-
-        Commands::UsersList { active_only, group, output } => {
-            use multitenancy::AccessControlManager;
-
-            println!("{}", color::header("Users"));
-            println!();
-
-            let manager = AccessControlManager::new();
-            let users = manager.list_users();
-
-            println!("  Total users: {}", users.len());
-            if active_only {
-                println!("  Filter: Active only");
-            }
-            if let Some(g) = &group {
-                println!("  Group: {}", color::value(g));
-            }
-            println!("  Format: {}", output);
-            println!();
-            println!("{}", color::success("✓ Users listed"));
-        }
-
-        Commands::UsersCreate { username, email, role, group } => {
-            use multitenancy::User;
-
-            println!("{}", color::header(&format!("Creating User: {}", username)));
-            println!();
-
-            let mut user = User::new(&username, &email);
-
-            if let Some(r) = &role {
-                user = user.add_role(r);
-                println!("  Role assigned: {}", color::value(r));
-            }
-
-            if let Some(g) = &group {
-                user = user.add_group(g);
-                println!("  Group added: {}", color::value(g));
-            }
-
-            println!("  Username: {}", color::value(&user.username));
-            println!("  Email:    {}", user.email);
-            println!();
-            println!("{}", color::success("✓ User created successfully"));
-        }
-
-        Commands::UsersAssignRole { user, role, scope } => {
-            use multitenancy::roles::{RoleBinding, Subject, BindingScope};
-
-            println!("{}", color::header("Assigning Role"));
-            println!();
-
-            let subject = Subject::User { user_id: user.clone() };
-            let binding_scope = if scope == "cluster" {
-                BindingScope::Cluster
-            } else if let Some(ns) = scope.strip_prefix("namespace:") {
-                BindingScope::Namespace { namespace: ns.to_string() }
-            } else {
-                BindingScope::Cluster
-            };
-
-            let binding = RoleBinding::new(&role, subject, binding_scope);
-
-            println!("  User:  {}", color::value(&user));
-            println!("  Role:  {}", color::value(&role));
-            println!("  Scope: {}", scope);
-            println!();
-            println!("{}", color::success("✓ Role assigned"));
-        }
-
-        Commands::RolesList { builtin, custom, output } => {
-            use multitenancy::roles::RoleManager;
-
-            println!("{}", color::header("Roles"));
-            println!();
-
-            let manager = RoleManager::new();
-            let roles = if builtin {
-                manager.builtin_roles()
-            } else if custom {
-                manager.custom_roles()
-            } else {
-                manager.list_roles()
-            };
-
-            println!("  Total roles: {}", roles.len());
-            println!("  Format: {}", output);
-            println!();
-            println!("{}", color::success("✓ Roles listed"));
-        }
-
-        Commands::RolesShow { role, output } => {
-            println!("{}", color::header(&format!("Role: {}", role)));
-            println!();
-
-            println!("  Format: {}", output);
-            println!();
-            println!("{}", color::success("✓ Role details retrieved"));
-        }
-
-        Commands::RolesCreate { name, description, permissions } => {
-            use multitenancy::roles::Role;
-
-            println!("{}", color::header(&format!("Creating Role: {}", name)));
-            println!();
-
-            let mut role = Role::new(&name);
-
-            if let Some(desc) = description {
-                role = role.with_description(desc);
-            }
-
-            println!("  Name:        {}", color::value(&role.name));
-            println!("  Permissions: {}", permissions);
-            println!();
-            println!("{}", color::success("✓ Role created successfully"));
-        }
-
-        Commands::QuotasList { namespace, exceeded, output } => {
-            use multitenancy::quotas::QuotaManager;
-
-            println!("{}", color::header("Resource Quotas"));
-            println!();
-
-            let manager = QuotaManager::new();
-            let quotas = if exceeded {
-                manager.exceeded_quotas()
-            } else {
-                manager.list_quotas()
-            };
-
-            println!("  Total quotas: {}", quotas.len());
-            if let Some(ns) = &namespace {
-                println!("  Namespace: {}", color::value(ns));
-            }
-            println!("  Format: {}", output);
-            println!();
-            println!("{}", color::success("✓ Quotas listed"));
-        }
-
-        Commands::QuotasCreate { name, namespace, preset } => {
-            use multitenancy::quotas::{ResourceQuota, ResourceLimits};
-
-            println!("{}", color::header(&format!("Creating Quota: {}", name)));
-            println!();
-
-            let limits = match preset.as_str() {
-                "small" => ResourceLimits::small(),
-                "large" => ResourceLimits::large(),
-                "unlimited" => ResourceLimits::unlimited(),
-                _ => ResourceLimits::medium(),
-            };
-
-            let quota = ResourceQuota::new(&name, &namespace)
-                .with_limits(limits.clone());
-
-            println!("  Name:      {}", color::value(&quota.name));
-            println!("  Namespace: {}", quota.namespace);
-            println!("  Preset:    {}", preset);
-            println!("  Max VMs:   {}", limits.max_vms);
-            println!("  Max CPUs:  {}", limits.max_cpu_cores);
-            println!("  Max Memory: {} Gi", limits.max_memory_gi);
-            println!();
-            println!("{}", color::success("✓ Quota created successfully"));
-        }
-
-        Commands::QuotasShow { quota, utilization, output } => {
-            println!("{}", color::header(&format!("Quota: {}", quota)));
-            println!();
-
-            println!("  Show utilization: {}", utilization);
-            println!("  Format: {}", output);
-            println!();
-            println!("{}", color::success("✓ Quota details retrieved"));
-        }
-
-        Commands::GroupsList { output } => {
-            use multitenancy::AccessControlManager;
-
-            println!("{}", color::header("Groups"));
-            println!();
-
-            let manager = AccessControlManager::new();
-            let groups = manager.list_groups();
-
-            println!("  Total groups: {}", groups.len());
-            println!("  Format: {}", output);
-            println!();
-            println!("{}", color::success("✓ Groups listed"));
-        }
-
-        Commands::GroupsCreate { name, description, role } => {
-            use multitenancy::Group;
-
-            println!("{}", color::header(&format!("Creating Group: {}", name)));
-            println!();
-
-            let mut group = Group::new(&name);
-
-            if let Some(desc) = description {
-                group = group.with_description(desc);
-            }
-
-            if let Some(r) = &role {
-                group.add_role(r);
-                println!("  Role assigned: {}", color::value(r));
-            }
-
-            println!("  Name: {}", color::value(&group.name));
-            println!();
-            println!("{}", color::success("✓ Group created successfully"));
-        }
-
-        Commands::GroupsAddUser { group, user } => {
-            println!("{}", color::header("Adding User to Group"));
-            println!();
-
-            println!("  Group: {}", color::value(&group));
-            println!("  User:  {}", color::value(&user));
-            println!();
-            println!("{}", color::success("✓ User added to group"));
-        }
+        Commands::TenantsList { active_only, output } =>
+            handlers::multitenancy::handle_tenants_list(active_only, output)?,
+        Commands::TenantsCreate { name, owner, email, description, namespace } =>
+            handlers::multitenancy::handle_tenants_create(name, owner, email, description, namespace)?,
+        Commands::TenantsShow { tenant, output } =>
+            handlers::multitenancy::handle_tenants_show(tenant, output)?,
+        Commands::TenantsDelete { tenant, yes } =>
+            handlers::multitenancy::handle_tenants_delete(tenant, yes)?,
+        Commands::UsersList { active_only, group, output } =>
+            handlers::multitenancy::handle_users_list(active_only, group, output)?,
+        Commands::UsersCreate { username, email, role, group } =>
+            handlers::multitenancy::handle_users_create(username, email, role, group)?,
+        Commands::UsersAssignRole { user, role, scope } =>
+            handlers::multitenancy::handle_users_assign_role(user, role, scope)?,
+        Commands::RolesList { builtin, custom, output } =>
+            handlers::multitenancy::handle_roles_list(builtin, custom, output)?,
+        Commands::RolesShow { role, output } =>
+            handlers::multitenancy::handle_roles_show(role, output)?,
+        Commands::RolesCreate { name, description, permissions } =>
+            handlers::multitenancy::handle_roles_create(name, description, permissions)?,
+        Commands::QuotasList { namespace, exceeded, output } =>
+            handlers::multitenancy::handle_quotas_list(namespace, exceeded, output)?,
+        Commands::QuotasCreate { name, namespace, preset } =>
+            handlers::multitenancy::handle_quotas_create(name, namespace, preset)?,
+        Commands::QuotasShow { quota, utilization, output } =>
+            handlers::multitenancy::handle_quotas_show(quota, utilization, output)?,
+        Commands::GroupsList { output } =>
+            handlers::multitenancy::handle_groups_list(output)?,
+        Commands::GroupsCreate { name, description, role } =>
+            handlers::multitenancy::handle_groups_create(name, description, role)?,
+        Commands::GroupsAddUser { group, user } =>
+            handlers::multitenancy::handle_groups_add_user(group, user)?,
 
         // ========== DEVELOPER EXPERIENCE & TOOLING ==========
 
@@ -4698,7 +3188,7 @@ pub async fn run(cli: Cli) -> Result<()> {
             println!("{}", color::header(&format!("Loading Configuration: {}", name)));
             println!();
 
-            let manager = ConfigTemplateManager::new();
+            let _manager = ConfigTemplateManager::new();
 
             // In a real implementation, this would load from disk
             println!("  Template: {}", color::value(&name));
@@ -5251,7 +3741,7 @@ pub async fn run(cli: Cli) -> Result<()> {
             println!("{}", color::success(&format!("✓ Webhook '{}' deleted", webhook)));
         }
 
-        Commands::Tui { no_splash, theme, interactive } => {
+        Commands::Tui { no_splash: _, theme, interactive } => {
             use crossterm::{
                 execute,
                 terminal::{disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen},

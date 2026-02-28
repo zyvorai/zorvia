@@ -141,6 +141,7 @@ pub struct ExpansionStep {
 
 /// Disk expansion manager
 pub struct DiskExpansion {
+    #[allow(dead_code)]
     namespace: String,
 }
 
@@ -182,7 +183,7 @@ impl DiskExpansion {
     }
 
     /// Check if PVC supports expansion
-    pub async fn can_expand_pvc(&self, pvc_name: &str) -> Result<bool> {
+    pub async fn can_expand_pvc(&self, _pvc_name: &str) -> Result<bool> {
         // In a real implementation:
         // 1. Get PVC
         // 2. Get StorageClass
@@ -207,7 +208,7 @@ impl DiskExpansion {
     }
 
     /// Verify expansion completed
-    pub async fn verify_expansion(&self, vm_name: &str, expected_size: &str) -> Result<bool> {
+    pub async fn verify_expansion(&self, _vm_name: &str, _expected_size: &str) -> Result<bool> {
         // In a real implementation:
         // 1. Check PVC size
         // 2. Optionally check filesystem size in VM via guest agent

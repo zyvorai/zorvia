@@ -44,7 +44,7 @@ impl HardeningProfile {
 pub enum SecurityBaseline {
     CIS,           // CIS Benchmark
     STIG,          // DISA STIG
-    PCI_DSS,       // PCI Data Security Standard
+    PciDss,       // PCI Data Security Standard
     NIST,          // NIST SP 800-53
     Custom,        // Custom baseline
 }
@@ -54,7 +54,7 @@ impl std::fmt::Display for SecurityBaseline {
         match self {
             SecurityBaseline::CIS => write!(f, "CIS Benchmark"),
             SecurityBaseline::STIG => write!(f, "DISA STIG"),
-            SecurityBaseline::PCI_DSS => write!(f, "PCI-DSS"),
+            SecurityBaseline::PciDss => write!(f, "PCI-DSS"),
             SecurityBaseline::NIST => write!(f, "NIST 800-53"),
             SecurityBaseline::Custom => write!(f, "Custom"),
         }
@@ -476,6 +476,6 @@ mod tests {
     fn test_baseline_display() {
         assert_eq!(SecurityBaseline::CIS.to_string(), "CIS Benchmark");
         assert_eq!(SecurityBaseline::STIG.to_string(), "DISA STIG");
-        assert_eq!(SecurityBaseline::PCI_DSS.to_string(), "PCI-DSS");
+        assert_eq!(SecurityBaseline::PciDss.to_string(), "PCI-DSS");
     }
 }

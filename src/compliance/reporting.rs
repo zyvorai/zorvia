@@ -208,7 +208,7 @@ mod tests {
         let start = Utc::now() - chrono::Duration::days(30);
         let end = Utc::now();
 
-        let mut report = ComplianceReport::new("Test", ReportType::Summary, ComplianceFramework::PCI_DSS, start, end);
+        let mut report = ComplianceReport::new("Test", ReportType::Summary, ComplianceFramework::PciDss, start, end);
 
         report.add_recommendation("Enable MFA for all users");
         report.add_recommendation("Implement regular security audits");

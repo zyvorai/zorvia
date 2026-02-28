@@ -108,7 +108,7 @@ impl MeshMetrics {
         }
 
         let mut sorted = self.request_duration_ms.clone();
-        sorted.sort_by(|a, b| a.partial_cmp(b).unwrap());
+        sorted.sort_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
 
         let index = ((sorted.len() as f64 * 0.95) as usize).min(sorted.len() - 1);
         sorted[index]
@@ -120,7 +120,7 @@ impl MeshMetrics {
         }
 
         let mut sorted = self.request_duration_ms.clone();
-        sorted.sort_by(|a, b| a.partial_cmp(b).unwrap());
+        sorted.sort_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
 
         let index = ((sorted.len() as f64 * 0.99) as usize).min(sorted.len() - 1);
         sorted[index]

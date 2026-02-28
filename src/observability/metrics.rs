@@ -1,7 +1,7 @@
 // Metrics - Metric collection and aggregation
 
 use serde::{Deserialize, Serialize};
-use chrono::{DateTime, Utc, Duration};
+use chrono::{DateTime, Utc};
 use std::collections::HashMap;
 
 /// Metric type
@@ -138,12 +138,12 @@ impl MetricAggregator {
 
     /// Calculate max of metric values
     pub fn max(metrics: &[Metric]) -> Option<f64> {
-        metrics.iter().map(|m| m.value).max_by(|a, b| a.partial_cmp(b).unwrap())
+        metrics.iter().map(|m| m.value).max_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal))
     }
 
     /// Calculate min of metric values
     pub fn min(metrics: &[Metric]) -> Option<f64> {
-        metrics.iter().map(|m| m.value).min_by(|a, b| a.partial_cmp(b).unwrap())
+        metrics.iter().map(|m| m.value).min_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal))
     }
 
     /// Calculate rate of change (per second)
@@ -172,7 +172,7 @@ impl MetricAggregator {
         }
 
         let mut values: Vec<f64> = metrics.iter().map(|m| m.value).collect();
-        values.sort_by(|a, b| a.partial_cmp(b).unwrap());
+        values.sort_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
 
         let index = ((p / 100.0) * (values.len() - 1) as f64) as usize;
         Some(values[index])
@@ -391,6 +391,7 @@ impl Default for MetricsSnapshot {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use chrono::Duration;
 
     #[test]
     fn test_metric_creation() {

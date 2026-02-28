@@ -2,7 +2,7 @@ use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
-use super::{ApiConfig, AuthMethod};
+use super::ApiConfig;
 
 /// API server state
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]

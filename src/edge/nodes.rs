@@ -7,7 +7,7 @@ use std::collections::HashMap;
 pub enum NodeCapability {
     Compute,
     Storage,
-    AI_ML,
+    AiMl,
     VideoProcessing,
     IoTGateway,
 }
@@ -181,7 +181,7 @@ mod tests {
         let mut node = EdgeNode::new("edge-1", "deploy-1", 4, 16);
 
         node.add_capability(NodeCapability::Compute);
-        node.add_capability(NodeCapability::AI_ML);
+        node.add_capability(NodeCapability::AiMl);
         node.add_capability(NodeCapability::Compute); // Duplicate
 
         assert_eq!(node.capabilities.len(), 2);
@@ -204,7 +204,7 @@ mod tests {
 
         node.add_capability(NodeCapability::VideoProcessing);
         assert!(node.has_capability(&NodeCapability::VideoProcessing));
-        assert!(!node.has_capability(&NodeCapability::AI_ML));
+        assert!(!node.has_capability(&NodeCapability::AiMl));
     }
 
     #[test]
@@ -282,19 +282,19 @@ mod tests {
         let mut manager = NodeManager::new();
 
         let mut node1 = EdgeNode::new("node-1", "deploy-1", 4, 16);
-        node1.add_capability(NodeCapability::AI_ML);
+        node1.add_capability(NodeCapability::AiMl);
 
         let mut node2 = EdgeNode::new("node-2", "deploy-1", 4, 16);
         node2.add_capability(NodeCapability::VideoProcessing);
 
         let mut node3 = EdgeNode::new("node-3", "deploy-1", 4, 16);
-        node3.add_capability(NodeCapability::AI_ML);
+        node3.add_capability(NodeCapability::AiMl);
 
         manager.add_node(node1);
         manager.add_node(node2);
         manager.add_node(node3);
 
-        let ai_nodes = manager.nodes_with_capability(&NodeCapability::AI_ML);
+        let ai_nodes = manager.nodes_with_capability(&NodeCapability::AiMl);
         assert_eq!(ai_nodes.len(), 2);
     }
 
@@ -312,7 +312,7 @@ mod tests {
 
     #[test]
     fn test_node_capability_equality() {
-        assert_eq!(NodeCapability::AI_ML, NodeCapability::AI_ML);
-        assert_ne!(NodeCapability::AI_ML, NodeCapability::Compute);
+        assert_eq!(NodeCapability::AiMl, NodeCapability::AiMl);
+        assert_ne!(NodeCapability::AiMl, NodeCapability::Compute);
     }
 }

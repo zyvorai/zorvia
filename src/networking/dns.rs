@@ -1,7 +1,6 @@
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
-use std::net::IpAddr;
 
 /// DNS record type
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]

@@ -281,7 +281,7 @@ fn render_right_column(f: &mut Frame, state: &AppState, area: Rect) {
     render_quick_actions(f, state, chunks[1]);
 }
 
-fn render_recent_activity(f: &mut Frame, state: &AppState, area: Rect) {
+fn render_recent_activity(f: &mut Frame, _state: &AppState, area: Rect) {
     let items = vec![
         ListItem::new(vec![
             Line::from(vec![
@@ -336,7 +336,7 @@ fn render_recent_activity(f: &mut Frame, state: &AppState, area: Rect) {
     f.render_widget(list, area);
 }
 
-fn render_quick_actions(f: &mut Frame, state: &AppState, area: Rect) {
+fn render_quick_actions(f: &mut Frame, _state: &AppState, area: Rect) {
     let text = vec![
         Line::from(""),
         Line::from(vec![

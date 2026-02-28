@@ -262,7 +262,7 @@ impl WasteManager {
 
     pub fn top_wasteful_resources(&self, limit: usize) -> Vec<&WastefulResource> {
         let mut resources: Vec<_> = self.wasteful_resources.values().collect();
-        resources.sort_by(|a, b| b.monthly_waste.partial_cmp(&a.monthly_waste).unwrap());
+        resources.sort_by(|a, b| b.monthly_waste.partial_cmp(&a.monthly_waste).unwrap_or(std::cmp::Ordering::Equal));
         resources.truncate(limit);
         resources
     }

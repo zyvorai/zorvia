@@ -3,9 +3,8 @@
 use crate::tui::{config::TuiConfig, state::AppState};
 use crate::tui::colors::tui as colors;
 use ratatui::{
-    backend::Backend,
     layout::{Alignment, Constraint, Direction, Layout},
-    style::{Color, Modifier, Style},
+    style::{Modifier, Style},
     text::{Line, Span},
     widgets::{Block, Borders, Paragraph},
     Frame,

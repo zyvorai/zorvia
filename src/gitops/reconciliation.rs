@@ -2,7 +2,6 @@
 
 use serde::{Deserialize, Serialize};
 use chrono::{DateTime, Utc};
-use std::collections::HashMap;
 
 /// Drift status
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]

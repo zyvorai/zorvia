@@ -1,7 +1,7 @@
 // Budget Management - Set and monitor spending budgets
 
 use serde::{Deserialize, Serialize};
-use chrono::{DateTime, Utc, Duration};
+use chrono::{DateTime, Utc};
 
 /// Budget configuration
 #[derive(Debug, Clone, Serialize, Deserialize)]

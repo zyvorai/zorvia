@@ -1,7 +1,7 @@
 // Cilium Integration - Cilium network policy and eBPF support
 
 use serde::{Deserialize, Serialize};
-use super::policies::{Port, Protocol, VMSelector};
+use super::policies::{Port, VMSelector};
 use std::collections::HashMap;
 
 /// Cilium Network Policy (extends standard Kubernetes NetworkPolicy)

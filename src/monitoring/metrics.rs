@@ -159,6 +159,7 @@ impl ResourceUsage {
 
 /// Metrics collector for VMs
 pub struct MetricsCollector {
+    #[allow(dead_code)]
     namespace: String,
 }
 

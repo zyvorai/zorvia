@@ -1,9 +1,8 @@
 // Cost Tracking - Track resource costs over time
 
 use serde::{Deserialize, Serialize};
-use chrono::{DateTime, Utc, Duration};
+use chrono::{DateTime, Utc};
 use std::collections::HashMap;
-use super::{VMCost, CostSummary};
 
 /// Cost entry for a specific time period
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -118,7 +117,7 @@ impl CostTracker {
     /// Get top N most expensive VMs
     pub fn top_vms(&self, n: usize, start: DateTime<Utc>, end: DateTime<Utc>) -> Vec<(String, f64)> {
         let mut vm_costs: Vec<_> = self.costs_by_vm(start, end).into_iter().collect();
-        vm_costs.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap());
+        vm_costs.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap_or(std::cmp::Ordering::Equal));
         vm_costs.truncate(n);
         vm_costs
     }
@@ -243,7 +242,7 @@ impl CostAllocation {
 
     pub fn get_sorted_allocations(&self) -> Vec<&AllocationDetail> {
         let mut allocations: Vec<_> = self.allocations.values().collect();
-        allocations.sort_by(|a, b| b.cost.partial_cmp(&a.cost).unwrap());
+        allocations.sort_by(|a, b| b.cost.partial_cmp(&a.cost).unwrap_or(std::cmp::Ordering::Equal));
         allocations
     }
 }
@@ -260,6 +259,7 @@ pub struct AllocationDetail {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use chrono::Duration;
 
     #[test]
     fn test_cost_entry() {

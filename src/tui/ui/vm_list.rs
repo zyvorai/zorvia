@@ -20,7 +20,7 @@ pub fn render(f: &mut Frame, state: &mut AppState, config: &TuiConfig) {
     render_with_search(f, state, config, &search_bar);
 }
 
-fn render_with_search(f: &mut Frame, state: &mut AppState, config: &TuiConfig, search_bar: &SearchBar) {
+fn render_with_search(f: &mut Frame, state: &mut AppState, _config: &TuiConfig, search_bar: &SearchBar) {
     let size = f.area();
 
     // Main layout with optional stats bar and search

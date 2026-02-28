@@ -4,7 +4,6 @@ use crate::tui::colors::tui as colors;
 use ratatui::{
     layout::{Alignment, Rect},
     style::{Color, Modifier, Style},
-    text::Span,
     widgets::{Block, Borders, Clear, Paragraph, Wrap},
     Frame,
 };

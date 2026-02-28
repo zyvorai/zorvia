@@ -1,7 +1,7 @@
 // Observability & Analytics - Comprehensive monitoring and insights
 
 use serde::{Deserialize, Serialize};
-use chrono::{DateTime, Utc, Duration};
+use chrono::{DateTime, Utc};
 use std::collections::HashMap;
 
 pub mod logs;
@@ -120,11 +120,11 @@ impl TimeSeries {
     }
 
     pub fn max(&self) -> Option<f64> {
-        self.data_points.iter().map(|p| p.value).max_by(|a, b| a.partial_cmp(b).unwrap())
+        self.data_points.iter().map(|p| p.value).max_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal))
     }
 
     pub fn min(&self) -> Option<f64> {
-        self.data_points.iter().map(|p| p.value).min_by(|a, b| a.partial_cmp(b).unwrap())
+        self.data_points.iter().map(|p| p.value).min_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal))
     }
 
     pub fn percentile(&self, p: f64) -> Option<f64> {
@@ -133,7 +133,7 @@ impl TimeSeries {
         }
 
         let mut values: Vec<f64> = self.data_points.iter().map(|dp| dp.value).collect();
-        values.sort_by(|a, b| a.partial_cmp(b).unwrap());
+        values.sort_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
 
         let index = ((p / 100.0) * (values.len() - 1) as f64) as usize;
         Some(values[index])
@@ -312,6 +312,7 @@ impl Span {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use chrono::Duration;
 
     #[test]
     fn test_observability_config() {

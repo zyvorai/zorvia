@@ -13,7 +13,7 @@ pub mod scanning;
 pub enum ComplianceFramework {
     SOC2,
     HIPAA,
-    PCI_DSS,
+    PciDss,
     GDPR,
     ISO27001,
     NIST,
@@ -27,7 +27,7 @@ impl std::fmt::Display for ComplianceFramework {
         match self {
             ComplianceFramework::SOC2 => write!(f, "SOC 2"),
             ComplianceFramework::HIPAA => write!(f, "HIPAA"),
-            ComplianceFramework::PCI_DSS => write!(f, "PCI DSS"),
+            ComplianceFramework::PciDss => write!(f, "PCI DSS"),
             ComplianceFramework::GDPR => write!(f, "GDPR"),
             ComplianceFramework::ISO27001 => write!(f, "ISO 27001"),
             ComplianceFramework::NIST => write!(f, "NIST"),
@@ -422,7 +422,7 @@ mod tests {
 
     #[test]
     fn test_requirement_evidence() {
-        let mut req = ComplianceRequirement::new("Test", ComplianceFramework::PCI_DSS, "8.2", "Auth");
+        let mut req = ComplianceRequirement::new("Test", ComplianceFramework::PciDss, "8.2", "Auth");
 
         req.add_evidence("MFA configuration");
         req.add_evidence("Access logs");
@@ -676,7 +676,7 @@ mod tests {
                 .with_status(ComplianceStatus::NonCompliant),
         );
         manager.add_requirement(
-            ComplianceRequirement::new("R4", ComplianceFramework::PCI_DSS, "8.1", "Test")
+            ComplianceRequirement::new("R4", ComplianceFramework::PciDss, "8.1", "Test")
                 .with_status(ComplianceStatus::Compliant),
         );
 

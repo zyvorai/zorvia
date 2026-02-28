@@ -16,10 +16,10 @@ pub enum EncryptionAlgorithm {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub enum EncryptionProvider {
     Local,
-    AWS_KMS,
-    Azure_KeyVault,
-    GCP_KMS,
-    HashiCorp_Vault,
+    AwsKms,
+    AzureKeyVault,
+    GcpKms,
+    HashiCorpVault,
     Custom(String),
 }
 
@@ -199,7 +199,7 @@ mod tests {
         let config = EncryptionConfig::new(
             "rotated",
             EncryptionAlgorithm::AES256GCM,
-            EncryptionProvider::AWS_KMS,
+            EncryptionProvider::AwsKms,
             "key-456",
         )
         .enable_rotation(30);
@@ -268,11 +268,11 @@ mod tests {
     fn test_manager_configs_by_provider() {
         let mut manager = EncryptionManager::new();
 
-        manager.add_config(EncryptionConfig::new("c1", EncryptionAlgorithm::AES256GCM, EncryptionProvider::AWS_KMS, "k1"));
+        manager.add_config(EncryptionConfig::new("c1", EncryptionAlgorithm::AES256GCM, EncryptionProvider::AwsKms, "k1"));
         manager.add_config(EncryptionConfig::new("c2", EncryptionAlgorithm::AES256GCM, EncryptionProvider::Local, "k2"));
-        manager.add_config(EncryptionConfig::new("c3", EncryptionAlgorithm::AES256GCM, EncryptionProvider::AWS_KMS, "k3"));
+        manager.add_config(EncryptionConfig::new("c3", EncryptionAlgorithm::AES256GCM, EncryptionProvider::AwsKms, "k3"));
 
-        let aws_configs = manager.configs_by_provider(&EncryptionProvider::AWS_KMS);
+        let aws_configs = manager.configs_by_provider(&EncryptionProvider::AwsKms);
         assert_eq!(aws_configs.len(), 2);
     }
 
@@ -310,7 +310,7 @@ mod tests {
 
     #[test]
     fn test_encryption_provider_equality() {
-        assert_eq!(EncryptionProvider::AWS_KMS, EncryptionProvider::AWS_KMS);
-        assert_ne!(EncryptionProvider::AWS_KMS, EncryptionProvider::Local);
+        assert_eq!(EncryptionProvider::AwsKms, EncryptionProvider::AwsKms);
+        assert_ne!(EncryptionProvider::AwsKms, EncryptionProvider::Local);
     }
 }

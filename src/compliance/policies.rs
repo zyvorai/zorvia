@@ -224,7 +224,7 @@ mod tests {
 
     #[test]
     fn test_policy_add_rules() {
-        let mut policy = CompliancePolicy::new("Test", "Description", ComplianceFramework::PCI_DSS);
+        let mut policy = CompliancePolicy::new("Test", "Description", ComplianceFramework::PciDss);
 
         policy.add_rule(PolicyRule::new(
             "Encryption Check",

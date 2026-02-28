@@ -126,12 +126,12 @@ impl App {
     /// Render status messages (errors, success)
     fn render_messages(&mut self, f: &mut ratatui::Frame) {
         use ratatui::{
-            layout::{Alignment, Constraint, Direction, Layout, Rect},
+            layout::{Alignment, Rect},
             style::{Color, Modifier, Style},
             widgets::{Block, Borders, Paragraph},
         };
 
-        let area = f.size();
+        let area = f.area();
 
         // Show error message if present
         if let Some(ref msg) = self.error_message {

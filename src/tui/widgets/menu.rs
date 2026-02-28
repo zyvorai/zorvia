@@ -2,9 +2,9 @@
 use crate::tui::colors::tui as colors;
 
 use ratatui::{
-    layout::{Alignment, Constraint, Direction, Layout, Rect},
+    layout::{Alignment, Rect},
     style::{Color, Modifier, Style},
-    text::{Line, Span},
+    text::Span,
     widgets::{Block, Borders, Clear, List, ListItem},
     Frame,
 };

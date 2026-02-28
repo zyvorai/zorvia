@@ -3,9 +3,8 @@
 use crate::tui::{config::TuiConfig, state::AppState};
 use crate::tui::colors::tui as colors;
 use ratatui::{
-    backend::Backend,
     layout::{Alignment, Constraint, Direction, Layout},
-    style::{Color, Modifier, Style},
+    style::{Modifier, Style},
     text::{Line, Span},
     widgets::{Block, Borders, Cell, List, ListItem, Paragraph, Row, Table},
     Frame,
@@ -15,7 +14,7 @@ pub fn render(f: &mut Frame, state: &AppState, _config: &TuiConfig) {
     let size = f.area();
 
     // Get blueprints list
-    let blueprints_manager = crate::blueprints::BLUEPRINTS.read().unwrap();
+    let blueprints_manager = crate::blueprints::BLUEPRINTS.read().expect("blueprints lock poisoned");
     let blueprints: Vec<String> = blueprints_manager.list().into_iter().map(|b| b.name.clone()).collect();
 
     // Main layout
@@ -69,7 +68,7 @@ fn render_blueprint_list(
         .style(Style::default().bg(colors::DARK_ORANGE))
         .height(1);
 
-    let blueprints_manager = crate::blueprints::BLUEPRINTS.read().unwrap();
+    let blueprints_manager = crate::blueprints::BLUEPRINTS.read().expect("blueprints lock poisoned");
     let rows = blueprints.iter().enumerate().map(|(i, name)| {
         let is_selected = i == selected_index;
         let is_builtin = blueprints_manager.is_builtin(name);

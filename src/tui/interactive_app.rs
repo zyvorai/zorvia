@@ -2,7 +2,7 @@
 
 use super::config::TuiConfig;
 use super::state::AppState;
-use super::widgets::{Dialog, DialogType, InputDialog, InputField, Menu, NotificationManager, ProgressBar};
+use super::widgets::{Dialog, InputDialog, InputField, Menu, NotificationManager, ProgressBar};
 use anyhow::Result;
 use crossterm::event::{self, Event, KeyCode, KeyEvent, KeyModifiers};
 use ratatui::Terminal;
@@ -530,8 +530,8 @@ impl InteractiveApp {
     /// Create VM from input dialog
     async fn create_vm_from_input(&mut self, input: &InputDialog) -> Result<()> {
         let name = input.get_value(0).unwrap_or("");
-        let template = input.get_value(1).unwrap_or("ubuntu-22.04");
-        let profile = input.get_value(2).unwrap_or("dev");
+        let _template = input.get_value(1).unwrap_or("ubuntu-22.04");
+        let _profile = input.get_value(2).unwrap_or("dev");
 
         self.notifications.info(format!("Creating VM '{}'...", name));
 
@@ -544,7 +544,7 @@ impl InteractiveApp {
 
     /// Create snapshot from input dialog
     async fn create_snapshot_from_input(&mut self, input: &InputDialog) -> Result<()> {
-        let vm_name = input.get_value(0).unwrap_or("");
+        let _vm_name = input.get_value(0).unwrap_or("");
         let snapshot_name = input.get_value(1).unwrap_or("");
 
         self.notifications.info(format!("Creating snapshot '{}'...", snapshot_name));

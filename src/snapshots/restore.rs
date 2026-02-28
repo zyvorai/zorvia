@@ -4,7 +4,6 @@
 use super::types::{RestoreInfo, RestoreStatus};
 use super::crds::{
     VirtualMachineRestore, VirtualMachineRestoreSpec, RestoreTarget,
-    VirtualMachineRestoreStatus,
 };
 use anyhow::{Context, Result};
 use chrono::{DateTime, Utc};

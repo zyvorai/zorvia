@@ -4,7 +4,6 @@
 use super::types::{SnapshotInfo, SnapshotStatus};
 use super::crds::{
     VirtualMachineSnapshot, VirtualMachineSnapshotSpec, SnapshotSource,
-    VirtualMachineSnapshotStatus,
 };
 use super::SnapshotConfig;
 use anyhow::{Context, Result};

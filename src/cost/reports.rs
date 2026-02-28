@@ -1,7 +1,7 @@
 // Cost Reports - Generate cost reports and analytics
 
 use serde::{Deserialize, Serialize};
-use chrono::{DateTime, Utc, Duration, Datelike};
+use chrono::{DateTime, Utc, Duration};
 use std::collections::HashMap;
 use super::{VMCost, CostSummary};
 
@@ -45,7 +45,7 @@ impl CostReport {
 
     pub fn top_vms(&self, n: usize) -> Vec<&VMCost> {
         let mut vms = self.vm_costs.iter().collect::<Vec<_>>();
-        vms.sort_by(|a, b| b.total_cost.partial_cmp(&a.total_cost).unwrap());
+        vms.sort_by(|a, b| b.total_cost.partial_cmp(&a.total_cost).unwrap_or(std::cmp::Ordering::Equal));
         vms.truncate(n);
         vms
     }
@@ -112,7 +112,7 @@ impl CostBreakdown {
         let mut values: Vec<_> = self.values.iter()
             .map(|(k, v)| (k.clone(), *v))
             .collect();
-        values.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap());
+        values.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap_or(std::cmp::Ordering::Equal));
         values
     }
 }
@@ -340,6 +340,7 @@ impl ReportExporter {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use chrono::Datelike;
 
     #[test]
     fn test_cost_report() {
