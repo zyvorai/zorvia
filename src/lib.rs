@@ -43,8 +43,12 @@ use config::AppConfig;
 
 /// Main entry point for the library
 pub async fn run(mut cli: Cli) -> Result<()> {
-    // Load application config file (~/.config/zorvia/config.toml)
-    let app_config = AppConfig::load().unwrap_or_default();
+    // Load application config file
+    let app_config = if let Some(ref config_path) = cli.config {
+        AppConfig::load_from(std::path::PathBuf::from(config_path)).unwrap_or_default()
+    } else {
+        AppConfig::load().unwrap_or_default()
+    };
 
     // Apply config file defaults where CLI didn't override
     if cli.namespace == "default" {

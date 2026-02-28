@@ -13,6 +13,10 @@ pub struct Cli {
     #[arg(long, env = "KUBECONFIG")]
     pub kubeconfig: Option<String>,
 
+    /// Path to config file (default: ~/.config/zorvia/config.toml)
+    #[arg(long, env = "ZORVIA_CONFIG")]
+    pub config: Option<String>,
+
     /// Enable verbose logging
     #[arg(short, long, global = true)]
     pub verbose: bool,
@@ -1155,7 +1159,7 @@ pub enum Commands {
         #[arg(short, long, default_value = "monthly")]
         period: String,
 
-        /// Scope (global, namespace:<name>, team:<name>, project:<name>)
+        /// Scope (global, namespace:NAME, team:NAME, project:NAME)
         #[arg(short, long, default_value = "global")]
         scope: String,
 
