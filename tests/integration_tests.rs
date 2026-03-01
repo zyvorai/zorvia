@@ -1323,3 +1323,55 @@ fn test_validation_accepts_name_with_dots_and_hyphens() {
         .build();
     assert!(validate_vm_config(&config).is_ok(), "Should accept dots and hyphens in name");
 }
+
+// ========== MULTUS NETWORK TESTS ==========
+
+#[test]
+fn test_multus_network_kubevirt_conversion() {
+    let config = VMConfigBuilder::new("multus-test")
+        .namespace("default")
+        .cpu(1, 1, 1)
+        .memory("2Gi")
+        .add_blank_disk("root", "20Gi", 1)
+        .add_pod_network("eth0")
+        .add_multus_network("net1", "my-bridge-net")
+        .build();
+
+    let vm = vm_config_to_kubevirt(&config).unwrap();
+
+    // Check interfaces: pod should use masquerade, multus should use bridge
+    let devices = vm.spec.template.spec.domain.devices.as_ref().unwrap();
+    let interfaces = devices.interfaces.as_ref().unwrap();
+    assert_eq!(interfaces.len(), 2);
+    assert!(interfaces[0].masquerade.is_some()); // Pod uses masquerade
+    assert!(interfaces[1].bridge.is_some()); // Multus uses bridge
+
+    // Check networks
+    let networks = vm.spec.template.spec.networks.as_ref().unwrap();
+    assert_eq!(networks.len(), 2);
+    assert!(networks[0].pod.is_some()); // Pod network
+    assert!(networks[1].multus.is_some()); // Multus network
+    assert_eq!(
+        networks[1].multus.as_ref().unwrap().network_name,
+        "my-bridge-net"
+    );
+}
+
+#[test]
+fn test_bridge_network_kubevirt_conversion() {
+    let config = VMConfigBuilder::new("bridge-test")
+        .namespace("default")
+        .cpu(1, 1, 1)
+        .memory("2Gi")
+        .add_blank_disk("root", "20Gi", 1)
+        .add_bridge_network("br0")
+        .build();
+
+    let vm = vm_config_to_kubevirt(&config).unwrap();
+
+    let devices = vm.spec.template.spec.domain.devices.as_ref().unwrap();
+    let interfaces = devices.interfaces.as_ref().unwrap();
+    assert_eq!(interfaces.len(), 1);
+    assert!(interfaces[0].bridge.is_some()); // Bridge binding
+    assert!(interfaces[0].masquerade.is_none());
+}

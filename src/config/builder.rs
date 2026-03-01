@@ -97,6 +97,31 @@ impl VMConfigBuilder {
         self
     }
 
+    pub fn add_bridge_network(mut self, name: impl Into<String>) -> Self {
+        self.config.interfaces.push(InterfaceConfig {
+            name: name.into(),
+            network: "default".to_string(),
+            model: "virtio".to_string(),
+            network_type: NetworkType::Bridge,
+        });
+        self
+    }
+
+    pub fn add_multus_network(
+        mut self,
+        name: impl Into<String>,
+        network_name: impl Into<String>,
+    ) -> Self {
+        let net_name = network_name.into();
+        self.config.interfaces.push(InterfaceConfig {
+            name: name.into(),
+            network: net_name.clone(),
+            model: "virtio".to_string(),
+            network_type: NetworkType::Multus { name: net_name },
+        });
+        self
+    }
+
     pub fn cloud_init(mut self, user_data: impl Into<String>) -> Self {
         self.config.cloud_init = Some(CloudInitConfig {
             user_data: user_data.into(),
@@ -154,5 +179,82 @@ mod tests {
         assert_eq!(config.disks.len(), 1);
         assert_eq!(config.interfaces.len(), 1);
         assert_eq!(config.labels.get("app"), Some(&"test".to_string()));
+    }
+
+    #[test]
+    fn test_builder_multus_network() {
+        let config = VMConfigBuilder::new("multus-vm")
+            .namespace("default")
+            .cpu(1, 1, 1)
+            .memory("2Gi")
+            .add_multus_network("net1", "my-bridge-net")
+            .build();
+
+        assert_eq!(config.interfaces.len(), 1);
+        assert_eq!(config.interfaces[0].name, "net1");
+        assert_eq!(
+            config.interfaces[0].network_type,
+            NetworkType::Multus {
+                name: "my-bridge-net".to_string()
+            }
+        );
+    }
+
+    #[test]
+    fn test_builder_bridge_network() {
+        let config = VMConfigBuilder::new("bridge-vm")
+            .namespace("default")
+            .cpu(1, 1, 1)
+            .memory("2Gi")
+            .add_bridge_network("br0")
+            .build();
+
+        assert_eq!(config.interfaces.len(), 1);
+        assert_eq!(config.interfaces[0].name, "br0");
+        assert_eq!(config.interfaces[0].network_type, NetworkType::Bridge);
+    }
+
+    #[test]
+    fn test_builder_multiple_networks() {
+        let config = VMConfigBuilder::new("multi-net-vm")
+            .namespace("default")
+            .cpu(1, 1, 1)
+            .memory("2Gi")
+            .add_pod_network("eth0")
+            .add_multus_network("net1", "storage-net")
+            .add_bridge_network("br0")
+            .build();
+
+        assert_eq!(config.interfaces.len(), 3);
+        assert_eq!(config.interfaces[0].network_type, NetworkType::Pod);
+        assert_eq!(
+            config.interfaces[1].network_type,
+            NetworkType::Multus {
+                name: "storage-net".to_string()
+            }
+        );
+        assert_eq!(config.interfaces[2].network_type, NetworkType::Bridge);
+    }
+
+    #[test]
+    fn test_builder_validated_success() {
+        let result = VMConfigBuilder::new("valid-vm")
+            .namespace("default")
+            .cpu(1, 1, 1)
+            .memory("1Gi")
+            .add_blank_disk("root", "20Gi", 1)
+            .add_pod_network("eth0")
+            .build_validated();
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_builder_validated_failure() {
+        let result = VMConfigBuilder::new("")
+            .namespace("default")
+            .cpu(1, 1, 1)
+            .memory("1Gi")
+            .build_validated();
+        assert!(result.is_err());
     }
 }
