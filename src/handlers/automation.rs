@@ -1,6 +1,74 @@
 use crate::tui::colors::cli as color;
 use anyhow::Result;
 
+/// Parse a trigger type string into a Trigger enum.
+pub(crate) fn parse_trigger_type(trigger: &str) -> crate::automation::Trigger {
+    use crate::automation::{Operator, Trigger};
+
+    match trigger {
+        "schedule" => Trigger::Schedule {
+            cron: "0 * * * *".to_string(),
+        },
+        "event" => Trigger::Event {
+            event_type: "vm.started".to_string(),
+        },
+        "metric" => Trigger::MetricThreshold {
+            metric: "cpu_usage".to_string(),
+            threshold: 80.0,
+            operator: Operator::GreaterThan,
+        },
+        _ => Trigger::Manual,
+    }
+}
+
+/// Parse a schedule string ("hourly", "daily", "weekly", "interval:N") into a Schedule enum.
+pub(crate) fn parse_schedule_string(
+    schedule: &str,
+) -> crate::automation::schedules::Schedule {
+    use crate::automation::schedules::Schedule;
+
+    if schedule.starts_with("interval:") {
+        let seconds: u64 = schedule
+            .strip_prefix("interval:")
+            .unwrap_or("3600")
+            .parse()
+            .unwrap_or(3600);
+        Schedule::interval(seconds)
+    } else {
+        match schedule {
+            "hourly" => Schedule::hourly(0),
+            "daily" => Schedule::daily(2, 0),
+            "weekly" => Schedule::weekly(chrono::Weekday::Mon, 2, 0),
+            _ => Schedule::daily(2, 0),
+        }
+    }
+}
+
+/// Return a human-readable label for a Schedule variant.
+pub(crate) fn schedule_label(schedule: &crate::automation::schedules::Schedule) -> &'static str {
+    use crate::automation::schedules::Schedule;
+
+    match schedule {
+        Schedule::Once { .. } => "Once",
+        Schedule::Hourly { .. } => "Hourly",
+        Schedule::Daily { .. } => "Daily",
+        Schedule::Weekly { .. } => "Weekly",
+        Schedule::Monthly { .. } => "Monthly",
+        Schedule::Cron { .. } => "Cron",
+        Schedule::Interval { .. } => "Interval",
+    }
+}
+
+/// Format a rule's enabled/disabled state for display.
+#[cfg(test)]
+pub(crate) fn format_rule_state(enabled: bool) -> &'static str {
+    if enabled {
+        "Enabled"
+    } else {
+        "Disabled"
+    }
+}
+
 pub fn handle_automation_list(enabled_only: bool, output: String) -> Result<()> {
     use crate::automation::{AutomationRule, Trigger};
 
@@ -65,7 +133,7 @@ pub fn handle_automation_create(
     trigger: String,
     enable: bool,
 ) -> Result<()> {
-    use crate::automation::{AutomationRule, Trigger};
+    use crate::automation::AutomationRule;
 
     println!(
         "{}",
@@ -73,20 +141,7 @@ pub fn handle_automation_create(
     );
     println!();
 
-    let trigger_type = match trigger.as_str() {
-        "schedule" => Trigger::Schedule {
-            cron: "0 * * * *".to_string(),
-        },
-        "event" => Trigger::Event {
-            event_type: "vm.started".to_string(),
-        },
-        "metric" => Trigger::MetricThreshold {
-            metric: "cpu_usage".to_string(),
-            threshold: 80.0,
-            operator: crate::automation::Operator::GreaterThan,
-        },
-        _ => Trigger::Manual,
-    };
+    let trigger_type = parse_trigger_type(&trigger);
 
     let mut rule = AutomationRule::new(&name, trigger_type);
     if let Some(desc) = description {
@@ -381,15 +436,7 @@ pub fn handle_schedule_list(enabled_only: bool, output: String) -> Result<()> {
             println!(
                 "{:<30} {:<15} {:<10} {}",
                 task.name,
-                match &task.schedule {
-                    crate::automation::schedules::Schedule::Once { .. } => "Once",
-                    crate::automation::schedules::Schedule::Hourly { .. } => "Hourly",
-                    crate::automation::schedules::Schedule::Daily { .. } => "Daily",
-                    crate::automation::schedules::Schedule::Weekly { .. } => "Weekly",
-                    crate::automation::schedules::Schedule::Monthly { .. } => "Monthly",
-                    crate::automation::schedules::Schedule::Cron { .. } => "Cron",
-                    crate::automation::schedules::Schedule::Interval { .. } => "Interval",
-                },
+                schedule_label(&task.schedule),
                 status,
                 task.run_count
             );
@@ -404,7 +451,7 @@ pub fn handle_schedule_create(
     schedule: String,
     enable: bool,
 ) -> Result<()> {
-    use crate::automation::schedules::{Schedule, ScheduledTask};
+    use crate::automation::schedules::ScheduledTask;
 
     println!(
         "{}",
@@ -412,21 +459,7 @@ pub fn handle_schedule_create(
     );
     println!();
 
-    let sched = if schedule.starts_with("interval:") {
-        let seconds: u64 = schedule
-            .strip_prefix("interval:")
-            .unwrap_or("3600")
-            .parse()
-            .unwrap_or(3600);
-        Schedule::interval(seconds)
-    } else {
-        match schedule.as_str() {
-            "hourly" => Schedule::hourly(0),
-            "daily" => Schedule::daily(2, 0),
-            "weekly" => Schedule::weekly(chrono::Weekday::Mon, 2, 0),
-            _ => Schedule::daily(2, 0),
-        }
-    };
+    let sched = parse_schedule_string(&schedule);
 
     let mut task = ScheduledTask::new(&name, sched, &rule);
     if !enable {
@@ -451,4 +484,156 @@ pub fn handle_schedule_create(
     );
     println!("  {}", color::muted("Note: Configuration is not persisted to storage"));
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    // ===== parse_trigger_type tests =====
+
+    #[test]
+    fn test_parse_trigger_type_schedule() {
+        let trigger = parse_trigger_type("schedule");
+        assert!(
+            matches!(trigger, crate::automation::Trigger::Schedule { ref cron } if cron == "0 * * * *")
+        );
+    }
+
+    #[test]
+    fn test_parse_trigger_type_event() {
+        let trigger = parse_trigger_type("event");
+        assert!(
+            matches!(trigger, crate::automation::Trigger::Event { ref event_type } if event_type == "vm.started")
+        );
+    }
+
+    #[test]
+    fn test_parse_trigger_type_metric() {
+        let trigger = parse_trigger_type("metric");
+        assert!(matches!(
+            trigger,
+            crate::automation::Trigger::MetricThreshold { .. }
+        ));
+    }
+
+    #[test]
+    fn test_parse_trigger_type_manual_default() {
+        let trigger = parse_trigger_type("anything_else");
+        assert!(matches!(trigger, crate::automation::Trigger::Manual));
+    }
+
+    #[test]
+    fn test_parse_trigger_type_empty_string() {
+        let trigger = parse_trigger_type("");
+        assert!(matches!(trigger, crate::automation::Trigger::Manual));
+    }
+
+    // ===== parse_schedule_string tests =====
+
+    #[test]
+    fn test_parse_schedule_hourly() {
+        let sched = parse_schedule_string("hourly");
+        assert!(matches!(
+            sched,
+            crate::automation::schedules::Schedule::Hourly { minute: 0 }
+        ));
+    }
+
+    #[test]
+    fn test_parse_schedule_daily() {
+        let sched = parse_schedule_string("daily");
+        assert!(matches!(
+            sched,
+            crate::automation::schedules::Schedule::Daily { .. }
+        ));
+    }
+
+    #[test]
+    fn test_parse_schedule_weekly() {
+        let sched = parse_schedule_string("weekly");
+        assert!(matches!(
+            sched,
+            crate::automation::schedules::Schedule::Weekly { .. }
+        ));
+    }
+
+    #[test]
+    fn test_parse_schedule_interval() {
+        let sched = parse_schedule_string("interval:120");
+        assert!(matches!(
+            sched,
+            crate::automation::schedules::Schedule::Interval { seconds: 120 }
+        ));
+    }
+
+    #[test]
+    fn test_parse_schedule_interval_invalid_number() {
+        let sched = parse_schedule_string("interval:abc");
+        // Falls back to 3600
+        assert!(matches!(
+            sched,
+            crate::automation::schedules::Schedule::Interval { seconds: 3600 }
+        ));
+    }
+
+    #[test]
+    fn test_parse_schedule_unknown_defaults_to_daily() {
+        let sched = parse_schedule_string("biweekly");
+        assert!(matches!(
+            sched,
+            crate::automation::schedules::Schedule::Daily { .. }
+        ));
+    }
+
+    // ===== schedule_label tests =====
+
+    #[test]
+    fn test_schedule_label_once() {
+        let sched = crate::automation::schedules::Schedule::once(chrono::Utc::now());
+        assert_eq!(schedule_label(&sched), "Once");
+    }
+
+    #[test]
+    fn test_schedule_label_hourly() {
+        let sched = crate::automation::schedules::Schedule::hourly(30);
+        assert_eq!(schedule_label(&sched), "Hourly");
+    }
+
+    #[test]
+    fn test_schedule_label_daily() {
+        let sched = crate::automation::schedules::Schedule::daily(2, 0);
+        assert_eq!(schedule_label(&sched), "Daily");
+    }
+
+    #[test]
+    fn test_schedule_label_weekly() {
+        let sched =
+            crate::automation::schedules::Schedule::weekly(chrono::Weekday::Mon, 9, 0);
+        assert_eq!(schedule_label(&sched), "Weekly");
+    }
+
+    #[test]
+    fn test_schedule_label_interval() {
+        let sched = crate::automation::schedules::Schedule::interval(3600);
+        assert_eq!(schedule_label(&sched), "Interval");
+    }
+
+    #[test]
+    fn test_schedule_label_monthly() {
+        let sched = crate::automation::schedules::Schedule::monthly(15, 10, 0);
+        assert_eq!(schedule_label(&sched), "Monthly");
+    }
+
+    // ===== format_rule_state tests =====
+
+    #[test]
+    fn test_format_rule_state_enabled() {
+        assert_eq!(format_rule_state(true), "Enabled");
+    }
+
+    #[test]
+    fn test_format_rule_state_disabled() {
+        assert_eq!(format_rule_state(false), "Disabled");
+    }
 }

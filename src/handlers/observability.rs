@@ -1,13 +1,63 @@
 use crate::tui::colors::cli as color;
 use anyhow::Result;
 
+/// Parse a log level string into a LogLevel enum.
+/// Supported values (case-insensitive): debug, info, warning, error, critical.
+/// Unknown values default to Info.
+pub(crate) fn parse_log_level(level: &str) -> crate::observability::logs::LogLevel {
+    use crate::observability::logs::LogLevel;
+
+    match level.to_lowercase().as_str() {
+        "debug" => LogLevel::Debug,
+        "info" => LogLevel::Info,
+        "warning" => LogLevel::Warning,
+        "error" => LogLevel::Error,
+        "critical" => LogLevel::Critical,
+        _ => LogLevel::Info,
+    }
+}
+
+/// Parse an alert severity string into an AlertSeverity enum.
+/// Supported values (case-insensitive): info, warning, critical.
+/// Unknown values default to Warning.
+pub(crate) fn parse_alert_severity(
+    severity: &str,
+) -> crate::observability::alerts::AlertSeverity {
+    use crate::observability::alerts::AlertSeverity;
+
+    match severity.to_lowercase().as_str() {
+        "info" => AlertSeverity::Info,
+        "warning" => AlertSeverity::Warning,
+        "critical" => AlertSeverity::Critical,
+        _ => AlertSeverity::Warning,
+    }
+}
+
+/// Parse a threshold operator string into a ThresholdOperator enum.
+/// Supported values (case-insensitive): gt, lt, eq, gte, lte.
+/// Unknown values default to GreaterThan.
+pub(crate) fn parse_threshold_operator(
+    operator: &str,
+) -> crate::observability::alerts::ThresholdOperator {
+    use crate::observability::alerts::ThresholdOperator;
+
+    match operator.to_lowercase().as_str() {
+        "gt" => ThresholdOperator::GreaterThan,
+        "lt" => ThresholdOperator::LessThan,
+        "eq" => ThresholdOperator::Equal,
+        "gte" => ThresholdOperator::GreaterThanOrEqual,
+        "lte" => ThresholdOperator::LessThanOrEqual,
+        _ => ThresholdOperator::GreaterThan,
+    }
+}
+
 pub fn handle_logs_query(
     level: Option<String>,
     source: Option<String>,
     search: Option<String>,
     limit: usize,
 ) -> Result<()> {
-    use crate::observability::logs::{LogLevel, LogQuery};
+    use crate::observability::logs::LogQuery;
 
     println!("{}", color::header("Querying Logs"));
     println!();
@@ -15,15 +65,7 @@ pub fn handle_logs_query(
     let mut _query = LogQuery::new().with_limit(limit);
 
     if let Some(ref lvl) = level {
-        let log_level = match lvl.to_lowercase().as_str() {
-            "debug" => LogLevel::Debug,
-            "info" => LogLevel::Info,
-            "warning" => LogLevel::Warning,
-            "error" => LogLevel::Error,
-            "critical" => LogLevel::Critical,
-            _ => LogLevel::Info,
-        };
-        _query = _query.with_level(log_level);
+        _query = _query.with_level(parse_log_level(lvl));
     }
 
     if let Some(ref src) = source {
@@ -157,9 +199,7 @@ pub fn handle_alerts_create(
     threshold: f64,
     duration: i64,
 ) -> Result<()> {
-    use crate::observability::alerts::{
-        AlertCondition, AlertRule, AlertSeverity, ThresholdOperator,
-    };
+    use crate::observability::alerts::{AlertCondition, AlertRule};
 
     println!(
         "{}",
@@ -167,21 +207,8 @@ pub fn handle_alerts_create(
     );
     println!();
 
-    let alert_severity = match severity.to_lowercase().as_str() {
-        "info" => AlertSeverity::Info,
-        "warning" => AlertSeverity::Warning,
-        "critical" => AlertSeverity::Critical,
-        _ => AlertSeverity::Warning,
-    };
-
-    let op = match operator.to_lowercase().as_str() {
-        "gt" => ThresholdOperator::GreaterThan,
-        "lt" => ThresholdOperator::LessThan,
-        "eq" => ThresholdOperator::Equal,
-        "gte" => ThresholdOperator::GreaterThanOrEqual,
-        "lte" => ThresholdOperator::LessThanOrEqual,
-        _ => ThresholdOperator::GreaterThan,
-    };
+    let alert_severity = parse_alert_severity(&severity);
+    let op = parse_threshold_operator(&operator);
 
     let condition = AlertCondition::MetricThreshold {
         metric_name: metric.clone(),
@@ -314,4 +341,174 @@ pub fn handle_health_check(component: Option<String>, output: String) -> Result<
     println!();
     println!("{}", color::success("✓ Health check complete"));
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    // ===== parse_log_level tests =====
+
+    #[test]
+    fn test_parse_log_level_debug() {
+        let level = parse_log_level("debug");
+        assert!(matches!(level, crate::observability::logs::LogLevel::Debug));
+    }
+
+    #[test]
+    fn test_parse_log_level_info() {
+        let level = parse_log_level("info");
+        assert!(matches!(level, crate::observability::logs::LogLevel::Info));
+    }
+
+    #[test]
+    fn test_parse_log_level_warning() {
+        let level = parse_log_level("warning");
+        assert!(matches!(
+            level,
+            crate::observability::logs::LogLevel::Warning
+        ));
+    }
+
+    #[test]
+    fn test_parse_log_level_error() {
+        let level = parse_log_level("error");
+        assert!(matches!(level, crate::observability::logs::LogLevel::Error));
+    }
+
+    #[test]
+    fn test_parse_log_level_critical() {
+        let level = parse_log_level("critical");
+        assert!(matches!(
+            level,
+            crate::observability::logs::LogLevel::Critical
+        ));
+    }
+
+    #[test]
+    fn test_parse_log_level_case_insensitive() {
+        let level = parse_log_level("WARNING");
+        assert!(matches!(
+            level,
+            crate::observability::logs::LogLevel::Warning
+        ));
+    }
+
+    #[test]
+    fn test_parse_log_level_unknown_defaults_to_info() {
+        let level = parse_log_level("trace");
+        assert!(matches!(level, crate::observability::logs::LogLevel::Info));
+    }
+
+    #[test]
+    fn test_parse_log_level_empty_defaults_to_info() {
+        let level = parse_log_level("");
+        assert!(matches!(level, crate::observability::logs::LogLevel::Info));
+    }
+
+    // ===== parse_alert_severity tests =====
+
+    #[test]
+    fn test_parse_alert_severity_info() {
+        let sev = parse_alert_severity("info");
+        assert_eq!(sev, crate::observability::alerts::AlertSeverity::Info);
+    }
+
+    #[test]
+    fn test_parse_alert_severity_warning() {
+        let sev = parse_alert_severity("warning");
+        assert_eq!(sev, crate::observability::alerts::AlertSeverity::Warning);
+    }
+
+    #[test]
+    fn test_parse_alert_severity_critical() {
+        let sev = parse_alert_severity("critical");
+        assert_eq!(sev, crate::observability::alerts::AlertSeverity::Critical);
+    }
+
+    #[test]
+    fn test_parse_alert_severity_case_insensitive() {
+        let sev = parse_alert_severity("CRITICAL");
+        assert_eq!(sev, crate::observability::alerts::AlertSeverity::Critical);
+    }
+
+    #[test]
+    fn test_parse_alert_severity_unknown_defaults_to_warning() {
+        let sev = parse_alert_severity("fatal");
+        assert_eq!(sev, crate::observability::alerts::AlertSeverity::Warning);
+    }
+
+    // ===== parse_threshold_operator tests =====
+
+    #[test]
+    fn test_parse_threshold_operator_gt() {
+        let op = parse_threshold_operator("gt");
+        assert_eq!(
+            op,
+            crate::observability::alerts::ThresholdOperator::GreaterThan
+        );
+    }
+
+    #[test]
+    fn test_parse_threshold_operator_lt() {
+        let op = parse_threshold_operator("lt");
+        assert_eq!(
+            op,
+            crate::observability::alerts::ThresholdOperator::LessThan
+        );
+    }
+
+    #[test]
+    fn test_parse_threshold_operator_eq() {
+        let op = parse_threshold_operator("eq");
+        assert_eq!(
+            op,
+            crate::observability::alerts::ThresholdOperator::Equal
+        );
+    }
+
+    #[test]
+    fn test_parse_threshold_operator_gte() {
+        let op = parse_threshold_operator("gte");
+        assert_eq!(
+            op,
+            crate::observability::alerts::ThresholdOperator::GreaterThanOrEqual
+        );
+    }
+
+    #[test]
+    fn test_parse_threshold_operator_lte() {
+        let op = parse_threshold_operator("lte");
+        assert_eq!(
+            op,
+            crate::observability::alerts::ThresholdOperator::LessThanOrEqual
+        );
+    }
+
+    #[test]
+    fn test_parse_threshold_operator_case_insensitive() {
+        let op = parse_threshold_operator("GT");
+        assert_eq!(
+            op,
+            crate::observability::alerts::ThresholdOperator::GreaterThan
+        );
+    }
+
+    #[test]
+    fn test_parse_threshold_operator_unknown_defaults_to_gt() {
+        let op = parse_threshold_operator("ne");
+        assert_eq!(
+            op,
+            crate::observability::alerts::ThresholdOperator::GreaterThan
+        );
+    }
+
+    #[test]
+    fn test_parse_threshold_operator_empty_defaults_to_gt() {
+        let op = parse_threshold_operator("");
+        assert_eq!(
+            op,
+            crate::observability::alerts::ThresholdOperator::GreaterThan
+        );
+    }
 }

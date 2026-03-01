@@ -1,6 +1,39 @@
 use crate::tui::colors::cli as color;
 use anyhow::Result;
 
+/// Parse a binding scope string into a BindingScope enum.
+/// "cluster" maps to Cluster, "namespace:<name>" maps to Namespace, anything else
+/// defaults to Cluster.
+pub(crate) fn parse_binding_scope(scope: &str) -> crate::multitenancy::roles::BindingScope {
+    use crate::multitenancy::roles::BindingScope;
+
+    if scope == "cluster" {
+        BindingScope::Cluster
+    } else if let Some(ns) = scope.strip_prefix("namespace:") {
+        BindingScope::Namespace {
+            namespace: ns.to_string(),
+        }
+    } else {
+        BindingScope::Cluster
+    }
+}
+
+/// Parse a quota preset string into ResourceLimits.
+/// Known presets: "small", "medium", "large", "unlimited".
+/// Unknown values default to medium.
+pub(crate) fn parse_quota_preset(
+    preset: &str,
+) -> crate::multitenancy::quotas::ResourceLimits {
+    use crate::multitenancy::quotas::ResourceLimits;
+
+    match preset {
+        "small" => ResourceLimits::small(),
+        "large" => ResourceLimits::large(),
+        "unlimited" => ResourceLimits::unlimited(),
+        _ => ResourceLimits::medium(),
+    }
+}
+
 pub fn handle_tenants_list(active_only: bool, output: String) -> Result<()> {
     use crate::multitenancy::tenants::TenantManager;
 
@@ -129,7 +162,7 @@ pub fn handle_users_create(
 }
 
 pub fn handle_users_assign_role(user: String, role: String, scope: String) -> Result<()> {
-    use crate::multitenancy::roles::{BindingScope, RoleBinding, Subject};
+    use crate::multitenancy::roles::{RoleBinding, Subject};
 
     println!("{}", color::header("Assigning Role"));
     println!();
@@ -137,15 +170,7 @@ pub fn handle_users_assign_role(user: String, role: String, scope: String) -> Re
     let subject = Subject::User {
         user_id: user.clone(),
     };
-    let binding_scope = if scope == "cluster" {
-        BindingScope::Cluster
-    } else if let Some(ns) = scope.strip_prefix("namespace:") {
-        BindingScope::Namespace {
-            namespace: ns.to_string(),
-        }
-    } else {
-        BindingScope::Cluster
-    };
+    let binding_scope = parse_binding_scope(&scope);
 
     let _binding = RoleBinding::new(&role, subject, binding_scope);
 
@@ -237,17 +262,12 @@ pub fn handle_quotas_list(namespace: Option<String>, exceeded: bool, output: Str
 }
 
 pub fn handle_quotas_create(name: String, namespace: String, preset: String) -> Result<()> {
-    use crate::multitenancy::quotas::{ResourceLimits, ResourceQuota};
+    use crate::multitenancy::quotas::ResourceQuota;
 
     println!("{}", color::header(&format!("Creating Quota: {}", name)));
     println!();
 
-    let limits = match preset.as_str() {
-        "small" => ResourceLimits::small(),
-        "large" => ResourceLimits::large(),
-        "unlimited" => ResourceLimits::unlimited(),
-        _ => ResourceLimits::medium(),
-    };
+    let limits = parse_quota_preset(&preset);
 
     let quota = ResourceQuota::new(&name, &namespace).with_limits(limits.clone());
 
@@ -327,4 +347,122 @@ pub fn handle_groups_add_user(group: String, user: String) -> Result<()> {
     println!("{}", color::success("✓ User added to group"));
     println!("  {}", color::muted("Note: Configuration is not persisted to storage"));
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    // ===== parse_binding_scope tests =====
+
+    #[test]
+    fn test_parse_binding_scope_cluster() {
+        let scope = parse_binding_scope("cluster");
+        assert!(matches!(
+            scope,
+            crate::multitenancy::roles::BindingScope::Cluster
+        ));
+    }
+
+    #[test]
+    fn test_parse_binding_scope_namespace() {
+        let scope = parse_binding_scope("namespace:production");
+        match scope {
+            crate::multitenancy::roles::BindingScope::Namespace { namespace } => {
+                assert_eq!(namespace, "production");
+            }
+            _ => panic!("Expected Namespace variant"),
+        }
+    }
+
+    #[test]
+    fn test_parse_binding_scope_namespace_default() {
+        let scope = parse_binding_scope("namespace:default");
+        match scope {
+            crate::multitenancy::roles::BindingScope::Namespace { namespace } => {
+                assert_eq!(namespace, "default");
+            }
+            _ => panic!("Expected Namespace variant"),
+        }
+    }
+
+    #[test]
+    fn test_parse_binding_scope_unknown_defaults_to_cluster() {
+        let scope = parse_binding_scope("something-else");
+        assert!(matches!(
+            scope,
+            crate::multitenancy::roles::BindingScope::Cluster
+        ));
+    }
+
+    #[test]
+    fn test_parse_binding_scope_empty_defaults_to_cluster() {
+        let scope = parse_binding_scope("");
+        assert!(matches!(
+            scope,
+            crate::multitenancy::roles::BindingScope::Cluster
+        ));
+    }
+
+    #[test]
+    fn test_parse_binding_scope_namespace_empty_name() {
+        // "namespace:" with empty name should still parse as Namespace
+        let scope = parse_binding_scope("namespace:");
+        match scope {
+            crate::multitenancy::roles::BindingScope::Namespace { namespace } => {
+                assert_eq!(namespace, "");
+            }
+            _ => panic!("Expected Namespace variant"),
+        }
+    }
+
+    // ===== parse_quota_preset tests =====
+
+    #[test]
+    fn test_parse_quota_preset_small() {
+        let limits = parse_quota_preset("small");
+        assert_eq!(limits.max_vms, 5);
+    }
+
+    #[test]
+    fn test_parse_quota_preset_medium() {
+        let limits = parse_quota_preset("medium");
+        // medium is the default
+        let default = crate::multitenancy::quotas::ResourceLimits::medium();
+        assert_eq!(limits.max_vms, default.max_vms);
+        assert_eq!(limits.max_cpu_cores, default.max_cpu_cores);
+    }
+
+    #[test]
+    fn test_parse_quota_preset_large() {
+        let limits = parse_quota_preset("large");
+        assert_eq!(limits.max_vms, 50);
+    }
+
+    #[test]
+    fn test_parse_quota_preset_unlimited() {
+        let limits = parse_quota_preset("unlimited");
+        assert_eq!(limits.max_vms, u32::MAX);
+    }
+
+    #[test]
+    fn test_parse_quota_preset_unknown_defaults_to_medium() {
+        let limits = parse_quota_preset("extra-large");
+        let medium = crate::multitenancy::quotas::ResourceLimits::medium();
+        assert_eq!(limits.max_vms, medium.max_vms);
+    }
+
+    #[test]
+    fn test_parse_quota_preset_small_cpu_cores() {
+        let limits = parse_quota_preset("small");
+        let small = crate::multitenancy::quotas::ResourceLimits::small();
+        assert_eq!(limits.max_cpu_cores, small.max_cpu_cores);
+    }
+
+    #[test]
+    fn test_parse_quota_preset_large_memory() {
+        let limits = parse_quota_preset("large");
+        let large = crate::multitenancy::quotas::ResourceLimits::large();
+        assert_eq!(limits.max_memory_gi, large.max_memory_gi);
+    }
 }

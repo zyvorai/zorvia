@@ -1025,3 +1025,301 @@ fn test_vm_metrics_collection_and_aggregation() {
     let sum = MetricAggregator::sum(&values);
     assert!((sum - 150.0).abs() < 0.01);
 }
+
+// ========== SCHEDULING TESTS ==========
+
+#[test]
+fn test_backup_schedule_types() {
+    use zorvia::backup::schedule::{BackupSchedule, ScheduleType};
+
+    let hourly = BackupSchedule::new("hourly-backup", ScheduleType::hourly(30));
+    assert!(hourly.enabled);
+    let next = hourly.calculate_next_run(chrono::Utc::now());
+    assert!(next.is_some());
+
+    let disabled = BackupSchedule::new("disabled", ScheduleType::daily(2, 0)).disable();
+    assert!(!disabled.enabled);
+    assert!(disabled.calculate_next_run(chrono::Utc::now()).is_none());
+}
+
+#[test]
+fn test_shared_scheduling_functions() {
+    use chrono::{NaiveTime, Utc};
+    use zorvia::utils::schedule::{last_day_of_month, next_daily, next_hourly};
+
+    // February in a leap year
+    assert_eq!(last_day_of_month(2024, 2), 29);
+    // February in a non-leap year
+    assert_eq!(last_day_of_month(2023, 2), 28);
+    // December
+    assert_eq!(last_day_of_month(2024, 12), 31);
+
+    let now = Utc::now();
+    let next_h = next_hourly(now, 30);
+    assert!(next_h > now);
+
+    let time = NaiveTime::from_hms_opt(3, 0, 0).unwrap();
+    let next_d = next_daily(now, &time);
+    assert!(next_d > now);
+}
+
+// ========== ERROR TYPE TESTS ==========
+
+#[test]
+fn test_zorvia_error_display() {
+    use zorvia::ZorviaError;
+
+    let not_found = ZorviaError::VmNotFound("my-vm".to_string());
+    assert_eq!(not_found.to_string(), "VM not found: my-vm");
+
+    let exists = ZorviaError::VmExists("my-vm".to_string());
+    assert_eq!(exists.to_string(), "VM already exists: my-vm");
+}
+
+// ========== BUILDER EDGE CASES ==========
+
+#[test]
+fn test_builder_with_all_options() {
+    let config = VMConfigBuilder::new("full-vm")
+        .namespace("production")
+        .cpu(4, 2, 2)
+        .memory("16Gi")
+        .add_container_disk("boot", "registry.io/image:v1", 1)
+        .add_blank_disk("data", "100Gi", 2)
+        .add_pod_network("eth0")
+        .label("app", "database")
+        .label("env", "prod")
+        .annotation("description", "Production database")
+        .cloud_init("#cloud-config\npackages:\n  - vim")
+        .build();
+
+    assert_eq!(config.name, "full-vm");
+    assert_eq!(config.namespace, "production");
+    assert_eq!(config.cpu.cores, 4);
+    assert_eq!(config.cpu.sockets, 2);
+    assert_eq!(config.cpu.threads, 2);
+    assert_eq!(config.memory.size, "16Gi");
+    assert_eq!(config.disks.len(), 2);
+    assert_eq!(config.interfaces.len(), 1);
+    assert_eq!(config.labels.len(), 2);
+    assert_eq!(config.annotations.len(), 1);
+    assert!(config.cloud_init.is_some());
+
+    // Should pass validation
+    validate_vm_config(&config).unwrap();
+
+    // Should convert to KubeVirt
+    let vm = vm_config_to_kubevirt(&config).unwrap();
+    let volumes = vm.spec.template.spec.volumes.as_ref().unwrap();
+    assert!(volumes.len() >= 3); // boot + data + cloudinit
+}
+
+#[test]
+fn test_builder_validated() {
+    // Valid config (needs disk + interface to pass validation)
+    let result = VMConfigBuilder::new("valid-vm")
+        .namespace("default")
+        .cpu(1, 1, 1)
+        .memory("1Gi")
+        .add_blank_disk("root", "20Gi", 1)
+        .add_pod_network("eth0")
+        .build_validated();
+    assert!(result.is_ok(), "Validation error: {:?}", result.err());
+
+    // Invalid: empty name
+    let result = VMConfigBuilder::new("")
+        .namespace("default")
+        .cpu(1, 1, 1)
+        .memory("1Gi")
+        .build_validated();
+    assert!(result.is_err());
+}
+
+// ========== HEALTH CHECK TESTS ==========
+
+#[test]
+fn test_health_check_report() {
+    use zorvia::health::{HealthCheck, HealthStatus, VMHealthReport};
+
+    let mut report = VMHealthReport::new("test-vm".to_string());
+    assert_eq!(report.vm_name, "test-vm");
+
+    report.add_check(HealthCheck {
+        name: "CPU".to_string(),
+        status: HealthStatus::Healthy,
+        message: "CPU usage normal".to_string(),
+        recommendation: None,
+    });
+    report.add_check(HealthCheck {
+        name: "Memory".to_string(),
+        status: HealthStatus::Warning,
+        message: "Memory at 78%".to_string(),
+        recommendation: Some("Consider increasing memory".to_string()),
+    });
+
+    assert_eq!(report.overall_status, HealthStatus::Warning);
+    assert_eq!(report.checks.len(), 2);
+}
+
+// ========== DISK MANAGEMENT TESTS ==========
+
+#[test]
+fn test_disk_info_parse_and_format() {
+    use zorvia::disk::DiskInfo;
+
+    // Parse various sizes
+    assert_eq!(DiskInfo::parse_size("10Gi"), 10 * 1024 * 1024 * 1024);
+    assert_eq!(DiskInfo::parse_size("100Mi"), 100 * 1024 * 1024);
+    assert_eq!(DiskInfo::parse_size("1Ti"), 1024 * 1024 * 1024 * 1024);
+    assert_eq!(DiskInfo::parse_size("10G"), 10_000_000_000);
+
+    // Invalid input returns 0
+    assert_eq!(DiskInfo::parse_size("invalid"), 0);
+    assert_eq!(DiskInfo::parse_size(""), 0);
+
+    // Needs expansion check
+    let mut disk = DiskInfo::new("test-disk");
+    disk.usage_percent = 85.0;
+    assert!(disk.needs_expansion(80.0));
+    assert!(!disk.needs_expansion(90.0));
+}
+
+// ========== CRON EXPRESSION TESTS ==========
+
+#[test]
+fn test_cron_expression_parsing() {
+    use chrono::Utc;
+    use zorvia::utils::cron::next_cron_time;
+
+    let now = Utc::now();
+
+    // Every minute should find next time quickly
+    let next = next_cron_time(now, "* * * * *");
+    assert!(next.is_some());
+    let next_time = next.unwrap();
+    assert!(next_time > now);
+
+    // Specific time
+    let next = next_cron_time(now, "30 2 * * *");
+    assert!(next.is_some());
+}
+
+// ========== FORMAT BYTES UTILITY TESTS ==========
+
+#[test]
+fn test_format_bytes_utility() {
+    use zorvia::format_bytes;
+
+    assert_eq!(format_bytes(0), "0 B");
+    assert_eq!(format_bytes(1024), "1.00 KiB");
+    assert_eq!(format_bytes(1024 * 1024), "1.00 MiB");
+    assert_eq!(format_bytes(1024 * 1024 * 1024), "1.00 GiB");
+    assert_eq!(format_bytes(1024u64 * 1024 * 1024 * 1024), "1.00 TiB");
+}
+
+// ========== GENERATE_ID UTILITY TESTS ==========
+
+#[test]
+fn test_generate_id_utility() {
+    use zorvia::generate_id;
+
+    let id1 = generate_id("vm", "test");
+    let id2 = generate_id("vm", "test");
+    assert!(id1.starts_with("vm-"));
+    assert!(id2.starts_with("vm-"));
+    assert_ne!(id1, id2); // Should be unique
+
+    let snap_id = generate_id("snap", "backup");
+    assert!(snap_id.starts_with("snap-"));
+}
+
+// ========== PERCENT_TO_U8 UTILITY TESTS ==========
+
+#[test]
+fn test_percent_to_u8_utility() {
+    use zorvia::percent_to_u8;
+
+    assert_eq!(percent_to_u8(0.0), 0);
+    assert_eq!(percent_to_u8(50.0), 50);
+    assert_eq!(percent_to_u8(100.0), 100);
+    assert_eq!(percent_to_u8(150.0), 100); // Clamped
+    assert_eq!(percent_to_u8(-10.0), 0); // Clamped
+    assert_eq!(percent_to_u8(f64::INFINITY), 100);
+    // NaN behavior: NaN comparisons return false, so it falls to else branch
+    let nan_result = percent_to_u8(f64::NAN);
+    assert!(nan_result <= 100); // Just ensure no panic
+}
+
+// ========== KUBEVIRT CONVERSION EDGE CASES ==========
+
+#[test]
+fn test_kubevirt_conversion_preserves_labels() {
+    let config = VMConfigBuilder::new("label-test")
+        .namespace("default")
+        .cpu(1, 1, 1)
+        .memory("1Gi")
+        .label("env", "prod")
+        .label("team", "platform")
+        .build();
+
+    let vm = vm_config_to_kubevirt(&config).unwrap();
+    let labels = vm.metadata.labels.unwrap();
+    assert_eq!(labels.get("env"), Some(&"prod".to_string()));
+    assert_eq!(labels.get("team"), Some(&"platform".to_string()));
+    // Auto-added kubevirt.io/vm label
+    assert_eq!(labels.get("kubevirt.io/vm"), Some(&"label-test".to_string()));
+}
+
+#[test]
+fn test_kubevirt_conversion_sets_running_false() {
+    let config = VMConfigBuilder::new("run-test")
+        .namespace("default")
+        .cpu(1, 1, 1)
+        .memory("1Gi")
+        .build();
+
+    let vm = vm_config_to_kubevirt(&config).unwrap();
+    assert_eq!(vm.spec.running, Some(false));
+}
+
+#[test]
+fn test_validation_rejects_name_with_leading_hyphen() {
+    let config = VMConfigBuilder::new("-invalid")
+        .namespace("default")
+        .cpu(1, 1, 1)
+        .memory("1Gi")
+        .build();
+    assert!(validate_vm_config(&config).is_err());
+}
+
+#[test]
+fn test_validation_rejects_name_with_trailing_dot() {
+    let config = VMConfigBuilder::new("invalid.")
+        .namespace("default")
+        .cpu(1, 1, 1)
+        .memory("1Gi")
+        .build();
+    assert!(validate_vm_config(&config).is_err());
+}
+
+#[test]
+fn test_validation_rejects_name_with_uppercase() {
+    let config = VMConfigBuilder::new("InvalidName")
+        .namespace("default")
+        .cpu(1, 1, 1)
+        .memory("1Gi")
+        .build();
+    assert!(validate_vm_config(&config).is_err());
+}
+
+#[test]
+fn test_validation_accepts_name_with_dots_and_hyphens() {
+    let config = VMConfigBuilder::new("my-vm.test.01")
+        .namespace("default")
+        .cpu(1, 1, 1)
+        .memory("1Gi")
+        .add_blank_disk("root", "20Gi", 1)
+        .add_pod_network("eth0")
+        .build();
+    assert!(validate_vm_config(&config).is_ok(), "Should accept dots and hyphens in name");
+}

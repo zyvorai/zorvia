@@ -2,6 +2,36 @@ use crate::output::{format_output, OutputFormat};
 use crate::tui::colors::cli as color;
 use anyhow::{anyhow, Result};
 
+/// Classification of disk usage level based on percentage thresholds.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) enum DiskUsageLevel {
+    Normal,
+    Warning,
+    Critical,
+}
+
+/// Classify disk usage percentage into Normal, Warning, or Critical.
+/// Critical threshold: >= 90%, Warning threshold: >= 75%.
+pub(crate) fn classify_disk_usage(usage_percent: f64) -> DiskUsageLevel {
+    if usage_percent >= 90.0 {
+        DiskUsageLevel::Critical
+    } else if usage_percent >= 75.0 {
+        DiskUsageLevel::Warning
+    } else {
+        DiskUsageLevel::Normal
+    }
+}
+
+/// Derive a VM name from a snapshot name by stripping the "-snapshot" suffix.
+pub(crate) fn derive_vm_name_from_snapshot(snapshot: &str) -> String {
+    snapshot.replace("-snapshot", "")
+}
+
+/// Generate a default restore target name from a snapshot name.
+pub(crate) fn default_restore_target_name(snapshot: &str) -> String {
+    format!("{}-restored", snapshot)
+}
+
 // ========== SNAPSHOT HANDLERS ==========
 
 pub async fn handle_snapshot_create(
@@ -230,7 +260,7 @@ pub async fn handle_snapshot_restore(
 
     if in_place {
         // Restore in-place (overwrite existing VM)
-        let default_vm = snapshot.replace("-snapshot", "");
+        let default_vm = derive_vm_name_from_snapshot(&snapshot);
         let vm_name = target.as_deref().unwrap_or(&default_vm);
 
         println!(
@@ -256,7 +286,7 @@ pub async fn handle_snapshot_restore(
         }
     } else {
         // Restore to new VM
-        let default_target = format!("{}-restored", snapshot);
+        let default_target = default_restore_target_name(&snapshot);
         let target_vm = target.as_deref().unwrap_or(&default_target);
 
         println!(
@@ -933,12 +963,10 @@ pub async fn handle_disk_usage(
         println!("{}", "-".repeat(70));
 
         for disk in &disks {
-            let usage_str = if disk.usage_percent >= 90.0 {
-                color::error(&format!("{:.1}%", disk.usage_percent))
-            } else if disk.usage_percent >= 75.0 {
-                color::warning(&format!("{:.1}%", disk.usage_percent))
-            } else {
-                format!("{:.1}%", disk.usage_percent)
+            let usage_str = match classify_disk_usage(disk.usage_percent) {
+                DiskUsageLevel::Critical => color::error(&format!("{:.1}%", disk.usage_percent)),
+                DiskUsageLevel::Warning => color::warning(&format!("{:.1}%", disk.usage_percent)),
+                DiskUsageLevel::Normal => format!("{:.1}%", disk.usage_percent),
             };
 
             println!(
@@ -1370,4 +1398,133 @@ pub fn handle_network_policy(name: String, output: String) -> Result<()> {
         println!("{}", yaml);
     }
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    // ===== classify_disk_usage tests =====
+
+    #[test]
+    fn test_classify_disk_usage_normal_zero() {
+        assert_eq!(classify_disk_usage(0.0), DiskUsageLevel::Normal);
+    }
+
+    #[test]
+    fn test_classify_disk_usage_normal_low() {
+        assert_eq!(classify_disk_usage(50.0), DiskUsageLevel::Normal);
+    }
+
+    #[test]
+    fn test_classify_disk_usage_normal_just_below_warning() {
+        assert_eq!(classify_disk_usage(74.9), DiskUsageLevel::Normal);
+    }
+
+    #[test]
+    fn test_classify_disk_usage_warning_boundary() {
+        assert_eq!(classify_disk_usage(75.0), DiskUsageLevel::Warning);
+    }
+
+    #[test]
+    fn test_classify_disk_usage_warning_mid() {
+        assert_eq!(classify_disk_usage(85.0), DiskUsageLevel::Warning);
+    }
+
+    #[test]
+    fn test_classify_disk_usage_warning_just_below_critical() {
+        assert_eq!(classify_disk_usage(89.9), DiskUsageLevel::Warning);
+    }
+
+    #[test]
+    fn test_classify_disk_usage_critical_boundary() {
+        assert_eq!(classify_disk_usage(90.0), DiskUsageLevel::Critical);
+    }
+
+    #[test]
+    fn test_classify_disk_usage_critical_high() {
+        assert_eq!(classify_disk_usage(99.5), DiskUsageLevel::Critical);
+    }
+
+    #[test]
+    fn test_classify_disk_usage_critical_100() {
+        assert_eq!(classify_disk_usage(100.0), DiskUsageLevel::Critical);
+    }
+
+    // ===== derive_vm_name_from_snapshot tests =====
+
+    #[test]
+    fn test_derive_vm_name_standard() {
+        // "-snapshot" is removed, leaving "myvm-20240101"
+        assert_eq!(
+            derive_vm_name_from_snapshot("myvm-snapshot-20240101"),
+            "myvm-20240101"
+        );
+    }
+
+    #[test]
+    fn test_derive_vm_name_simple() {
+        assert_eq!(derive_vm_name_from_snapshot("web-snapshot"), "web");
+    }
+
+    #[test]
+    fn test_derive_vm_name_no_snapshot_suffix() {
+        assert_eq!(
+            derive_vm_name_from_snapshot("myvm-backup-123"),
+            "myvm-backup-123"
+        );
+    }
+
+    #[test]
+    fn test_derive_vm_name_multiple_snapshot() {
+        // All occurrences of "-snapshot" get replaced
+        assert_eq!(
+            derive_vm_name_from_snapshot("snapshot-vm-snapshot"),
+            "snapshot-vm"
+        );
+    }
+
+    #[test]
+    fn test_derive_vm_name_empty() {
+        assert_eq!(derive_vm_name_from_snapshot(""), "");
+    }
+
+    // ===== default_restore_target_name tests =====
+
+    #[test]
+    fn test_default_restore_target_name_standard() {
+        assert_eq!(
+            default_restore_target_name("myvm-snap-001"),
+            "myvm-snap-001-restored"
+        );
+    }
+
+    #[test]
+    fn test_default_restore_target_name_simple() {
+        assert_eq!(
+            default_restore_target_name("backup"),
+            "backup-restored"
+        );
+    }
+
+    #[test]
+    fn test_default_restore_target_name_empty() {
+        assert_eq!(default_restore_target_name(""), "-restored");
+    }
+
+    #[test]
+    fn test_default_restore_target_name_with_hyphens() {
+        assert_eq!(
+            default_restore_target_name("a-b-c"),
+            "a-b-c-restored"
+        );
+    }
+
+    #[test]
+    fn test_default_restore_target_name_already_restored() {
+        assert_eq!(
+            default_restore_target_name("snap-restored"),
+            "snap-restored-restored"
+        );
+    }
 }

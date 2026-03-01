@@ -1,5 +1,30 @@
 use crate::tui::colors::cli as color;
 use anyhow::{anyhow, Result};
+use std::path::PathBuf;
+
+/// Validate that a template name is safe (no path traversal).
+/// Returns `true` if the name is valid, `false` otherwise.
+pub(crate) fn is_valid_template_name(name: &str) -> bool {
+    !name.contains("..") && !name.starts_with('/') && !name.starts_with('\\')
+}
+
+/// Build the list of candidate file paths to search for a template.
+/// Returns paths for: exact name, .yaml, .yml, .json, .toml extensions.
+pub(crate) fn build_template_candidates(templates_dir: &std::path::Path, name: &str) -> Vec<PathBuf> {
+    vec![
+        templates_dir.join(name),
+        templates_dir.join(format!("{}.yaml", name)),
+        templates_dir.join(format!("{}.yml", name)),
+        templates_dir.join(format!("{}.json", name)),
+        templates_dir.join(format!("{}.toml", name)),
+    ]
+}
+
+/// Detect the shell type from a string, returning None if unsupported.
+#[cfg(test)]
+pub(crate) fn detect_shell(shell: &str) -> Option<crate::devexp::completions::CompletionShell> {
+    crate::devexp::completions::CompletionShell::parse(shell)
+}
 
 pub fn handle_completions(shell: String, output: Option<String>, install: bool) -> Result<()> {
     use crate::devexp::completions::{CompletionGenerator, CompletionShell};
@@ -93,18 +118,12 @@ pub fn handle_config_load(name: String, output: Option<String>, format: String) 
         .join("templates");
 
     // Reject path traversal attempts
-    if name.contains("..") || name.starts_with('/') || name.starts_with('\\') {
+    if !is_valid_template_name(&name) {
         return Err(anyhow!("Invalid template name: must not contain path traversal components"));
     }
 
     // Try loading with the exact name, then with common extensions
-    let candidates = [
-        templates_dir.join(&name),
-        templates_dir.join(format!("{}.yaml", name)),
-        templates_dir.join(format!("{}.yml", name)),
-        templates_dir.join(format!("{}.json", name)),
-        templates_dir.join(format!("{}.toml", name)),
-    ];
+    let candidates = build_template_candidates(&templates_dir, &name);
 
     let mut content = None;
     let mut found_path = None;
@@ -469,4 +488,112 @@ pub fn handle_info(
         }
     }
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    // ===== is_valid_template_name tests =====
+
+    #[test]
+    fn test_valid_template_name_simple() {
+        assert!(is_valid_template_name("my-template"));
+    }
+
+    #[test]
+    fn test_valid_template_name_with_dots() {
+        assert!(is_valid_template_name("config.yaml"));
+    }
+
+    #[test]
+    fn test_invalid_template_name_dot_dot() {
+        assert!(!is_valid_template_name("../etc/passwd"));
+    }
+
+    #[test]
+    fn test_invalid_template_name_contains_dot_dot() {
+        assert!(!is_valid_template_name("foo/../bar"));
+    }
+
+    #[test]
+    fn test_invalid_template_name_starts_with_slash() {
+        assert!(!is_valid_template_name("/etc/passwd"));
+    }
+
+    #[test]
+    fn test_invalid_template_name_starts_with_backslash() {
+        assert!(!is_valid_template_name("\\windows\\system32"));
+    }
+
+    #[test]
+    fn test_valid_template_name_empty() {
+        assert!(is_valid_template_name(""));
+    }
+
+    // ===== build_template_candidates tests =====
+
+    #[test]
+    fn test_build_template_candidates_count() {
+        let dir = std::path::Path::new("/tmp/templates");
+        let candidates = build_template_candidates(dir, "myconfig");
+        assert_eq!(candidates.len(), 5);
+    }
+
+    #[test]
+    fn test_build_template_candidates_exact_match_first() {
+        let dir = std::path::Path::new("/tmp/templates");
+        let candidates = build_template_candidates(dir, "myconfig");
+        assert_eq!(candidates[0], dir.join("myconfig"));
+    }
+
+    #[test]
+    fn test_build_template_candidates_extensions() {
+        let dir = std::path::Path::new("/home/user/.config/zorvia/templates");
+        let candidates = build_template_candidates(dir, "web-server");
+        assert_eq!(candidates[1], dir.join("web-server.yaml"));
+        assert_eq!(candidates[2], dir.join("web-server.yml"));
+        assert_eq!(candidates[3], dir.join("web-server.json"));
+        assert_eq!(candidates[4], dir.join("web-server.toml"));
+    }
+
+    #[test]
+    fn test_build_template_candidates_name_with_extension() {
+        let dir = std::path::Path::new("/tmp");
+        let candidates = build_template_candidates(dir, "config.yaml");
+        assert_eq!(candidates[0], dir.join("config.yaml"));
+        assert_eq!(candidates[1], dir.join("config.yaml.yaml"));
+    }
+
+    // ===== detect_shell tests =====
+
+    #[test]
+    fn test_detect_shell_bash() {
+        assert!(detect_shell("bash").is_some());
+    }
+
+    #[test]
+    fn test_detect_shell_zsh() {
+        assert!(detect_shell("zsh").is_some());
+    }
+
+    #[test]
+    fn test_detect_shell_fish() {
+        assert!(detect_shell("fish").is_some());
+    }
+
+    #[test]
+    fn test_detect_shell_powershell() {
+        assert!(detect_shell("powershell").is_some());
+    }
+
+    #[test]
+    fn test_detect_shell_unknown() {
+        assert!(detect_shell("csh").is_none());
+    }
+
+    #[test]
+    fn test_detect_shell_empty() {
+        assert!(detect_shell("").is_none());
+    }
 }
