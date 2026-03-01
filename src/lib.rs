@@ -440,7 +440,10 @@ pub async fn run(mut cli: Cli) -> Result<()> {
             interface,
             watch,
             interval,
-        } => handlers::infra::handle_network_bandwidth(vm, interface, watch, interval)?,
+        } => {
+            handlers::infra::handle_network_bandwidth(vm, interface, watch, interval, &cli.namespace)
+                .await?
+        }
 
         Commands::NetworkTraffic {
             vm,

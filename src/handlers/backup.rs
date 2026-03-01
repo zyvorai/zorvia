@@ -484,125 +484,138 @@ pub async fn handle_migration_status(
     use crate::kube::types::VirtualMachineInstanceMigration;
     use crate::migration::{MigrationPhase, MigrationState, MigrationStatus};
 
-    println!("{}", color::header(&format!("Migration Status: {}", vm)));
-    println!();
-
-    // Query real migration CRDs for this VM
     let client = kube::Client::try_default()
         .await
         .map_err(|e| anyhow::anyhow!("Failed to connect to Kubernetes: {}", e))?;
 
-    let migrations_api: kube::api::Api<VirtualMachineInstanceMigration> =
-        kube::api::Api::namespaced(client, namespace);
-
-    let migration_list = migrations_api
-        .list(&kube::api::ListParams::default())
-        .await
-        .map_err(|e| anyhow::anyhow!("Failed to list migrations: {}", e))?;
-
-    // Find the most recent migration for this VM
-    let migration = migration_list
-        .items
-        .iter()
-        .rev()
-        .find(|m| {
-            m.spec
-                .vmi_name
-                .as_deref()
-                .map(|name| name == vm)
-                .unwrap_or(false)
-                || m.metadata
-                    .name
-                    .as_deref()
-                    .map(|name| name.contains(&vm))
-                    .unwrap_or(false)
-        });
-
-    let status = match migration {
-        Some(m) => {
-            let source = m
-                .status
-                .as_ref()
-                .and_then(|s| s.migration_state.as_ref())
-                .and_then(|ms| ms.source_node.clone())
-                .unwrap_or_else(|| "unknown".to_string());
-
-            let target = m
-                .status
-                .as_ref()
-                .and_then(|s| s.migration_state.as_ref())
-                .and_then(|ms| ms.target_node.clone())
-                .unwrap_or_else(|| "unknown".to_string());
-
-            let mut status = MigrationStatus::new(&vm, &source, &target);
-
-            let phase_str = m
-                .status
-                .as_ref()
-                .and_then(|s| s.phase.as_deref())
-                .unwrap_or("Unknown");
-
-            status.state = match phase_str {
-                "Succeeded" => MigrationState::Succeeded,
-                "Failed" => MigrationState::Failed,
-                "Running" => MigrationState::Running,
-                _ => MigrationState::Pending,
-            };
-
-            status.phase = match phase_str {
-                "Succeeded" => MigrationPhase::Succeeded,
-                "Failed" => MigrationPhase::Failed,
-                "Running" => MigrationPhase::MemoryTransfer,
-                _ => MigrationPhase::Preparing,
-            };
-
-            let completed = m
-                .status
-                .as_ref()
-                .and_then(|s| s.migration_state.as_ref())
-                .and_then(|ms| ms.completed)
-                .unwrap_or(false);
-
-            status.progress_percent = if completed {
-                100
-            } else if status.state == MigrationState::Running {
-                50
-            } else {
-                0
-            };
-
-            status
+    let mut first = true;
+    loop {
+        if !first {
+            println!("\n{}", "═".repeat(60));
         }
-        None => {
-            println!("{}", color::muted("No migrations found for this VM"));
-            return Ok(());
-        }
-    };
+        first = false;
 
-    println!(
-        "  State:     {}",
-        match status.state {
-            MigrationState::Running => color::info("Running"),
-            MigrationState::Succeeded => color::success("Succeeded"),
-            MigrationState::Failed => color::error("Failed"),
-            _ => status.state.to_string(),
-        }
-    );
-    println!("  Phase:     {}", status.phase);
-    println!("  Progress:  {}%", status.progress_percent);
-    println!("  Source:    {}", status.source_node);
-    println!("  Target:    {}", status.target_node);
-    println!("  Duration:  {}s", status.duration_secs());
-
-    if watch {
+        println!("{}", color::header(&format!("Migration Status: {}", vm)));
         println!();
+
+        let migrations_api: kube::api::Api<VirtualMachineInstanceMigration> =
+            kube::api::Api::namespaced(client.clone(), namespace);
+
+        let migration_list = migrations_api
+            .list(&kube::api::ListParams::default())
+            .await
+            .map_err(|e| anyhow::anyhow!("Failed to list migrations: {}", e))?;
+
+        let migration = migration_list
+            .items
+            .iter()
+            .rev()
+            .find(|m| {
+                m.spec
+                    .vmi_name
+                    .as_deref()
+                    .map(|name| name == vm)
+                    .unwrap_or(false)
+                    || m.metadata
+                        .name
+                        .as_deref()
+                        .map(|name| name.contains(&vm))
+                        .unwrap_or(false)
+            });
+
+        let status = match migration {
+            Some(m) => {
+                let source = m
+                    .status
+                    .as_ref()
+                    .and_then(|s| s.migration_state.as_ref())
+                    .and_then(|ms| ms.source_node.clone())
+                    .unwrap_or_else(|| "unknown".to_string());
+
+                let target = m
+                    .status
+                    .as_ref()
+                    .and_then(|s| s.migration_state.as_ref())
+                    .and_then(|ms| ms.target_node.clone())
+                    .unwrap_or_else(|| "unknown".to_string());
+
+                let mut status = MigrationStatus::new(&vm, &source, &target);
+
+                let phase_str = m
+                    .status
+                    .as_ref()
+                    .and_then(|s| s.phase.as_deref())
+                    .unwrap_or("Unknown");
+
+                status.state = match phase_str {
+                    "Succeeded" => MigrationState::Succeeded,
+                    "Failed" => MigrationState::Failed,
+                    "Running" => MigrationState::Running,
+                    _ => MigrationState::Pending,
+                };
+
+                status.phase = match phase_str {
+                    "Succeeded" => MigrationPhase::Succeeded,
+                    "Failed" => MigrationPhase::Failed,
+                    "Running" => MigrationPhase::MemoryTransfer,
+                    _ => MigrationPhase::Preparing,
+                };
+
+                let completed = m
+                    .status
+                    .as_ref()
+                    .and_then(|s| s.migration_state.as_ref())
+                    .and_then(|ms| ms.completed)
+                    .unwrap_or(false);
+
+                status.progress_percent = if completed {
+                    100
+                } else if status.state == MigrationState::Running {
+                    50
+                } else {
+                    0
+                };
+
+                status
+            }
+            None => {
+                println!("{}", color::muted("No migrations found for this VM"));
+                return Ok(());
+            }
+        };
+
         println!(
-            "{}",
-            color::info(&format!(
-                "ℹ Watch mode not yet implemented. Use --interval {} for update rate.",
-                interval
-            ))
+            "  State:     {}",
+            match status.state {
+                MigrationState::Running => color::info("Running"),
+                MigrationState::Succeeded => color::success("Succeeded"),
+                MigrationState::Failed => color::error("Failed"),
+                _ => status.state.to_string(),
+            }
         );
+        println!("  Phase:     {}", status.phase);
+        println!("  Progress:  {}%", status.progress_percent);
+        println!("  Source:    {}", status.source_node);
+        println!("  Target:    {}", status.target_node);
+        println!("  Duration:  {}s", status.duration_secs());
+
+        if !watch {
+            break;
+        }
+
+        // Stop watching once migration is terminal
+        if status.state == MigrationState::Succeeded
+            || status.state == MigrationState::Failed
+        {
+            println!();
+            println!("{}", color::info("ℹ Migration reached terminal state"));
+            break;
+        }
+
+        tokio::select! {
+            _ = tokio::time::sleep(tokio::time::Duration::from_secs(interval)) => {}
+            _ = tokio::signal::ctrl_c() => { break; }
+        }
     }
     Ok(())
 }
@@ -939,105 +952,124 @@ pub async fn handle_evacuate_node(
     Ok(())
 }
 
-pub async fn handle_evacuation_status(node: String, _watch: bool, namespace: &str) -> Result<()> {
+pub async fn handle_evacuation_status(node: String, watch: bool, namespace: &str) -> Result<()> {
     use crate::kube::types::VirtualMachineInstanceMigration;
     use crate::migration::evacuation::{EvacuationState, EvacuationStatus};
 
-    println!("{}", color::header(&format!("Evacuation Status: {}", node)));
-    println!();
-
-    // Query real migration CRDs to derive evacuation status
     let client = kube::Client::try_default()
         .await
         .map_err(|e| anyhow::anyhow!("Failed to connect to Kubernetes: {}", e))?;
 
-    let migrations_api: kube::api::Api<VirtualMachineInstanceMigration> =
-        kube::api::Api::namespaced(client, namespace);
-
-    let migration_list = migrations_api
-        .list(&kube::api::ListParams::default())
-        .await
-        .map_err(|e| anyhow::anyhow!("Failed to list migrations: {}", e))?;
-
-    // Filter migrations originating from this node
-    let node_migrations: Vec<_> = migration_list
-        .items
-        .iter()
-        .filter(|m| {
-            m.status
-                .as_ref()
-                .and_then(|s| s.migration_state.as_ref())
-                .and_then(|ms| ms.source_node.as_deref())
-                .map(|src| src == node)
-                .unwrap_or(false)
-        })
-        .collect();
-
-    let total = node_migrations.len();
-    let mut status = EvacuationStatus::new(&node, total);
-
-    let mut migrated: usize = 0;
-    let mut in_progress: usize = 0;
-    let mut failed: usize = 0;
-
-    for m in &node_migrations {
-        let phase = m
-            .status
-            .as_ref()
-            .and_then(|s| s.phase.as_deref())
-            .unwrap_or("Unknown");
-
-        match phase {
-            "Succeeded" => migrated += 1,
-            "Failed" => failed += 1,
-            "Running" => in_progress += 1,
-            _ => {}
+    let mut first = true;
+    loop {
+        if !first {
+            println!("\n{}", "═".repeat(60));
         }
-    }
+        first = false;
 
-    status.migrated_vms = migrated;
-    status.in_progress_vms = in_progress;
-    status.failed_vms = failed;
-
-    if total == 0 {
-        status.state = EvacuationState::Completed;
-    } else if failed > 0 && in_progress == 0 {
-        status.state = EvacuationState::Failed;
-    } else if migrated == total {
-        status.state = EvacuationState::Completed;
-    } else {
-        status.state = EvacuationState::InProgress;
-    }
-
-    println!(
-        "  State:        {}",
-        match status.state {
-            EvacuationState::InProgress => color::info("In Progress"),
-            EvacuationState::Completed => color::success("Completed"),
-            EvacuationState::Failed => color::error("Failed"),
-            _ => status.state.to_string(),
-        }
-    );
-    println!("  Total VMs:    {}", status.total_vms);
-    println!(
-        "  Migrated:     {}",
-        color::success(&status.migrated_vms.to_string())
-    );
-    println!("  In Progress:  {}", status.in_progress_vms);
-    println!(
-        "  Failed:       {}",
-        if status.failed_vms > 0 {
-            color::error(&status.failed_vms.to_string())
-        } else {
-            "0".to_string()
-        }
-    );
-    println!("  Progress:     {}%", status.progress_percent());
-    println!("  Duration:     {}s", status.duration_secs());
-
-    if _watch {
+        println!("{}", color::header(&format!("Evacuation Status: {}", node)));
         println!();
-        println!("{}", color::info("ℹ Watch mode not yet implemented"));
+
+        let migrations_api: kube::api::Api<VirtualMachineInstanceMigration> =
+            kube::api::Api::namespaced(client.clone(), namespace);
+
+        let migration_list = migrations_api
+            .list(&kube::api::ListParams::default())
+            .await
+            .map_err(|e| anyhow::anyhow!("Failed to list migrations: {}", e))?;
+
+        let node_migrations: Vec<_> = migration_list
+            .items
+            .iter()
+            .filter(|m| {
+                m.status
+                    .as_ref()
+                    .and_then(|s| s.migration_state.as_ref())
+                    .and_then(|ms| ms.source_node.as_deref())
+                    .map(|src| src == node)
+                    .unwrap_or(false)
+            })
+            .collect();
+
+        let total = node_migrations.len();
+        let mut status = EvacuationStatus::new(&node, total);
+
+        let mut migrated: usize = 0;
+        let mut in_progress: usize = 0;
+        let mut failed: usize = 0;
+
+        for m in &node_migrations {
+            let phase = m
+                .status
+                .as_ref()
+                .and_then(|s| s.phase.as_deref())
+                .unwrap_or("Unknown");
+
+            match phase {
+                "Succeeded" => migrated += 1,
+                "Failed" => failed += 1,
+                "Running" => in_progress += 1,
+                _ => {}
+            }
+        }
+
+        status.migrated_vms = migrated;
+        status.in_progress_vms = in_progress;
+        status.failed_vms = failed;
+
+        if total == 0 {
+            status.state = EvacuationState::Completed;
+        } else if failed > 0 && in_progress == 0 {
+            status.state = EvacuationState::Failed;
+        } else if migrated == total {
+            status.state = EvacuationState::Completed;
+        } else {
+            status.state = EvacuationState::InProgress;
+        }
+
+        println!(
+            "  State:        {}",
+            match status.state {
+                EvacuationState::InProgress => color::info("In Progress"),
+                EvacuationState::Completed => color::success("Completed"),
+                EvacuationState::Failed => color::error("Failed"),
+                _ => status.state.to_string(),
+            }
+        );
+        println!("  Total VMs:    {}", status.total_vms);
+        println!(
+            "  Migrated:     {}",
+            color::success(&status.migrated_vms.to_string())
+        );
+        println!("  In Progress:  {}", status.in_progress_vms);
+        println!(
+            "  Failed:       {}",
+            if status.failed_vms > 0 {
+                color::error(&status.failed_vms.to_string())
+            } else {
+                "0".to_string()
+            }
+        );
+        println!("  Progress:     {}%", status.progress_percent());
+        println!("  Duration:     {}s", status.duration_secs());
+
+        if !watch {
+            break;
+        }
+
+        // Stop watching once evacuation is terminal
+        if status.state == EvacuationState::Completed
+            || status.state == EvacuationState::Failed
+        {
+            println!();
+            println!("{}", color::info("ℹ Evacuation reached terminal state"));
+            break;
+        }
+
+        tokio::select! {
+            _ = tokio::time::sleep(tokio::time::Duration::from_secs(5)) => {}
+            _ = tokio::signal::ctrl_c() => { break; }
+        }
     }
     Ok(())
 }

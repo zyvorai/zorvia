@@ -1126,84 +1126,94 @@ pub async fn handle_network_get(
     Ok(())
 }
 
-pub fn handle_network_bandwidth(
+pub async fn handle_network_bandwidth(
     vm: String,
     interface: Option<String>,
     watch: bool,
     interval: u64,
+    namespace: &str,
 ) -> Result<()> {
-    use crate::network::bandwidth::{BandwidthMetrics, BandwidthMonitor};
+    use crate::monitoring::MetricsCollector;
+    use crate::network::bandwidth::BandwidthMetrics;
 
-    println!("{}", color::header(&format!("Network Bandwidth: {}", vm)));
-    if let Some(iface) = &interface {
-        println!("  Interface: {}", color::value(iface));
-    }
-    println!();
-
-    // Simulate bandwidth monitoring
     let iface_name = interface.unwrap_or_else(|| "eth0".to_string());
-    let mut monitor = BandwidthMonitor::new(&iface_name);
+    let collector = MetricsCollector::new(namespace);
 
-    // Add sample data
-    let mut metrics = BandwidthMetrics::new(&iface_name);
-    metrics.rx_bytes = 1_500_000_000;
-    metrics.tx_bytes = 800_000_000;
-    metrics.rx_packets = 1_200_000;
-    metrics.tx_packets = 600_000;
-    metrics.rx_errors = 5;
-    metrics.tx_errors = 2;
-    monitor.add_sample(metrics.clone());
-
-    println!(
-        "{:<15} {:<15} {:<15} {:<12} {:<12}",
-        color::label("INTERFACE"),
-        color::label("RX"),
-        color::label("TX"),
-        color::label("RX RATE"),
-        color::label("TX RATE")
-    );
-    println!("{}", "-".repeat(75));
-
-    println!(
-        "{:<15} {:<15} {:<15} {:<12} {:<12}",
-        iface_name,
-        BandwidthMetrics::format_bytes(metrics.rx_bytes),
-        BandwidthMetrics::format_bytes(metrics.tx_bytes),
-        "125 MB/s",
-        "80 MB/s"
-    );
-
-    println!();
-    println!("{}", color::header("Statistics:"));
-    println!("  RX Packets:  {}", metrics.rx_packets);
-    println!("  TX Packets:  {}", metrics.tx_packets);
-    println!(
-        "  RX Errors:   {}",
-        if metrics.rx_errors > 0 {
-            color::warning(&metrics.rx_errors.to_string())
-        } else {
-            metrics.rx_errors.to_string()
+    let mut first = true;
+    loop {
+        if !first {
+            println!("\n{}", "═".repeat(75));
         }
-    );
-    println!(
-        "  TX Errors:   {}",
-        if metrics.tx_errors > 0 {
-            color::warning(&metrics.tx_errors.to_string())
-        } else {
-            metrics.tx_errors.to_string()
-        }
-    );
-    println!("  Error Rate:  {:.3}%", metrics.error_rate());
+        first = false;
 
-    if watch {
+        println!("{}", color::header(&format!("Network Bandwidth: {}", vm)));
+        println!("  Interface: {}", color::value(&iface_name));
         println!();
+
+        // Collect metrics from the VM
+        let metrics = collector.collect(&vm).await?;
+
         println!(
-            "{}",
-            color::info(&format!(
-                "ℹ Watch mode not yet implemented. Use --interval {} for update rate.",
-                interval
-            ))
+            "{:<15} {:<15} {:<15} {:<12} {:<12}",
+            color::label("INTERFACE"),
+            color::label("RX"),
+            color::label("TX"),
+            color::label("RX RATE"),
+            color::label("TX RATE")
         );
+        println!("{}", "-".repeat(75));
+
+        let rx_rate = format!(
+            "{}/s",
+            BandwidthMetrics::format_bytes(metrics.network.rx_bytes_per_sec)
+        );
+        let tx_rate = format!(
+            "{}/s",
+            BandwidthMetrics::format_bytes(metrics.network.tx_bytes_per_sec)
+        );
+
+        println!(
+            "{:<15} {:<15} {:<15} {:<12} {:<12}",
+            iface_name,
+            format!("{} pkt/s", metrics.network.rx_packets_per_sec),
+            format!("{} pkt/s", metrics.network.tx_packets_per_sec),
+            rx_rate,
+            tx_rate
+        );
+
+        println!();
+        println!("{}", color::header("Statistics:"));
+        println!("  RX Packets/s:  {}", metrics.network.rx_packets_per_sec);
+        println!("  TX Packets/s:  {}", metrics.network.tx_packets_per_sec);
+        println!(
+            "  RX Errors:     {}",
+            if metrics.network.rx_errors > 0 {
+                color::warning(&metrics.network.rx_errors.to_string())
+            } else {
+                "0".to_string()
+            }
+        );
+        println!(
+            "  TX Errors:     {}",
+            if metrics.network.tx_errors > 0 {
+                color::warning(&metrics.network.tx_errors.to_string())
+            } else {
+                "0".to_string()
+            }
+        );
+        println!(
+            "  Bandwidth:     {:.2} MB/s",
+            metrics.network.total_bandwidth_mb_per_sec()
+        );
+
+        if !watch {
+            break;
+        }
+
+        tokio::select! {
+            _ = tokio::time::sleep(tokio::time::Duration::from_secs(interval)) => {}
+            _ = tokio::signal::ctrl_c() => { break; }
+        }
     }
     Ok(())
 }

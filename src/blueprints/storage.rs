@@ -122,13 +122,13 @@ impl BlueprintStorage {
         Ok(())
     }
 
-    /// Check if a blueprint exists on disk
+    /// Check if a blueprint exists on disk (public API for external consumers)
     #[allow(dead_code)]
     pub fn exists(&self, name: &str) -> bool {
         self.blueprint_path(name).exists()
     }
 
-    /// List all custom blueprint names
+    /// List all custom blueprint names (public API for external consumers)
     #[allow(dead_code)]
     pub fn list_names(&self) -> Result<Vec<String>> {
         let mut names = Vec::new();

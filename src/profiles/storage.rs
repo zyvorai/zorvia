@@ -121,13 +121,13 @@ impl ProfileStorage {
         Ok(())
     }
 
-    /// Check if a profile exists on disk
+    /// Check if a profile exists on disk (public API for external consumers)
     #[allow(dead_code)]
     pub fn exists(&self, name: &str) -> bool {
         self.profile_path(name).exists()
     }
 
-    /// List all custom profile names
+    /// List all custom profile names (public API for external consumers)
     #[allow(dead_code)]
     pub fn list_names(&self) -> Result<Vec<String>> {
         let mut names = Vec::new();
