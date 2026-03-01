@@ -367,9 +367,10 @@ mod tests {
 
     #[test]
     fn test_cpu_usage_description() {
-        let mut cpu = CPUMetrics::default();
-
-        cpu.usage_percent = 40.0;
+        let mut cpu = CPUMetrics {
+            usage_percent: 40.0,
+            ..Default::default()
+        };
         assert_eq!(cpu.usage_description(), "Low");
 
         cpu.usage_percent = 60.0;

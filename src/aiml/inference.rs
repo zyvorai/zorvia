@@ -125,8 +125,7 @@ impl InferenceMetrics {
         }
 
         // Running average
-        self.avg_latency_ms = (self.avg_latency_ms * (self.total_requests - 1) as f64
-            + latency_ms)
+        self.avg_latency_ms = (self.avg_latency_ms * (self.total_requests - 1) as f64 + latency_ms)
             / self.total_requests as f64;
 
         // Track approximate percentiles using max-biased estimation.

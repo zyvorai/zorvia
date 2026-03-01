@@ -1,4 +1,4 @@
-.PHONY: build release check test clippy fmt lint clean install help
+.PHONY: build release check test clippy fmt lint clean install help docker deploy
 
 help: ## Show this help
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | sort | awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-15s\033[0m %s\n", $$1, $$2}'
@@ -33,6 +33,15 @@ install: ## Install to ~/.cargo/bin
 	cargo install --path .
 
 ci: fmt-check clippy test ## Run full CI pipeline locally
+
+docker: ## Build Docker image
+	./scripts/build-deploy.sh docker
+
+deploy: ## Deploy to Kubernetes
+	./scripts/build-deploy.sh deploy
+
+pipeline: ## Full pipeline: test -> build -> docker -> push -> deploy
+	./scripts/build-deploy.sh all
 
 config-show: build ## Show current configuration
 	./target/debug/zorvia config-show

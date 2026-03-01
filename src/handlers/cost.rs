@@ -470,8 +470,26 @@ mod tests {
 
     #[test]
     fn test_budget_period_parsing() {
-        assert_eq!(match "daily" { "daily" => BudgetPeriod::Daily, "weekly" => BudgetPeriod::Weekly, "quarterly" => BudgetPeriod::Quarterly, "yearly" => BudgetPeriod::Yearly, _ => BudgetPeriod::Monthly }, BudgetPeriod::Daily);
-        assert_eq!(match "other" { "daily" => BudgetPeriod::Daily, "weekly" => BudgetPeriod::Weekly, "quarterly" => BudgetPeriod::Quarterly, "yearly" => BudgetPeriod::Yearly, _ => BudgetPeriod::Monthly }, BudgetPeriod::Monthly);
+        assert_eq!(
+            match "daily" {
+                "daily" => BudgetPeriod::Daily,
+                "weekly" => BudgetPeriod::Weekly,
+                "quarterly" => BudgetPeriod::Quarterly,
+                "yearly" => BudgetPeriod::Yearly,
+                _ => BudgetPeriod::Monthly,
+            },
+            BudgetPeriod::Daily
+        );
+        assert_eq!(
+            match "other" {
+                "daily" => BudgetPeriod::Daily,
+                "weekly" => BudgetPeriod::Weekly,
+                "quarterly" => BudgetPeriod::Quarterly,
+                "yearly" => BudgetPeriod::Yearly,
+                _ => BudgetPeriod::Monthly,
+            },
+            BudgetPeriod::Monthly
+        );
     }
 
     #[test]

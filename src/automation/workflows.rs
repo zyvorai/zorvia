@@ -429,8 +429,8 @@ mod tests {
         .depends_on(1);
 
         assert_eq!(step.dependencies, vec![1]);
-        assert!(step.can_execute(&vec![1]));
-        assert!(!step.can_execute(&vec![]));
+        assert!(step.can_execute(&[1]));
+        assert!(!step.can_execute(&[]));
     }
 
     #[test]

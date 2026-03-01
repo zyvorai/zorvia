@@ -181,7 +181,10 @@ impl IngressRule {
     /// Check if rule matches traffic
     pub fn matches(&self, source: &str, port: u16, protocol: &str) -> bool {
         let cidr_match = self.from_cidrs.is_empty()
-            || self.from_cidrs.iter().any(|cidr| ip_matches_cidr(source, cidr));
+            || self
+                .from_cidrs
+                .iter()
+                .any(|cidr| ip_matches_cidr(source, cidr));
 
         let port_match =
             self.ports.is_empty() || self.ports.iter().any(|p| p.matches(port, protocol));

@@ -191,7 +191,10 @@ mod tests {
     fn test_generate_powershell_completions() {
         let gen = CompletionGenerator::new(CompletionShell::PowerShell);
         let output = gen.generate();
-        assert!(!output.is_empty(), "PowerShell completions should not be empty");
+        assert!(
+            !output.is_empty(),
+            "PowerShell completions should not be empty"
+        );
         assert!(output.contains("zorvia"));
     }
 

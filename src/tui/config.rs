@@ -243,10 +243,10 @@ mod tests {
     fn test_default_config() {
         let config = TuiConfig::default();
         assert_eq!(config.theme.name, "default");
-        assert_eq!(config.ui.show_splash, true);
+        assert!(config.ui.show_splash);
         assert_eq!(config.ui.splash_duration_ms, 800);
-        assert_eq!(config.behavior.confirm_delete, true);
-        assert_eq!(config.keybindings.vim_mode, true);
+        assert!(config.behavior.confirm_delete);
+        assert!(config.keybindings.vim_mode);
     }
 
     #[test]
@@ -278,9 +278,9 @@ mod tests {
 
         let config: TuiConfig = toml::from_str(toml_str).unwrap();
         assert_eq!(config.theme.name, "dark");
-        assert_eq!(config.ui.show_splash, false);
+        assert!(!config.ui.show_splash);
         assert_eq!(config.ui.default_view, "vms");
-        assert_eq!(config.behavior.confirm_delete, false);
-        assert_eq!(config.keybindings.vim_mode, false);
+        assert!(!config.behavior.confirm_delete);
+        assert!(!config.keybindings.vim_mode);
     }
 }

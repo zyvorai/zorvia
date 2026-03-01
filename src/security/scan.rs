@@ -316,11 +316,13 @@ mod tests {
 
     #[test]
     fn test_risk_score() {
-        let mut stats = ScanStatistics::default();
-        stats.critical = 1;
-        stats.high = 2;
-        stats.medium = 3;
-        stats.low = 4;
+        let stats = ScanStatistics {
+            critical: 1,
+            high: 2,
+            medium: 3,
+            low: 4,
+            ..Default::default()
+        };
 
         let score = stats.risk_score();
         assert_eq!(score, 10.0 + 10.0 + 6.0 + 2.0); // 28.0

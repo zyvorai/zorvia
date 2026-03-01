@@ -460,7 +460,10 @@ mod tests {
     #[test]
     fn test_api_key_permission_parsing() {
         let permissions = "read,write,admin";
-        let perms: Vec<String> = permissions.split(',').map(|p| p.trim().to_string()).collect();
+        let perms: Vec<String> = permissions
+            .split(',')
+            .map(|p| p.trim().to_string())
+            .collect();
         assert_eq!(perms, vec!["read", "write", "admin"]);
     }
 
@@ -513,7 +516,10 @@ mod tests {
         wh2.add_event(WebhookEvent::BackupCompleted);
         manager.register(wh1);
         manager.register(wh2);
-        assert_eq!(manager.webhooks_for_event(&WebhookEvent::VMCreated).len(), 1);
+        assert_eq!(
+            manager.webhooks_for_event(&WebhookEvent::VMCreated).len(),
+            1
+        );
         assert_eq!(manager.webhooks_for_event(&WebhookEvent::VMFailed).len(), 0);
     }
 

@@ -269,11 +269,17 @@ pub fn handle_backup_schedules(output: String) -> Result<()> {
         if let Ok(entries) = std::fs::read_dir(&schedules_dir) {
             for entry in entries.flatten() {
                 let path = entry.path();
-                if path.extension().map(|e| e == "yaml" || e == "yml" || e == "json").unwrap_or(false) {
+                if path
+                    .extension()
+                    .map(|e| e == "yaml" || e == "yml" || e == "json")
+                    .unwrap_or(false)
+                {
                     if let Ok(content) = std::fs::read_to_string(&path) {
                         if let Ok(schedule) = serde_yaml::from_str::<BackupSchedule>(&content) {
                             loaded.push(schedule);
-                        } else if let Ok(schedule) = serde_json::from_str::<BackupSchedule>(&content) {
+                        } else if let Ok(schedule) =
+                            serde_json::from_str::<BackupSchedule>(&content)
+                        {
                             loaded.push(schedule);
                         }
                     }
@@ -506,22 +512,18 @@ pub async fn handle_migration_status(
             .await
             .map_err(|e| anyhow::anyhow!("Failed to list migrations: {}", e))?;
 
-        let migration = migration_list
-            .items
-            .iter()
-            .rev()
-            .find(|m| {
-                m.spec
-                    .vmi_name
+        let migration = migration_list.items.iter().rev().find(|m| {
+            m.spec
+                .vmi_name
+                .as_deref()
+                .map(|name| name == vm)
+                .unwrap_or(false)
+                || m.metadata
+                    .name
                     .as_deref()
-                    .map(|name| name == vm)
+                    .map(|name| name.contains(&vm))
                     .unwrap_or(false)
-                    || m.metadata
-                        .name
-                        .as_deref()
-                        .map(|name| name.contains(&vm))
-                        .unwrap_or(false)
-            });
+        });
 
         let status = match migration {
             Some(m) => {
@@ -604,9 +606,7 @@ pub async fn handle_migration_status(
         }
 
         // Stop watching once migration is terminal
-        if status.state == MigrationState::Succeeded
-            || status.state == MigrationState::Failed
-        {
+        if status.state == MigrationState::Succeeded || status.state == MigrationState::Failed {
             println!();
             println!("{}", color::info("ℹ Migration reached terminal state"));
             break;
@@ -671,9 +671,11 @@ pub async fn handle_migration_list(
             }
         })
         .map(|m| {
-            let vmi_name = m.spec.vmi_name.clone().unwrap_or_else(|| {
-                m.metadata.name.clone().unwrap_or_default()
-            });
+            let vmi_name = m
+                .spec
+                .vmi_name
+                .clone()
+                .unwrap_or_else(|| m.metadata.name.clone().unwrap_or_default());
 
             let source = m
                 .status
@@ -718,7 +720,13 @@ pub async fn handle_migration_list(
                 .and_then(|ms| ms.completed)
                 .unwrap_or(false);
 
-            status.progress_percent = if completed { 100 } else if status.state == MigrationState::Running { 50 } else { 0 };
+            status.progress_percent = if completed {
+                100
+            } else if status.state == MigrationState::Running {
+                50
+            } else {
+                0
+            };
 
             status
         })
@@ -872,47 +880,49 @@ pub async fn handle_evacuate_node(
         println!();
 
         // Query VMs running on this specific node from Kubernetes
-        let vms: Vec<(String, u8)> =
-            if let Ok(client) = crate::kube::KubeClient::new().await {
-                let all_vms = client.list_all_vms().await.unwrap_or_default();
-                all_vms
-                    .iter()
-                    .filter_map(|vm| {
-                        let name = vm.metadata.name.clone()?;
+        let vms: Vec<(String, u8)> = if let Ok(client) = crate::kube::KubeClient::new().await {
+            let all_vms = client.list_all_vms().await.unwrap_or_default();
+            all_vms
+                .iter()
+                .filter_map(|vm| {
+                    let name = vm.metadata.name.clone()?;
 
-                        // Filter: only include VMs whose status mentions this node
-                        let on_target_node = vm
-                            .status
-                            .as_ref()
-                            .and_then(|s| s.conditions.as_ref())
-                            .map(|conds| {
-                                conds.iter().any(|c| {
-                                    c.message.as_deref().map(|m| m.contains(&node)).unwrap_or(false)
-                                })
+                    // Filter: only include VMs whose status mentions this node
+                    let on_target_node = vm
+                        .status
+                        .as_ref()
+                        .and_then(|s| s.conditions.as_ref())
+                        .map(|conds| {
+                            conds.iter().any(|c| {
+                                c.message
+                                    .as_deref()
+                                    .map(|m| m.contains(&node))
+                                    .unwrap_or(false)
                             })
-                            .unwrap_or(false);
+                        })
+                        .unwrap_or(false);
 
-                        if !on_target_node {
-                            return None;
-                        }
+                    if !on_target_node {
+                        return None;
+                    }
 
-                        let priority = vm
-                            .metadata
-                            .annotations
-                            .as_ref()
-                            .and_then(|a| a.get("zorvia.io/priority"))
-                            .and_then(|p| p.parse::<u8>().ok())
-                            .unwrap_or(50);
-                        Some((name, priority))
-                    })
-                    .collect()
-            } else {
-                println!(
-                    "{}",
-                    color::warning("⚠ Could not connect to Kubernetes, showing empty plan")
-                );
-                Vec::new()
-            };
+                    let priority = vm
+                        .metadata
+                        .annotations
+                        .as_ref()
+                        .and_then(|a| a.get("zorvia.io/priority"))
+                        .and_then(|p| p.parse::<u8>().ok())
+                        .unwrap_or(50);
+                    Some((name, priority))
+                })
+                .collect()
+        } else {
+            println!(
+                "{}",
+                color::warning("⚠ Could not connect to Kubernetes, showing empty plan")
+            );
+            Vec::new()
+        };
 
         let vm_count = vms.len();
         let batches = planner.plan_evacuation(vms);
@@ -1058,9 +1068,7 @@ pub async fn handle_evacuation_status(node: String, watch: bool, namespace: &str
         }
 
         // Stop watching once evacuation is terminal
-        if status.state == EvacuationState::Completed
-            || status.state == EvacuationState::Failed
-        {
+        if status.state == EvacuationState::Completed || status.state == EvacuationState::Failed {
             println!();
             println!("{}", color::info("ℹ Evacuation reached terminal state"));
             break;
@@ -1084,18 +1092,78 @@ mod tests {
 
     #[test]
     fn test_backup_type_parsing() {
-        assert_eq!(match "incremental" { "incremental" => BackupType::Incremental, "differential" => BackupType::Differential, _ => BackupType::Full }, BackupType::Incremental);
-        assert_eq!(match "differential" { "incremental" => BackupType::Incremental, "differential" => BackupType::Differential, _ => BackupType::Full }, BackupType::Differential);
-        assert_eq!(match "full" { "incremental" => BackupType::Incremental, "differential" => BackupType::Differential, _ => BackupType::Full }, BackupType::Full);
-        assert_eq!(match "other" { "incremental" => BackupType::Incremental, "differential" => BackupType::Differential, _ => BackupType::Full }, BackupType::Full);
+        assert_eq!(
+            match "incremental" {
+                "incremental" => BackupType::Incremental,
+                "differential" => BackupType::Differential,
+                _ => BackupType::Full,
+            },
+            BackupType::Incremental
+        );
+        assert_eq!(
+            match "differential" {
+                "incremental" => BackupType::Incremental,
+                "differential" => BackupType::Differential,
+                _ => BackupType::Full,
+            },
+            BackupType::Differential
+        );
+        assert_eq!(
+            match "full" {
+                "incremental" => BackupType::Incremental,
+                "differential" => BackupType::Differential,
+                _ => BackupType::Full,
+            },
+            BackupType::Full
+        );
+        assert_eq!(
+            match "other" {
+                "incremental" => BackupType::Incremental,
+                "differential" => BackupType::Differential,
+                _ => BackupType::Full,
+            },
+            BackupType::Full
+        );
     }
 
     #[test]
     fn test_compression_type_parsing() {
-        assert_eq!(match "zstd" { "zstd" => CompressionType::Zstd, "lz4" => CompressionType::Lz4, "none" => CompressionType::None, _ => CompressionType::Gzip }, CompressionType::Zstd);
-        assert_eq!(match "lz4" { "zstd" => CompressionType::Zstd, "lz4" => CompressionType::Lz4, "none" => CompressionType::None, _ => CompressionType::Gzip }, CompressionType::Lz4);
-        assert_eq!(match "none" { "zstd" => CompressionType::Zstd, "lz4" => CompressionType::Lz4, "none" => CompressionType::None, _ => CompressionType::Gzip }, CompressionType::None);
-        assert_eq!(match "other" { "zstd" => CompressionType::Zstd, "lz4" => CompressionType::Lz4, "none" => CompressionType::None, _ => CompressionType::Gzip }, CompressionType::Gzip);
+        assert_eq!(
+            match "zstd" {
+                "zstd" => CompressionType::Zstd,
+                "lz4" => CompressionType::Lz4,
+                "none" => CompressionType::None,
+                _ => CompressionType::Gzip,
+            },
+            CompressionType::Zstd
+        );
+        assert_eq!(
+            match "lz4" {
+                "zstd" => CompressionType::Zstd,
+                "lz4" => CompressionType::Lz4,
+                "none" => CompressionType::None,
+                _ => CompressionType::Gzip,
+            },
+            CompressionType::Lz4
+        );
+        assert_eq!(
+            match "none" {
+                "zstd" => CompressionType::Zstd,
+                "lz4" => CompressionType::Lz4,
+                "none" => CompressionType::None,
+                _ => CompressionType::Gzip,
+            },
+            CompressionType::None
+        );
+        assert_eq!(
+            match "other" {
+                "zstd" => CompressionType::Zstd,
+                "lz4" => CompressionType::Lz4,
+                "none" => CompressionType::None,
+                _ => CompressionType::Gzip,
+            },
+            CompressionType::Gzip
+        );
     }
 
     #[test]
@@ -1111,21 +1179,25 @@ mod tests {
     #[test]
     fn test_restore_target_derivation() {
         let backup = "my-vm-backup-20240101-120000";
-        let target: Option<String> = None;
-        let target_vm = target.unwrap_or_else(|| backup.replace("-backup-", "-restored-"));
+        let target_vm = backup.replace("-backup-", "-restored-");
         assert_eq!(target_vm, "my-vm-restored-20240101-120000");
     }
 
     #[test]
     fn test_restore_operation_to_new_vm() {
-        let restore = RestoreOperation::new("restore-001", "original-vm", "backup-001").to_new_vm("new-vm");
+        let restore =
+            RestoreOperation::new("restore-001", "original-vm", "backup-001").to_new_vm("new-vm");
         assert_eq!(restore.target_name, "new-vm");
         assert_eq!(restore.vm_name, "original-vm");
     }
 
     #[test]
     fn test_verification_runner_all_types() {
-        for v_type in [VerificationType::Quick, VerificationType::Standard, VerificationType::Full] {
+        for v_type in [
+            VerificationType::Quick,
+            VerificationType::Standard,
+            VerificationType::Full,
+        ] {
             let report = VerificationRunner::verify("test-backup", v_type);
             assert_eq!(report.status, VerificationStatus::Passed);
             assert!(report.checks.len() >= 4);
@@ -1134,7 +1206,9 @@ mod tests {
 
     #[test]
     fn test_migration_request_with_target() {
-        let request = MigrationRequest::new("vm1", "node1").to_node("node2").with_type(MigrationType::PostCopy);
+        let request = MigrationRequest::new("vm1", "node1")
+            .to_node("node2")
+            .with_type(MigrationType::PostCopy);
         assert_eq!(request.vm_name, "vm1");
         assert_eq!(request.target_node, Some("node2".to_string()));
         assert_eq!(request.migration_type, MigrationType::PostCopy);

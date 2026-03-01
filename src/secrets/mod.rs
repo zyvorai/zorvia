@@ -357,7 +357,7 @@ mod tests {
         let secret = Secret::new("token", SecretType::APIToken, "data").with_expiry(future);
 
         let days = secret.days_until_expiry().unwrap();
-        assert!(days >= 14 && days <= 15);
+        assert!((14..=15).contains(&days));
     }
 
     #[test]

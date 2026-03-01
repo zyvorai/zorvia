@@ -101,9 +101,7 @@ pub fn handle_security_assess(vm: String, output: String) -> Result<()> {
                     .unwrap_or(false)
                 {
                     if let Ok(content) = std::fs::read_to_string(&path) {
-                        if let Ok(vulns) =
-                            serde_yaml::from_str::<Vec<Vulnerability>>(&content)
-                        {
+                        if let Ok(vulns) = serde_yaml::from_str::<Vec<Vulnerability>>(&content) {
                             for v in vulns {
                                 assessment.add_vulnerability(v);
                             }
@@ -411,21 +409,16 @@ pub fn handle_audit_list(
                 {
                     if let Ok(content) = std::fs::read_to_string(&path) {
                         // Try to load events from file
-                        if let Ok(events) =
-                            serde_yaml::from_str::<Vec<AuditEvent>>(&content)
+                        if let Ok(events) = serde_yaml::from_str::<Vec<AuditEvent>>(&content) {
+                            for event in events {
+                                log.add_event(event);
+                            }
+                        } else if let Ok(events) = serde_json::from_str::<Vec<AuditEvent>>(&content)
                         {
                             for event in events {
                                 log.add_event(event);
                             }
-                        } else if let Ok(events) =
-                            serde_json::from_str::<Vec<AuditEvent>>(&content)
-                        {
-                            for event in events {
-                                log.add_event(event);
-                            }
-                        } else if let Ok(event) =
-                            serde_yaml::from_str::<AuditEvent>(&content)
-                        {
+                        } else if let Ok(event) = serde_yaml::from_str::<AuditEvent>(&content) {
                             log.add_event(event);
                         }
                     }
@@ -454,7 +447,12 @@ pub fn handle_audit_list(
         let mut filtered: Vec<&AuditEvent> = log.events.iter().collect();
 
         if let Some(ref et) = event_type {
-            filtered.retain(|e| e.event_type.to_string().to_lowercase().contains(&et.to_lowercase()));
+            filtered.retain(|e| {
+                e.event_type
+                    .to_string()
+                    .to_lowercase()
+                    .contains(&et.to_lowercase())
+            });
         }
 
         if let Some(ref sev) = severity {
@@ -592,21 +590,77 @@ mod tests {
 
     #[test]
     fn test_scan_type_parsing() {
-        assert_eq!(match "quick" { "quick" => ScanType::Quick, "deep" => ScanType::Deep, "compliance" => ScanType::Compliance, _ => ScanType::Standard }, ScanType::Quick);
-        assert_eq!(match "deep" { "quick" => ScanType::Quick, "deep" => ScanType::Deep, "compliance" => ScanType::Compliance, _ => ScanType::Standard }, ScanType::Deep);
-        assert_eq!(match "other" { "quick" => ScanType::Quick, "deep" => ScanType::Deep, "compliance" => ScanType::Compliance, _ => ScanType::Standard }, ScanType::Standard);
+        assert_eq!(
+            match "quick" {
+                "quick" => ScanType::Quick,
+                "deep" => ScanType::Deep,
+                "compliance" => ScanType::Compliance,
+                _ => ScanType::Standard,
+            },
+            ScanType::Quick
+        );
+        assert_eq!(
+            match "deep" {
+                "quick" => ScanType::Quick,
+                "deep" => ScanType::Deep,
+                "compliance" => ScanType::Compliance,
+                _ => ScanType::Standard,
+            },
+            ScanType::Deep
+        );
+        assert_eq!(
+            match "other" {
+                "quick" => ScanType::Quick,
+                "deep" => ScanType::Deep,
+                "compliance" => ScanType::Compliance,
+                _ => ScanType::Standard,
+            },
+            ScanType::Standard
+        );
     }
 
     #[test]
     fn test_security_baseline_parsing() {
-        assert_eq!(match "stig" { "stig" => SecurityBaseline::STIG, "pci-dss" => SecurityBaseline::PciDss, "nist" => SecurityBaseline::NIST, "custom" => SecurityBaseline::Custom, _ => SecurityBaseline::CIS }, SecurityBaseline::STIG);
-        assert_eq!(match "cis" { "stig" => SecurityBaseline::STIG, "pci-dss" => SecurityBaseline::PciDss, "nist" => SecurityBaseline::NIST, "custom" => SecurityBaseline::Custom, _ => SecurityBaseline::CIS }, SecurityBaseline::CIS);
+        assert_eq!(
+            match "stig" {
+                "stig" => SecurityBaseline::STIG,
+                "pci-dss" => SecurityBaseline::PciDss,
+                "nist" => SecurityBaseline::NIST,
+                "custom" => SecurityBaseline::Custom,
+                _ => SecurityBaseline::CIS,
+            },
+            SecurityBaseline::STIG
+        );
+        assert_eq!(
+            match "cis" {
+                "stig" => SecurityBaseline::STIG,
+                "pci-dss" => SecurityBaseline::PciDss,
+                "nist" => SecurityBaseline::NIST,
+                "custom" => SecurityBaseline::Custom,
+                _ => SecurityBaseline::CIS,
+            },
+            SecurityBaseline::CIS
+        );
     }
 
     #[test]
     fn test_compliance_framework_parsing() {
-        assert_eq!(match "hipaa" { "hipaa" => ComplianceFramework::HIPAA, "soc2" => ComplianceFramework::SOC2, _ => ComplianceFramework::PCIDSS }, ComplianceFramework::HIPAA);
-        assert_eq!(match "other" { "hipaa" => ComplianceFramework::HIPAA, "soc2" => ComplianceFramework::SOC2, _ => ComplianceFramework::PCIDSS }, ComplianceFramework::PCIDSS);
+        assert_eq!(
+            match "hipaa" {
+                "hipaa" => ComplianceFramework::HIPAA,
+                "soc2" => ComplianceFramework::SOC2,
+                _ => ComplianceFramework::PCIDSS,
+            },
+            ComplianceFramework::HIPAA
+        );
+        assert_eq!(
+            match "other" {
+                "hipaa" => ComplianceFramework::HIPAA,
+                "soc2" => ComplianceFramework::SOC2,
+                _ => ComplianceFramework::PCIDSS,
+            },
+            ComplianceFramework::PCIDSS
+        );
     }
 
     #[test]

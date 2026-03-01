@@ -161,10 +161,9 @@ impl RestoreManager {
         let snapshots: Api<VirtualMachineSnapshot> =
             Api::namespaced(self.client.clone(), &self.namespace);
 
-        let snapshot = snapshots
-            .get(snapshot_name)
-            .await
-            .with_context(|| format!("Failed to get snapshot '{}' for validation", snapshot_name))?;
+        let snapshot = snapshots.get(snapshot_name).await.with_context(|| {
+            format!("Failed to get snapshot '{}' for validation", snapshot_name)
+        })?;
 
         // Check if snapshot is ready to use
         let ready = snapshot

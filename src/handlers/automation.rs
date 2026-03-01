@@ -22,9 +22,7 @@ pub(crate) fn parse_trigger_type(trigger: &str) -> crate::automation::Trigger {
 }
 
 /// Parse a schedule string ("hourly", "daily", "weekly", "interval:N") into a Schedule enum.
-pub(crate) fn parse_schedule_string(
-    schedule: &str,
-) -> crate::automation::schedules::Schedule {
+pub(crate) fn parse_schedule_string(schedule: &str) -> crate::automation::schedules::Schedule {
     use crate::automation::schedules::Schedule;
 
     if schedule.starts_with("interval:") {
@@ -166,7 +164,10 @@ pub fn handle_automation_create(
         "{}",
         color::success("✓ Automation rule created successfully")
     );
-    println!("  {}", color::muted("Note: Automation rule is not persisted to storage"));
+    println!(
+        "  {}",
+        color::muted("Note: Automation rule is not persisted to storage")
+    );
     Ok(())
 }
 
@@ -482,7 +483,10 @@ pub fn handle_schedule_create(
         "{}",
         color::success("✓ Scheduled task created successfully")
     );
-    println!("  {}", color::muted("Note: Configuration is not persisted to storage"));
+    println!(
+        "  {}",
+        color::muted("Note: Configuration is not persisted to storage")
+    );
     Ok(())
 }
 
@@ -608,8 +612,7 @@ mod tests {
 
     #[test]
     fn test_schedule_label_weekly() {
-        let sched =
-            crate::automation::schedules::Schedule::weekly(chrono::Weekday::Mon, 9, 0);
+        let sched = crate::automation::schedules::Schedule::weekly(chrono::Weekday::Mon, 9, 0);
         assert_eq!(schedule_label(&sched), "Weekly");
     }
 

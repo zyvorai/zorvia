@@ -429,7 +429,7 @@ mod tests {
         let manager = RoleManager::new();
 
         // Should have built-in roles
-        assert!(manager.builtin_roles().len() > 0);
+        assert!(!manager.builtin_roles().is_empty());
         assert!(manager.get_role("role-viewer").is_some());
     }
 

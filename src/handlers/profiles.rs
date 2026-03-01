@@ -733,8 +733,11 @@ pub async fn handle_health(target: String, detailed: bool, namespace: String) ->
         if let Some(ref volumes) = spec.volumes {
             for (i, vol) in volumes.iter().enumerate() {
                 if let Some(ref empty) = vol.empty_disk {
-                    builder =
-                        builder.add_blank_disk(&vol.name, &empty.capacity, (i as u32).saturating_add(1));
+                    builder = builder.add_blank_disk(
+                        &vol.name,
+                        &empty.capacity,
+                        (i as u32).saturating_add(1),
+                    );
                 } else if let Some(ref container_disk) = vol.container_disk {
                     builder = builder.add_container_disk(
                         &vol.name,

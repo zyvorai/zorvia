@@ -46,8 +46,11 @@ fn vm_to_config(vm: &VirtualMachine, namespace: &str) -> VMConfig {
     if let Some(ref volumes) = spec.volumes {
         for (i, vol) in volumes.iter().enumerate() {
             if let Some(ref container_disk) = vol.container_disk {
-                builder =
-                    builder.add_container_disk(&vol.name, &container_disk.image, (i as u32).saturating_add(1));
+                builder = builder.add_container_disk(
+                    &vol.name,
+                    &container_disk.image,
+                    (i as u32).saturating_add(1),
+                );
             } else if let Some(ref pvc) = vol.persistent_volume_claim {
                 builder = builder.add_disk(crate::config::DiskConfig {
                     name: vol.name.clone(),
@@ -59,7 +62,11 @@ fn vm_to_config(vm: &VirtualMachine, namespace: &str) -> VMConfig {
                     },
                 });
             } else if let Some(ref empty) = vol.empty_disk {
-                builder = builder.add_blank_disk(&vol.name, &empty.capacity, (i as u32).saturating_add(1));
+                builder = builder.add_blank_disk(
+                    &vol.name,
+                    &empty.capacity,
+                    (i as u32).saturating_add(1),
+                );
             } else if let Some(ref cloud_init) = vol.cloud_init_no_cloud {
                 if let Some(ref user_data) = cloud_init.user_data {
                     builder = builder.cloud_init(user_data);

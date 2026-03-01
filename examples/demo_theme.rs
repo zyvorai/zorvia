@@ -96,10 +96,11 @@ fn main() {
 
     for (name, namespace, status) in vms {
         println!(
-            "   {:<25} {:<30} {}",
+            "   {:<25} {:<30} {} {}",
             cli::vm_name(name),
             cli::namespace(namespace),
-            format!("{} {}", vm_status_symbol(status), cli::vm_status(status))
+            vm_status_symbol(status),
+            cli::vm_status(status)
         );
     }
     println!();

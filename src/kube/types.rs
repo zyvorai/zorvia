@@ -371,10 +371,7 @@ mod tests {
             status.interfaces[0].mac.as_deref(),
             Some("52:54:00:12:34:56")
         );
-        assert_eq!(
-            status.interfaces[0].interface_name.as_deref(),
-            Some("eth0")
-        );
+        assert_eq!(status.interfaces[0].interface_name.as_deref(), Some("eth0"));
         let guest_os = status.guest_os_info.as_ref().unwrap();
         assert_eq!(guest_os.name.as_deref(), Some("Fedora Linux"));
         assert_eq!(guest_os.id.as_deref(), Some("fedora"));
@@ -403,10 +400,7 @@ mod tests {
             interfaces: vec![VmiInterface {
                 name: Some("default".to_string()),
                 ip_address: Some("192.168.1.10".to_string()),
-                ip_addresses: vec![
-                    "192.168.1.10".to_string(),
-                    "fd00::a".to_string(),
-                ],
+                ip_addresses: vec!["192.168.1.10".to_string(), "fd00::a".to_string()],
                 mac: Some("aa:bb:cc:dd:ee:ff".to_string()),
                 interface_name: Some("eth0".to_string()),
             }],
@@ -419,8 +413,7 @@ mod tests {
         };
 
         let json = serde_json::to_value(&status).unwrap();
-        let deserialized: VirtualMachineInstanceStatus =
-            serde_json::from_value(json).unwrap();
+        let deserialized: VirtualMachineInstanceStatus = serde_json::from_value(json).unwrap();
 
         assert_eq!(deserialized.phase, status.phase);
         assert_eq!(deserialized.node_name, status.node_name);

@@ -14,13 +14,11 @@ pub fn next_cron_time(from: DateTime<Utc>, expression: &str) -> Option<DateTime<
     // Zero out seconds
     candidate = candidate
         .date_naive()
-        .and_time(
-            NaiveTime::from_hms_opt(
-                candidate.naive_utc().hour(),
-                candidate.naive_utc().minute(),
-                0,
-            )?,
-        )
+        .and_time(NaiveTime::from_hms_opt(
+            candidate.naive_utc().hour(),
+            candidate.naive_utc().minute(),
+            0,
+        )?)
         .and_utc();
 
     // Try up to 366 days ahead

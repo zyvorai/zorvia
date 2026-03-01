@@ -414,11 +414,8 @@ mod tests {
             .args(["commit", "--allow-empty", "-m", "init"])
             .output();
 
-        let mut repo = GitRepository::new(
-            tmp_src.to_str().unwrap(),
-            "main",
-        )
-        .with_path(tmp_dest.to_str().unwrap());
+        let mut repo = GitRepository::new(tmp_src.to_str().unwrap(), "main")
+            .with_path(tmp_dest.to_str().unwrap());
 
         let result = GitRepository::clone(&mut repo);
 
@@ -469,11 +466,8 @@ mod tests {
             .args(["commit", "--allow-empty", "-m", "init"])
             .output();
 
-        let mut repo = GitRepository::new(
-            tmp_src.to_str().unwrap(),
-            "main",
-        )
-        .with_path(tmp_dest.to_str().unwrap());
+        let mut repo = GitRepository::new(tmp_src.to_str().unwrap(), "main")
+            .with_path(tmp_dest.to_str().unwrap());
 
         if GitRepository::clone(&mut repo).is_ok() {
             assert!(repo.fetch().is_ok());

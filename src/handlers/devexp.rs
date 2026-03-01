@@ -10,7 +10,10 @@ pub(crate) fn is_valid_template_name(name: &str) -> bool {
 
 /// Build the list of candidate file paths to search for a template.
 /// Returns paths for: exact name, .yaml, .yml, .json, .toml extensions.
-pub(crate) fn build_template_candidates(templates_dir: &std::path::Path, name: &str) -> Vec<PathBuf> {
+pub(crate) fn build_template_candidates(
+    templates_dir: &std::path::Path,
+    name: &str,
+) -> Vec<PathBuf> {
     vec![
         templates_dir.join(name),
         templates_dir.join(format!("{}.yaml", name)),
@@ -119,7 +122,9 @@ pub fn handle_config_load(name: String, output: Option<String>, format: String) 
 
     // Reject path traversal attempts
     if !is_valid_template_name(&name) {
-        return Err(anyhow!("Invalid template name: must not contain path traversal components"));
+        return Err(anyhow!(
+            "Invalid template name: must not contain path traversal components"
+        ));
     }
 
     // Try loading with the exact name, then with common extensions
@@ -191,8 +196,9 @@ pub fn handle_config_load(name: String, output: Option<String>, format: String) 
         "json" => {
             // Try to parse as YAML and convert to JSON
             match serde_yaml::from_str::<serde_json::Value>(&content) {
-                Ok(value) => serde_json::to_string_pretty(&value)
-                    .unwrap_or_else(|_| content.clone()),
+                Ok(value) => {
+                    serde_json::to_string_pretty(&value).unwrap_or_else(|_| content.clone())
+                }
                 Err(_) => content.clone(),
             }
         }

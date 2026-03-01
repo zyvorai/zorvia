@@ -20,9 +20,7 @@ pub(crate) fn parse_log_level(level: &str) -> crate::observability::logs::LogLev
 /// Parse an alert severity string into an AlertSeverity enum.
 /// Supported values (case-insensitive): info, warning, critical.
 /// Unknown values default to Warning.
-pub(crate) fn parse_alert_severity(
-    severity: &str,
-) -> crate::observability::alerts::AlertSeverity {
+pub(crate) fn parse_alert_severity(severity: &str) -> crate::observability::alerts::AlertSeverity {
     use crate::observability::alerts::AlertSeverity;
 
     match severity.to_lowercase().as_str() {
@@ -226,7 +224,10 @@ pub fn handle_alerts_create(
     println!("  Duration:  {} minutes", duration);
     println!();
     println!("{}", color::success("✓ Alert rule created"));
-    println!("  {}", color::muted("Note: Configuration is not persisted to storage"));
+    println!(
+        "  {}",
+        color::muted("Note: Configuration is not persisted to storage")
+    );
     Ok(())
 }
 
@@ -461,10 +462,7 @@ mod tests {
     #[test]
     fn test_parse_threshold_operator_eq() {
         let op = parse_threshold_operator("eq");
-        assert_eq!(
-            op,
-            crate::observability::alerts::ThresholdOperator::Equal
-        );
+        assert_eq!(op, crate::observability::alerts::ThresholdOperator::Equal);
     }
 
     #[test]

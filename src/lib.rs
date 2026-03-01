@@ -478,8 +478,14 @@ pub async fn run(mut cli: Cli) -> Result<()> {
             watch,
             interval,
         } => {
-            handlers::infra::handle_network_bandwidth(vm, interface, watch, interval, &cli.namespace)
-                .await?
+            handlers::infra::handle_network_bandwidth(
+                vm,
+                interface,
+                watch,
+                interval,
+                &cli.namespace,
+            )
+            .await?
         }
 
         Commands::NetworkTraffic {
@@ -493,7 +499,9 @@ pub async fn run(mut cli: Cli) -> Result<()> {
         Commands::NetworkPolicies {
             all_namespaces,
             output,
-        } => handlers::infra::handle_network_policies(all_namespaces, output, &cli.namespace).await?,
+        } => {
+            handlers::infra::handle_network_policies(all_namespaces, output, &cli.namespace).await?
+        }
 
         Commands::NetworkPolicy { name, output } => {
             handlers::infra::handle_network_policy(name, output)?
@@ -513,8 +521,7 @@ pub async fn run(mut cli: Cli) -> Result<()> {
             watch,
             interval,
         } => {
-            handlers::backup::handle_migration_status(vm, watch, interval, &cli.namespace)
-                .await?;
+            handlers::backup::handle_migration_status(vm, watch, interval, &cli.namespace).await?;
         }
 
         Commands::MigrationList {
@@ -1120,80 +1127,225 @@ pub async fn run(mut cli: Cli) -> Result<()> {
             println!("{}", color::header("Zorvia Commands"));
             println!();
             let groups = [
-                ("VM Management", vec![
-                    "create", "list", "get", "delete", "start", "stop", "restart",
-                    "status", "clone", "resources", "export", "wizard", "batch",
-                ]),
-                ("Templates & Config", vec![
-                    "generate", "templates", "template", "validate",
-                ]),
-                ("Profiles & Blueprints", vec![
-                    "profiles", "profile", "profile-create", "profile-edit", "profile-delete",
-                    "blueprints", "blueprint", "deploy", "blueprint-create", "blueprint-edit",
-                    "blueprint-delete", "blueprint-validate", "health", "recommend",
-                ]),
-                ("Snapshots", vec![
-                    "snapshot-create", "snapshot-list", "snapshot-get", "snapshot-delete", "snapshot-restore",
-                ]),
-                ("Monitoring", vec![
-                    "monitor-live", "monitor-stats", "monitor-compare", "monitor-top",
-                ]),
-                ("Disk Management", vec![
-                    "disk-expand", "disk-health", "disk-script", "disk-usage",
-                ]),
-                ("Network", vec![
-                    "network-list", "network-get", "network-bandwidth", "network-traffic",
-                    "network-policies", "network-policy",
-                ]),
-                ("Migration & HA", vec![
-                    "migrate", "migration-status", "migration-list",
-                    "ha-config", "ha-status", "evacuate-node", "evacuation-status",
-                ]),
-                ("Backup & Recovery", vec![
-                    "backup-create", "backup-list", "backup-get", "backup-delete",
-                    "backup-restore", "backup-verify", "backup-schedules",
-                    "backup-schedule-create", "recovery-plan", "recovery-execute",
-                ]),
-                ("Security & Compliance", vec![
-                    "security-scan", "security-assess", "security-harden", "security-profiles",
-                    "compliance-check", "compliance-report",
-                    "audit-list", "audit-get", "audit-stats",
-                ]),
-                ("Cost Management", vec![
-                    "cost-analyze", "cost-summary", "cost-report",
-                    "budget-list", "budget-create", "budget-status",
-                    "cost-optimize", "cost-waste", "cost-forecast",
-                ]),
-                ("Automation", vec![
-                    "automation-list", "automation-create", "automation-get", "automation-run",
-                    "workflow-list", "workflow-create", "workflow-get", "workflow-run",
-                    "workflow-executions", "schedule-list", "schedule-create",
-                ]),
-                ("Observability", vec![
-                    "logs-query", "logs-stats", "logs-patterns",
-                    "metrics-collect", "metrics-query", "metrics-snapshot",
-                    "alerts-list", "alerts-create", "alerts-active", "alerts-resolve",
-                    "insights-generate", "recommendations", "trends-analyze", "health-check",
-                ]),
-                ("Multi-Tenancy & RBAC", vec![
-                    "tenants-list", "tenants-create", "tenants-show", "tenants-delete",
-                    "users-list", "users-create", "users-assign-role",
-                    "roles-list", "roles-show", "roles-create",
-                    "quotas-list", "quotas-create", "quotas-show",
-                    "groups-list", "groups-create", "groups-add-user",
-                ]),
-                ("Developer Tools", vec![
-                    "completions", "config-save", "config-load", "config-list",
-                    "config-delete", "diff", "init", "info",
-                ]),
-                ("API & Interface", vec![
-                    "api-serve", "api-status", "api-routes", "api-spec",
-                    "api-key-list", "api-key-create", "api-key-delete",
-                    "webhook-list", "webhook-create", "webhook-delete", "tui",
-                ]),
-                ("Configuration", vec![
-                    "config-show", "config-init", "commands",
-                ]),
+                (
+                    "VM Management",
+                    vec![
+                        "create",
+                        "list",
+                        "get",
+                        "delete",
+                        "start",
+                        "stop",
+                        "restart",
+                        "status",
+                        "clone",
+                        "resources",
+                        "export",
+                        "wizard",
+                        "batch",
+                    ],
+                ),
+                (
+                    "Templates & Config",
+                    vec!["generate", "templates", "template", "validate"],
+                ),
+                (
+                    "Profiles & Blueprints",
+                    vec![
+                        "profiles",
+                        "profile",
+                        "profile-create",
+                        "profile-edit",
+                        "profile-delete",
+                        "blueprints",
+                        "blueprint",
+                        "deploy",
+                        "blueprint-create",
+                        "blueprint-edit",
+                        "blueprint-delete",
+                        "blueprint-validate",
+                        "health",
+                        "recommend",
+                    ],
+                ),
+                (
+                    "Snapshots",
+                    vec![
+                        "snapshot-create",
+                        "snapshot-list",
+                        "snapshot-get",
+                        "snapshot-delete",
+                        "snapshot-restore",
+                    ],
+                ),
+                (
+                    "Monitoring",
+                    vec![
+                        "monitor-live",
+                        "monitor-stats",
+                        "monitor-compare",
+                        "monitor-top",
+                    ],
+                ),
+                (
+                    "Disk Management",
+                    vec!["disk-expand", "disk-health", "disk-script", "disk-usage"],
+                ),
+                (
+                    "Network",
+                    vec![
+                        "network-list",
+                        "network-get",
+                        "network-bandwidth",
+                        "network-traffic",
+                        "network-policies",
+                        "network-policy",
+                    ],
+                ),
+                (
+                    "Migration & HA",
+                    vec![
+                        "migrate",
+                        "migration-status",
+                        "migration-list",
+                        "ha-config",
+                        "ha-status",
+                        "evacuate-node",
+                        "evacuation-status",
+                    ],
+                ),
+                (
+                    "Backup & Recovery",
+                    vec![
+                        "backup-create",
+                        "backup-list",
+                        "backup-get",
+                        "backup-delete",
+                        "backup-restore",
+                        "backup-verify",
+                        "backup-schedules",
+                        "backup-schedule-create",
+                        "recovery-plan",
+                        "recovery-execute",
+                    ],
+                ),
+                (
+                    "Security & Compliance",
+                    vec![
+                        "security-scan",
+                        "security-assess",
+                        "security-harden",
+                        "security-profiles",
+                        "compliance-check",
+                        "compliance-report",
+                        "audit-list",
+                        "audit-get",
+                        "audit-stats",
+                    ],
+                ),
+                (
+                    "Cost Management",
+                    vec![
+                        "cost-analyze",
+                        "cost-summary",
+                        "cost-report",
+                        "budget-list",
+                        "budget-create",
+                        "budget-status",
+                        "cost-optimize",
+                        "cost-waste",
+                        "cost-forecast",
+                    ],
+                ),
+                (
+                    "Automation",
+                    vec![
+                        "automation-list",
+                        "automation-create",
+                        "automation-get",
+                        "automation-run",
+                        "workflow-list",
+                        "workflow-create",
+                        "workflow-get",
+                        "workflow-run",
+                        "workflow-executions",
+                        "schedule-list",
+                        "schedule-create",
+                    ],
+                ),
+                (
+                    "Observability",
+                    vec![
+                        "logs-query",
+                        "logs-stats",
+                        "logs-patterns",
+                        "metrics-collect",
+                        "metrics-query",
+                        "metrics-snapshot",
+                        "alerts-list",
+                        "alerts-create",
+                        "alerts-active",
+                        "alerts-resolve",
+                        "insights-generate",
+                        "recommendations",
+                        "trends-analyze",
+                        "health-check",
+                    ],
+                ),
+                (
+                    "Multi-Tenancy & RBAC",
+                    vec![
+                        "tenants-list",
+                        "tenants-create",
+                        "tenants-show",
+                        "tenants-delete",
+                        "users-list",
+                        "users-create",
+                        "users-assign-role",
+                        "roles-list",
+                        "roles-show",
+                        "roles-create",
+                        "quotas-list",
+                        "quotas-create",
+                        "quotas-show",
+                        "groups-list",
+                        "groups-create",
+                        "groups-add-user",
+                    ],
+                ),
+                (
+                    "Developer Tools",
+                    vec![
+                        "completions",
+                        "config-save",
+                        "config-load",
+                        "config-list",
+                        "config-delete",
+                        "diff",
+                        "init",
+                        "info",
+                    ],
+                ),
+                (
+                    "API & Interface",
+                    vec![
+                        "api-serve",
+                        "api-status",
+                        "api-routes",
+                        "api-spec",
+                        "api-key-list",
+                        "api-key-create",
+                        "api-key-delete",
+                        "webhook-list",
+                        "webhook-create",
+                        "webhook-delete",
+                        "tui",
+                    ],
+                ),
+                (
+                    "Configuration",
+                    vec!["config-show", "config-init", "commands"],
+                ),
             ];
 
             for (group_name, cmds) in &groups {
@@ -1204,7 +1356,10 @@ pub async fn run(mut cli: Cli) -> Result<()> {
                 println!();
             }
 
-            println!("{}", color::muted("Use 'zorvia <command> --help' for details on a specific command"));
+            println!(
+                "{}",
+                color::muted("Use 'zorvia <command> --help' for details on a specific command")
+            );
         }
     }
 

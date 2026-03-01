@@ -135,9 +135,7 @@ impl Schedule {
                     None
                 }
             }
-            Schedule::Hourly { minute } => {
-                Some(crate::utils::schedule::next_hourly(from, *minute))
-            }
+            Schedule::Hourly { minute } => Some(crate::utils::schedule::next_hourly(from, *minute)),
             Schedule::Daily { time } => Some(crate::utils::schedule::next_daily(from, time)),
             Schedule::Weekly { weekday, time } => {
                 Some(crate::utils::schedule::next_weekly(from, *weekday, time))
@@ -148,9 +146,7 @@ impl Schedule {
             Schedule::Interval { seconds } => {
                 Some(from + chrono::Duration::seconds(*seconds as i64))
             }
-            Schedule::Cron { expression } => {
-                crate::utils::cron::next_cron_time(from, expression)
-            }
+            Schedule::Cron { expression } => crate::utils::cron::next_cron_time(from, expression),
         }
     }
 }

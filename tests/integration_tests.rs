@@ -629,13 +629,21 @@ fn test_multi_disk_vm_with_all_types() {
     assert_eq!(volumes.len(), 4);
 
     // Verify blank (emptyDisk)
-    assert!(volumes.iter().any(|v| v.name == "rootdisk" && v.empty_disk.is_some()));
+    assert!(volumes
+        .iter()
+        .any(|v| v.name == "rootdisk" && v.empty_disk.is_some()));
     // Verify container disk
-    assert!(volumes.iter().any(|v| v.name == "cdrom" && v.container_disk.is_some()));
+    assert!(volumes
+        .iter()
+        .any(|v| v.name == "cdrom" && v.container_disk.is_some()));
     // Verify PVC
-    assert!(volumes.iter().any(|v| v.name == "pvc-disk" && v.persistent_volume_claim.is_some()));
+    assert!(volumes
+        .iter()
+        .any(|v| v.name == "pvc-disk" && v.persistent_volume_claim.is_some()));
     // Verify DataVolume
-    assert!(volumes.iter().any(|v| v.name == "dv-disk" && v.data_volume.is_some()));
+    assert!(volumes
+        .iter()
+        .any(|v| v.name == "dv-disk" && v.data_volume.is_some()));
 }
 
 // ========== CLOUD-INIT IN KUBEVIRT CONVERSION ==========
@@ -705,7 +713,10 @@ fn test_validation_invalid_memory_format() {
         .build();
 
     let result = validate_vm_config(&config);
-    assert!(result.is_err(), "Invalid memory format should fail validation");
+    assert!(
+        result.is_err(),
+        "Invalid memory format should fail validation"
+    );
 }
 
 // ========== SNAPSHOT CONFIG ==========
@@ -729,7 +740,10 @@ fn test_snapshot_config_creation_and_serialization() {
     let deserialized: SnapshotConfig = serde_yaml::from_str(&yaml).unwrap();
     assert_eq!(deserialized.vm_name, "my-vm");
     assert_eq!(deserialized.snapshot_name, "snap-20240101");
-    assert_eq!(deserialized.labels.get("env"), Some(&"production".to_string()));
+    assert_eq!(
+        deserialized.labels.get("env"),
+        Some(&"production".to_string())
+    );
 
     // Default retention
     let retention = RetentionPolicy::default();
@@ -781,9 +795,10 @@ fn test_network_policy_rule_creation() {
     };
     use zorvia::networking::NetworkProtocol;
 
-    let mut rule = NetworkPolicyRule::new("allow-http", PolicyAction::Allow, TrafficDirection::Ingress)
-        .with_protocol(NetworkProtocol::TCP)
-        .with_priority(10);
+    let mut rule =
+        NetworkPolicyRule::new("allow-http", PolicyAction::Allow, TrafficDirection::Ingress)
+            .with_protocol(NetworkProtocol::TCP)
+            .with_priority(10);
     rule.add_destination_port(PortRange::single(80));
     rule.add_destination_port(PortRange::single(443));
     rule.add_source_cidr("10.0.0.0/8");
@@ -819,9 +834,8 @@ fn test_security_assessment_vulnerability_scoring() {
             .with_cvss(9.8)
             .with_cve("CVE-2024-0001"),
     );
-    assessment.add_vulnerability(
-        Vulnerability::new("V2", "High CVE", Severity::High).with_cvss(7.5),
-    );
+    assessment
+        .add_vulnerability(Vulnerability::new("V2", "High CVE", Severity::High).with_cvss(7.5));
     assessment.add_vulnerability(
         Vulnerability::new("V3", "Medium issue", Severity::Medium).with_cvss(5.0),
     );
@@ -856,8 +870,14 @@ fn test_cost_tracking_entries_and_allocation() {
 
     assert_eq!(summary.vm_count, 3);
     assert!(summary.total_cost > 0.0);
-    assert!(vm2_cost.total_cost > vm1_cost.total_cost, "DB VM should cost more");
-    assert!(vm3_cost.total_cost < vm1_cost.total_cost, "Dev VM with half runtime should cost less");
+    assert!(
+        vm2_cost.total_cost > vm1_cost.total_cost,
+        "DB VM should cost more"
+    );
+    assert!(
+        vm3_cost.total_cost < vm1_cost.total_cost,
+        "Dev VM with half runtime should cost less"
+    );
 
     // Network and snapshot costs
     let net_cost = calculator.calculate_network_cost(100.0);
@@ -909,21 +929,28 @@ fn test_ha_priority_sorting_and_checks() {
 
 #[test]
 fn test_workflow_creation_and_execution() {
+    use zorvia::automation::workflows::{Workflow, WorkflowExecutor, WorkflowStep};
     use zorvia::automation::{Action, ActionType};
-    use zorvia::automation::workflows::{Workflow, WorkflowStep, WorkflowExecutor};
 
     let workflow = Workflow::new("deploy-workflow")
         .with_description("Deploy and verify")
-        .add_step(
-            WorkflowStep::new(1, "create-snapshot", Action::new(ActionType::CreateSnapshot {
+        .add_step(WorkflowStep::new(
+            1,
+            "create-snapshot",
+            Action::new(ActionType::CreateSnapshot {
                 vm_name: "test-vm".to_string(),
                 snapshot_name: Some("pre-deploy".to_string()),
-            })),
-        )
+            }),
+        ))
         .add_step(
-            WorkflowStep::new(2, "restart-vm", Action::new(ActionType::RestartVM {
-                vm_name: "test-vm".to_string(),
-            })).depends_on(1),
+            WorkflowStep::new(
+                2,
+                "restart-vm",
+                Action::new(ActionType::RestartVM {
+                    vm_name: "test-vm".to_string(),
+                }),
+            )
+            .depends_on(1),
         );
 
     assert_eq!(workflow.name, "deploy-workflow");
@@ -1267,7 +1294,10 @@ fn test_kubevirt_conversion_preserves_labels() {
     assert_eq!(labels.get("env"), Some(&"prod".to_string()));
     assert_eq!(labels.get("team"), Some(&"platform".to_string()));
     // Auto-added kubevirt.io/vm label
-    assert_eq!(labels.get("kubevirt.io/vm"), Some(&"label-test".to_string()));
+    assert_eq!(
+        labels.get("kubevirt.io/vm"),
+        Some(&"label-test".to_string())
+    );
 }
 
 #[test]
@@ -1321,7 +1351,10 @@ fn test_validation_accepts_name_with_dots_and_hyphens() {
         .add_blank_disk("root", "20Gi", 1)
         .add_pod_network("eth0")
         .build();
-    assert!(validate_vm_config(&config).is_ok(), "Should accept dots and hyphens in name");
+    assert!(
+        validate_vm_config(&config).is_ok(),
+        "Should accept dots and hyphens in name"
+    );
 }
 
 // ========== MULTUS NETWORK TESTS ==========

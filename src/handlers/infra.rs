@@ -671,9 +671,8 @@ pub async fn handle_disk_health(vm: String, detailed: bool, namespace: &str) -> 
     let disks = match KubeClient::new().await {
         Ok(client) => match client.get_vm(namespace, &vm).await {
             Ok(vm_obj) => {
-                let pvc_api: kube::api::Api<
-                    k8s_openapi::api::core::v1::PersistentVolumeClaim,
-                > = kube::api::Api::namespaced(client.client(), namespace);
+                let pvc_api: kube::api::Api<k8s_openapi::api::core::v1::PersistentVolumeClaim> =
+                    kube::api::Api::namespaced(client.client(), namespace);
                 let mut disk_list = Vec::new();
                 if let Some(volumes) = &vm_obj.spec.template.spec.volumes {
                     for vol in volumes {
@@ -1045,7 +1044,10 @@ pub async fn handle_network_list(vm: String, output: String, namespace: &str) ->
     }
 
     if interfaces.is_empty() {
-        println!("{}", color::muted("No network interfaces found for this VM"));
+        println!(
+            "{}",
+            color::muted("No network interfaces found for this VM")
+        );
         return Ok(());
     }
 
@@ -1501,10 +1503,7 @@ mod tests {
 
     #[test]
     fn test_default_restore_target_name_simple() {
-        assert_eq!(
-            default_restore_target_name("backup"),
-            "backup-restored"
-        );
+        assert_eq!(default_restore_target_name("backup"), "backup-restored");
     }
 
     #[test]
@@ -1514,10 +1513,7 @@ mod tests {
 
     #[test]
     fn test_default_restore_target_name_with_hyphens() {
-        assert_eq!(
-            default_restore_target_name("a-b-c"),
-            "a-b-c-restored"
-        );
+        assert_eq!(default_restore_target_name("a-b-c"), "a-b-c-restored");
     }
 
     #[test]
