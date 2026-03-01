@@ -160,10 +160,10 @@ pub fn handle_config_load(name: String, output: Option<String>, format: String) 
         }
     };
 
-    println!(
-        "  Template: {}",
-        color::value(&found_path.unwrap().display().to_string())
-    );
+    let display_path = found_path
+        .map(|p| p.display().to_string())
+        .unwrap_or_else(|| name.clone());
+    println!("  Template: {}", color::value(&display_path));
     println!("  Format:   {}", format);
     println!();
 

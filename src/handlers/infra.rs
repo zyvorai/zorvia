@@ -1354,16 +1354,14 @@ pub async fn handle_network_policies(
             // Count ingress/egress rules
             if let Some(ref spec) = p.spec {
                 if let Some(ref ingress) = spec.ingress {
-                    for rule in ingress {
-                        let _ = rule; // Count exists
-                        policy.ingress_rules.push(Default::default());
-                    }
+                    policy
+                        .ingress_rules
+                        .extend(ingress.iter().map(|_| Default::default()));
                 }
                 if let Some(ref egress) = spec.egress {
-                    for rule in egress {
-                        let _ = rule;
-                        policy.egress_rules.push(Default::default());
-                    }
+                    policy
+                        .egress_rules
+                        .extend(egress.iter().map(|_| Default::default()));
                 }
             }
 

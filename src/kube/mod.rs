@@ -30,12 +30,12 @@ impl KubeClient {
     }
 
     /// Create a new KubeClient with custom kubeconfig path
-    pub async fn with_kubeconfig(_path: &str) -> Result<Self> {
-        let config = Config::from_kubeconfig(&kube::config::KubeConfigOptions {
-            context: None,
-            cluster: None,
-            user: None,
-        })
+    pub async fn with_kubeconfig(path: &str) -> Result<Self> {
+        let kubeconfig = kube::config::Kubeconfig::read_from(path)?;
+        let config = Config::from_custom_kubeconfig(
+            kubeconfig,
+            &kube::config::KubeConfigOptions::default(),
+        )
         .await?;
         let client = Client::try_from(config)?;
         Ok(Self { client })

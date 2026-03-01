@@ -1,6 +1,6 @@
 // Budget Management - Set and monitor spending budgets
 
-use chrono::{DateTime, Utc};
+use chrono::{DateTime, Datelike, Utc};
 use serde::{Deserialize, Serialize};
 
 /// Budget configuration
@@ -177,7 +177,35 @@ impl BudgetStatus {
             remaining: budget.remaining(),
             status,
             triggered_alerts: budget.triggered_alerts().len(),
-            days_remaining: 30, // Simplified
+            days_remaining: match budget.period {
+                BudgetPeriod::Daily => 1,
+                BudgetPeriod::Weekly => {
+                    let elapsed = Utc::now().signed_duration_since(budget.created_at);
+                    (7 - (elapsed.num_days() % 7)).max(0)
+                }
+                BudgetPeriod::Monthly => {
+                    let now = Utc::now();
+                    let days_in_month = if now.month() == 12 { 31 } else {
+                        (chrono::NaiveDate::from_ymd_opt(now.year(), now.month() + 1, 1)
+                            .unwrap_or(chrono::NaiveDate::from_ymd_opt(now.year() + 1, 1, 1).unwrap())
+                            - chrono::NaiveDate::from_ymd_opt(now.year(), now.month(), 1).unwrap())
+                        .num_days()
+                    };
+                    (days_in_month - now.day() as i64 + 1).max(0)
+                }
+                BudgetPeriod::Quarterly => {
+                    let now = Utc::now();
+                    let quarter_end_month = ((now.month() - 1) / 3 + 1) * 3 + 1;
+                    let (y, m) = if quarter_end_month > 12 { (now.year() + 1, 1) } else { (now.year(), quarter_end_month) };
+                    let end = chrono::NaiveDate::from_ymd_opt(y, m, 1).unwrap();
+                    (end - now.date_naive()).num_days().max(0)
+                }
+                BudgetPeriod::Yearly => {
+                    let now = Utc::now();
+                    let year_end = chrono::NaiveDate::from_ymd_opt(now.year() + 1, 1, 1).unwrap();
+                    (year_end - now.date_naive()).num_days().max(0)
+                }
+            },
         }
     }
 

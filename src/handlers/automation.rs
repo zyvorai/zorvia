@@ -383,7 +383,15 @@ pub fn handle_schedule_list(enabled_only: bool, output: String) -> Result<()> {
             println!(
                 "{:<30} {:<15} {:<10} {}",
                 task.name,
-                "Daily", // Simplified
+                match &task.schedule {
+                    crate::automation::schedules::Schedule::Once { .. } => "Once",
+                    crate::automation::schedules::Schedule::Hourly { .. } => "Hourly",
+                    crate::automation::schedules::Schedule::Daily { .. } => "Daily",
+                    crate::automation::schedules::Schedule::Weekly { .. } => "Weekly",
+                    crate::automation::schedules::Schedule::Monthly { .. } => "Monthly",
+                    crate::automation::schedules::Schedule::Cron { .. } => "Cron",
+                    crate::automation::schedules::Schedule::Interval { .. } => "Interval",
+                },
                 status,
                 task.run_count
             );
