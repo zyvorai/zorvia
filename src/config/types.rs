@@ -75,7 +75,7 @@ pub struct DiskConfig {
 }
 
 /// Disk source types
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(tag = "type", rename_all = "camelCase")]
 pub enum DiskSource {
     Blank,
@@ -106,7 +106,7 @@ fn default_interface_model() -> String {
 }
 
 /// Network type options
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
 #[derive(Default)]
 pub enum NetworkType {

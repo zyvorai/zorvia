@@ -588,3 +588,440 @@ fn test_profile_applied_to_template() {
     assert_eq!(config.cpu.cores, profile.cpu_cores);
     assert_eq!(config.memory.size, profile.memory);
 }
+
+// ========== MULTI-DISK VM CONVERSION ==========
+
+#[test]
+fn test_multi_disk_vm_with_all_types() {
+    let mut config = VMConfigBuilder::new("multi-disk-vm")
+        .namespace("default")
+        .cpu(4, 1, 1)
+        .memory("8Gi")
+        .add_blank_disk("rootdisk", "40Gi", 1)
+        .add_container_disk("cdrom", "registry.example.com/iso:latest", 2)
+        .add_pod_network("default")
+        .build();
+
+    config.disks.push(zorvia::config::DiskConfig {
+        name: "pvc-disk".to_string(),
+        size: "100Gi".to_string(),
+        storage_class: Some("ceph-rbd".to_string()),
+        boot_order: 3,
+        source: DiskSource::PVC {
+            name: "existing-pvc".to_string(),
+        },
+    });
+
+    config.disks.push(zorvia::config::DiskConfig {
+        name: "dv-disk".to_string(),
+        size: "200Gi".to_string(),
+        storage_class: None,
+        boot_order: 4,
+        source: DiskSource::DataVolume {
+            name: "my-dv".to_string(),
+        },
+    });
+
+    validate_vm_config(&config).unwrap();
+
+    let vm = vm_config_to_kubevirt(&config).unwrap();
+    let volumes = vm.spec.template.spec.volumes.as_ref().unwrap();
+    assert_eq!(volumes.len(), 4);
+
+    // Verify blank (emptyDisk)
+    assert!(volumes.iter().any(|v| v.name == "rootdisk" && v.empty_disk.is_some()));
+    // Verify container disk
+    assert!(volumes.iter().any(|v| v.name == "cdrom" && v.container_disk.is_some()));
+    // Verify PVC
+    assert!(volumes.iter().any(|v| v.name == "pvc-disk" && v.persistent_volume_claim.is_some()));
+    // Verify DataVolume
+    assert!(volumes.iter().any(|v| v.name == "dv-disk" && v.data_volume.is_some()));
+}
+
+// ========== CLOUD-INIT IN KUBEVIRT CONVERSION ==========
+
+#[test]
+fn test_cloud_init_in_kubevirt_conversion() {
+    let config = VMConfigBuilder::new("cloud-init-vm")
+        .namespace("default")
+        .cpu(2, 1, 1)
+        .memory("4Gi")
+        .add_blank_disk("rootdisk", "20Gi", 1)
+        .add_pod_network("default")
+        .cloud_init("#cloud-config\npackages:\n  - nginx\n  - vim\n")
+        .build();
+
+    validate_vm_config(&config).unwrap();
+    let vm = vm_config_to_kubevirt(&config).unwrap();
+
+    let volumes = vm.spec.template.spec.volumes.as_ref().unwrap();
+    let cloudinit_vol = volumes.iter().find(|v| v.name == "cloudinitdisk");
+    assert!(cloudinit_vol.is_some(), "Cloud-init volume should exist");
+
+    let ci = cloudinit_vol.unwrap().cloud_init_no_cloud.as_ref().unwrap();
+    let user_data = ci.user_data.as_ref().unwrap();
+    assert!(user_data.contains("nginx"));
+    assert!(user_data.contains("vim"));
+}
+
+// ========== ERROR PATH TESTS ==========
+
+#[test]
+fn test_validation_empty_name() {
+    let config = VMConfigBuilder::new("")
+        .namespace("default")
+        .cpu(1, 1, 1)
+        .memory("1Gi")
+        .add_blank_disk("root", "10Gi", 1)
+        .add_pod_network("default")
+        .build();
+
+    let result = validate_vm_config(&config);
+    assert!(result.is_err(), "Empty name should fail validation");
+}
+
+#[test]
+fn test_validation_zero_cpu_rejected() {
+    let config = VMConfigBuilder::new("test-vm")
+        .namespace("default")
+        .cpu(0, 1, 1)
+        .memory("2Gi")
+        .add_blank_disk("root", "10Gi", 1)
+        .add_pod_network("default")
+        .build();
+
+    let result = validate_vm_config(&config);
+    assert!(result.is_err(), "Zero CPU cores should fail validation");
+}
+
+#[test]
+fn test_validation_invalid_memory_format() {
+    let config = VMConfigBuilder::new("test-vm")
+        .namespace("default")
+        .cpu(1, 1, 1)
+        .memory("not-a-size")
+        .add_blank_disk("root", "10Gi", 1)
+        .add_pod_network("default")
+        .build();
+
+    let result = validate_vm_config(&config);
+    assert!(result.is_err(), "Invalid memory format should fail validation");
+}
+
+// ========== SNAPSHOT CONFIG ==========
+
+#[test]
+fn test_snapshot_config_creation_and_serialization() {
+    use zorvia::snapshots::{RetentionPolicy, SnapshotConfig};
+
+    let config = SnapshotConfig::new("my-vm", "snap-20240101")
+        .with_description("Daily snapshot")
+        .with_label("env", "production")
+        .with_label("team", "platform");
+
+    assert_eq!(config.vm_name, "my-vm");
+    assert_eq!(config.snapshot_name, "snap-20240101");
+    assert_eq!(config.description, Some("Daily snapshot".to_string()));
+    assert_eq!(config.labels.len(), 2);
+
+    // Serialization roundtrip
+    let yaml = serde_yaml::to_string(&config).unwrap();
+    let deserialized: SnapshotConfig = serde_yaml::from_str(&yaml).unwrap();
+    assert_eq!(deserialized.vm_name, "my-vm");
+    assert_eq!(deserialized.snapshot_name, "snap-20240101");
+    assert_eq!(deserialized.labels.get("env"), Some(&"production".to_string()));
+
+    // Default retention
+    let retention = RetentionPolicy::default();
+    assert_eq!(retention.max_snapshots, Some(10));
+    assert_eq!(retention.max_age_days, Some(30));
+}
+
+// ========== BACKUP CONFIG ==========
+
+#[test]
+fn test_backup_config_types_and_retention() {
+    use zorvia::backup::{BackupConfig, BackupType, CompressionType, RetentionPolicy};
+
+    // Full backup with defaults
+    let config = BackupConfig::new("db-vm", "db-backup-001");
+    assert_eq!(config.backup_type, BackupType::Full);
+    assert_eq!(config.compression, CompressionType::Gzip);
+    assert!(config.encryption_enabled);
+
+    // Incremental with zstd
+    let config2 = BackupConfig::new("app-vm", "app-backup-002")
+        .with_type(BackupType::Incremental)
+        .without_encryption();
+    assert_eq!(config2.backup_type, BackupType::Incremental);
+    assert!(!config2.encryption_enabled);
+
+    // Retention policies
+    let short = RetentionPolicy::short_term();
+    assert_eq!(short.keep_daily, 3);
+    assert_eq!(short.max_age_days, Some(30));
+
+    let long = RetentionPolicy::long_term();
+    assert_eq!(long.keep_yearly, 10);
+    assert_eq!(long.max_age_days, None);
+
+    // Serialization roundtrip
+    let json = serde_json::to_string(&config).unwrap();
+    let deserialized: BackupConfig = serde_json::from_str(&json).unwrap();
+    assert_eq!(deserialized.vm_name, "db-vm");
+    assert_eq!(deserialized.backup_name, "db-backup-001");
+}
+
+// ========== NETWORK POLICY ==========
+
+#[test]
+fn test_network_policy_rule_creation() {
+    use zorvia::networking::policies::{
+        NetworkPolicyRule, PolicyAction, PortRange, TrafficDirection,
+    };
+    use zorvia::networking::NetworkProtocol;
+
+    let mut rule = NetworkPolicyRule::new("allow-http", PolicyAction::Allow, TrafficDirection::Ingress)
+        .with_protocol(NetworkProtocol::TCP)
+        .with_priority(10);
+    rule.add_destination_port(PortRange::single(80));
+    rule.add_destination_port(PortRange::single(443));
+    rule.add_source_cidr("10.0.0.0/8");
+
+    assert_eq!(rule.name, "allow-http");
+    assert_eq!(rule.action, PolicyAction::Allow);
+    assert_eq!(rule.destination_ports.len(), 2);
+    assert!(rule.destination_ports[0].contains(80));
+    assert!(!rule.destination_ports[0].contains(81));
+    assert_eq!(rule.source_cidrs.len(), 1);
+
+    let deny = NetworkPolicyRule::new("deny-ssh", PolicyAction::Deny, TrafficDirection::Ingress);
+    assert_eq!(deny.action, PolicyAction::Deny);
+}
+
+// ========== SECURITY ASSESSMENT ==========
+
+#[test]
+fn test_security_assessment_vulnerability_scoring() {
+    use zorvia::security::{RiskLevel, SecurityAssessment, Severity, Vulnerability};
+
+    let mut assessment = SecurityAssessment::new("production-db");
+
+    // No vulns -> score 100, Low risk
+    assessment.calculate_score();
+    // Initial score with no vulns: 100
+    // But risk_level depends on score: 90-100 = Low
+    // Empty vulns means score stays 100
+
+    // Add various severity vulnerabilities
+    assessment.add_vulnerability(
+        Vulnerability::new("V1", "Critical CVE", Severity::Critical)
+            .with_cvss(9.8)
+            .with_cve("CVE-2024-0001"),
+    );
+    assessment.add_vulnerability(
+        Vulnerability::new("V2", "High CVE", Severity::High).with_cvss(7.5),
+    );
+    assessment.add_vulnerability(
+        Vulnerability::new("V3", "Medium issue", Severity::Medium).with_cvss(5.0),
+    );
+
+    assessment.calculate_score();
+    // 100 - 20 (critical) - 10 (high) - 5 (medium) = 65
+    assert_eq!(assessment.overall_score, 65);
+    assert_eq!(assessment.risk_level, RiskLevel::High);
+    assert_eq!(assessment.critical_count(), 1);
+    assert_eq!(assessment.high_count(), 1);
+    assert_eq!(assessment.vulnerabilities.len(), 3);
+}
+
+// ========== COST TRACKING ==========
+
+#[test]
+fn test_cost_tracking_entries_and_allocation() {
+    use zorvia::cost::{CostCalculator, CostSummary};
+
+    let calculator = CostCalculator::default();
+
+    // Calculate costs for different VMs
+    let vm1_cost = calculator.calculate_vm_cost("web-vm", "prod", 2, 4, 20, 730.0);
+    let vm2_cost = calculator.calculate_vm_cost("db-vm", "prod", 8, 32, 500, 730.0);
+    let vm3_cost = calculator.calculate_vm_cost("dev-vm", "dev", 1, 2, 10, 365.0);
+
+    // Aggregate into summary
+    let mut summary = CostSummary::new();
+    summary.add_vm_cost(&vm1_cost);
+    summary.add_vm_cost(&vm2_cost);
+    summary.add_vm_cost(&vm3_cost);
+
+    assert_eq!(summary.vm_count, 3);
+    assert!(summary.total_cost > 0.0);
+    assert!(vm2_cost.total_cost > vm1_cost.total_cost, "DB VM should cost more");
+    assert!(vm3_cost.total_cost < vm1_cost.total_cost, "Dev VM with half runtime should cost less");
+
+    // Network and snapshot costs
+    let net_cost = calculator.calculate_network_cost(100.0);
+    assert!(net_cost > 0.0);
+    let snap_cost = calculator.calculate_snapshot_cost(50, 1.0);
+    assert!(snap_cost > 0.0);
+}
+
+// ========== HA CONFIG ==========
+
+#[test]
+fn test_ha_priority_sorting_and_checks() {
+    use zorvia::migration::ha::{EvictionStrategy, HAConfig, HAManager, HAPriority};
+
+    let mut manager = HAManager::new();
+
+    manager.add_config(HAConfig::new("low-vm").with_priority(HAPriority::Low));
+    manager.add_config(
+        HAConfig::new("critical-vm")
+            .with_priority(HAPriority::Critical)
+            .with_eviction_strategy(EvictionStrategy::LiveMigrate),
+    );
+    manager.add_config(HAConfig::new("normal-vm").with_priority(HAPriority::Normal));
+    manager.add_config(
+        HAConfig::new("disabled-vm")
+            .with_priority(HAPriority::High)
+            .with_eviction_strategy(EvictionStrategy::None),
+    );
+
+    // Priority sorting
+    let sorted = manager.get_by_priority();
+    assert_eq!(sorted[0].vm_name, "critical-vm");
+    assert_eq!(sorted[1].vm_name, "disabled-vm"); // High priority
+    assert_eq!(sorted[2].vm_name, "normal-vm");
+    assert_eq!(sorted[3].vm_name, "low-vm");
+
+    // Migration checks
+    assert!(manager.should_migrate_on_failure("critical-vm"));
+    assert!(!manager.should_migrate_on_failure("disabled-vm")); // EvictionStrategy::None
+
+    // Restart checks
+    assert!(manager.should_restart("critical-vm", 0));
+    assert!(manager.should_restart("critical-vm", 2));
+    assert!(!manager.should_restart("critical-vm", 5)); // Exceeds max_restart_attempts (3)
+    assert!(!manager.should_restart("nonexistent-vm", 0));
+}
+
+// ========== WORKFLOW EXECUTION ==========
+
+#[test]
+fn test_workflow_creation_and_execution() {
+    use zorvia::automation::{Action, ActionType};
+    use zorvia::automation::workflows::{Workflow, WorkflowStep, WorkflowExecutor};
+
+    let workflow = Workflow::new("deploy-workflow")
+        .with_description("Deploy and verify")
+        .add_step(
+            WorkflowStep::new(1, "create-snapshot", Action::new(ActionType::CreateSnapshot {
+                vm_name: "test-vm".to_string(),
+                snapshot_name: Some("pre-deploy".to_string()),
+            })),
+        )
+        .add_step(
+            WorkflowStep::new(2, "restart-vm", Action::new(ActionType::RestartVM {
+                vm_name: "test-vm".to_string(),
+            })).depends_on(1),
+        );
+
+    assert_eq!(workflow.name, "deploy-workflow");
+    assert_eq!(workflow.step_count(), 2);
+
+    // Execute the workflow
+    let execution = WorkflowExecutor::execute(&workflow);
+    assert!(execution.completed_at.is_some());
+    assert_eq!(execution.step_results.len(), 2);
+}
+
+// ========== MIGRATION STRATEGY ==========
+
+#[test]
+fn test_migration_strategy_node_scoring() {
+    use zorvia::migration::strategy::{
+        MigrationStrategy, NodeInfo, NodeSelector, SelectionCriterion,
+    };
+
+    let selector = NodeSelector::new()
+        .add_criterion(SelectionCriterion::MinimumMemory(4 * 1024 * 1024 * 1024))
+        .add_criterion(SelectionCriterion::MinimumCPU(2000))
+        .add_criterion(SelectionCriterion::PreferLowLoad);
+
+    let strategy = MigrationStrategy::new(selector);
+
+    let nodes = vec![
+        NodeInfo::new("node-big")
+            .with_resources(32 * 1024 * 1024 * 1024, 16000)
+            .with_load(0.1),
+        NodeInfo::new("node-medium")
+            .with_resources(16 * 1024 * 1024 * 1024, 8000)
+            .with_load(0.5),
+        NodeInfo::new("node-small")
+            .with_resources(2 * 1024 * 1024 * 1024, 1000)
+            .with_load(0.1),
+        NodeInfo::new("node-busy")
+            .with_resources(16 * 1024 * 1024 * 1024, 8000)
+            .with_load(0.9),
+    ];
+
+    let target = strategy.select_target(&nodes);
+    assert!(target.is_some());
+    // node-big has most resources and lowest load
+    assert_eq!(target.unwrap(), "node-big");
+
+    let ranked = strategy.rank_nodes(&nodes);
+    // node-small should be excluded (insufficient resources)
+    assert!(!ranked.iter().any(|(name, _)| name == "node-small"));
+    // All others should be present
+    assert_eq!(ranked.len(), 3);
+    // First should be highest score (node-big: low load, high resources)
+    assert_eq!(ranked[0].0, "node-big");
+}
+
+// ========== OBSERVABILITY METRICS ==========
+
+#[test]
+fn test_vm_metrics_collection_and_aggregation() {
+    use zorvia::observability::metrics::{
+        Metric, MetricAggregator, MetricCollector, MetricType,
+    };
+
+    // Create and record metrics
+    let mut collector = MetricCollector::new();
+    collector.gauge("cpu_usage", 45.0);
+    collector.gauge("memory_usage", 72.5);
+    collector.counter("requests_total", 1500.0);
+    collector.histogram("request_latency", 0.25);
+
+    let metrics = collector.get_metrics();
+    assert_eq!(metrics.len(), 4);
+
+    let cpu = metrics.iter().find(|m| m.name == "cpu_usage").unwrap();
+    assert_eq!(cpu.metric_type, MetricType::Gauge);
+    assert!((cpu.value - 45.0).abs() < 0.01);
+
+    let mem = metrics.iter().find(|m| m.name == "memory_usage").unwrap();
+    assert!((mem.value - 72.5).abs() < 0.01);
+
+    // Aggregation
+    let values = vec![
+        Metric::new("test", MetricType::Gauge, 10.0),
+        Metric::new("test", MetricType::Gauge, 20.0),
+        Metric::new("test", MetricType::Gauge, 30.0),
+        Metric::new("test", MetricType::Gauge, 40.0),
+        Metric::new("test", MetricType::Gauge, 50.0),
+    ];
+
+    let avg = MetricAggregator::average(&values);
+    assert!((avg - 30.0).abs() < 0.01);
+
+    let max = MetricAggregator::max(&values).unwrap();
+    assert!((max - 50.0).abs() < 0.01);
+
+    let min = MetricAggregator::min(&values).unwrap();
+    assert!((min - 10.0).abs() < 0.01);
+
+    let sum = MetricAggregator::sum(&values);
+    assert!((sum - 150.0).abs() < 0.01);
+}

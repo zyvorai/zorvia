@@ -37,6 +37,12 @@ pub mod security;
 pub mod servicemesh;
 pub mod snapshots;
 
+// Convenience re-exports for public API
+pub use config::{VMConfig, VMConfigBuilder};
+pub use kube::converter::vm_config_to_kubevirt;
+pub use output::{format_output, to_json, to_yaml, OutputFormat};
+pub use utils::{format_bytes, generate_id, percent_to_u8, ZorviaError};
+
 use anyhow::Result;
 use cli::{Cli, Commands};
 use config::AppConfig;

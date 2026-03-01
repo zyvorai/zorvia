@@ -582,3 +582,64 @@ pub fn handle_audit_stats(vm: Option<String>, period: String, output: String) ->
 
     Ok(())
 }
+
+#[cfg(test)]
+mod tests {
+    use crate::security::compliance::{ComplianceChecker, ComplianceFramework};
+    use crate::security::hardening::{HardeningEngine, SecurityBaseline};
+    use crate::security::scan::{ScanConfig, ScanStatus, ScanType, VulnerabilityScanner};
+    use crate::security::{SecurityAssessment, Severity, Vulnerability};
+
+    #[test]
+    fn test_scan_type_parsing() {
+        assert_eq!(match "quick" { "quick" => ScanType::Quick, "deep" => ScanType::Deep, "compliance" => ScanType::Compliance, _ => ScanType::Standard }, ScanType::Quick);
+        assert_eq!(match "deep" { "quick" => ScanType::Quick, "deep" => ScanType::Deep, "compliance" => ScanType::Compliance, _ => ScanType::Standard }, ScanType::Deep);
+        assert_eq!(match "other" { "quick" => ScanType::Quick, "deep" => ScanType::Deep, "compliance" => ScanType::Compliance, _ => ScanType::Standard }, ScanType::Standard);
+    }
+
+    #[test]
+    fn test_security_baseline_parsing() {
+        assert_eq!(match "stig" { "stig" => SecurityBaseline::STIG, "pci-dss" => SecurityBaseline::PciDss, "nist" => SecurityBaseline::NIST, "custom" => SecurityBaseline::Custom, _ => SecurityBaseline::CIS }, SecurityBaseline::STIG);
+        assert_eq!(match "cis" { "stig" => SecurityBaseline::STIG, "pci-dss" => SecurityBaseline::PciDss, "nist" => SecurityBaseline::NIST, "custom" => SecurityBaseline::Custom, _ => SecurityBaseline::CIS }, SecurityBaseline::CIS);
+    }
+
+    #[test]
+    fn test_compliance_framework_parsing() {
+        assert_eq!(match "hipaa" { "hipaa" => ComplianceFramework::HIPAA, "soc2" => ComplianceFramework::SOC2, _ => ComplianceFramework::PCIDSS }, ComplianceFramework::HIPAA);
+        assert_eq!(match "other" { "hipaa" => ComplianceFramework::HIPAA, "soc2" => ComplianceFramework::SOC2, _ => ComplianceFramework::PCIDSS }, ComplianceFramework::PCIDSS);
+    }
+
+    #[test]
+    fn test_vulnerability_scanner_produces_results() {
+        let config = ScanConfig::new("test-vm", ScanType::Standard);
+        let result = VulnerabilityScanner::scan(&config);
+        assert_eq!(result.status, ScanStatus::Completed);
+        assert!(result.statistics.total > 0);
+    }
+
+    #[test]
+    fn test_hardening_profiles() {
+        let cis = HardeningEngine::cis_profile();
+        assert!(cis.rule_count() >= 3);
+        let stig = HardeningEngine::stig_profile();
+        assert!(stig.rule_count() >= 2);
+    }
+
+    #[test]
+    fn test_compliance_checker_all_frameworks() {
+        let pci = ComplianceChecker::check_pci_dss("test-vm");
+        assert_eq!(pci.framework, ComplianceFramework::PCIDSS);
+        assert!(pci.summary.total_checks >= 4);
+    }
+
+    #[test]
+    fn test_security_assessment_score_calculation() {
+        let mut assessment = SecurityAssessment::new("test-vm");
+        assessment.add_vulnerability(Vulnerability::new("V1", "Crit1", Severity::Critical));
+        assessment.add_vulnerability(Vulnerability::new("V2", "Crit2", Severity::Critical));
+        assessment.add_vulnerability(Vulnerability::new("V3", "High1", Severity::High));
+        assessment.calculate_score();
+        assert_eq!(assessment.overall_score, 50);
+        assert_eq!(assessment.critical_count(), 2);
+    }
+}

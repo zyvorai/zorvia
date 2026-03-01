@@ -64,7 +64,7 @@ impl VLANConfig {
     }
 
     pub fn is_valid_id(&self) -> bool {
-        self.id > 0 && self.id < 4095
+        self.id > 0 && self.id <= 4094
     }
 }
 

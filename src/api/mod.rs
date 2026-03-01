@@ -120,8 +120,8 @@ impl ApiConfig {
             tls_cert: None,
             tls_key: None,
             cors_enabled: true,
-            cors_origins: vec!["*".to_string()],
-            auth_enabled: false,
+            cors_origins: vec![],
+            auth_enabled: true,
             auth_method: AuthMethod::None,
             rate_limit: RateLimitConfig::default(),
             max_request_size: 10 * 1024 * 1024, // 10MB
@@ -551,7 +551,7 @@ mod tests {
         assert_eq!(config.host, "0.0.0.0");
         assert!(!config.tls_enabled);
         assert!(config.cors_enabled);
-        assert!(!config.auth_enabled);
+        assert!(config.auth_enabled);
     }
 
     #[test]

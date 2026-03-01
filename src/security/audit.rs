@@ -169,6 +169,7 @@ pub struct AuditLog {
     pub log_id: String,
     pub vm_name: Option<String>,
     pub events: Vec<AuditEvent>,
+    pub max_entries: usize,
     pub created_at: DateTime<Utc>,
     pub last_updated: DateTime<Utc>,
 }
@@ -180,12 +181,16 @@ impl AuditLog {
             log_id,
             vm_name,
             events: Vec::new(),
+            max_entries: 10_000,
             created_at: Utc::now(),
             last_updated: Utc::now(),
         }
     }
 
     pub fn add_event(&mut self, event: AuditEvent) {
+        if self.events.len() >= self.max_entries {
+            self.events.remove(0);
+        }
         self.events.push(event);
         self.last_updated = Utc::now();
     }

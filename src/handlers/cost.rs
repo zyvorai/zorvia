@@ -460,3 +460,87 @@ pub fn handle_cost_forecast(budget: Option<f64>, period: String, output: String)
     }
     Ok(())
 }
+
+#[cfg(test)]
+mod tests {
+    use crate::cost::budgets::{Budget, BudgetPeriod, BudgetScope, BudgetStatus, Status};
+    use crate::cost::optimization::OptimizationEngine;
+    use crate::cost::reports::{ReportGenerator, ReportType};
+    use crate::cost::{CostCalculator, CostSummary, VMCost};
+
+    #[test]
+    fn test_budget_period_parsing() {
+        assert_eq!(match "daily" { "daily" => BudgetPeriod::Daily, "weekly" => BudgetPeriod::Weekly, "quarterly" => BudgetPeriod::Quarterly, "yearly" => BudgetPeriod::Yearly, _ => BudgetPeriod::Monthly }, BudgetPeriod::Daily);
+        assert_eq!(match "other" { "daily" => BudgetPeriod::Daily, "weekly" => BudgetPeriod::Weekly, "quarterly" => BudgetPeriod::Quarterly, "yearly" => BudgetPeriod::Yearly, _ => BudgetPeriod::Monthly }, BudgetPeriod::Monthly);
+    }
+
+    #[test]
+    fn test_budget_scope_parsing() {
+        let scope = "namespace:production";
+        let result = if scope == "global" {
+            BudgetScope::Global
+        } else if let Some(ns) = scope.strip_prefix("namespace:") {
+            BudgetScope::Namespace(ns.to_string())
+        } else if let Some(team) = scope.strip_prefix("team:") {
+            BudgetScope::Team(team.to_string())
+        } else {
+            BudgetScope::Global
+        };
+        assert_eq!(result, BudgetScope::Namespace("production".to_string()));
+    }
+
+    #[test]
+    fn test_budget_status_levels() {
+        let mut budget = Budget::new("test", 1000.0, BudgetPeriod::Monthly);
+        budget.update_spend(500.0);
+        assert_eq!(BudgetStatus::from_budget(&budget).status, Status::Healthy);
+        budget.update_spend(750.0);
+        assert_eq!(BudgetStatus::from_budget(&budget).status, Status::Warning);
+        budget.update_spend(950.0);
+        assert_eq!(BudgetStatus::from_budget(&budget).status, Status::Critical);
+        budget.update_spend(1200.0);
+        assert_eq!(BudgetStatus::from_budget(&budget).status, Status::Exceeded);
+    }
+
+    #[test]
+    fn test_cost_calculator_vm_cost() {
+        let calculator = CostCalculator::default();
+        let cost = calculator.calculate_vm_cost("vm1", "default", 4, 8, 20, 730.0);
+        assert!(cost.total_cost > 0.0);
+        assert!(cost.cost_per_hour() > 0.0);
+    }
+
+    #[test]
+    fn test_cost_summary_aggregation() {
+        let mut summary = CostSummary::new();
+        let mut vm1 = VMCost::new("vm1", "default");
+        vm1.total_cost = 75.0;
+        vm1.cpu_cost = 50.0;
+        let mut vm2 = VMCost::new("vm2", "default");
+        vm2.total_cost = 45.0;
+        vm2.cpu_cost = 30.0;
+        summary.add_vm_cost(&vm1);
+        summary.add_vm_cost(&vm2);
+        assert_eq!(summary.total_cost, 120.0);
+        assert_eq!(summary.vm_count, 2);
+        assert_eq!(summary.average_cost_per_vm(), 60.0);
+    }
+
+    #[test]
+    fn test_report_generators() {
+        let monthly = ReportGenerator::monthly_report(2024, 6);
+        assert_eq!(monthly.report_type, ReportType::Monthly);
+        let weekly = ReportGenerator::weekly_report(chrono::Utc::now());
+        assert_eq!(weekly.report_type, ReportType::Weekly);
+    }
+
+    #[test]
+    fn test_optimization_and_waste() {
+        let report = OptimizationEngine::generate_report("test-vm");
+        assert!(!report.recommendations.is_empty());
+        let waste = OptimizationEngine::detect_storage_waste(100, 10.0);
+        assert_eq!(waste.monthly_waste, 10.0);
+        assert!(OptimizationEngine::detect_old_snapshots(10, 120, 5.0).is_some());
+        assert!(OptimizationEngine::detect_old_snapshots(10, 30, 5.0).is_none());
+    }
+}

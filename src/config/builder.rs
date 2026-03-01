@@ -123,6 +123,13 @@ impl VMConfigBuilder {
     pub fn build(self) -> VMConfig {
         self.config
     }
+
+    /// Build and validate the VMConfig, returning an error if validation fails
+    pub fn build_validated(self) -> anyhow::Result<VMConfig> {
+        let config = self.config;
+        super::validator::validate_vm_config(&config)?;
+        Ok(config)
+    }
 }
 
 #[cfg(test)]

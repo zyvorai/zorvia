@@ -1,5 +1,10 @@
 use super::types::*;
 use anyhow::{anyhow, Result};
+use once_cell::sync::Lazy;
+use regex::Regex;
+
+static MEMORY_SIZE_RE: Lazy<Regex> =
+    Lazy::new(|| Regex::new(r"^(\d+)(Mi|Gi|Ti|M|G|T)$").expect("invalid memory size regex"));
 
 /// Validates a VM configuration
 pub fn validate_vm_config(config: &VMConfig) -> Result<()> {
@@ -29,6 +34,14 @@ fn validate_name(name: &str) -> Result<()> {
     {
         return Err(anyhow!(
             "VM name must contain only lowercase alphanumeric characters, '-', or '.'"
+        ));
+    }
+
+    // Names must not start or end with a hyphen or dot
+    if name.starts_with('-') || name.starts_with('.') || name.ends_with('-') || name.ends_with('.')
+    {
+        return Err(anyhow!(
+            "VM name must not start or end with a hyphen or dot"
         ));
     }
 
@@ -74,10 +87,7 @@ fn validate_memory(memory: &MemoryConfig) -> Result<()> {
 }
 
 fn validate_memory_size(size: &str) -> Result<()> {
-    let re = regex::Regex::new(r"^(\d+)(Mi|Gi|Ti|M|G|T)$")
-        .expect("invalid memory size regex");
-
-    if !re.is_match(size) {
+    if !MEMORY_SIZE_RE.is_match(size) {
         return Err(anyhow!(
             "Invalid memory size format: '{}'. Expected format: <number>(Mi|Gi|Ti|M|G|T)",
             size
@@ -170,6 +180,11 @@ mod tests {
         assert!(validate_name("").is_err());
         assert!(validate_name("Invalid-Name").is_err());
         assert!(validate_name("invalid_name").is_err());
+        // Names must not start or end with hyphen or dot
+        assert!(validate_name("-leading-hyphen").is_err());
+        assert!(validate_name("trailing-hyphen-").is_err());
+        assert!(validate_name(".leading-dot").is_err());
+        assert!(validate_name("trailing-dot.").is_err());
     }
 
     #[test]

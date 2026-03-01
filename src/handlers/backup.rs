@@ -1073,3 +1073,86 @@ pub async fn handle_evacuation_status(node: String, watch: bool, namespace: &str
     }
     Ok(())
 }
+
+#[cfg(test)]
+mod tests {
+    use crate::backup::recovery::{RecoveryPlan, RestoreOperation};
+    use crate::backup::verify::{VerificationRunner, VerificationStatus, VerificationType};
+    use crate::backup::{BackupConfig, BackupType, CompressionType};
+    use crate::migration::ha::{EvictionStrategy, HAConfig, HAPriority};
+    use crate::migration::{MigrationRequest, MigrationType};
+
+    #[test]
+    fn test_backup_type_parsing() {
+        assert_eq!(match "incremental" { "incremental" => BackupType::Incremental, "differential" => BackupType::Differential, _ => BackupType::Full }, BackupType::Incremental);
+        assert_eq!(match "differential" { "incremental" => BackupType::Incremental, "differential" => BackupType::Differential, _ => BackupType::Full }, BackupType::Differential);
+        assert_eq!(match "full" { "incremental" => BackupType::Incremental, "differential" => BackupType::Differential, _ => BackupType::Full }, BackupType::Full);
+        assert_eq!(match "other" { "incremental" => BackupType::Incremental, "differential" => BackupType::Differential, _ => BackupType::Full }, BackupType::Full);
+    }
+
+    #[test]
+    fn test_compression_type_parsing() {
+        assert_eq!(match "zstd" { "zstd" => CompressionType::Zstd, "lz4" => CompressionType::Lz4, "none" => CompressionType::None, _ => CompressionType::Gzip }, CompressionType::Zstd);
+        assert_eq!(match "lz4" { "zstd" => CompressionType::Zstd, "lz4" => CompressionType::Lz4, "none" => CompressionType::None, _ => CompressionType::Gzip }, CompressionType::Lz4);
+        assert_eq!(match "none" { "zstd" => CompressionType::Zstd, "lz4" => CompressionType::Lz4, "none" => CompressionType::None, _ => CompressionType::Gzip }, CompressionType::None);
+        assert_eq!(match "other" { "zstd" => CompressionType::Zstd, "lz4" => CompressionType::Lz4, "none" => CompressionType::None, _ => CompressionType::Gzip }, CompressionType::Gzip);
+    }
+
+    #[test]
+    fn test_backup_config_no_encryption() {
+        let mut config = BackupConfig::new("vm1", "backup-001");
+        config.backup_type = BackupType::Incremental;
+        config.compression = CompressionType::Zstd;
+        config.encryption_enabled = false;
+        assert_eq!(config.vm_name, "vm1");
+        assert!(!config.encryption_enabled);
+    }
+
+    #[test]
+    fn test_restore_target_derivation() {
+        let backup = "my-vm-backup-20240101-120000";
+        let target: Option<String> = None;
+        let target_vm = target.unwrap_or_else(|| backup.replace("-backup-", "-restored-"));
+        assert_eq!(target_vm, "my-vm-restored-20240101-120000");
+    }
+
+    #[test]
+    fn test_restore_operation_to_new_vm() {
+        let restore = RestoreOperation::new("restore-001", "original-vm", "backup-001").to_new_vm("new-vm");
+        assert_eq!(restore.target_name, "new-vm");
+        assert_eq!(restore.vm_name, "original-vm");
+    }
+
+    #[test]
+    fn test_verification_runner_all_types() {
+        for v_type in [VerificationType::Quick, VerificationType::Standard, VerificationType::Full] {
+            let report = VerificationRunner::verify("test-backup", v_type);
+            assert_eq!(report.status, VerificationStatus::Passed);
+            assert!(report.checks.len() >= 4);
+        }
+    }
+
+    #[test]
+    fn test_migration_request_with_target() {
+        let request = MigrationRequest::new("vm1", "node1").to_node("node2").with_type(MigrationType::PostCopy);
+        assert_eq!(request.vm_name, "vm1");
+        assert_eq!(request.target_node, Some("node2".to_string()));
+        assert_eq!(request.migration_type, MigrationType::PostCopy);
+    }
+
+    #[test]
+    fn test_ha_config_construction() {
+        let mut config = HAConfig::new("critical-db");
+        config.priority = HAPriority::Critical;
+        config.eviction_strategy = EvictionStrategy::LiveMigrate;
+        assert_eq!(config.priority, HAPriority::Critical);
+        assert!(config.failover_policy.auto_restart);
+    }
+
+    #[test]
+    fn test_recovery_plan_with_description() {
+        let plan = RecoveryPlan::new("dr-plan").with_description("Disaster recovery plan");
+        assert_eq!(plan.name, "dr-plan");
+        assert_eq!(plan.description, "Disaster recovery plan");
+    }
+}

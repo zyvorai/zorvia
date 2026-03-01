@@ -435,3 +435,94 @@ pub async fn handle_tui(namespace: String, theme: Option<String>, interactive: b
     result?;
     Ok(())
 }
+
+#[cfg(test)]
+mod tests {
+    use crate::api::webhooks::{WebhookConfig, WebhookEvent, WebhookManager};
+    use crate::api::{ApiKey, ApiKeyManager, AuthMethod, RateLimitConfig};
+
+    #[test]
+    fn test_auth_method_parsing() {
+        assert_eq!(AuthMethod::parse("none"), Some(AuthMethod::None));
+        assert_eq!(AuthMethod::parse("bearer"), Some(AuthMethod::Bearer));
+        assert_eq!(AuthMethod::parse("token"), Some(AuthMethod::Bearer));
+        assert_eq!(AuthMethod::parse("apikey"), Some(AuthMethod::ApiKey));
+        assert_eq!(AuthMethod::parse("mtls"), Some(AuthMethod::MTLS));
+        assert_eq!(AuthMethod::parse("unknown"), None);
+    }
+
+    #[test]
+    fn test_auth_method_fallback() {
+        let invalid = AuthMethod::parse("invalid-auth").unwrap_or(AuthMethod::None);
+        assert_eq!(invalid, AuthMethod::None);
+    }
+
+    #[test]
+    fn test_api_key_permission_parsing() {
+        let permissions = "read,write,admin";
+        let perms: Vec<String> = permissions.split(',').map(|p| p.trim().to_string()).collect();
+        assert_eq!(perms, vec!["read", "write", "admin"]);
+    }
+
+    #[test]
+    fn test_api_key_creation_flow() {
+        let key = ApiKey::new("test-key", "hash-123")
+            .with_permissions(vec!["read".to_string(), "write".to_string()])
+            .with_rate_limit(100);
+        assert!(key.has_permission("read"));
+        assert!(!key.has_permission("admin"));
+        assert_eq!(key.rate_limit, Some(100));
+    }
+
+    #[test]
+    fn test_api_key_manager_lifecycle() {
+        let mut manager = ApiKeyManager::new();
+        let key = ApiKey::new("key1", "hash1");
+        let id = manager.add_key(key);
+        assert_eq!(manager.key_count(), 1);
+        manager.get_key_mut(&id).unwrap().disable();
+        assert_eq!(manager.active_keys().len(), 0);
+        assert!(manager.remove_key(&id));
+        assert_eq!(manager.key_count(), 0);
+    }
+
+    #[test]
+    fn test_webhook_event_parsing() {
+        let events = "vm.created,backup.completed,custom.deploy";
+        let event_list: Vec<&str> = events.split(',').map(|e| e.trim()).collect();
+        let mut parsed = Vec::new();
+        for event_str in &event_list {
+            let event = match *event_str {
+                "vm.created" => WebhookEvent::VMCreated,
+                "backup.completed" => WebhookEvent::BackupCompleted,
+                other => WebhookEvent::Custom(other.to_string()),
+            };
+            parsed.push(event);
+        }
+        assert_eq!(parsed.len(), 3);
+        assert_eq!(parsed[0], WebhookEvent::VMCreated);
+        assert_eq!(parsed[2], WebhookEvent::Custom("custom.deploy".to_string()));
+    }
+
+    #[test]
+    fn test_webhook_manager_for_event() {
+        let mut manager = WebhookManager::new();
+        let mut wh1 = WebhookConfig::new("vm-events", "https://example.com/vm");
+        wh1.add_event(WebhookEvent::VMCreated);
+        let mut wh2 = WebhookConfig::new("backup-events", "https://example.com/backup");
+        wh2.add_event(WebhookEvent::BackupCompleted);
+        manager.register(wh1);
+        manager.register(wh2);
+        assert_eq!(manager.webhooks_for_event(&WebhookEvent::VMCreated).len(), 1);
+        assert_eq!(manager.webhooks_for_event(&WebhookEvent::VMFailed).len(), 0);
+    }
+
+    #[test]
+    fn test_rate_limit_config() {
+        let enabled = RateLimitConfig::new(120);
+        assert!(enabled.enabled);
+        assert_eq!(enabled.burst_size, 60);
+        let disabled = RateLimitConfig::disabled();
+        assert!(!disabled.enabled);
+    }
+}

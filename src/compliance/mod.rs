@@ -60,27 +60,7 @@ impl std::fmt::Display for ComplianceStatus {
     }
 }
 
-/// Severity level for compliance violations
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-pub enum Severity {
-    Critical,
-    High,
-    Medium,
-    Low,
-    Info,
-}
-
-impl std::fmt::Display for Severity {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            Severity::Critical => write!(f, "Critical"),
-            Severity::High => write!(f, "High"),
-            Severity::Medium => write!(f, "Medium"),
-            Severity::Low => write!(f, "Low"),
-            Severity::Info => write!(f, "Info"),
-        }
-    }
-}
+pub use crate::security::Severity;
 
 /// Compliance requirement
 #[derive(Debug, Clone, Serialize, Deserialize)]
