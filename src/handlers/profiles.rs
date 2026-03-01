@@ -706,32 +706,50 @@ pub async fn handle_health(target: String, detailed: bool, namespace: String) ->
         let client = kube::KubeClient::new().await?;
         let vm = client.get_vm(&namespace, &target).await?;
 
-        // Convert to VMConfig (simplified)
-        let cpu_cores = vm
-            .spec
-            .template
-            .spec
-            .domain
-            .cpu
-            .as_ref()
-            .and_then(|c| c.cores)
-            .unwrap_or(2);
-        let memory = vm
-            .spec
-            .template
-            .spec
-            .domain
+        // Convert running VM to VMConfig
+        let spec = &vm.spec.template.spec;
+        let domain = &spec.domain;
+
+        let cpu_cores = domain.cpu.as_ref().and_then(|c| c.cores).unwrap_or(2);
+        let cpu_sockets = domain.cpu.as_ref().and_then(|c| c.sockets).unwrap_or(1);
+        let cpu_threads = domain.cpu.as_ref().and_then(|c| c.threads).unwrap_or(1);
+        let memory = domain
             .memory
             .as_ref()
             .and_then(|m| m.guest.as_deref())
+            .or_else(|| {
+                domain
+                    .resources
+                    .requests
+                    .as_ref()
+                    .and_then(|r| r.get("memory"))
+                    .map(|s| s.as_str())
+            })
             .unwrap_or("4Gi")
             .to_string();
 
-        VMConfigBuilder::new(&target)
+        let mut builder = VMConfigBuilder::new(&target)
             .namespace(&namespace)
-            .cpu(cpu_cores, 1, 1)
-            .memory(&memory)
-            .build()
+            .cpu(cpu_cores, cpu_sockets, cpu_threads)
+            .memory(&memory);
+
+        // Extract disks from volumes
+        if let Some(ref volumes) = spec.volumes {
+            for (i, vol) in volumes.iter().enumerate() {
+                if let Some(ref empty) = vol.empty_disk {
+                    builder =
+                        builder.add_blank_disk(&vol.name, &empty.capacity, i as u32 + 1);
+                } else if let Some(ref container_disk) = vol.container_disk {
+                    builder = builder.add_container_disk(
+                        &vol.name,
+                        &container_disk.image,
+                        i as u32 + 1,
+                    );
+                }
+            }
+        }
+
+        builder.build()
     };
 
     let mut report = VMHealthReport::new(config.name.clone());

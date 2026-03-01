@@ -1,8 +1,116 @@
-use crate::config::{validate_vm_config, VMConfig, VMConfigBuilder};
+use crate::config::{validate_vm_config, InterfaceConfig, NetworkType, VMConfig, VMConfigBuilder};
+use crate::kube::types::VirtualMachine;
 use crate::output::{format_output, OutputFormat};
 use crate::templates::TEMPLATES;
 use crate::tui::colors::cli as color;
 use anyhow::{anyhow, Result};
+
+/// Convert a KubeVirt VirtualMachine to a VMConfig
+fn vm_to_config(vm: &VirtualMachine, namespace: &str) -> VMConfig {
+    let name = vm.metadata.name.clone().unwrap_or_default();
+    let spec = &vm.spec.template.spec;
+    let domain = &spec.domain;
+
+    let cpu_cores = domain.cpu.as_ref().and_then(|c| c.cores).unwrap_or(1);
+    let cpu_sockets = domain.cpu.as_ref().and_then(|c| c.sockets).unwrap_or(1);
+    let cpu_threads = domain.cpu.as_ref().and_then(|c| c.threads).unwrap_or(1);
+
+    let memory = domain
+        .memory
+        .as_ref()
+        .and_then(|m| m.guest.as_deref())
+        .or_else(|| {
+            domain
+                .resources
+                .requests
+                .as_ref()
+                .and_then(|r| r.get("memory"))
+                .map(|s| s.as_str())
+        })
+        .unwrap_or("2Gi")
+        .to_string();
+
+    let mut builder = VMConfigBuilder::new(&name)
+        .namespace(namespace)
+        .cpu(cpu_cores, cpu_sockets, cpu_threads)
+        .memory(&memory);
+
+    // Extract CPU model
+    if let Some(ref cpu) = domain.cpu {
+        if let Some(ref model) = cpu.model {
+            builder = builder.cpu_model(model);
+        }
+    }
+
+    // Extract disks from volumes
+    if let Some(ref volumes) = spec.volumes {
+        for (i, vol) in volumes.iter().enumerate() {
+            if let Some(ref container_disk) = vol.container_disk {
+                builder =
+                    builder.add_container_disk(&vol.name, &container_disk.image, i as u32 + 1);
+            } else if let Some(ref pvc) = vol.persistent_volume_claim {
+                builder = builder.add_disk(crate::config::DiskConfig {
+                    name: vol.name.clone(),
+                    size: "0".to_string(),
+                    storage_class: None,
+                    boot_order: i as u32 + 1,
+                    source: crate::config::DiskSource::PVC {
+                        name: pvc.claim_name.clone(),
+                    },
+                });
+            } else if let Some(ref empty) = vol.empty_disk {
+                builder = builder.add_blank_disk(&vol.name, &empty.capacity, i as u32 + 1);
+            } else if let Some(ref cloud_init) = vol.cloud_init_no_cloud {
+                if let Some(ref user_data) = cloud_init.user_data {
+                    builder = builder.cloud_init(user_data);
+                }
+            }
+        }
+    }
+
+    // Extract network interfaces
+    if let Some(ref devices) = domain.devices {
+        if let Some(ref ifaces) = devices.interfaces {
+            for iface in ifaces {
+                let network_type = if let Some(ref networks) = spec.networks {
+                    networks
+                        .iter()
+                        .find(|n| n.name == iface.name)
+                        .map(|n| {
+                            if let Some(ref multus) = n.multus {
+                                NetworkType::Multus {
+                                    name: multus.network_name.clone(),
+                                }
+                            } else if n.pod.is_some() {
+                                NetworkType::Pod
+                            } else {
+                                NetworkType::Bridge
+                            }
+                        })
+                        .unwrap_or(NetworkType::Pod)
+                } else {
+                    NetworkType::Pod
+                };
+
+                builder = builder.add_interface(InterfaceConfig {
+                    name: iface.name.clone(),
+                    network: iface.name.clone(),
+                    model: iface.model.clone().unwrap_or_else(|| "virtio".to_string()),
+                    network_type,
+                });
+            }
+        }
+    }
+
+    // Extract labels
+    if let Some(ref labels) = vm.metadata.labels {
+        for (k, v) in labels {
+            builder = builder.label(k, v);
+        }
+    }
+
+    builder.build()
+}
 
 fn load_or_create_config(
     name: &str,
@@ -585,9 +693,9 @@ pub async fn handle_export(
     let manifest = if kubevirt {
         output::to_yaml(&vm)?
     } else {
-        // Convert KubeVirt VM back to VMConfig would require reverse conversion
-        // For now, just export the KubeVirt format
-        output::to_yaml(&vm)?
+        // Convert KubeVirt VM to VMConfig format
+        let config = vm_to_config(&vm, namespace);
+        output::to_yaml(&config)?
     };
 
     if let Some(output_file) = output {
