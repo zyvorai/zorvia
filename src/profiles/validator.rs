@@ -7,11 +7,13 @@ use regex::Regex;
 
 // Compiled regex for validation
 static NAME_PATTERN: Lazy<Regex> =
-    Lazy::new(|| Regex::new(r"^[a-z0-9]([a-z0-9-]*[a-z0-9])?$").unwrap());
+    Lazy::new(|| Regex::new(r"^[a-z0-9]([a-z0-9-]*[a-z0-9])?$").expect("invalid name regex"));
 
-static MEMORY_PATTERN: Lazy<Regex> = Lazy::new(|| Regex::new(r"^\d+([KMGT]i|[KMGT])$").unwrap());
+static MEMORY_PATTERN: Lazy<Regex> =
+    Lazy::new(|| Regex::new(r"^\d+([KMGT]i|[KMGT])$").expect("invalid memory regex"));
 
-static DISK_PATTERN: Lazy<Regex> = Lazy::new(|| Regex::new(r"^\d+([KMGT]i|[KMGT])$").unwrap());
+static DISK_PATTERN: Lazy<Regex> =
+    Lazy::new(|| Regex::new(r"^\d+([KMGT]i|[KMGT])$").expect("invalid disk regex"));
 
 /// Reserved profile names that cannot be used for custom profiles
 const RESERVED_NAMES: &[&str] = &[

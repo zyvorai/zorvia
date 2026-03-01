@@ -538,13 +538,14 @@ impl InteractiveApp {
             .info(format!("Creating VM '{}'...", name));
 
         // Look up template
-        let template = crate::templates::TEMPLATES.get(template_name);
-        if template.is_none() {
-            self.notifications
-                .error(format!("Unknown template: {}", template_name));
-            return Ok(());
-        }
-        let mut config = template.unwrap();
+        let mut config = match crate::templates::TEMPLATES.get(template_name) {
+            Some(t) => t,
+            None => {
+                self.notifications
+                    .error(format!("Unknown template: {}", template_name));
+                return Ok(());
+            }
+        };
         config.name = name.to_string();
         config.namespace = self.state.namespace.clone();
 

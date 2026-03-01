@@ -771,7 +771,7 @@ pub async fn handle_batch(
     pb.set_style(
         ProgressStyle::default_bar()
             .template("[{elapsed_precise}] {bar:40.cyan/blue} {pos}/{len} {msg}")
-            .unwrap()
+            .expect("invalid progress bar template")
             .progress_chars("=>-"),
     );
 

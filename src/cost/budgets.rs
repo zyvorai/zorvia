@@ -185,25 +185,35 @@ impl BudgetStatus {
                 }
                 BudgetPeriod::Monthly => {
                     let now = Utc::now();
-                    let days_in_month = if now.month() == 12 { 31 } else {
-                        (chrono::NaiveDate::from_ymd_opt(now.year(), now.month() + 1, 1)
-                            .unwrap_or(chrono::NaiveDate::from_ymd_opt(now.year() + 1, 1, 1).unwrap())
-                            - chrono::NaiveDate::from_ymd_opt(now.year(), now.month(), 1).unwrap())
-                        .num_days()
+                    let next_month_start = if now.month() == 12 {
+                        chrono::NaiveDate::from_ymd_opt(now.year() + 1, 1, 1)
+                    } else {
+                        chrono::NaiveDate::from_ymd_opt(now.year(), now.month() + 1, 1)
                     };
-                    (days_in_month - now.day() as i64 + 1).max(0)
+                    match next_month_start {
+                        Some(end) => (end - now.date_naive()).num_days().max(0),
+                        None => 30,
+                    }
                 }
                 BudgetPeriod::Quarterly => {
                     let now = Utc::now();
                     let quarter_end_month = ((now.month() - 1) / 3 + 1) * 3 + 1;
-                    let (y, m) = if quarter_end_month > 12 { (now.year() + 1, 1) } else { (now.year(), quarter_end_month) };
-                    let end = chrono::NaiveDate::from_ymd_opt(y, m, 1).unwrap();
-                    (end - now.date_naive()).num_days().max(0)
+                    let (y, m) = if quarter_end_month > 12 {
+                        (now.year() + 1, 1)
+                    } else {
+                        (now.year(), quarter_end_month)
+                    };
+                    match chrono::NaiveDate::from_ymd_opt(y, m, 1) {
+                        Some(end) => (end - now.date_naive()).num_days().max(0),
+                        None => 90,
+                    }
                 }
                 BudgetPeriod::Yearly => {
                     let now = Utc::now();
-                    let year_end = chrono::NaiveDate::from_ymd_opt(now.year() + 1, 1, 1).unwrap();
-                    (year_end - now.date_naive()).num_days().max(0)
+                    match chrono::NaiveDate::from_ymd_opt(now.year() + 1, 1, 1) {
+                        Some(end) => (end - now.date_naive()).num_days().max(0),
+                        None => 365,
+                    }
                 }
             },
         }

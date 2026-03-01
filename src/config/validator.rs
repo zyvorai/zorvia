@@ -74,7 +74,8 @@ fn validate_memory(memory: &MemoryConfig) -> Result<()> {
 }
 
 fn validate_memory_size(size: &str) -> Result<()> {
-    let re = regex::Regex::new(r"^(\d+)(Mi|Gi|Ti|M|G|T)$").unwrap();
+    let re = regex::Regex::new(r"^(\d+)(Mi|Gi|Ti|M|G|T)$")
+        .expect("invalid memory size regex");
 
     if !re.is_match(size) {
         return Err(anyhow!(

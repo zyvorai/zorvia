@@ -166,8 +166,14 @@ pub fn resolve_deployment_order(vms: &[VMSpec]) -> Result<Vec<String>> {
     // Build graph
     for vm in vms {
         for dep in &vm.depends_on {
-            graph.get_mut(dep).unwrap().push(&vm.name);
-            *in_degree.get_mut(&vm.name).unwrap() += 1;
+            if let Some(edges) = graph.get_mut(dep) {
+                edges.push(&vm.name);
+            } else {
+                return Err(anyhow!("Unknown dependency '{}' in VM '{}'", dep, vm.name));
+            }
+            if let Some(deg) = in_degree.get_mut(&vm.name) {
+                *deg += 1;
+            }
         }
     }
 
@@ -185,10 +191,11 @@ pub fn resolve_deployment_order(vms: &[VMSpec]) -> Result<Vec<String>> {
 
         if let Some(neighbors) = graph.get(node) {
             for neighbor in neighbors {
-                let deg = in_degree.get_mut(neighbor).unwrap();
-                *deg -= 1;
-                if *deg == 0 {
-                    queue.push(neighbor);
+                if let Some(deg) = in_degree.get_mut(neighbor) {
+                    *deg -= 1;
+                    if *deg == 0 {
+                        queue.push(neighbor);
+                    }
                 }
             }
         }
