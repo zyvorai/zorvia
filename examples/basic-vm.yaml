@@ -1,3 +1,6 @@
+# Zorvia VM Configuration
+# This file uses Zorvia's simplified YAML format.
+# To convert to KubeVirt manifest: zorvia create --from-file basic-vm.yaml --output yaml --dry-run
 name: my-vm
 namespace: default
 cpu:

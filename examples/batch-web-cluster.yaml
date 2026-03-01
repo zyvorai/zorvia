@@ -1,3 +1,6 @@
+# Zorvia Batch Configuration
+# This file uses Zorvia's batch YAML format for creating multiple VMs.
+# Usage: zorvia batch batch-web-cluster.yaml
 # Batch configuration for creating a web server cluster
 namespace: production
 
