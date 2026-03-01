@@ -4,7 +4,22 @@ use anyhow::Result;
 use k8s_openapi::apimachinery::pkg::apis::meta::v1::ObjectMeta;
 use std::collections::BTreeMap;
 
-/// Convert VMConfig to KubeVirt VirtualMachine CRD
+/// Convert a [`VMConfig`] to a KubeVirt `VirtualMachine` custom resource.
+///
+/// ```
+/// use zorvia::{VMConfigBuilder, vm_config_to_kubevirt};
+///
+/// let config = VMConfigBuilder::new("my-vm")
+///     .namespace("default")
+///     .cpu(2, 1, 1)
+///     .memory("4Gi")
+///     .add_blank_disk("root", "20Gi", 1)
+///     .add_pod_network("eth0")
+///     .build();
+///
+/// let vm = vm_config_to_kubevirt(&config).unwrap();
+/// assert_eq!(vm.spec.running, Some(false));
+/// ```
 pub fn vm_config_to_kubevirt(config: &VMConfig) -> Result<VirtualMachine> {
     let mut labels: BTreeMap<String, String> = config.labels.clone().into_iter().collect();
     labels.insert("kubevirt.io/vm".to_string(), config.name.clone());

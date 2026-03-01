@@ -26,12 +26,24 @@ impl OutputFormat {
     }
 }
 
-/// Formats a VMConfig to YAML
+/// Serialize any value to YAML string.
+///
+/// ```
+/// use zorvia::to_yaml;
+/// let yaml = to_yaml(&vec!["hello", "world"]).unwrap();
+/// assert!(yaml.contains("hello"));
+/// ```
 pub fn to_yaml<T: Serialize>(value: &T) -> Result<String> {
     Ok(serde_yaml::to_string(value)?)
 }
 
-/// Formats a VMConfig to JSON
+/// Serialize any value to pretty-printed JSON string.
+///
+/// ```
+/// use zorvia::to_json;
+/// let json = to_json(&vec!["hello", "world"]).unwrap();
+/// assert!(json.contains("hello"));
+/// ```
 pub fn to_json<T: Serialize>(value: &T) -> Result<String> {
     Ok(serde_json::to_string_pretty(value)?)
 }

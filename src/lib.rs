@@ -1,3 +1,34 @@
+//! # Zorvia
+//!
+//! Craft VMs for KubeVirt with Rust power.
+//!
+//! Zorvia provides a CLI and library for managing KubeVirt virtual machines
+//! on Kubernetes clusters. It handles VM configuration, template management,
+//! snapshots, backups, monitoring, and more.
+//!
+//! ## Quick Start (Library Usage)
+//!
+//! ```
+//! use zorvia::{VMConfigBuilder, vm_config_to_kubevirt, to_yaml};
+//!
+//! // Build a VM configuration
+//! let config = VMConfigBuilder::new("web-server")
+//!     .namespace("production")
+//!     .cpu(4, 1, 1)
+//!     .memory("8Gi")
+//!     .add_blank_disk("rootdisk", "40Gi", 1)
+//!     .add_pod_network("eth0")
+//!     .label("app", "nginx")
+//!     .build();
+//!
+//! // Convert to KubeVirt manifest
+//! let vm = vm_config_to_kubevirt(&config).unwrap();
+//!
+//! // Serialize to YAML
+//! let yaml = to_yaml(&config).unwrap();
+//! assert!(yaml.contains("web-server"));
+//! ```
+
 pub mod cli;
 pub mod config;
 pub mod kube;
