@@ -11,6 +11,7 @@ pub struct VMStatus {
     pub cpu_cores: u32,
     pub memory: String,
     pub node: Option<String>,
+    pub ip_address: Option<String>,
     pub created_at: Option<String>,
     pub volumes: Vec<String>,
     pub networks: Vec<String>,
@@ -104,7 +105,7 @@ impl VMStatus {
             .metadata
             .creation_timestamp
             .as_ref()
-            .map(|ts| format!("{:?}", ts));
+            .map(|ts| ts.0.format("%Y-%m-%d %H:%M:%S UTC").to_string());
 
         Self {
             name,
@@ -115,11 +116,19 @@ impl VMStatus {
             cpu_cores,
             memory,
             node: None, // Would need VMI for this
+            ip_address: None,
             created_at,
             volumes,
             networks,
             conditions,
         }
+    }
+
+    /// Create a VMStatus from a VM with an optional IP address from VMI
+    pub fn from_vm_with_ip(vm: &VirtualMachine, ip: Option<String>) -> Self {
+        let mut status = Self::from_vm(vm);
+        status.ip_address = ip;
+        status
     }
 
     pub fn display(&self) {
@@ -149,6 +158,10 @@ impl VMStatus {
 
         if let Some(node) = &self.node {
             println!("  Node:       {}", node);
+        }
+
+        if let Some(ip) = &self.ip_address {
+            println!("  IP:         {}", ip);
         }
 
         println!();

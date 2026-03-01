@@ -31,7 +31,7 @@ pub enum SecretStatus {
 }
 
 /// Secret
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Clone, Serialize, Deserialize)]
 pub struct Secret {
     pub id: String,
     pub name: String,
@@ -44,6 +44,24 @@ pub struct Secret {
     pub updated_at: DateTime<Utc>,
     pub expires_at: Option<DateTime<Utc>>,
     pub last_accessed: Option<DateTime<Utc>>,
+}
+
+impl std::fmt::Debug for Secret {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("Secret")
+            .field("id", &self.id)
+            .field("name", &self.name)
+            .field("secret_type", &self.secret_type)
+            .field("encrypted_value", &"[REDACTED]")
+            .field("status", &self.status)
+            .field("version", &self.version)
+            .field("metadata", &self.metadata)
+            .field("created_at", &self.created_at)
+            .field("updated_at", &self.updated_at)
+            .field("expires_at", &self.expires_at)
+            .field("last_accessed", &self.last_accessed)
+            .finish()
+    }
 }
 
 impl Secret {

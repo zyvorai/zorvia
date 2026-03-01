@@ -1,6 +1,6 @@
 // Schedules - Scheduled automation tasks
 
-use chrono::{DateTime, Datelike, NaiveTime, Timelike, Utc, Weekday};
+use chrono::{DateTime, NaiveTime, Utc, Weekday};
 use serde::{Deserialize, Serialize};
 
 /// Scheduled task
@@ -135,10 +135,16 @@ impl Schedule {
                     None
                 }
             }
-            Schedule::Hourly { minute } => Some(self.next_hourly(from, *minute)),
-            Schedule::Daily { time } => Some(self.next_daily(from, time)),
-            Schedule::Weekly { weekday, time } => Some(self.next_weekly(from, *weekday, time)),
-            Schedule::Monthly { day, time } => Some(self.next_monthly(from, *day, time)),
+            Schedule::Hourly { minute } => {
+                Some(crate::utils::schedule::next_hourly(from, *minute))
+            }
+            Schedule::Daily { time } => Some(crate::utils::schedule::next_daily(from, time)),
+            Schedule::Weekly { weekday, time } => {
+                Some(crate::utils::schedule::next_weekly(from, *weekday, time))
+            }
+            Schedule::Monthly { day, time } => {
+                Some(crate::utils::schedule::next_monthly(from, *day, time))
+            }
             Schedule::Interval { seconds } => {
                 Some(from + chrono::Duration::seconds(*seconds as i64))
             }
@@ -147,65 +153,6 @@ impl Schedule {
             }
         }
     }
-
-    fn next_hourly(&self, from: DateTime<Utc>, minute: u32) -> DateTime<Utc> {
-        let naive = from.naive_utc();
-        let clamped = minute.min(59);
-        let mut next = naive.with_minute(clamped).unwrap_or(naive).and_utc();
-        if next <= from {
-            next += chrono::Duration::hours(1);
-        }
-        next
-    }
-
-    fn next_daily(&self, from: DateTime<Utc>, time: &NaiveTime) -> DateTime<Utc> {
-        let date = from.date_naive();
-        let mut next = date.and_time(*time).and_utc();
-        if next <= from {
-            next += chrono::Duration::days(1);
-        }
-        next
-    }
-
-    fn next_weekly(
-        &self,
-        from: DateTime<Utc>,
-        weekday: Weekday,
-        time: &NaiveTime,
-    ) -> DateTime<Utc> {
-        let mut next = from;
-        loop {
-            next += chrono::Duration::days(1);
-            if next.naive_utc().weekday() == weekday {
-                let date = next.date_naive();
-                next = date.and_time(*time).and_utc();
-                if next > from {
-                    break;
-                }
-            }
-        }
-        next
-    }
-
-    fn next_monthly(&self, from: DateTime<Utc>, day: u32, time: &NaiveTime) -> DateTime<Utc> {
-        let mut next = from;
-        loop {
-            next += chrono::Duration::days(1);
-            if next.naive_utc().day() == day {
-                let date = next.date_naive();
-                next = date.and_time(*time).and_utc();
-                if next > from {
-                    break;
-                }
-            }
-            // Safety: don't loop forever
-            if next > from + chrono::Duration::days(60) {
-                break;
-            }
-        }
-        next
-    }
-
 }
 
 /// Schedule manager
@@ -268,6 +215,7 @@ impl Default for ScheduleManager {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use chrono::Timelike;
 
     #[test]
     fn test_scheduled_task() {

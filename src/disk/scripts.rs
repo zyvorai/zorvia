@@ -12,16 +12,24 @@ pub enum FilesystemType {
     LVMXfs, // LVM with xfs
 }
 
+impl std::str::FromStr for FilesystemType {
+    type Err = String;
+
+    fn from_str(s: &str) -> std::result::Result<Self, Self::Err> {
+        match s.to_lowercase().as_str() {
+            "ext4" => Ok(FilesystemType::Ext4),
+            "xfs" => Ok(FilesystemType::Xfs),
+            "btrfs" => Ok(FilesystemType::Btrfs),
+            "lvm" | "lvm-ext4" => Ok(FilesystemType::LVM),
+            "lvm-xfs" => Ok(FilesystemType::LVMXfs),
+            _ => Err(format!("Unknown filesystem type: {}", s)),
+        }
+    }
+}
+
 impl FilesystemType {
     pub fn from_string(s: &str) -> Self {
-        match s.to_lowercase().as_str() {
-            "ext4" => FilesystemType::Ext4,
-            "xfs" => FilesystemType::Xfs,
-            "btrfs" => FilesystemType::Btrfs,
-            "lvm" | "lvm-ext4" => FilesystemType::LVM,
-            "lvm-xfs" => FilesystemType::LVMXfs,
-            _ => FilesystemType::Ext4, // Default
-        }
+        s.parse().unwrap_or(FilesystemType::Ext4)
     }
 
     pub fn as_str(&self) -> &str {

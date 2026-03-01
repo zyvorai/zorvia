@@ -397,7 +397,7 @@ pub fn handle_cost_waste(waste_type: Option<String>, min_waste: f64, output: Str
             println!(
                 "{:<20} {:<20} ${:<14.2} {}",
                 waste.vm_name,
-                format!("{:?}", waste.waste_type),
+                waste.waste_type.to_string(),
                 waste.monthly_waste,
                 waste.details
             );
@@ -426,7 +426,7 @@ pub fn handle_cost_forecast(budget: Option<f64>, period: String, output: String)
         color::value(&format!("${:.2}", forecast.projected_spend))
     );
     println!("  Confidence:       {}%", forecast.confidence as u8);
-    println!("  Method:           {:?}", forecast.forecast_method);
+    println!("  Method:           {}", forecast.forecast_method);
     println!();
 
     if let Some(budget_amount) = budget {

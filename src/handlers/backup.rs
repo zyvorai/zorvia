@@ -40,7 +40,7 @@ pub fn handle_backup_create(
     println!("  Backup Name:  {}", color::value(&backup_name));
     println!("  VM:           {}", vm);
     println!("  Type:         {}", config.backup_type.as_str());
-    println!("  Compression:  {:?}", config.compression);
+    println!("  Compression:  {}", config.compression);
     println!(
         "  Encryption:   {}",
         if config.encryption_enabled {
@@ -216,7 +216,7 @@ pub fn handle_backup_verify(name: String, verification_type: String) -> Result<(
 
     let report = VerificationRunner::verify(&name, v_type);
 
-    println!("  Verification Type:  {:?}", report.verification_type);
+    println!("  Verification Type:  {}", report.verification_type);
     println!(
         "  Status:             {}",
         match report.status {
@@ -813,7 +813,7 @@ pub fn handle_ha_config(
             color::muted("No")
         }
     );
-    println!("  Priority:           {:?}", config.priority);
+    println!("  Priority:           {}", config.priority);
     println!("  Eviction Strategy:  {}", config.eviction_strategy);
     println!(
         "  Auto Restart:       {}",

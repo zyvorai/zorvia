@@ -51,6 +51,17 @@ pub enum HAPriority {
     Low,
 }
 
+impl std::fmt::Display for HAPriority {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            HAPriority::Critical => write!(f, "Critical"),
+            HAPriority::High => write!(f, "High"),
+            HAPriority::Normal => write!(f, "Normal"),
+            HAPriority::Low => write!(f, "Low"),
+        }
+    }
+}
+
 impl HAPriority {
     pub fn as_u8(&self) -> u8 {
         match self {

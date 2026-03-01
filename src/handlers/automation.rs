@@ -50,10 +50,7 @@ pub fn handle_automation_list(enabled_only: bool, output: String) -> Result<()> 
             println!(
                 "{:<30} {:<15} {:<10} {}",
                 rule.name,
-                format!("{:?}", rule.trigger)
-                    .split_whitespace()
-                    .next()
-                    .unwrap_or("Unknown"),
+                &rule.trigger.to_string(),
                 status,
                 rule.execution_count
             );
@@ -100,7 +97,7 @@ pub fn handle_automation_create(
     }
 
     println!("  Name:        {}", color::value(&rule.name));
-    println!("  Trigger:     {:?}", rule.trigger);
+    println!("  Trigger:     {}", rule.trigger);
     println!(
         "  Status:      {}",
         if rule.enabled {
@@ -114,6 +111,7 @@ pub fn handle_automation_create(
         "{}",
         color::success("✓ Automation rule created successfully")
     );
+    println!("  {}", color::muted("Note: Automation rule is not persisted to storage"));
     Ok(())
 }
 
@@ -451,5 +449,6 @@ pub fn handle_schedule_create(
         "{}",
         color::success("✓ Scheduled task created successfully")
     );
+    println!("  {}", color::muted("Note: Configuration is not persisted to storage"));
     Ok(())
 }

@@ -244,10 +244,10 @@ impl AuditStatistics {
 
         // Count by type
         for event in &log.events {
-            let type_name = format!("{:?}", event.event_type);
+            let type_name = event.event_type.to_string();
             *stats.events_by_type.entry(type_name).or_insert(0) += 1;
 
-            let severity_name = format!("{:?}", event.severity);
+            let severity_name = event.severity.to_string();
             *stats.events_by_severity.entry(severity_name).or_insert(0) += 1;
         }
 

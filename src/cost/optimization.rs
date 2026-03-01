@@ -168,6 +168,18 @@ pub enum WasteType {
     ZombieResources,   // Resources from deleted VMs
 }
 
+impl std::fmt::Display for WasteType {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            WasteType::IdleVM => write!(f, "Idle VM"),
+            WasteType::OversizedVM => write!(f, "Oversized VM"),
+            WasteType::UnattachedStorage => write!(f, "Unattached Storage"),
+            WasteType::OldSnapshots => write!(f, "Old Snapshots"),
+            WasteType::ZombieResources => write!(f, "Zombie Resources"),
+        }
+    }
+}
+
 /// Waste severity
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, PartialOrd, Ord)]
 pub enum WasteSeverity {

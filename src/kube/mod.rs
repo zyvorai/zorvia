@@ -191,6 +191,41 @@ impl KubeClient {
         }
     }
 
+    /// Get the VirtualMachineInstance (running instance) for a VM
+    pub async fn get_vmi(&self, namespace: &str, name: &str) -> Result<VirtualMachineInstance> {
+        let vmis: Api<VirtualMachineInstance> = Api::namespaced(self.client.clone(), namespace);
+        let vmi = vmis.get(name).await?;
+        Ok(vmi)
+    }
+
+    /// Get the IP address of a running VM via its VMI
+    pub async fn get_vm_ip(&self, namespace: &str, name: &str) -> Result<Option<String>> {
+        match self.get_vmi(namespace, name).await {
+            Ok(vmi) => {
+                if let Some(status) = &vmi.status {
+                    // Return the first non-empty IP address found
+                    for iface in &status.interfaces {
+                        if let Some(ip) = &iface.ip_address {
+                            if !ip.is_empty() {
+                                return Ok(Some(ip.clone()));
+                            }
+                        }
+                    }
+                }
+                Ok(None)
+            }
+            Err(_) => Ok(None), // VMI doesn't exist (VM not running)
+        }
+    }
+
+    /// Get the node a VM is running on via its VMI
+    pub async fn get_vm_node(&self, namespace: &str, name: &str) -> Result<Option<String>> {
+        match self.get_vmi(namespace, name).await {
+            Ok(vmi) => Ok(vmi.status.and_then(|s| s.node_name)),
+            Err(_) => Ok(None),
+        }
+    }
+
     /// Create a PVC for a VM disk
     pub async fn create_pvc(
         &self,

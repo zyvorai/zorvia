@@ -354,6 +354,16 @@ pub enum ForecastMethod {
     MovingAverage,
 }
 
+impl std::fmt::Display for ForecastMethod {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            ForecastMethod::Linear => write!(f, "Linear"),
+            ForecastMethod::Weighted => write!(f, "Weighted"),
+            ForecastMethod::MovingAverage => write!(f, "Moving Average"),
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

@@ -82,6 +82,16 @@ pub enum VerificationType {
     Full,     // Complete restore test
 }
 
+impl std::fmt::Display for VerificationType {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            VerificationType::Quick => write!(f, "Quick"),
+            VerificationType::Standard => write!(f, "Standard"),
+            VerificationType::Full => write!(f, "Full"),
+        }
+    }
+}
+
 /// Verification status
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub enum VerificationStatus {

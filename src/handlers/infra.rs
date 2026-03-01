@@ -1222,12 +1222,9 @@ pub fn handle_network_traffic(
     vm: String,
     interface: Option<String>,
     period: String,
-    top: usize,
-    output: String,
+    _top: usize,
+    _output: String,
 ) -> Result<()> {
-    use crate::network::bandwidth::BandwidthMetrics;
-    use crate::network::traffic::{Protocol, TrafficAnalyzer, TrafficFlow};
-
     println!(
         "{}",
         color::header(&format!("Network Traffic Analysis: {}", vm))
@@ -1238,77 +1235,15 @@ pub fn handle_network_traffic(
     println!("  Period: {}", color::value(&period));
     println!();
 
-    let mut analyzer = TrafficAnalyzer::new(interface.unwrap_or_else(|| "eth0".to_string()));
-
-    // Add sample flows
-    let mut flow1 = TrafficFlow::new("10.244.0.5", "8.8.8.8", 45123, 443, Protocol::TCP);
-    flow1.bytes = 50_000_000;
-    flow1.packets = 35_000;
-    analyzer.add_flow(flow1);
-
-    let mut flow2 = TrafficFlow::new("10.244.0.5", "10.96.0.1", 54321, 53, Protocol::UDP);
-    flow2.bytes = 1_500_000;
-    flow2.packets = 1_200;
-    analyzer.add_flow(flow2);
-
-    let mut flow3 = TrafficFlow::new("10.244.0.5", "10.244.0.8", 8080, 80, Protocol::TCP);
-    flow3.bytes = 120_000_000;
-    flow3.packets = 85_000;
-    analyzer.add_flow(flow3);
-
-    let summary = analyzer.generate_summary(top);
-
-    if output == "json" {
-        let json = serde_json::to_string_pretty(&summary)?;
-        println!("{}", json);
-    } else if output == "yaml" {
-        let yaml = serde_yaml::to_string(&summary)?;
-        println!("{}", yaml);
-    } else {
-        println!("{}", color::header("Traffic Summary:"));
-        println!("  Total Flows:    {}", summary.total_flows);
-        println!("  Active Flows:   {}", summary.active_flows);
-        println!(
-            "  Total Bytes:    {}",
-            BandwidthMetrics::format_bytes(summary.total_bytes)
-        );
-        println!("  Total Packets:  {}", summary.total_packets);
-
-        println!();
-        println!("{}", color::header("Protocol Breakdown:"));
-        for (proto, stats) in &summary.protocol_breakdown {
-            let percentage = summary.protocol_percent(proto);
-            println!(
-                "  {:<8} {:<12} ({:.1}%)",
-                proto,
-                BandwidthMetrics::format_bytes(stats.bytes),
-                percentage
-            );
-        }
-
-        if !summary.top_talkers.is_empty() {
-            println!();
-            println!("{}", color::header(&format!("Top {} Talkers:", top)));
-            println!(
-                "{:<18} {:<15} {:<15} {:<15}",
-                color::label("IP ADDRESS"),
-                color::label("SENT"),
-                color::label("RECEIVED"),
-                color::label("TOTAL")
-            );
-            println!("{}", "-".repeat(70));
-
-            for talker in &summary.top_talkers {
-                println!(
-                    "{:<18} {:<15} {:<15} {:<15}",
-                    talker.ip_address,
-                    BandwidthMetrics::format_bytes(talker.bytes_sent),
-                    BandwidthMetrics::format_bytes(talker.bytes_received),
-                    BandwidthMetrics::format_bytes(talker.total_bytes)
-                );
-            }
-        }
-    }
+    // Real traffic flow analysis requires Prometheus or guest agent integration.
+    // No live network metrics are available without a monitoring backend.
+    println!(
+        "{}",
+        color::info("Network metrics require Prometheus or guest agent integration")
+    );
+    println!("  Configure with: zorvia config set monitoring.prometheus-url <url>");
+    println!();
+    println!("  {}", color::muted("No network traffic data available"));
     Ok(())
 }
 

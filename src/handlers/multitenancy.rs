@@ -124,6 +124,7 @@ pub fn handle_users_create(
     println!("  Email:    {}", user.email);
     println!();
     println!("{}", color::success("✓ User created successfully"));
+    println!("  {}", color::muted("Note: Configuration is not persisted to storage"));
     Ok(())
 }
 
@@ -208,6 +209,7 @@ pub fn handle_roles_create(
     println!("  Permissions: {}", permissions);
     println!();
     println!("{}", color::success("✓ Role created successfully"));
+    println!("  {}", color::muted("Note: Configuration is not persisted to storage"));
     Ok(())
 }
 
@@ -311,6 +313,7 @@ pub fn handle_groups_create(
     println!("  Name: {}", color::value(&group.name));
     println!();
     println!("{}", color::success("✓ Group created successfully"));
+    println!("  {}", color::muted("Note: Configuration is not persisted to storage"));
     Ok(())
 }
 
@@ -322,5 +325,6 @@ pub fn handle_groups_add_user(group: String, user: String) -> Result<()> {
     println!("  User:  {}", color::value(&user));
     println!();
     println!("{}", color::success("✓ User added to group"));
+    println!("  {}", color::muted("Note: Configuration is not persisted to storage"));
     Ok(())
 }

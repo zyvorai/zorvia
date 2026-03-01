@@ -101,6 +101,17 @@ pub enum CompressionType {
     Lz4,
 }
 
+impl std::fmt::Display for CompressionType {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            CompressionType::None => write!(f, "None"),
+            CompressionType::Gzip => write!(f, "Gzip"),
+            CompressionType::Zstd => write!(f, "Zstd"),
+            CompressionType::Lz4 => write!(f, "Lz4"),
+        }
+    }
+}
+
 impl CompressionType {
     pub fn extension(&self) -> &str {
         match self {

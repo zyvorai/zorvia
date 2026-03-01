@@ -299,8 +299,8 @@ impl ReportGenerator {
         previous_report: &CostReport,
     ) -> CostComparison {
         CostComparison::new(
-            format!("{:?}", current_report.report_type),
-            format!("{:?}", previous_report.report_type),
+            current_report.report_type.to_string(),
+            previous_report.report_type.to_string(),
             current_report.summary.total_cost,
             previous_report.summary.total_cost,
         )

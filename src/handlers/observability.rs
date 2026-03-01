@@ -199,6 +199,7 @@ pub fn handle_alerts_create(
     println!("  Duration:  {} minutes", duration);
     println!();
     println!("{}", color::success("✓ Alert rule created"));
+    println!("  {}", color::muted("Note: Configuration is not persisted to storage"));
     Ok(())
 }
 

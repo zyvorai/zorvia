@@ -38,7 +38,7 @@ impl ProviderCredentials {
         credential_type: CredentialType,
         region: impl Into<String>,
     ) -> Self {
-        let id = format!("cred-{:?}-{}", provider, Utc::now().timestamp_micros());
+        let id = format!("cred-{}-{}", provider, Utc::now().timestamp_micros());
 
         Self {
             id,

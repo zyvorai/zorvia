@@ -47,19 +47,19 @@ fn vm_to_config(vm: &VirtualMachine, namespace: &str) -> VMConfig {
         for (i, vol) in volumes.iter().enumerate() {
             if let Some(ref container_disk) = vol.container_disk {
                 builder =
-                    builder.add_container_disk(&vol.name, &container_disk.image, i as u32 + 1);
+                    builder.add_container_disk(&vol.name, &container_disk.image, (i as u32).saturating_add(1));
             } else if let Some(ref pvc) = vol.persistent_volume_claim {
                 builder = builder.add_disk(crate::config::DiskConfig {
                     name: vol.name.clone(),
                     size: "0".to_string(),
                     storage_class: None,
-                    boot_order: i as u32 + 1,
+                    boot_order: (i as u32).saturating_add(1),
                     source: crate::config::DiskSource::PVC {
                         name: pvc.claim_name.clone(),
                     },
                 });
             } else if let Some(ref empty) = vol.empty_disk {
-                builder = builder.add_blank_disk(&vol.name, &empty.capacity, i as u32 + 1);
+                builder = builder.add_blank_disk(&vol.name, &empty.capacity, (i as u32).saturating_add(1));
             } else if let Some(ref cloud_init) = vol.cloud_init_no_cloud {
                 if let Some(ref user_data) = cloud_init.user_data {
                     builder = builder.cloud_init(user_data);
@@ -217,22 +217,11 @@ pub async fn handle_create(
                     );
                 }
                 Err(e) => {
-                    eprintln!("{}", color::error(&format!("Failed to create VM: {}", e)));
-                    std::process::exit(1);
+                    return Err(anyhow!("Failed to create VM: {}", e));
                 }
             },
             Err(e) => {
-                eprintln!(
-                    "{}",
-                    color::error(&format!("Failed to connect to Kubernetes: {}", e))
-                );
-                eprintln!(
-                    "  {}",
-                    color::muted(
-                        "Make sure kubectl is configured and you have access to the cluster"
-                    )
-                );
-                std::process::exit(1);
+                return Err(anyhow!("Failed to connect to Kubernetes: {}", e));
             }
         }
     }
@@ -959,7 +948,7 @@ pub async fn handle_batch(
     );
 
     if error_count > 0 && !continue_on_error {
-        std::process::exit(1);
+        return Err(anyhow!("Batch creation had {} error(s)", error_count));
     }
     Ok(())
 }

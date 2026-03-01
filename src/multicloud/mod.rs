@@ -20,6 +20,20 @@ pub enum CloudProvider {
     Custom(String),
 }
 
+impl std::fmt::Display for CloudProvider {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            CloudProvider::AWS => write!(f, "AWS"),
+            CloudProvider::Azure => write!(f, "Azure"),
+            CloudProvider::GCP => write!(f, "GCP"),
+            CloudProvider::VMware => write!(f, "VMware"),
+            CloudProvider::OpenStack => write!(f, "OpenStack"),
+            CloudProvider::KubeVirt => write!(f, "KubeVirt"),
+            CloudProvider::Custom(name) => write!(f, "{}", name),
+        }
+    }
+}
+
 /// Cloud region
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CloudRegion {

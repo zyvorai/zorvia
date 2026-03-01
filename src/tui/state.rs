@@ -134,6 +134,15 @@ impl VmInfo {
             node,
         }
     }
+
+    /// Create a VmInfo from a VM with an IP address resolved from the VMI
+    pub fn from_vm_with_ip(vm: &crate::kube::types::VirtualMachine, ip: Option<String>) -> Self {
+        let mut info = Self::from_vm(vm);
+        if let Some(ip_addr) = ip {
+            info.ip = ip_addr;
+        }
+        info
+    }
 }
 
 /// Snapshot information for display
@@ -225,7 +234,16 @@ impl AppState {
         let client = KubeClient::new().await?;
         let vm_list = client.list_vms(&self.namespace).await?;
 
-        self.vms = vm_list.into_iter().map(|vm| VmInfo::from_vm(&vm)).collect();
+        let mut vm_infos = Vec::with_capacity(vm_list.len());
+        for vm in &vm_list {
+            let vm_name = vm.metadata.name.clone().unwrap_or_default();
+            let ip = client
+                .get_vm_ip(&self.namespace, &vm_name)
+                .await
+                .unwrap_or(None);
+            vm_infos.push(VmInfo::from_vm_with_ip(vm, ip));
+        }
+        self.vms = vm_infos;
 
         self.last_refresh = Utc::now();
 
