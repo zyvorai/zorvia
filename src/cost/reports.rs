@@ -263,17 +263,18 @@ pub struct ReportGenerator;
 impl ReportGenerator {
     /// Generate monthly cost report
     pub fn monthly_report(year: i32, month: u32) -> CostReport {
-        let start_date = chrono::NaiveDate::from_ymd_opt(year, month, 1)
-            .expect("invalid year/month for report");
-        let start = start_date.and_hms_opt(0, 0, 0).expect("midnight").and_utc();
+        let clamped_month = month.clamp(1, 12);
+        let start_date = chrono::NaiveDate::from_ymd_opt(year, clamped_month, 1)
+            .unwrap_or(chrono::NaiveDate::from_ymd_opt(year, 1, 1).unwrap());
+        let start = start_date.and_hms_opt(0, 0, 0).unwrap().and_utc();
 
-        let end_date = if month == 12 {
+        let end_date = if clamped_month == 12 {
             chrono::NaiveDate::from_ymd_opt(year + 1, 1, 1)
         } else {
-            chrono::NaiveDate::from_ymd_opt(year, month + 1, 1)
+            chrono::NaiveDate::from_ymd_opt(year, clamped_month + 1, 1)
         }
-        .expect("invalid end date for report");
-        let end = end_date.and_hms_opt(0, 0, 0).expect("midnight").and_utc();
+        .unwrap_or(start_date + chrono::Duration::days(30));
+        let end = end_date.and_hms_opt(0, 0, 0).unwrap().and_utc();
 
         CostReport::new(ReportType::Monthly, start, end)
     }

@@ -100,21 +100,24 @@ impl Schedule {
 
     pub fn daily(hour: u32, minute: u32) -> Self {
         Schedule::Daily {
-            time: NaiveTime::from_hms_opt(hour, minute, 0).expect("invalid hour/minute"),
+            time: NaiveTime::from_hms_opt(hour.min(23), minute.min(59), 0)
+                .unwrap_or(NaiveTime::from_hms_opt(0, 0, 0).unwrap()),
         }
     }
 
     pub fn weekly(weekday: Weekday, hour: u32, minute: u32) -> Self {
         Schedule::Weekly {
             weekday,
-            time: NaiveTime::from_hms_opt(hour, minute, 0).expect("invalid hour/minute"),
+            time: NaiveTime::from_hms_opt(hour.min(23), minute.min(59), 0)
+                .unwrap_or(NaiveTime::from_hms_opt(0, 0, 0).unwrap()),
         }
     }
 
     pub fn monthly(day: u32, hour: u32, minute: u32) -> Self {
         Schedule::Monthly {
             day,
-            time: NaiveTime::from_hms_opt(hour, minute, 0).expect("invalid hour/minute"),
+            time: NaiveTime::from_hms_opt(hour.min(23), minute.min(59), 0)
+                .unwrap_or(NaiveTime::from_hms_opt(0, 0, 0).unwrap()),
         }
     }
 
@@ -147,10 +150,8 @@ impl Schedule {
 
     fn next_hourly(&self, from: DateTime<Utc>, minute: u32) -> DateTime<Utc> {
         let naive = from.naive_utc();
-        let mut next = naive
-            .with_minute(minute)
-            .expect("invalid minute value")
-            .and_utc();
+        let clamped = minute.min(59);
+        let mut next = naive.with_minute(clamped).unwrap_or(naive).and_utc();
         if next <= from {
             next += chrono::Duration::hours(1);
         }
