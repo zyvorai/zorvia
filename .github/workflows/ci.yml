@@ -70,6 +70,8 @@ jobs:
 
       - name: Run tests
         run: cargo test --verbose
+        env:
+          RUST_MIN_STACK: 8388608
 
   build:
     name: Build (${{ matrix.os }})
@@ -101,3 +103,14 @@ jobs:
         with:
           name: zorvia-${{ matrix.os }}
           path: target/release/zorvia
+
+  docker:
+    name: Docker Build
+    needs: [test]
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build Docker image
+        run: docker build -t zorvia:ci .
