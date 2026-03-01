@@ -72,25 +72,18 @@ impl NodeSelector {
     }
 
     fn matches_anti_affinity(&self, rule: &AntiAffinityRule, node: &NodeInfo) -> bool {
-        // Check if the node has VMs that match the anti-affinity selector labels.
-        // We use the node's labels to see if it matches the topology key,
-        // and check vm_count as a heuristic (nodes with existing VMs are more
-        // likely to have conflicting workloads).
         if rule.vm_selector.is_empty() {
             return false;
         }
 
-        // If the node has the topology key label, anti-affinity applies when
-        // there are already VMs on this node that could conflict
-        let has_topology = node.labels.contains_key(&rule.topology_key);
-
-        // For hostname-based anti-affinity, any VM on the same node conflicts
-        if rule.topology_key == "kubernetes.io/hostname" && has_topology && node.vm_count > 0 {
-            return true;
+        // For hostname-based anti-affinity, any existing VM on the same node conflicts
+        if rule.topology_key == "kubernetes.io/hostname" {
+            return node.vm_count > 0;
         }
 
-        // For zone/region-based anti-affinity, check if the node has the label
-        has_topology && node.vm_count > 0
+        // For zone/region-based topology, check if the node carries the topology
+        // label and already hosts VMs (which could conflict)
+        node.labels.contains_key(&rule.topology_key) && node.vm_count > 0
     }
 }
 

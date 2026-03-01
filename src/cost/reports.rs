@@ -319,7 +319,7 @@ pub enum ExportFormat {
 /// Report exporter
 /// Escape a field for CSV output: quote if it contains commas, quotes, or newlines.
 fn csv_escape(field: &str) -> String {
-    if field.contains(',') || field.contains('"') || field.contains('\n') {
+    if field.contains(',') || field.contains('"') || field.contains('\n') || field.contains('\r') {
         format!("\"{}\"", field.replace('"', "\"\""))
     } else {
         field.to_string()

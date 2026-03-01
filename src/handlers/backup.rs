@@ -100,11 +100,7 @@ pub async fn handle_backup_list(vm: Option<String>, output: String, namespace: &
         .map(|s| {
             let snap_name = s.metadata.name.clone().unwrap_or_default();
             let vm_name = s.spec.source.name.clone();
-            let mut b = BackupStatus::new(&vm_name, &snap_name);
-            // Estimate sizes from snapshot status
-            b.size_bytes = 10_000_000_000; // Default estimate
-            b.compressed_size_bytes = 5_000_000_000;
-            b
+            BackupStatus::new(&vm_name, &snap_name)
         })
         .collect();
 
@@ -862,7 +858,7 @@ pub async fn handle_evacuate_node(
         println!("  Force:        {}", if force { "Yes" } else { "No" });
         println!();
 
-        // Query real VMs on this node from Kubernetes
+        // Query VMs running on this specific node from Kubernetes
         let vms: Vec<(String, u8)> =
             if let Ok(client) = crate::kube::KubeClient::new().await {
                 let all_vms = client.list_all_vms().await.unwrap_or_default();
@@ -870,7 +866,23 @@ pub async fn handle_evacuate_node(
                     .iter()
                     .filter_map(|vm| {
                         let name = vm.metadata.name.clone()?;
-                        // Default priority 50; could be read from annotations
+
+                        // Filter: only include VMs whose status mentions this node
+                        let on_target_node = vm
+                            .status
+                            .as_ref()
+                            .and_then(|s| s.conditions.as_ref())
+                            .map(|conds| {
+                                conds.iter().any(|c| {
+                                    c.message.as_deref().map(|m| m.contains(&node)).unwrap_or(false)
+                                })
+                            })
+                            .unwrap_or(false);
+
+                        if !on_target_node {
+                            return None;
+                        }
+
                         let priority = vm
                             .metadata
                             .annotations

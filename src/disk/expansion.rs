@@ -257,36 +257,29 @@ impl DiskExpansion {
         }
     }
 
-    /// Verify expansion completed
-    pub async fn verify_expansion(&self, _vm_name: &str, expected_size: &str) -> Result<bool> {
+    /// Verify expansion completed for a specific PVC
+    pub async fn verify_expansion(&self, pvc_name: &str, expected_size: &str) -> Result<bool> {
         let client = self.get_client().await?;
         let pvcs: Api<PersistentVolumeClaim> = Api::namespaced(client, &self.namespace);
 
-        // List PVCs and find one matching the expected size
-        let pvc_list = pvcs
-            .list(&kube::api::ListParams::default())
+        let pvc = pvcs
+            .get(pvc_name)
             .await
-            .context("Failed to list PVCs for expansion verification")?;
+            .with_context(|| format!("Failed to get PVC '{}' for verification", pvc_name))?;
 
         let expected_bytes = super::DiskInfo::parse_size(expected_size);
 
-        for pvc in &pvc_list.items {
-            if let Some(current_size) = pvc
-                .spec
-                .as_ref()
-                .and_then(|s| s.resources.as_ref())
-                .and_then(|r| r.requests.as_ref())
-                .and_then(|req| req.get("storage"))
-                .map(|q| q.0.as_str())
-            {
-                let current_bytes = super::DiskInfo::parse_size(current_size);
-                if current_bytes >= expected_bytes {
-                    return Ok(true);
-                }
-            }
-        }
+        let current_size = pvc
+            .spec
+            .as_ref()
+            .and_then(|s| s.resources.as_ref())
+            .and_then(|r| r.requests.as_ref())
+            .and_then(|req| req.get("storage"))
+            .map(|q| q.0.as_str())
+            .unwrap_or("0");
 
-        Ok(false)
+        let current_bytes = super::DiskInfo::parse_size(current_size);
+        Ok(current_bytes >= expected_bytes)
     }
 }
 
@@ -350,10 +343,11 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_resize_pvc() {
-        // This test requires a Kubernetes cluster; passes either way
+    async fn test_resize_pvc_without_cluster() {
+        // Without a K8s cluster, resize_pvc should fail with a client error
         let expansion = DiskExpansion::new("default");
         let result = expansion.resize_pvc("test-pvc", "50Gi").await;
-        assert!(result.is_ok() || result.is_err());
+        // Expect error when no cluster is available
+        assert!(result.is_err());
     }
 }

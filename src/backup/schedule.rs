@@ -154,16 +154,28 @@ impl BackupSchedule {
     }
 }
 
-/// Check if a cron field matches a value. Supports '*', 'N', and '*/N'.
+/// Check if a cron field matches a value. Supports '*', 'N', '*/N', 'N,N,...', and 'N-N'.
 fn cron_field_matches(field: &str, value: u32) -> bool {
     if field == "*" {
         return true;
     }
+    // Handle comma-separated values: "1,5,10"
+    if field.contains(',') {
+        return field.split(',').any(|f| cron_field_matches(f.trim(), value));
+    }
+    // Handle ranges: "1-5"
+    if let Some((start, end)) = field.split_once('-') {
+        if let (Ok(s), Ok(e)) = (start.trim().parse::<u32>(), end.trim().parse::<u32>()) {
+            return value >= s && value <= e;
+        }
+    }
+    // Handle step: "*/5"
     if let Some(step) = field.strip_prefix("*/") {
         if let Ok(s) = step.parse::<u32>() {
             return s > 0 && value % s == 0;
         }
     }
+    // Exact value
     if let Ok(n) = field.parse::<u32>() {
         return value == n;
     }

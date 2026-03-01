@@ -243,10 +243,18 @@ impl Schedule {
     }
 }
 
-/// Check if a cron field matches a value. Supports '*', 'N', and '*/N'.
+/// Check if a cron field matches a value. Supports '*', 'N', '*/N', 'N,N,...', and 'N-N'.
 fn cron_field_matches(field: &str, value: u32) -> bool {
     if field == "*" {
         return true;
+    }
+    if field.contains(',') {
+        return field.split(',').any(|f| cron_field_matches(f.trim(), value));
+    }
+    if let Some((start, end)) = field.split_once('-') {
+        if let (Ok(s), Ok(e)) = (start.trim().parse::<u32>(), end.trim().parse::<u32>()) {
+            return value >= s && value <= e;
+        }
     }
     if let Some(step) = field.strip_prefix("*/") {
         if let Ok(s) = step.parse::<u32>() {

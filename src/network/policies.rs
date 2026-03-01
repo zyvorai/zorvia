@@ -39,20 +39,20 @@ fn ip_matches_cidr(ip: &str, cidr: &str) -> bool {
 
 /// Parse an IPv4 address string to a u32.
 fn ip_to_u32(ip: &str) -> Option<u32> {
-    let octets: Vec<u8> = ip
-        .split('.')
-        .filter_map(|s| s.parse::<u8>().ok())
-        .collect();
-    if octets.len() == 4 {
-        Some(
-            (octets[0] as u32) << 24
-                | (octets[1] as u32) << 16
-                | (octets[2] as u32) << 8
-                | octets[3] as u32,
-        )
-    } else {
-        None
+    let parts: Vec<&str> = ip.split('.').collect();
+    if parts.len() != 4 {
+        return None;
     }
+    let octets: Vec<u8> = parts.iter().filter_map(|s| s.parse::<u8>().ok()).collect();
+    if octets.len() != 4 {
+        return None;
+    }
+    Some(
+        (octets[0] as u32) << 24
+            | (octets[1] as u32) << 16
+            | (octets[2] as u32) << 8
+            | octets[3] as u32,
+    )
 }
 
 /// Network policy for VM traffic control

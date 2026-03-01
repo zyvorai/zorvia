@@ -33,6 +33,14 @@ impl GitRepository {
     }
 
     pub fn clone(&mut self) -> Result<(), String> {
+        // Validate inputs to prevent git argument injection
+        if self.url.starts_with('-') {
+            return Err("Invalid repository URL".to_string());
+        }
+        if self.branch.starts_with('-') {
+            return Err("Invalid branch name".to_string());
+        }
+
         self.status = RepositoryStatus::Cloning;
 
         let output = std::process::Command::new("git")
@@ -40,6 +48,7 @@ impl GitRepository {
             .arg("--branch")
             .arg(&self.branch)
             .arg("--single-branch")
+            .arg("--")
             .arg(&self.url)
             .arg(&self.path)
             .output()
@@ -106,6 +115,7 @@ impl GitRepository {
                 .arg("-C")
                 .arg(&self.path)
                 .arg("checkout")
+                .arg("--")
                 .arg(&rev)
                 .output()
                 .map_err(|e| format!("Failed to execute git checkout: {}", e))?;
@@ -385,6 +395,18 @@ mod tests {
             return;
         }
 
+        // Configure git identity for the temp repo (required on CI)
+        let _ = std::process::Command::new("git")
+            .args(["-C"])
+            .arg(&tmp_src)
+            .args(["config", "user.email", "test@zorvia.dev"])
+            .output();
+        let _ = std::process::Command::new("git")
+            .args(["-C"])
+            .arg(&tmp_src)
+            .args(["config", "user.name", "zorvia-test"])
+            .output();
+
         // Create an initial commit so clone has something to fetch
         let _ = std::process::Command::new("git")
             .args(["-C"])
@@ -429,6 +451,17 @@ mod tests {
         if !init_ok {
             return;
         }
+
+        let _ = std::process::Command::new("git")
+            .args(["-C"])
+            .arg(&tmp_src)
+            .args(["config", "user.email", "test@zorvia.dev"])
+            .output();
+        let _ = std::process::Command::new("git")
+            .args(["-C"])
+            .arg(&tmp_src)
+            .args(["config", "user.name", "zorvia-test"])
+            .output();
 
         let _ = std::process::Command::new("git")
             .args(["-C"])

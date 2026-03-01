@@ -175,7 +175,10 @@ impl MetricsCollector {
         match self.create_metrics_from_vm(vm_name).await {
             Ok(metrics) => Ok(metrics),
             Err(_) => {
-                // Fall back to simulated metrics if K8s is unavailable
+                eprintln!(
+                    "Warning: K8s unavailable for VM '{}', using estimated metrics",
+                    vm_name
+                );
                 Ok(self.create_simulated_metrics())
             }
         }
@@ -254,7 +257,7 @@ impl MetricsCollector {
             .map(|s| s.as_str())
             .unwrap_or("1Gi");
 
-        let total_memory_bytes = parse_resource_to_bytes(memory_str);
+        let total_memory_bytes = crate::disk::DiskInfo::parse_size(memory_str);
 
         // Extract disk size from volumes
         let total_disk_bytes = vm
@@ -300,6 +303,8 @@ impl MetricsCollector {
         let mut rng = rand::thread_rng();
 
         let cpu_usage: f64 = rng.gen_range(30.0..85.0);
+        let system_pct: f64 = rng.gen_range(5.0..cpu_usage.clamp(5.1, 15.0));
+        let user_pct: f64 = cpu_usage - system_pct;
         let mem_usage: f64 = rng.gen_range(50.0..80.0);
         let disk_usage: f64 = rng.gen_range(40.0..75.0);
 
@@ -312,8 +317,8 @@ impl MetricsCollector {
                 usage_percent: cpu_usage,
                 cores_allocated,
                 cores_used: cores_allocated as f64 * cpu_usage / 100.0,
-                system_percent: rng.gen_range(5.0..15.0),
-                user_percent: cpu_usage - rng.gen_range(5.0..15.0),
+                system_percent: system_pct,
+                user_percent: user_pct,
                 idle_percent: 100.0 - cpu_usage,
             },
             memory: MemoryMetrics {
@@ -348,11 +353,6 @@ impl MetricsCollector {
     fn create_simulated_metrics(&self) -> VMMetrics {
         self.create_simulated_metrics_with_allocations(4, 16_000_000_000, 100_000_000_000)
     }
-}
-
-/// Parse Kubernetes resource strings (e.g., "4Gi", "512Mi", "2G") to bytes
-fn parse_resource_to_bytes(resource: &str) -> u64 {
-    crate::disk::DiskInfo::parse_size(resource)
 }
 
 #[cfg(test)]

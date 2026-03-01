@@ -311,11 +311,12 @@ pub async fn handle_monitor_live(vm: String, interval: u64, namespace: &str) -> 
     println!();
 
     // Monitor until interrupted (Ctrl+C) or connection fails
-    let mut iteration = 0u64;
+    let mut first = true;
     loop {
-        if iteration > 0 {
+        if !first {
             println!("\n{}", "═".repeat(80));
         }
+        first = false;
 
         match collector.collect(&vm).await {
             Ok(metrics) => {
@@ -326,8 +327,6 @@ pub async fn handle_monitor_live(vm: String, interval: u64, namespace: &str) -> 
                 break;
             }
         }
-
-        iteration += 1;
 
         // Wait for interval or Ctrl+C
         tokio::select! {
@@ -642,18 +641,16 @@ pub async fn handle_disk_health(vm: String, detailed: bool, namespace: &str) -> 
     let disks = match KubeClient::new().await {
         Ok(client) => match client.get_vm(namespace, &vm).await {
             Ok(vm_obj) => {
+                let pvc_api: kube::api::Api<
+                    k8s_openapi::api::core::v1::PersistentVolumeClaim,
+                > = kube::api::Api::namespaced(client.client(), namespace);
                 let mut disk_list = Vec::new();
                 if let Some(volumes) = &vm_obj.spec.template.spec.volumes {
                     for vol in volumes {
                         let mut d = DiskInfo::new(&vol.name);
                         if let Some(ref pvc) = vol.persistent_volume_claim {
                             // Try to get PVC size
-                            let pvcs: kube::api::Api<
-                                k8s_openapi::api::core::v1::PersistentVolumeClaim,
-                            > = kube::api::Api::namespaced(
-                                kube::Client::try_default().await?,
-                                namespace,
-                            );
+                            let pvcs = &pvc_api;
                             if let Ok(pvc_obj) = pvcs.get(&pvc.claim_name).await {
                                 let size = pvc_obj
                                     .spec
@@ -839,7 +836,7 @@ pub async fn handle_disk_usage(
     };
 
     let pvcs: kube::api::Api<k8s_openapi::api::core::v1::PersistentVolumeClaim> =
-        kube::api::Api::namespaced(kube::Client::try_default().await?, namespace);
+        kube::api::Api::namespaced(client.client(), namespace);
     let pvc_list = pvcs
         .list(&kube::api::ListParams::default())
         .await

@@ -92,6 +92,11 @@ pub fn handle_config_load(name: String, output: Option<String>, format: String) 
         .join("zorvia")
         .join("templates");
 
+    // Reject path traversal attempts
+    if name.contains("..") || name.starts_with('/') || name.starts_with('\\') {
+        return Err(anyhow!("Invalid template name: must not contain path traversal components"));
+    }
+
     // Try loading with the exact name, then with common extensions
     let candidates = [
         templates_dir.join(&name),
@@ -105,6 +110,14 @@ pub fn handle_config_load(name: String, output: Option<String>, format: String) 
     let mut found_path = None;
 
     for path in &candidates {
+        // Verify the resolved path stays within the templates directory
+        if let Ok(canonical) = path.canonicalize() {
+            if let Ok(canonical_dir) = templates_dir.canonicalize() {
+                if !canonical.starts_with(&canonical_dir) {
+                    continue;
+                }
+            }
+        }
         if path.exists() {
             match std::fs::read_to_string(path) {
                 Ok(data) => {

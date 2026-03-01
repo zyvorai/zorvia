@@ -41,6 +41,11 @@ impl KubeClient {
         Ok(Self { client })
     }
 
+    /// Get a clone of the underlying kube::Client
+    pub fn client(&self) -> Client {
+        self.client.clone()
+    }
+
     /// Get API handle for VirtualMachines in a namespace
     fn vm_api(&self, namespace: &str) -> Api<VirtualMachine> {
         Api::namespaced(self.client.clone(), namespace)

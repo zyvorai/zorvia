@@ -317,9 +317,15 @@ impl LogAnalyzer {
             "INFO:"
         };
 
-        // Truncate to keep patterns manageable
+        // Truncate to keep patterns manageable (safe for multi-byte UTF-8)
         let truncated = if result.len() > 80 {
-            format!("{}...", &result[..80])
+            let end = result
+                .char_indices()
+                .take_while(|(i, _)| *i <= 80)
+                .last()
+                .map(|(i, _)| i)
+                .unwrap_or(0);
+            format!("{}...", &result[..end])
         } else {
             result
         };
