@@ -264,8 +264,11 @@ impl ReportGenerator {
     /// Generate monthly cost report
     pub fn monthly_report(year: i32, month: u32) -> CostReport {
         let clamped_month = month.clamp(1, 12);
+        // SAFETY: clamped_month is 1-12 and day is 1, so only an extreme year value
+        // (outside ~262000 BCE to 262000 CE) could fail. Fall back to Unix epoch.
+        let fallback = chrono::NaiveDate::from_ymd_opt(2024, 1, 1).unwrap();
         let start_date = chrono::NaiveDate::from_ymd_opt(year, clamped_month, 1)
-            .unwrap_or(chrono::NaiveDate::from_ymd_opt(year, 1, 1).unwrap());
+            .unwrap_or(fallback);
         let start = start_date.and_hms_opt(0, 0, 0).unwrap().and_utc();
 
         let end_date = if clamped_month == 12 {
