@@ -163,47 +163,69 @@ mod tests {
         assert_eq!(gen.binary_name, "vc");
     }
 
+    /// Helper to run completion generation on a thread with a larger stack,
+    /// since the large Commands enum (146 variants) causes deep recursion
+    /// in clap's command builder that exceeds the default test thread stack.
+    fn run_with_large_stack<F: FnOnce() + Send + 'static>(f: F) {
+        std::thread::Builder::new()
+            .stack_size(16 * 1024 * 1024) // 16 MiB
+            .spawn(f)
+            .expect("failed to spawn thread")
+            .join()
+            .expect("thread panicked");
+    }
+
     #[test]
     fn test_generate_bash_completions() {
-        let gen = CompletionGenerator::new(CompletionShell::Bash);
-        let output = gen.generate();
-        assert!(!output.is_empty(), "Bash completions should not be empty");
-        assert!(output.contains("zorvia"));
+        run_with_large_stack(|| {
+            let gen = CompletionGenerator::new(CompletionShell::Bash);
+            let output = gen.generate();
+            assert!(!output.is_empty(), "Bash completions should not be empty");
+            assert!(output.contains("zorvia"));
+        });
     }
 
     #[test]
     fn test_generate_zsh_completions() {
-        let gen = CompletionGenerator::new(CompletionShell::Zsh);
-        let output = gen.generate();
-        assert!(!output.is_empty(), "Zsh completions should not be empty");
-        assert!(output.contains("zorvia"));
+        run_with_large_stack(|| {
+            let gen = CompletionGenerator::new(CompletionShell::Zsh);
+            let output = gen.generate();
+            assert!(!output.is_empty(), "Zsh completions should not be empty");
+            assert!(output.contains("zorvia"));
+        });
     }
 
     #[test]
     fn test_generate_fish_completions() {
-        let gen = CompletionGenerator::new(CompletionShell::Fish);
-        let output = gen.generate();
-        assert!(!output.is_empty(), "Fish completions should not be empty");
-        assert!(output.contains("zorvia"));
+        run_with_large_stack(|| {
+            let gen = CompletionGenerator::new(CompletionShell::Fish);
+            let output = gen.generate();
+            assert!(!output.is_empty(), "Fish completions should not be empty");
+            assert!(output.contains("zorvia"));
+        });
     }
 
     #[test]
     fn test_generate_powershell_completions() {
-        let gen = CompletionGenerator::new(CompletionShell::PowerShell);
-        let output = gen.generate();
-        assert!(
-            !output.is_empty(),
-            "PowerShell completions should not be empty"
-        );
-        assert!(output.contains("zorvia"));
+        run_with_large_stack(|| {
+            let gen = CompletionGenerator::new(CompletionShell::PowerShell);
+            let output = gen.generate();
+            assert!(
+                !output.is_empty(),
+                "PowerShell completions should not be empty"
+            );
+            assert!(output.contains("zorvia"));
+        });
     }
 
     #[test]
     fn test_generate_elvish_completions() {
-        let gen = CompletionGenerator::new(CompletionShell::Elvish);
-        let output = gen.generate();
-        assert!(!output.is_empty(), "Elvish completions should not be empty");
-        assert!(output.contains("zorvia"));
+        run_with_large_stack(|| {
+            let gen = CompletionGenerator::new(CompletionShell::Elvish);
+            let output = gen.generate();
+            assert!(!output.is_empty(), "Elvish completions should not be empty");
+            assert!(output.contains("zorvia"));
+        });
     }
 
     #[test]
