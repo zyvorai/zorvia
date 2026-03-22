@@ -70,7 +70,9 @@ fn validate_cpu(cpu: &CPUConfig) -> Result<()> {
     }
 
     // Reasonable upper limits
-    let total_cpus = cpu.cores * cpu.sockets * cpu.threads;
+    let total_cpus = (cpu.cores as u64)
+        .saturating_mul(cpu.sockets as u64)
+        .saturating_mul(cpu.threads as u64);
     if total_cpus > 256 {
         return Err(anyhow!(
             "Total CPU count ({}) exceeds reasonable limit (256)",

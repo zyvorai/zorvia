@@ -229,13 +229,17 @@ pub fn parse_size_to_bytes(size: &str) -> Option<u64> {
     if let Some(num) = size.strip_suffix("Ti") {
         num.parse::<u64>()
             .ok()
-            .map(|v| v * 1024 * 1024 * 1024 * 1024)
+            .and_then(|v| v.checked_mul(1024 * 1024 * 1024 * 1024))
     } else if let Some(num) = size.strip_suffix("Gi") {
-        num.parse::<u64>().ok().map(|v| v * 1024 * 1024 * 1024)
+        num.parse::<u64>()
+            .ok()
+            .and_then(|v| v.checked_mul(1024 * 1024 * 1024))
     } else if let Some(num) = size.strip_suffix("Mi") {
-        num.parse::<u64>().ok().map(|v| v * 1024 * 1024)
+        num.parse::<u64>()
+            .ok()
+            .and_then(|v| v.checked_mul(1024 * 1024))
     } else if let Some(num) = size.strip_suffix("Ki") {
-        num.parse::<u64>().ok().map(|v| v * 1024)
+        num.parse::<u64>().ok().and_then(|v| v.checked_mul(1024))
     } else {
         size.parse::<u64>().ok()
     }

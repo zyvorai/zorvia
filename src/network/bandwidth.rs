@@ -162,7 +162,7 @@ impl BandwidthStats {
 
     /// Calculate utilization percentage (assuming 1 Gbps link)
     pub fn utilization_percent(&self, link_speed_mbps: u64) -> f64 {
-        let link_speed_bytes = (link_speed_mbps * 1_000_000) / 8;
+        let link_speed_bytes = link_speed_mbps.saturating_mul(1_000_000) / 8;
         (self.total_rate() as f64 / link_speed_bytes as f64) * 100.0
     }
 }
