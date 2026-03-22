@@ -227,6 +227,9 @@ impl InsightAnalyzer {
     pub fn analyze_capacity(current_usage: f64, capacity: f64, growth_rate: f64) -> Vec<Insight> {
         let mut insights = Vec::new();
 
+        if capacity == 0.0 {
+            return insights;
+        }
         let usage_percent = (current_usage / capacity) * 100.0;
 
         if usage_percent > 80.0 {
