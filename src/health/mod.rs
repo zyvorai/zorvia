@@ -83,7 +83,9 @@ impl VMHealthReport {
         let warning_penalty = (warning_count as f64 / total_checks) * 20.0;
         let critical_penalty = (critical_count as f64 / total_checks) * 50.0;
 
-        self.score = (health_score - warning_penalty - critical_penalty).max(0.0) as u8;
+        self.score = (health_score - warning_penalty - critical_penalty)
+            .clamp(0.0, 100.0)
+            .round() as u8;
 
         // Collect recommendations
         self.recommendations = self

@@ -187,8 +187,9 @@ impl MetricAggregator {
         let mut values: Vec<f64> = metrics.iter().map(|m| m.value).collect();
         values.sort_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
 
-        let index = ((p / 100.0) * (values.len() - 1) as f64) as usize;
-        Some(values[index])
+        let p_clamped = p.clamp(0.0, 100.0);
+        let index = ((p_clamped / 100.0) * (values.len() - 1) as f64) as usize;
+        Some(values[index.min(values.len() - 1)])
     }
 }
 

@@ -229,7 +229,9 @@ pub fn handle_backup_verify(name: String, verification_type: String) -> Result<(
     println!("  Checks Run:         {}", report.checks.len());
     println!(
         "  Passed:             {}",
-        report.checks.len() - report.error_count as usize - report.warning_count as usize
+        report.checks.len()
+            .saturating_sub(report.error_count as usize)
+            .saturating_sub(report.warning_count as usize)
     );
     println!(
         "  Warnings:           {}",
