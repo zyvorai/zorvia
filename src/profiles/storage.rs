@@ -9,6 +9,7 @@ use std::path::PathBuf;
 /// ProfileStorage handles reading and writing profiles to the filesystem
 pub struct ProfileStorage {
     config_dir: PathBuf,
+    read_only: bool,
 }
 
 impl ProfileStorage {
@@ -21,7 +22,15 @@ impl ProfileStorage {
             fs::create_dir_all(&config_dir).context("Failed to create profiles directory")?;
         }
 
-        Ok(Self { config_dir })
+        Ok(Self { config_dir, read_only: false })
+    }
+
+    /// Create an in-memory (no-op) storage for fallback scenarios
+    pub fn in_memory() -> Self {
+        Self {
+            config_dir: PathBuf::from("/dev/null"),
+            read_only: true,
+        }
     }
 
     /// Get the profiles directory path
@@ -38,6 +47,9 @@ impl ProfileStorage {
 
     /// Save a profile to disk
     pub fn save(&self, profile: &Profile) -> Result<()> {
+        if self.read_only {
+            anyhow::bail!("Profile storage is in read-only mode");
+        }
         let path = self.profile_path(&profile.name);
 
         let yaml = serde_yaml::to_string(profile).context("Failed to serialize profile to YAML")?;
@@ -69,8 +81,8 @@ impl ProfileStorage {
     pub fn load_all(&self) -> Result<HashMap<String, Profile>> {
         let mut profiles = HashMap::new();
 
-        // If directory doesn't exist, return empty map
-        if !self.config_dir.exists() {
+        // If read-only or directory doesn't exist, return empty map
+        if self.read_only || !self.config_dir.exists() {
             return Ok(profiles);
         }
 
@@ -109,6 +121,9 @@ impl ProfileStorage {
 
     /// Delete a profile from disk
     pub fn delete(&self, name: &str) -> Result<()> {
+        if self.read_only {
+            anyhow::bail!("Profile storage is in read-only mode");
+        }
         let path = self.profile_path(name);
 
         if !path.exists() {
@@ -170,6 +185,7 @@ mod tests {
         let temp_dir = TempDir::new().unwrap();
         let storage = ProfileStorage {
             config_dir: temp_dir.path().to_path_buf(),
+            read_only: false,
         };
         (storage, temp_dir)
     }

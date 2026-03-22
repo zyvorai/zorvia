@@ -13,8 +13,15 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::sync::RwLock;
 
-pub static PROFILES: Lazy<RwLock<ProfileManager>> =
-    Lazy::new(|| RwLock::new(ProfileManager::new().expect("Failed to initialize ProfileManager")));
+pub static PROFILES: Lazy<RwLock<ProfileManager>> = Lazy::new(|| {
+    match ProfileManager::new() {
+        Ok(manager) => RwLock::new(manager),
+        Err(e) => {
+            log::error!("Failed to initialize ProfileManager: {}. Using empty manager.", e);
+            RwLock::new(ProfileManager::empty())
+        }
+    }
+});
 
 /// Profile represents a pre-configured resource allocation template
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -48,6 +55,15 @@ impl ProfileManager {
             custom_profiles,
             storage,
         })
+    }
+
+    /// Create an empty manager (fallback when initialization fails)
+    fn empty() -> Self {
+        Self {
+            builtin_profiles: builtin::builtin_profiles(),
+            custom_profiles: HashMap::new(),
+            storage: storage::ProfileStorage::in_memory(),
+        }
     }
 
     /// Get a profile by name (checks custom first, then builtin)
@@ -172,7 +188,10 @@ impl ProfileManager {
 
 impl Default for ProfileManager {
     fn default() -> Self {
-        Self::new().expect("Failed to initialize ProfileManager")
+        Self::new().unwrap_or_else(|e| {
+            log::error!("Failed to initialize ProfileManager: {}. Using empty manager.", e);
+            Self::empty()
+        })
     }
 }
 

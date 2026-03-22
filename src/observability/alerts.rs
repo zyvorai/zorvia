@@ -273,8 +273,14 @@ impl AlertManager {
 
     pub fn cleanup_resolved(&mut self, older_than: Duration) {
         let cutoff = Utc::now() - older_than;
-        self.active_alerts
-            .retain(|a| !a.is_resolved() || a.resolved_at.map(|t| t > cutoff).unwrap_or(false));
+        self.active_alerts.retain(|a| {
+            if a.is_resolved() {
+                // Remove resolved alerts older than cutoff
+                a.resolved_at.map(|t| t > cutoff).unwrap_or(false)
+            } else {
+                true // Keep unresolved alerts
+            }
+        });
     }
 
     pub fn total_alerts(&self) -> usize {

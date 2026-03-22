@@ -35,7 +35,8 @@ impl RetentionEnforcer {
                 for snapshot in snapshots.iter().skip(max_snapshots as usize) {
                     // Don't delete if we need to keep last N
                     if let Some(keep_last_n) = policy.keep_last_n {
-                        if deleted.len() >= snapshots.len().saturating_sub(keep_last_n as usize) {
+                        let remaining = snapshots.len() - deleted.len();
+                        if remaining <= keep_last_n as usize {
                             continue;
                         }
                     }
@@ -118,9 +119,8 @@ impl RetentionEnforcer {
             if snapshots.len() > max_snapshots as usize {
                 for snapshot in snapshots.iter().skip(max_snapshots as usize) {
                     if let Some(keep_last_n) = policy.keep_last_n {
-                        if would_delete.len()
-                            >= snapshots.len().saturating_sub(keep_last_n as usize)
-                        {
+                        let remaining = snapshots.len() - would_delete.len();
+                        if remaining <= keep_last_n as usize {
                             continue;
                         }
                     }

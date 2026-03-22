@@ -141,8 +141,9 @@ impl TimeSeries {
         let mut values: Vec<f64> = self.data_points.iter().map(|dp| dp.value).collect();
         values.sort_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
 
-        let index = ((p / 100.0) * (values.len() - 1) as f64) as usize;
-        Some(values[index])
+        let p_clamped = p.clamp(0.0, 100.0);
+        let index = ((p_clamped / 100.0) * (values.len() - 1) as f64) as usize;
+        Some(values[index.min(values.len() - 1)])
     }
 
     /// Get data points within a time range
@@ -320,13 +321,14 @@ impl Span {
     }
 
     pub fn complete(&mut self) {
-        self.completed_at = Some(Utc::now());
-        if let Some(completed) = self.completed_at {
-            self.duration_ms = Some(
-                completed
-                    .signed_duration_since(self.started_at)
-                    .num_milliseconds() as u64,
-            );
+        let completed = Utc::now();
+        self.completed_at = Some(completed);
+        let duration = completed.signed_duration_since(self.started_at);
+        // Guard against clock skew producing negative durations
+        if duration.num_milliseconds() >= 0 {
+            self.duration_ms = Some(duration.num_milliseconds() as u64);
+        } else {
+            self.duration_ms = Some(0);
         }
     }
 }

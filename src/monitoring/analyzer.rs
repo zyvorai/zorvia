@@ -225,7 +225,7 @@ impl PerformanceAnalyzer {
         let total_score =
             (cpu_score as f64 * 0.4) + (memory_score as f64 * 0.35) + (disk_score as f64 * 0.25);
 
-        total_score.round() as u8
+        total_score.clamp(0.0, 100.0).round() as u8
     }
 
     /// Calculate score for a single resource (0-100)
@@ -233,11 +233,11 @@ impl PerformanceAnalyzer {
         if usage_percent < optimal_percent {
             // Below optimal: good score
             let ratio = usage_percent / optimal_percent;
-            (80.0 + (ratio * 20.0)).round() as u8
+            (80.0 + (ratio * 20.0)).clamp(0.0, 100.0).round() as u8
         } else if usage_percent < 85.0 {
             // Moderate usage
             let ratio = (85.0 - usage_percent) / (85.0 - optimal_percent);
-            (60.0 + (ratio * 20.0)).round() as u8
+            (60.0 + (ratio * 20.0)).clamp(0.0, 100.0).round() as u8
         } else if usage_percent < 95.0 {
             // High usage
             50

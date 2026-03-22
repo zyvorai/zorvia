@@ -51,6 +51,9 @@ impl ResourceQuota {
     }
 
     pub fn allocate(&mut self, resources: &ResourceRequest) -> Result<(), String> {
+        if resources.cpu_cores == 0 && resources.memory_gi == 0 && resources.storage_gi == 0 {
+            return Err("Must allocate at least one resource".to_string());
+        }
         if !self.can_allocate(resources) {
             return Err("Quota exceeded".to_string());
         }

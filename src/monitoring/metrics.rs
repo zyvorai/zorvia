@@ -296,7 +296,8 @@ impl MetricsCollector {
         let mut rng = rand::thread_rng();
 
         let cpu_usage: f64 = rng.gen_range(30.0..85.0);
-        let system_pct: f64 = rng.gen_range(5.0..cpu_usage.clamp(5.1, 15.0));
+        let system_upper = cpu_usage.clamp(6.0, 15.0); // Ensure range is at least 5.0..6.0
+        let system_pct: f64 = rng.gen_range(5.0..system_upper);
         let user_pct: f64 = cpu_usage - system_pct;
         let mem_usage: f64 = rng.gen_range(50.0..80.0);
         let disk_usage: f64 = rng.gen_range(40.0..75.0);

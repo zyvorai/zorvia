@@ -39,24 +39,35 @@ impl DiskInfo {
         }
     }
 
-    /// Parse size string to bytes
+    /// Parse size string to bytes.
+    /// Returns 0 and logs a warning if the numeric part cannot be parsed.
     pub fn parse_size(size_str: &str) -> u64 {
         let size_upper = size_str.to_uppercase();
 
+        let parse = |value: &str, multiplier: u64| -> u64 {
+            match value.parse::<u64>() {
+                Ok(v) => v * multiplier,
+                Err(_) => {
+                    log::warn!("Failed to parse size value '{}' from '{}'", value, size_str);
+                    0
+                }
+            }
+        };
+
         if let Some(value) = size_upper.strip_suffix("TI") {
-            value.parse::<u64>().unwrap_or(0) * 1024 * 1024 * 1024 * 1024
+            parse(value, 1024 * 1024 * 1024 * 1024)
         } else if let Some(value) = size_upper.strip_suffix("GI") {
-            value.parse::<u64>().unwrap_or(0) * 1024 * 1024 * 1024
+            parse(value, 1024 * 1024 * 1024)
         } else if let Some(value) = size_upper.strip_suffix("MI") {
-            value.parse::<u64>().unwrap_or(0) * 1024 * 1024
+            parse(value, 1024 * 1024)
         } else if let Some(value) = size_upper.strip_suffix("T") {
-            value.parse::<u64>().unwrap_or(0) * 1000 * 1000 * 1000 * 1000
+            parse(value, 1000 * 1000 * 1000 * 1000)
         } else if let Some(value) = size_upper.strip_suffix("G") {
-            value.parse::<u64>().unwrap_or(0) * 1000 * 1000 * 1000
+            parse(value, 1000 * 1000 * 1000)
         } else if let Some(value) = size_upper.strip_suffix("M") {
-            value.parse::<u64>().unwrap_or(0) * 1000 * 1000
+            parse(value, 1000 * 1000)
         } else {
-            size_str.parse::<u64>().unwrap_or(0)
+            parse(size_str, 1)
         }
     }
 
