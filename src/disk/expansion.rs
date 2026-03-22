@@ -135,6 +135,9 @@ impl ExpansionPlan {
 
     /// Calculate progress percentage
     pub fn progress(&self) -> u8 {
+        if self.steps.is_empty() {
+            return 100; // No steps means nothing to do
+        }
         let completed = self.steps.iter().filter(|s| s.completed).count();
         ((completed as f64 / self.steps.len() as f64) * 100.0) as u8
     }

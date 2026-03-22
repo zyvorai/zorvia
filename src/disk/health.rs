@@ -228,6 +228,9 @@ impl DiskHealthCheck {
         let used_bytes = (current_bytes as f64 * (disk.usage_percent / 100.0)) as u64;
 
         // Calculate target size to achieve target_usage percent
+        if target_usage <= 0.0 {
+            return DiskInfo::format_size(current_bytes);
+        }
         let target_bytes = (used_bytes as f64 / (target_usage / 100.0)) as u64;
 
         // Add 20% buffer
