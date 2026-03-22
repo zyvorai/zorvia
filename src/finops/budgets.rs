@@ -113,6 +113,14 @@ impl Budget {
     }
 
     fn update_status(&mut self) {
+        if self.amount == 0.0 {
+            self.status = if self.current_spend > 0.0 {
+                BudgetStatus::Exceeded
+            } else {
+                BudgetStatus::Active
+            };
+            return;
+        }
         let utilization = self.current_spend / self.amount;
 
         if utilization >= 1.0 {

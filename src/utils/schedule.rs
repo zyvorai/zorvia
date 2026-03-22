@@ -86,7 +86,17 @@ pub fn next_monthly(from: DateTime<Utc>, day: u32, time: &NaiveTime) -> DateTime
             }
         }
     }
-    current.date_naive().and_time(*time).and_utc()
+    // Fallback: ensure result is always after `from`
+    let fallback = current.date_naive().and_time(*time).and_utc();
+    if fallback > from {
+        fallback
+    } else {
+        // Advance one more day to guarantee we're past `from`
+        (current + chrono::Duration::days(1))
+            .date_naive()
+            .and_time(*time)
+            .and_utc()
+    }
 }
 
 #[cfg(test)]
