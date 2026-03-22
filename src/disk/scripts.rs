@@ -1,6 +1,23 @@
 // Expansion Scripts - Automated filesystem expansion for VMs
 
+use once_cell::sync::Lazy;
+use regex::Regex;
 use serde::{Deserialize, Serialize};
+
+/// Regex for validating device paths (alphanumeric, slashes, hyphens only)
+static DEVICE_PATH_RE: Lazy<Regex> =
+    Lazy::new(|| Regex::new(r"^/dev/[a-zA-Z0-9/_-]+$").expect("invalid device path regex"));
+
+/// Validate that a device path is safe for shell interpolation
+fn validate_device_path(device: &str) -> Result<(), String> {
+    if !DEVICE_PATH_RE.is_match(device) {
+        return Err(format!(
+            "Invalid device path '{}': must match /dev/[a-zA-Z0-9/_-]+",
+            device
+        ));
+    }
+    Ok(())
+}
 
 /// Filesystem type
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
@@ -56,9 +73,13 @@ pub struct ExpansionScript {
 
 impl ExpansionScript {
     pub fn new(filesystem_type: FilesystemType, device: impl Into<String>) -> Self {
+        let device = device.into();
+        if let Err(e) = validate_device_path(&device) {
+            log::warn!("Device path validation warning: {}", e);
+        }
         Self {
             filesystem_type,
-            device: device.into(),
+            device,
             lvm_vg: None,
             lvm_lv: None,
             partition_number: None,
@@ -88,7 +109,15 @@ pub struct ScriptGenerator;
 
 impl ScriptGenerator {
     /// Generate complete expansion script
-    pub fn generate(config: &ExpansionScript) -> String {
+    ///
+    /// Returns an error if the device path is invalid (potential injection).
+    pub fn generate(config: &ExpansionScript) -> Result<String, String> {
+        validate_device_path(&config.device)?;
+        Ok(Self::generate_unchecked(config))
+    }
+
+    /// Generate expansion script without validation (for internal use)
+    fn generate_unchecked(config: &ExpansionScript) -> String {
         let mut script = String::new();
 
         script.push_str("#!/bin/bash\n");
@@ -300,7 +329,15 @@ echo "=== Expansion Complete ==="
     }
 
     /// Generate one-liner script for quick execution
-    pub fn generate_oneliner(filesystem_type: &FilesystemType, device: &str) -> String {
+    ///
+    /// Returns an error if the device path is invalid (potential injection).
+    pub fn generate_oneliner(filesystem_type: &FilesystemType, device: &str) -> Result<String, String> {
+        validate_device_path(device)?;
+        Ok(Self::generate_oneliner_unchecked(filesystem_type, device))
+    }
+
+    /// Generate one-liner without validation (for internal use)
+    fn generate_oneliner_unchecked(filesystem_type: &FilesystemType, device: &str) -> String {
         match filesystem_type {
             FilesystemType::LVM => {
                 format!(
@@ -371,7 +408,7 @@ mod tests {
             .with_lvm("ubuntu-vg", "ubuntu-lv")
             .with_partition(3);
 
-        let script = ScriptGenerator::generate(&script_config);
+        let script = ScriptGenerator::generate(&script_config).unwrap();
 
         assert!(script.contains("#!/bin/bash"));
         assert!(script.contains("pvresize"));
@@ -384,7 +421,7 @@ mod tests {
         let script_config =
             ExpansionScript::new(FilesystemType::Ext4, "/dev/sda").with_partition(1);
 
-        let script = ScriptGenerator::generate(&script_config);
+        let script = ScriptGenerator::generate(&script_config).unwrap();
 
         assert!(script.contains("growpart"));
         assert!(script.contains("resize2fs"));
@@ -394,7 +431,7 @@ mod tests {
     fn test_dry_run_script() {
         let script_config = ExpansionScript::new(FilesystemType::LVM, "/dev/vda").dry_run(true);
 
-        let script = ScriptGenerator::generate(&script_config);
+        let script = ScriptGenerator::generate(&script_config).unwrap();
 
         assert!(script.contains("DRY RUN"));
         assert!(script.contains("[DRY RUN]"));
@@ -402,10 +439,24 @@ mod tests {
 
     #[test]
     fn test_oneliner_generation() {
-        let oneliner = ScriptGenerator::generate_oneliner(&FilesystemType::LVM, "/dev/vda");
+        let oneliner = ScriptGenerator::generate_oneliner(&FilesystemType::LVM, "/dev/vda").unwrap();
 
         assert!(oneliner.contains("pvresize"));
         assert!(oneliner.contains("lvextend"));
         assert!(oneliner.contains("resize2fs"));
+    }
+
+    #[test]
+    fn test_invalid_device_path_rejected() {
+        let script_config = ExpansionScript {
+            filesystem_type: FilesystemType::Ext4,
+            device: "\"; rm -rf /; #".to_string(),
+            lvm_vg: None,
+            lvm_lv: None,
+            partition_number: Some(1),
+            dry_run: false,
+        };
+
+        assert!(ScriptGenerator::generate(&script_config).is_err());
     }
 }

@@ -172,16 +172,9 @@ impl MetricsCollector {
 
     /// Collect current metrics for a VM using real K8s VM spec data
     pub async fn collect(&self, vm_name: &str) -> Result<VMMetrics> {
-        match self.create_metrics_from_vm(vm_name).await {
-            Ok(metrics) => Ok(metrics),
-            Err(_) => {
-                eprintln!(
-                    "Warning: K8s unavailable for VM '{}', using estimated metrics",
-                    vm_name
-                );
-                Ok(self.create_simulated_metrics())
-            }
-        }
+        self.create_metrics_from_vm(vm_name)
+            .await
+            .with_context(|| format!("Failed to collect metrics for VM '{}'", vm_name))
     }
 
     /// Collect metrics for multiple VMs
@@ -349,10 +342,6 @@ impl MetricsCollector {
         }
     }
 
-    /// Fallback simulated metrics when K8s is unavailable
-    fn create_simulated_metrics(&self) -> VMMetrics {
-        self.create_simulated_metrics_with_allocations(4, 16_000_000_000, 100_000_000_000)
-    }
 }
 
 #[cfg(test)]
@@ -454,9 +443,8 @@ mod tests {
     #[tokio::test]
     async fn test_metrics_collector() {
         let collector = MetricsCollector::new("default");
-        let metrics = collector.collect("test-vm").await.unwrap();
-
-        assert!(metrics.cpu.usage_percent >= 0.0 && metrics.cpu.usage_percent <= 100.0);
-        assert!(metrics.memory.usage_percent >= 0.0 && metrics.memory.usage_percent <= 100.0);
+        // Without a K8s cluster, collect should return an error
+        let result = collector.collect("test-vm").await;
+        assert!(result.is_err());
     }
 }

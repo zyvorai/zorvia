@@ -184,6 +184,15 @@ pub async fn handle_create(
     if let Some(disk_size) = disk_size {
         if let Some(disk) = config.disks.first_mut() {
             disk.size = disk_size;
+        } else {
+            log::warn!("--disk-size specified but no disks configured; adding a blank disk");
+            config.disks.push(crate::config::DiskConfig {
+                name: "rootdisk".to_string(),
+                size: disk_size,
+                storage_class: None,
+                boot_order: 1,
+                source: crate::config::DiskSource::Blank,
+            });
         }
     }
     if let Some(cloud_init_file) = cloud_init {
@@ -411,6 +420,15 @@ pub fn handle_generate(
     if let Some(disk_size) = disk_size {
         if let Some(disk) = config.disks.first_mut() {
             disk.size = disk_size;
+        } else {
+            log::warn!("--disk-size specified but no disks configured; adding a blank disk");
+            config.disks.push(crate::config::DiskConfig {
+                name: "rootdisk".to_string(),
+                size: disk_size,
+                storage_class: None,
+                boot_order: 1,
+                source: crate::config::DiskSource::Blank,
+            });
         }
     }
 

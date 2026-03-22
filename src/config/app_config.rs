@@ -163,8 +163,8 @@ impl AppConfig {
         if other.api.rate_limit != defaults.api.rate_limit {
             self.api.rate_limit = other.api.rate_limit;
         }
-        if !other.api.cors {
-            self.api.cors = false;
+        if other.api.cors != defaults.api.cors {
+            self.api.cors = other.api.cors;
         }
         if other.api.cors_origins != defaults.api.cors_origins {
             self.api.cors_origins = other.api.cors_origins;
@@ -277,7 +277,7 @@ impl Default for ApiServerConfig {
             auth: "none".to_string(),
             rate_limit: 60,
             cors: true,
-            cors_origins: vec!["*".to_string()],
+            cors_origins: Vec::new(),
             request_timeout: 30,
         }
     }
@@ -432,7 +432,7 @@ mod tests {
         assert_eq!(config.api.rate_limit, 120);
         assert_eq!(
             config.api.cors_origins,
-            vec!["https://dashboard.example.com"]
+            vec!["https://dashboard.example.com".to_string()]
         );
         assert_eq!(config.output.format, "json");
         assert!(!config.output.color);

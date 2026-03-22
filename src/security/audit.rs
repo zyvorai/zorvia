@@ -27,7 +27,15 @@ impl AuditEvent {
         target: impl Into<String>,
         action: impl Into<String>,
     ) -> Self {
-        let event_id = format!("evt-{}", Utc::now().format("%Y%m%d-%H%M%S-%f"));
+        let event_id = {
+            use rand::Rng;
+            let random: u32 = rand::thread_rng().gen();
+            format!(
+                "evt-{}-{:08x}",
+                Utc::now().format("%Y%m%d-%H%M%S"),
+                random
+            )
+        };
         Self {
             event_id,
             timestamp: Utc::now(),

@@ -76,25 +76,38 @@ impl ScheduleType {
     }
 
     pub fn daily(hour: u32, minute: u32) -> Self {
+        // SAFETY: from_hms_opt(0,0,0) is always valid, so the fallback never fails
+        const MIDNIGHT: NaiveTime = match NaiveTime::from_hms_opt(0, 0, 0) {
+            Some(t) => t,
+            None => unreachable!(),
+        };
         ScheduleType::Daily {
             time: NaiveTime::from_hms_opt(hour.min(23), minute.min(59), 0)
-                .unwrap_or(NaiveTime::from_hms_opt(0, 0, 0).unwrap()),
+                .unwrap_or(MIDNIGHT),
         }
     }
 
     pub fn weekly(weekday: Weekday, hour: u32, minute: u32) -> Self {
+        const MIDNIGHT: NaiveTime = match NaiveTime::from_hms_opt(0, 0, 0) {
+            Some(t) => t,
+            None => unreachable!(),
+        };
         ScheduleType::Weekly {
             weekday,
             time: NaiveTime::from_hms_opt(hour.min(23), minute.min(59), 0)
-                .unwrap_or(NaiveTime::from_hms_opt(0, 0, 0).unwrap()),
+                .unwrap_or(MIDNIGHT),
         }
     }
 
     pub fn monthly(day: u32, hour: u32, minute: u32) -> Self {
+        const MIDNIGHT: NaiveTime = match NaiveTime::from_hms_opt(0, 0, 0) {
+            Some(t) => t,
+            None => unreachable!(),
+        };
         ScheduleType::Monthly {
             day,
             time: NaiveTime::from_hms_opt(hour.min(23), minute.min(59), 0)
-                .unwrap_or(NaiveTime::from_hms_opt(0, 0, 0).unwrap()),
+                .unwrap_or(MIDNIGHT),
         }
     }
 }

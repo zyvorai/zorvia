@@ -14,7 +14,13 @@ use std::collections::HashMap;
 use std::sync::RwLock;
 
 pub static BLUEPRINTS: Lazy<RwLock<BlueprintManager>> = Lazy::new(|| {
-    RwLock::new(BlueprintManager::new().expect("Failed to initialize BlueprintManager"))
+    match BlueprintManager::new() {
+        Ok(manager) => RwLock::new(manager),
+        Err(e) => {
+            log::error!("Failed to initialize BlueprintManager: {}. Using empty manager.", e);
+            RwLock::new(BlueprintManager::empty())
+        }
+    }
 });
 
 /// VMSpec defines a single VM in a blueprint
@@ -57,6 +63,15 @@ impl BlueprintManager {
             custom_blueprints,
             storage,
         })
+    }
+
+    /// Create an empty manager (fallback when initialization fails)
+    fn empty() -> Self {
+        Self {
+            builtin_blueprints: builtin::builtin_blueprints(),
+            custom_blueprints: HashMap::new(),
+            storage: storage::BlueprintStorage::in_memory(),
+        }
     }
 
     /// Get a blueprint by name (checks custom first, then builtin)
@@ -178,7 +193,10 @@ impl BlueprintManager {
 
 impl Default for BlueprintManager {
     fn default() -> Self {
-        Self::new().expect("Failed to initialize BlueprintManager")
+        Self::new().unwrap_or_else(|e| {
+            log::error!("Failed to initialize BlueprintManager: {}. Using empty manager.", e);
+            Self::empty()
+        })
     }
 }
 

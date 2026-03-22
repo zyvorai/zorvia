@@ -82,8 +82,10 @@ impl KubeClient {
         let vms: Api<VirtualMachine> = self.vm_api(&config.namespace);
 
         // Check if VM already exists
-        if vms.get(&config.name).await.is_ok() {
-            return Err(ZorviaError::VmExists(config.name.clone()).into());
+        match vms.get(&config.name).await {
+            Ok(_) => return Err(ZorviaError::VmExists(config.name.clone()).into()),
+            Err(kube::Error::Api(ae)) if ae.code == 404 => {} // VM doesn't exist, proceed
+            Err(e) => return Err(e.into()), // Propagate other errors (network, auth, etc.)
         }
 
         // Convert VMConfig to KubeVirt VirtualMachine
@@ -101,8 +103,12 @@ impl KubeClient {
         let vms: Api<VirtualMachine> = self.vm_api(namespace);
 
         // Check if VM exists
-        if vms.get(name).await.is_err() {
-            return Err(ZorviaError::VmNotFound(name.to_string()).into());
+        match vms.get(name).await {
+            Ok(_) => {}
+            Err(kube::Error::Api(ae)) if ae.code == 404 => {
+                return Err(ZorviaError::VmNotFound(name.to_string()).into());
+            }
+            Err(e) => return Err(e.into()),
         }
 
         let dp = DeleteParams::default();
@@ -116,8 +122,12 @@ impl KubeClient {
         let vms: Api<VirtualMachine> = self.vm_api(namespace);
 
         // Check if VM exists
-        if vms.get(name).await.is_err() {
-            return Err(ZorviaError::VmNotFound(name.to_string()).into());
+        match vms.get(name).await {
+            Ok(_) => {}
+            Err(kube::Error::Api(ae)) if ae.code == 404 => {
+                return Err(ZorviaError::VmNotFound(name.to_string()).into());
+            }
+            Err(e) => return Err(e.into()),
         }
 
         let patch = json!({
@@ -137,8 +147,12 @@ impl KubeClient {
         let vms: Api<VirtualMachine> = self.vm_api(namespace);
 
         // Check if VM exists
-        if vms.get(name).await.is_err() {
-            return Err(ZorviaError::VmNotFound(name.to_string()).into());
+        match vms.get(name).await {
+            Ok(_) => {}
+            Err(kube::Error::Api(ae)) if ae.code == 404 => {
+                return Err(ZorviaError::VmNotFound(name.to_string()).into());
+            }
+            Err(e) => return Err(e.into()),
         }
 
         let patch = json!({

@@ -63,25 +63,28 @@ impl ExpansionPlan {
             ExpansionStep {
                 step_number: 2,
                 description: "Rescan disk in VM".to_string(),
-                command: "echo 1 | sudo tee /sys/class/block/vda/device/rescan".to_string(),
+                command: format!(
+                    "echo 1 | sudo tee /sys/class/block/{}/device/rescan",
+                    config.pvc_name.trim_start_matches("/dev/")
+                ),
                 completed: false,
             },
             ExpansionStep {
                 step_number: 3,
                 description: "Extend LVM physical volume (if using LVM)".to_string(),
-                command: "sudo pvresize /dev/vda3".to_string(),
+                command: "sudo pvresize /dev/<partition>  # Adjust partition for your VM layout".to_string(),
                 completed: false,
             },
             ExpansionStep {
                 step_number: 4,
                 description: "Extend LVM logical volume".to_string(),
-                command: "sudo lvextend -l +100%FREE /dev/mapper/vg-root".to_string(),
+                command: "sudo lvextend -l +100%FREE /dev/<vg>/<lv>  # Adjust VG/LV names for your VM".to_string(),
                 completed: false,
             },
             ExpansionStep {
                 step_number: 5,
                 description: "Resize filesystem".to_string(),
-                command: "sudo resize2fs /dev/mapper/vg-root".to_string(),
+                command: "sudo resize2fs /dev/<vg>/<lv>  # Or xfs_growfs / for XFS".to_string(),
                 completed: false,
             },
         ];

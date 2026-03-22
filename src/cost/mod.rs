@@ -9,6 +9,9 @@ pub mod optimization;
 pub mod reports;
 pub mod tracking;
 
+/// Average hours in a month (365.25 days / 12 months * 24 hours)
+const HOURS_PER_MONTH: f64 = 730.0;
+
 /// Cost configuration
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CostConfig {
@@ -191,7 +194,7 @@ impl CostCalculator {
             memory_gb as f64 * self.config.rates.memory_per_gb_hour * runtime_hours;
 
         // Storage is charged monthly, convert to hours
-        let storage_hours = runtime_hours / 730.0; // ~730 hours per month
+        let storage_hours = runtime_hours / HOURS_PER_MONTH;
         vm_cost.storage_cost =
             storage_gb as f64 * self.config.rates.storage_per_gb_month * storage_hours;
 
@@ -213,7 +216,7 @@ impl CostCalculator {
 
     /// Estimate monthly cost for VM
     pub fn estimate_monthly_cost(&self, cpu_cores: u32, memory_gb: u32, storage_gb: u32) -> f64 {
-        let monthly_hours = 730.0; // Average hours per month
+        let monthly_hours = HOURS_PER_MONTH;
 
         let cpu_cost = cpu_cores as f64 * self.config.rates.cpu_per_core_hour * monthly_hours;
         let memory_cost = memory_gb as f64 * self.config.rates.memory_per_gb_hour * monthly_hours;

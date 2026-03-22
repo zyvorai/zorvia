@@ -82,21 +82,27 @@ use config::AppConfig;
 pub async fn run(mut cli: Cli) -> Result<()> {
     // Load application config file
     let app_config = if let Some(ref config_path) = cli.config {
-        AppConfig::load_from(std::path::PathBuf::from(config_path)).unwrap_or_default()
+        match AppConfig::load_from(std::path::PathBuf::from(config_path)) {
+            Ok(c) => c,
+            Err(e) => {
+                eprintln!("Warning: Failed to load config file '{}': {}", config_path, e);
+                AppConfig::default()
+            }
+        }
     } else {
         AppConfig::load().unwrap_or_default()
     };
 
-    // Apply config file defaults where CLI didn't override
-    if cli.namespace == "default" {
+    // Apply config file defaults where CLI didn't override.
+    // We detect "not explicitly set" by checking against clap's default_value.
+    if cli.kubeconfig.is_none() {
         if let Some(ref kc) = app_config.kubeconfig {
-            if cli.kubeconfig.is_none() {
-                cli.kubeconfig = Some(kc.clone());
-            }
+            cli.kubeconfig = Some(kc.clone());
         }
-        if app_config.namespace != "default" {
-            cli.namespace = app_config.namespace.clone();
-        }
+    }
+    // Only apply config namespace if CLI still has the clap default
+    if cli.namespace == "default" && app_config.namespace != "default" {
+        cli.namespace = app_config.namespace.clone();
     }
 
     // Initialize logging based on config + CLI

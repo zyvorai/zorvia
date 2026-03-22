@@ -9,6 +9,7 @@ use std::path::PathBuf;
 /// BlueprintStorage handles reading and writing blueprints to the filesystem
 pub struct BlueprintStorage {
     config_dir: PathBuf,
+    read_only: bool,
 }
 
 impl BlueprintStorage {
@@ -21,7 +22,15 @@ impl BlueprintStorage {
             fs::create_dir_all(&config_dir).context("Failed to create blueprints directory")?;
         }
 
-        Ok(Self { config_dir })
+        Ok(Self { config_dir, read_only: false })
+    }
+
+    /// Create an in-memory (no-op) storage for fallback scenarios
+    pub fn in_memory() -> Self {
+        Self {
+            config_dir: PathBuf::from("/dev/null"),
+            read_only: true,
+        }
     }
 
     /// Get the blueprints directory path
@@ -38,6 +47,9 @@ impl BlueprintStorage {
 
     /// Save a blueprint to disk
     pub fn save(&self, blueprint: &Blueprint) -> Result<()> {
+        if self.read_only {
+            anyhow::bail!("Blueprint storage is in read-only mode");
+        }
         let path = self.blueprint_path(&blueprint.name);
 
         let yaml =
@@ -70,8 +82,8 @@ impl BlueprintStorage {
     pub fn load_all(&self) -> Result<HashMap<String, Blueprint>> {
         let mut blueprints = HashMap::new();
 
-        // If directory doesn't exist, return empty map
-        if !self.config_dir.exists() {
+        // If read-only or directory doesn't exist, return empty map
+        if self.read_only || !self.config_dir.exists() {
             return Ok(blueprints);
         }
 
@@ -110,6 +122,9 @@ impl BlueprintStorage {
 
     /// Delete a blueprint from disk
     pub fn delete(&self, name: &str) -> Result<()> {
+        if self.read_only {
+            anyhow::bail!("Blueprint storage is in read-only mode");
+        }
         let path = self.blueprint_path(name);
 
         if !path.exists() {

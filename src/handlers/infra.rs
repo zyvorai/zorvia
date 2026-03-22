@@ -809,7 +809,8 @@ pub fn handle_disk_script(
         .with_partition(3)
         .dry_run(dry_run);
 
-    let script = ScriptGenerator::generate(&script_config);
+    let script = ScriptGenerator::generate(&script_config)
+        .map_err(|e| anyhow::anyhow!("Invalid device path: {}", e))?;
 
     if let Some(output_file) = output {
         std::fs::write(&output_file, &script)?;
@@ -828,10 +829,9 @@ pub fn handle_disk_script(
 
     println!();
     println!("{}", color::header("Quick One-Liner:"));
-    println!(
-        "{}",
-        color::command(&ScriptGenerator::generate_oneliner(&fs_type, &device))
-    );
+    let oneliner = ScriptGenerator::generate_oneliner(&fs_type, &device)
+        .map_err(|e| anyhow::anyhow!("Invalid device path: {}", e))?;
+    println!("{}", color::command(&oneliner));
     Ok(())
 }
 

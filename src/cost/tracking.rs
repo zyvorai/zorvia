@@ -255,6 +255,8 @@ impl CostAllocation {
         for detail in self.allocations.values_mut() {
             if self.total_cost > 0.0 {
                 detail.percentage = (detail.cost / self.total_cost) * 100.0;
+            } else {
+                detail.percentage = 0.0;
             }
         }
     }
