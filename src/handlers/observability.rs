@@ -102,38 +102,45 @@ pub fn handle_logs_patterns(min_count: usize) -> Result<()> {
     Ok(())
 }
 
-pub fn handle_metrics_collect(vm: String) -> Result<()> {
-    use crate::observability::metrics::VMMetrics;
+pub async fn handle_metrics_collect(vm: String) -> Result<()> {
+    use crate::monitoring::metrics::MetricsCollector;
 
     println!("{}", color::header(&format!("Collecting Metrics: {}", vm)));
     println!();
 
-    let metrics = VMMetrics::new(&vm)
-        .with_cpu(45.5)
-        .with_memory(62.3, 2_500_000_000)
-        .with_disk_io(1_000_000.0, 500_000.0)
-        .with_network_io(2_000_000.0, 1_500_000.0);
+    let collector = MetricsCollector::new("default");
+    let metrics = collector.collect(&vm).await?;
 
-    println!("  CPU Usage:      {:.1}%", metrics.cpu_usage_percent);
-    println!("  Memory Usage:   {:.1}%", metrics.memory_usage_percent);
+    println!("  CPU Usage:      {:.1}%", metrics.cpu.usage_percent);
+    println!(
+        "  CPU Cores:      {} allocated, {:.1} used",
+        metrics.cpu.cores_allocated, metrics.cpu.cores_used
+    );
+    println!("  Memory Usage:   {:.1}%", metrics.memory.usage_percent);
+    println!(
+        "  Memory:         {:.1} GiB used / {:.1} GiB total",
+        metrics.memory.used_gb(),
+        metrics.memory.total_gb()
+    );
     println!(
         "  Disk Read:      {:.2} MB/s",
-        metrics.disk_read_bytes_per_sec / 1_000_000.0
+        metrics.disk.read_mb_per_sec()
     );
     println!(
         "  Disk Write:     {:.2} MB/s",
-        metrics.disk_write_bytes_per_sec / 1_000_000.0
+        metrics.disk.write_mb_per_sec()
     );
+    println!("  Disk Usage:     {:.1}%", metrics.disk.usage_percent);
     println!(
         "  Network RX:     {:.2} MB/s",
-        metrics.network_rx_bytes_per_sec / 1_000_000.0
+        metrics.network.rx_mb_per_sec()
     );
     println!(
         "  Network TX:     {:.2} MB/s",
-        metrics.network_tx_bytes_per_sec / 1_000_000.0
+        metrics.network.tx_mb_per_sec()
     );
     println!();
-    println!("{}", color::success("✓ Metrics collected successfully"));
+    println!("{}", color::success("✓ Metrics collected from VM spec"));
     Ok(())
 }
 
@@ -318,27 +325,111 @@ pub fn handle_trends_analyze(metric: String, window: i64, threshold: f64) -> Res
     Ok(())
 }
 
-pub fn handle_health_check(component: Option<String>, output: String) -> Result<()> {
+pub async fn handle_health_check(component: Option<String>, output: String) -> Result<()> {
     use crate::observability::{HealthCheck, HealthStatus, SystemHealth};
 
     println!("{}", color::header("System Health Check"));
     println!();
 
     let mut health = SystemHealth::new();
-    health.add_check(HealthCheck::new("api", HealthStatus::Healthy).with_response_time(15));
-    health.add_check(HealthCheck::new("database", HealthStatus::Healthy).with_response_time(8));
+
+    // Check Kubernetes connectivity
+    let k8s_start = std::time::Instant::now();
+    let k8s_status = match crate::kube::KubeClient::new().await {
+        Ok(client) => {
+            // Try listing VMs to verify KubeVirt API is accessible
+            match client.list_vms("default").await {
+                Ok(_) => {
+                    health.add_check(
+                        HealthCheck::new("kubevirt-api", HealthStatus::Healthy)
+                            .with_response_time(k8s_start.elapsed().as_millis() as u64),
+                    );
+                    HealthStatus::Healthy
+                }
+                Err(_) => {
+                    health.add_check(
+                        HealthCheck::new("kubevirt-api", HealthStatus::Degraded)
+                            .with_response_time(k8s_start.elapsed().as_millis() as u64),
+                    );
+                    HealthStatus::Degraded
+                }
+            }
+        }
+        Err(_) => {
+            health.add_check(
+                HealthCheck::new("kubernetes", HealthStatus::Unhealthy)
+                    .with_response_time(k8s_start.elapsed().as_millis() as u64),
+            );
+            HealthStatus::Unhealthy
+        }
+    };
+
+    // Check config directory
+    let config_status = if dirs::config_dir()
+        .map(|d| d.join("zorvia").exists())
+        .unwrap_or(false)
+    {
+        HealthStatus::Healthy
+    } else {
+        HealthStatus::Degraded
+    };
+    health.add_check(HealthCheck::new("config-dir", config_status));
 
     if let Some(comp) = &component {
         println!("  Component: {}", color::value(comp));
+        let check = health
+            .checks
+            .iter()
+            .find(|c| c.component == *comp);
+        if let Some(c) = check {
+            let status_str = match c.status {
+                HealthStatus::Healthy => color::success("Healthy"),
+                HealthStatus::Degraded => color::warning("Degraded"),
+                HealthStatus::Unhealthy => color::error("Unhealthy"),
+                HealthStatus::Unknown => color::muted("Unknown"),
+            };
+            println!("  Status: {}", status_str);
+            if let Some(rt) = c.response_time_ms {
+                println!("  Response Time: {}ms", rt);
+            }
+        } else {
+            println!("  {}", color::warning("Component not found"));
+        }
     } else {
-        println!(
-            "  Overall Status: {}",
-            color::success(&health.overall_status.to_string())
-        );
+        let overall_str = match k8s_status {
+            HealthStatus::Healthy => color::success("Healthy"),
+            HealthStatus::Degraded => color::warning("Degraded"),
+            _ => color::error("Unhealthy"),
+        };
+        println!("  Overall Status: {}", overall_str);
         println!("  Healthy:   {}", health.healthy_count());
         println!("  Unhealthy: {}", health.unhealthy_count());
+        println!();
+
+        for check in &health.checks {
+            let status_str = match check.status {
+                HealthStatus::Healthy => color::success("Healthy"),
+                HealthStatus::Degraded => color::warning("Degraded"),
+                HealthStatus::Unhealthy => color::error("Unhealthy"),
+                HealthStatus::Unknown => color::muted("Unknown"),
+            };
+            let rt = check
+                .response_time_ms
+                .map(|ms| format!(" ({}ms)", ms))
+                .unwrap_or_default();
+            println!("  {:<20} {}{}", check.component, status_str, rt);
+        }
     }
-    println!("  Format: {}", output);
+
+    if output == "json" {
+        println!();
+        let json = serde_json::to_string_pretty(&health)?;
+        println!("{}", json);
+    } else if output == "yaml" {
+        println!();
+        let yaml = serde_yaml::to_string(&health)?;
+        println!("{}", yaml);
+    }
     println!();
     println!("{}", color::success("✓ Health check complete"));
     Ok(())

@@ -697,7 +697,7 @@ pub async fn run(mut cli: Cli) -> Result<()> {
 
         // ========== COST MANAGEMENT & OPTIMIZATION ==========
         Commands::CostAnalyze { vm, period, output } => {
-            handlers::cost::handle_cost_analyze(vm, period, output)?
+            handlers::cost::handle_cost_analyze(vm, period, output).await?
         }
 
         Commands::CostSummary {
@@ -705,7 +705,7 @@ pub async fn run(mut cli: Cli) -> Result<()> {
             period,
             group_by,
             output,
-        } => handlers::cost::handle_cost_summary(namespace, period, group_by, output)?,
+        } => handlers::cost::handle_cost_summary(namespace, period, group_by, output).await?,
 
         Commands::CostReport {
             report_type,
@@ -803,7 +803,7 @@ pub async fn run(mut cli: Cli) -> Result<()> {
         Commands::LogsPatterns { min_count } => {
             handlers::observability::handle_logs_patterns(min_count)?
         }
-        Commands::MetricsCollect { vm } => handlers::observability::handle_metrics_collect(vm)?,
+        Commands::MetricsCollect { vm } => handlers::observability::handle_metrics_collect(vm).await?,
         Commands::MetricsQuery {
             name,
             start: _,
@@ -858,7 +858,7 @@ pub async fn run(mut cli: Cli) -> Result<()> {
             threshold,
         } => handlers::observability::handle_trends_analyze(metric, window, threshold)?,
         Commands::HealthCheck { component, output } => {
-            handlers::observability::handle_health_check(component, output)?
+            handlers::observability::handle_health_check(component, output).await?
         }
 
         // ========== MULTI-TENANCY & RBAC ==========
