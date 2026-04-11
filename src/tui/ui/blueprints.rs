@@ -16,7 +16,7 @@ pub fn render(f: &mut Frame, state: &AppState, _config: &TuiConfig) {
     // Get blueprints list
     let blueprints_manager = crate::blueprints::BLUEPRINTS
         .read()
-        .expect("blueprints lock poisoned");
+        .unwrap_or_else(|e| e.into_inner());
     let blueprints: Vec<String> = blueprints_manager
         .list()
         .into_iter()
@@ -88,7 +88,7 @@ fn render_blueprint_list(
 
     let blueprints_manager = crate::blueprints::BLUEPRINTS
         .read()
-        .expect("blueprints lock poisoned");
+        .unwrap_or_else(|e| e.into_inner());
     let rows = blueprints.iter().enumerate().map(|(i, name)| {
         let is_selected = i == selected_index;
         let is_builtin = blueprints_manager.is_builtin(name);

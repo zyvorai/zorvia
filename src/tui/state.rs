@@ -3,6 +3,48 @@
 use anyhow::Result;
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
+
+use crate::kube::types::VirtualMachineInstanceStatus;
+
+/// Format elapsed seconds into a human-readable string (e.g., "5s ago", "3m ago")
+pub fn format_elapsed(secs: i64) -> String {
+    if secs < 60 {
+        format!("{}s ago", secs)
+    } else if secs < 3600 {
+        format!("{}m ago", secs / 60)
+    } else if secs < 86400 {
+        format!("{}h ago", secs / 3600)
+    } else {
+        format!("{}d ago", secs / 86400)
+    }
+}
+
+/// Activity event recorded from real VM operations and status changes
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ActivityEvent {
+    pub icon: String,
+    pub vm_name: String,
+    pub action: String,
+    pub timestamp: DateTime<Utc>,
+}
+
+impl ActivityEvent {
+    pub fn new(icon: &str, vm_name: &str, action: &str) -> Self {
+        Self {
+            icon: icon.to_string(),
+            vm_name: vm_name.to_string(),
+            action: action.to_string(),
+            timestamp: Utc::now(),
+        }
+    }
+
+    /// Format the elapsed time since this event
+    pub fn elapsed_display(&self) -> String {
+        let secs = Utc::now().signed_duration_since(self.timestamp).num_seconds();
+        format_elapsed(secs)
+    }
+}
 
 /// VM information for display
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -198,6 +240,27 @@ pub struct AppState {
 
     /// VM count history (last 30 data points)
     pub vm_count_history: Vec<u64>,
+
+    /// Disk usage history (last 30 data points)
+    pub disk_history: Vec<u64>,
+
+    /// Network usage history (last 30 data points)
+    pub network_history: Vec<u64>,
+
+    /// Recent activity events (newest first, max 50)
+    pub recent_activity: Vec<ActivityEvent>,
+
+    /// Cached VMI detail for the selected VM (Network tab)
+    pub selected_vmi_detail: Option<VirtualMachineInstanceStatus>,
+
+    /// Name of VM whose VMI detail is cached
+    pub selected_vmi_name: Option<String>,
+
+    /// Status filter for VM list (None = show all)
+    pub status_filter: Option<String>,
+
+    /// Previous VM statuses for change detection
+    previous_vm_statuses: HashMap<String, String>,
 }
 
 impl AppState {
@@ -215,15 +278,16 @@ impl AppState {
             multi_select_mode: false,
             selected_items: Vec::new(),
             show_stats_bar: true,
-            cpu_history: vec![
-                45, 52, 48, 55, 60, 58, 62, 65, 63, 68, 70, 67, 72, 75, 73, 78, 80, 77, 75, 72, 70,
-                68, 65, 62, 60, 58, 55, 52, 50, 48,
-            ],
-            memory_history: vec![
-                60, 62, 65, 68, 70, 72, 75, 77, 80, 82, 85, 83, 80, 78, 75, 72, 70, 68, 65, 62, 60,
-                58, 55, 52, 50, 48, 45, 42, 40, 38,
-            ],
-            vm_count_history: vec![0; 30], // Will be populated as VMs are added
+            cpu_history: vec![0; 30],
+            memory_history: vec![0; 30],
+            vm_count_history: vec![0; 30],
+            disk_history: vec![0; 30],
+            network_history: vec![0; 30],
+            recent_activity: Vec::new(),
+            selected_vmi_detail: None,
+            selected_vmi_name: None,
+            status_filter: None,
+            previous_vm_statuses: HashMap::new(),
         }
     }
 
@@ -237,14 +301,20 @@ impl AppState {
         let mut vm_infos = Vec::with_capacity(vm_list.len());
         for vm in &vm_list {
             let vm_name = vm.metadata.name.clone().unwrap_or_default();
-            let ip = client
-                .get_vm_ip(&self.namespace, &vm_name)
-                .await
-                .unwrap_or(None);
+            let ip = match client.get_vm_ip(&self.namespace, &vm_name).await {
+                Ok(ip) => ip,
+                Err(e) => {
+                    log::debug!("Failed to get IP for VM '{}': {}", vm_name, e);
+                    None
+                }
+            };
             vm_infos.push(VmInfo::from_vm_with_ip(vm, ip));
         }
-        self.vms = vm_infos;
 
+        // Detect status changes and record activity events
+        self.detect_status_changes(&vm_infos);
+
+        self.vms = vm_infos;
         self.last_refresh = Utc::now();
 
         // Reset selection if out of bounds
@@ -279,35 +349,38 @@ impl AppState {
         Ok(())
     }
 
-    /// Select next item in the list
+    /// Select next item in the list (respects active filter)
     pub fn select_next(&mut self) {
-        if self.vms.is_empty() {
+        let count = self.filtered_vms().len();
+        if count == 0 {
             return;
         }
 
-        if self.selected_index < self.vms.len() - 1 {
+        if self.selected_index < count - 1 {
             self.selected_index += 1;
         } else {
             self.selected_index = 0; // Wrap around
         }
     }
 
-    /// Select previous item in the list
+    /// Select previous item in the list (respects active filter)
     pub fn select_previous(&mut self) {
-        if self.vms.is_empty() {
+        let count = self.filtered_vms().len();
+        if count == 0 {
             return;
         }
 
         if self.selected_index > 0 {
             self.selected_index -= 1;
         } else {
-            self.selected_index = self.vms.len() - 1; // Wrap around
+            self.selected_index = count - 1; // Wrap around
         }
     }
 
-    /// Get the currently selected VM
+    /// Get the currently selected VM (respects active filter)
     pub fn selected_vm(&self) -> Option<&VmInfo> {
-        self.vms.get(self.selected_index)
+        let filtered = self.filtered_vms();
+        filtered.get(self.selected_index).copied()
     }
 
     /// Check if data should be refreshed
@@ -319,24 +392,25 @@ impl AppState {
         elapsed >= self.refresh_interval as i64
     }
 
-    /// Get VM statistics
+    /// Get VM statistics (single pass)
     pub fn get_stats(&self) -> VmStats {
-        let total = self.vms.len();
-        let running = self.vms.iter().filter(|vm| vm.status == "Running").count();
-        let stopped = self.vms.iter().filter(|vm| vm.status == "Stopped").count();
-        let starting = self
-            .vms
-            .iter()
-            .filter(|vm| vm.status == "Starting" || vm.status == "Pending")
-            .count();
-        let failed = self
-            .vms
-            .iter()
-            .filter(|vm| vm.status == "Failed" || vm.status == "Error")
-            .count();
+        let mut running = 0;
+        let mut stopped = 0;
+        let mut starting = 0;
+        let mut failed = 0;
+
+        for vm in &self.vms {
+            match vm.status.as_str() {
+                "Running" => running += 1,
+                "Stopped" => stopped += 1,
+                "Starting" | "Pending" => starting += 1,
+                "Failed" | "Error" => failed += 1,
+                _ => {}
+            }
+        }
 
         VmStats {
-            total,
+            total: self.vms.len(),
             running,
             stopped,
             starting,
@@ -403,9 +477,127 @@ impl AppState {
         }
     }
 
+    /// Fetch VMI detail for the currently selected VM
+    pub async fn refresh_selected_vm_detail(&mut self) -> Result<()> {
+        use crate::kube::KubeClient;
+
+        let vm_name = match self.selected_vm() {
+            Some(vm) => vm.name.clone(),
+            None => {
+                self.selected_vmi_detail = None;
+                self.selected_vmi_name = None;
+                return Ok(());
+            }
+        };
+
+        // Skip if already cached for this VM
+        if self.selected_vmi_name.as_deref() == Some(&vm_name) {
+            return Ok(());
+        }
+
+        match KubeClient::new().await {
+            Ok(client) => match client.get_vmi(&self.namespace, &vm_name).await {
+                Ok(vmi) => {
+                    self.selected_vmi_detail = vmi.status;
+                    self.selected_vmi_name = Some(vm_name);
+                }
+                Err(_) => {
+                    self.selected_vmi_detail = None;
+                    self.selected_vmi_name = Some(vm_name);
+                }
+            },
+            Err(_) => {
+                self.selected_vmi_detail = None;
+                self.selected_vmi_name = Some(vm_name);
+            }
+        }
+
+        Ok(())
+    }
+
+    /// Get VMs filtered by status_filter
+    pub fn filtered_vms(&self) -> Vec<&VmInfo> {
+        match &self.status_filter {
+            None => self.vms.iter().collect(),
+            Some(filter) => self
+                .vms
+                .iter()
+                .filter(|vm| vm.status == *filter)
+                .collect(),
+        }
+    }
+
+    /// Cycle through status filters: All -> Running -> Stopped -> Failed -> All
+    pub fn cycle_status_filter(&mut self) {
+        self.status_filter = match &self.status_filter {
+            None => Some("Running".to_string()),
+            Some(s) if s == "Running" => Some("Stopped".to_string()),
+            Some(s) if s == "Stopped" => Some("Failed".to_string()),
+            _ => None,
+        };
+        // Reset selection, clamping to filtered list bounds
+        let filtered_len = self.filtered_vms().len();
+        self.selected_index = if filtered_len > 0 { 0 } else { 0 };
+    }
+
     /// Toggle stats bar visibility
     pub fn toggle_stats_bar(&mut self) {
         self.show_stats_bar = !self.show_stats_bar;
+    }
+
+    /// Record a new activity event (newest at end, avoids O(n) shift)
+    pub fn record_activity(&mut self, icon: &str, vm_name: &str, action: &str) {
+        self.recent_activity
+            .push(ActivityEvent::new(icon, vm_name, action));
+        // Keep at most 50 events, drop oldest from front
+        if self.recent_activity.len() > 50 {
+            let excess = self.recent_activity.len().saturating_sub(50);
+            if excess > 0 {
+                self.recent_activity.drain(0..excess);
+            }
+        }
+    }
+
+    /// Detect VM status changes between refreshes and record as activity events
+    fn detect_status_changes(&mut self, new_vms: &[VmInfo]) {
+        let mut new_statuses = HashMap::new();
+
+        for vm in new_vms {
+            new_statuses.insert(vm.name.clone(), vm.status.clone());
+
+            match self.previous_vm_statuses.get(&vm.name) {
+                None => {
+                    // New VM discovered
+                    if !self.previous_vm_statuses.is_empty() {
+                        self.record_activity("🆕", &vm.name, "discovered");
+                    }
+                }
+                Some(old_status) if old_status != &vm.status => {
+                    let (icon, action) = match vm.status.as_str() {
+                        "Running" => ("🟢", "started"),
+                        "Stopped" => ("⏸ ", "stopped"),
+                        "Starting" | "Pending" => ("🟡", "starting"),
+                        "Failed" | "Error" => ("🔴", "failed"),
+                        _ => ("🔄", "status changed"),
+                    };
+                    self.record_activity(icon, &vm.name, action);
+                }
+                _ => {}
+            }
+        }
+
+        // Detect removed VMs
+        let removed: Vec<String> = self
+            .previous_vm_statuses
+            .keys()
+            .filter(|name| !new_statuses.contains_key(*name))
+            .cloned()
+            .collect();
+        for name in &removed {
+            self.record_activity("🗑 ", name, "removed");
+        }
+
+        self.previous_vm_statuses = new_statuses;
     }
 
     /// Update history data derived from current VM state
@@ -413,27 +605,28 @@ impl AppState {
         let stats = self.get_stats();
         let total = stats.total.max(1) as f64;
 
-        // Derive CPU usage estimate from running VM ratio
+        // Derive usage estimates from running VM ratio
         let running_ratio = stats.running as f64 / total;
-        let cpu_usage = (running_ratio * 75.0).round() as u64; // Running VMs use ~75% capacity
-
-        // Derive memory usage estimate: running VMs consume memory
+        let cpu_usage = (running_ratio * 75.0).round() as u64;
         let memory_usage = (running_ratio * 70.0).round() as u64;
+        let disk_usage = (running_ratio * 55.0).round() as u64;
+        let network_usage = (running_ratio * 40.0).round() as u64;
 
-        if !self.cpu_history.is_empty() {
-            self.cpu_history.remove(0);
-            self.cpu_history.push(cpu_usage);
+        // Use rotate_left + overwrite last element to avoid O(n) remove(0)
+        fn push_history(buf: &mut [u64], value: u64) {
+            if !buf.is_empty() {
+                buf.rotate_left(1);
+                if let Some(last) = buf.last_mut() {
+                    *last = value;
+                }
+            }
         }
 
-        if !self.memory_history.is_empty() {
-            self.memory_history.remove(0);
-            self.memory_history.push(memory_usage);
-        }
-
-        if !self.vm_count_history.is_empty() {
-            self.vm_count_history.remove(0);
-            self.vm_count_history.push(self.vms.len() as u64);
-        }
+        push_history(&mut self.cpu_history, cpu_usage);
+        push_history(&mut self.memory_history, memory_usage);
+        push_history(&mut self.vm_count_history, self.vms.len() as u64);
+        push_history(&mut self.disk_history, disk_usage);
+        push_history(&mut self.network_history, network_usage);
     }
 }
 

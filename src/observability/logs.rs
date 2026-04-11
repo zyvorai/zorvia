@@ -284,6 +284,9 @@ impl LogAnalyzer {
         // Normalize common variable parts to create groupable patterns
         // Replace quoted strings
         while let Some(start) = pattern.find('"') {
+            if start + 1 >= pattern.len() {
+                break;
+            }
             if let Some(end) = pattern[start + 1..].find('"') {
                 pattern.replace_range(start..=start + 1 + end, "<STR>");
             } else {

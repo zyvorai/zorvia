@@ -2,11 +2,16 @@ use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
+pub mod handlers;
+pub mod http_server;
 pub mod middleware;
 pub mod openapi;
+pub mod pagination;
+pub mod pam_auth;
 pub mod routes;
 pub mod server;
 pub mod webhooks;
+pub mod websocket;
 
 /// API server configuration
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -119,7 +124,7 @@ impl ApiConfig {
             tls_enabled: false,
             tls_cert: None,
             tls_key: None,
-            cors_enabled: true,
+            cors_enabled: false,
             cors_origins: vec![],
             auth_enabled: true,
             auth_method: AuthMethod::None,
@@ -252,7 +257,11 @@ impl HttpMethod {
 impl RequestContext {
     pub fn new(method: HttpMethod, path: impl Into<String>) -> Self {
         Self {
-            request_id: format!("req-{}", Utc::now().timestamp_micros()),
+            request_id: format!(
+                "req-{}-{:06x}",
+                Utc::now().timestamp_micros(),
+                rand::random::<u32>() & 0xFFFFFF
+            ),
             method,
             path: path.into(),
             client_ip: "127.0.0.1".to_string(),
@@ -550,7 +559,7 @@ mod tests {
         assert_eq!(config.port, 8080);
         assert_eq!(config.host, "0.0.0.0");
         assert!(!config.tls_enabled);
-        assert!(config.cors_enabled);
+        assert!(!config.cors_enabled);
         assert!(config.auth_enabled);
     }
 

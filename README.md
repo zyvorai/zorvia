@@ -512,6 +512,20 @@ See the `examples/` directory for more configuration examples:
 - `ubuntu-cloud-init.yaml` - Ubuntu VM with cloud-init
 - `demo_theme.rs` - Theme demonstration
 
+## 🔒 Security
+
+Zorvia follows secure-by-default principles:
+
+- **No `unsafe` code** - The entire codebase is safe Rust
+- **CORS disabled by default** - API server requires explicit origin configuration
+- **TLS certificate validation enforced** - Cannot be bypassed via configuration
+- **Path traversal protection** - Profile/blueprint names are sanitized before filesystem access
+- **Error sanitization** - Internal error details are never leaked to API clients
+- **Input validation** - PAM usernames, cron expressions, and API parameters are validated at boundaries
+- **Arithmetic safety** - Saturating/checked arithmetic prevents integer overflow throughout
+- **No panics in production paths** - All `.unwrap()` / `.expect()` calls verified safe or replaced with error handling
+- **Connection pooling** - HTTP API reuses Kubernetes client connections instead of per-request allocation
+
 ## 🤝 Contributing
 
 Contributions are welcome! Please feel free to submit a Pull Request.

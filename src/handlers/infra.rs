@@ -492,7 +492,10 @@ pub async fn handle_monitor_top(
     // Query real VMs from Kubernetes
     let vm_names: Vec<String> = match KubeClient::new().await {
         Ok(client) => {
-            let vms = client.list_vms(namespace).await.unwrap_or_default();
+            let vms = client
+                .list_vms(namespace)
+                .await
+                .map_err(|e| anyhow::anyhow!("Failed to list VMs: {}", e))?;
             vms.iter()
                 .filter_map(|vm| vm.metadata.name.clone())
                 .collect()
@@ -861,7 +864,10 @@ pub async fn handle_disk_usage(
             Err(e) => return Err(anyhow!("Failed to get VM '{}': {}", vm_name, e)),
         }
     } else {
-        client.list_vms(namespace).await.unwrap_or_default()
+        client
+            .list_vms(namespace)
+            .await
+            .map_err(|e| anyhow::anyhow!("Failed to list VMs: {}", e))?
     };
 
     let pvcs: kube::api::Api<k8s_openapi::api::core::v1::PersistentVolumeClaim> =

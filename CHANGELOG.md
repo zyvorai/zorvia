@@ -7,6 +7,58 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Security
+
+- **Path traversal prevention** - Profile and blueprint storage now sanitize names to block directory traversal attacks
+- **CORS restricted by default** - API server CORS defaults to disabled instead of wildcard `*` origins
+- **RDP cert validation enforced** - `ignore_cert` field is now ignored; TLS certificate validation is always enforced
+- **Error message sanitization** - HTTP API responses no longer leak internal Kubernetes error details to clients
+- **Request ID uniqueness** - API request IDs now include random suffix to prevent collisions under concurrency
+- **PAM username length** - Username validation tightened from 256 to 32 characters (PAM LOGIN_NAME_MAX)
+
+### Fixed
+
+#### Crash Prevention
+- **Terminal cleanup on panic** - TUI now restores terminal state even if `app.run()` panics or errors
+- **Remove server panics** - Replaced `.unwrap()` with safe fallbacks in HTTP server JSON serialization and K8s client initialization
+- **Lock poisoning recovery** - TUI blueprint/profile views use `unwrap_or_else` instead of `.expect()` on RwLock
+- **Storage init fallback** - Profile/blueprint storage falls back to read-only mode instead of panicking on init failure
+- **Rollback lifetime safety** - `execute_rollback()` returns owned `RollbackExecution` instead of borrowed reference
+
+#### Error Handling
+- **K8s connection failures surfaced** - Replaced `.unwrap_or_default()` with proper `?` error propagation on `list_vms()` calls in handlers and HTTP server
+- **Evacuation error reporting** - `list_all_vms()` in backup handler now logs warnings on failure instead of silently returning empty
+- **Audit log overflow warning** - Audit log now emits `log::warn!` when dropping oldest events at capacity
+- **Buffer trim logging** - Anomaly detector, autoscaler, leak detector, and log aggregator now log when trimming history buffers
+
+#### Arithmetic Safety
+- **Integer overflow prevention** - Cost handler casts use `(val as u64).min(u32::MAX as u64) as u32` for memory/storage values
+- **Pagination precision** - Page count calculation uses `u64` arithmetic before clamping to `u32` to avoid truncation
+- **Year overflow** - Cost report `monthly_report()` uses `year.saturating_add(1)` instead of `year + 1`
+- **Division by zero** - Cost forecast `project_weighted()` now guards `recent_days > 0.0` before dividing
+
+#### Drain Panic Prevention
+- Fixed 10 `Vec::drain()` operations across `audit_trail`, `search_history`, `tui/state`, `autoscaler`, `anomaly`, `log_aggregation`, `custom_metrics`, `leak_detector`, and `notifications` that could panic on boundary conditions
+
+#### Logic Bugs
+- **Anti-affinity rule fix** - Empty `vm_selector` now correctly means "no match" instead of unconditionally matching all nodes with VMs
+- **Cron range validation** - Invalid ranges like `"5-1"` now return `false` instead of silently misbehaving
+- **String slice bounds check** - Log pattern extraction guards against out-of-bounds string slicing on trailing quote characters
+
+#### TUI Fixes
+- **Tab state preserved** - VM details view retains selected tab when switching views (was always reset to 0)
+- **Widget rendering bounds** - Input widget help text uses `saturating_add/sub` to prevent rendering outside allocated area
+- **Placement bounds check** - Placement engine uses `.get(i)` instead of direct `[i]` indexing for node alternatives
+- **Filter index validation** - `cycle_status_filter()` resets selection index safely against filtered list bounds
+- **IP lookup error logging** - TUI state refresh logs debug message on `get_vm_ip()` failure instead of silently dropping
+- **Unused import removed** - Removed unused `Span` import from bar chart widget (eliminated compiler warning)
+
+#### Connection Pooling
+- **HTTP server client reuse** - All 8 API handlers refactored to use shared `WebState.get_client()` instead of creating new `KubeClient::new()` per request
+
+#### RDP Session
+- **Serialization error handling** - RDP session creation logs error and returns error JSON instead of silently returning empty object
+
 ## [0.2.0] - 2026-02-28
 
 ### Added

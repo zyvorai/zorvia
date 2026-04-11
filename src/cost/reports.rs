@@ -269,14 +269,16 @@ impl ReportGenerator {
         let fallback = chrono::NaiveDate::from_ymd_opt(2024, 1, 1).unwrap();
         let start_date =
             chrono::NaiveDate::from_ymd_opt(year, clamped_month, 1).unwrap_or(fallback);
+        // SAFETY: (0,0,0) is always a valid time
         let start = start_date.and_hms_opt(0, 0, 0).unwrap().and_utc();
 
         let end_date = if clamped_month == 12 {
-            chrono::NaiveDate::from_ymd_opt(year + 1, 1, 1)
+            chrono::NaiveDate::from_ymd_opt(year.saturating_add(1), 1, 1)
         } else {
             chrono::NaiveDate::from_ymd_opt(year, clamped_month + 1, 1)
         }
         .unwrap_or(start_date + chrono::Duration::days(30));
+        // SAFETY: (0,0,0) is always a valid time
         let end = end_date.and_hms_opt(0, 0, 0).unwrap().and_utc();
 
         CostReport::new(ReportType::Monthly, start, end)

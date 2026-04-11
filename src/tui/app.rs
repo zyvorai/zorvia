@@ -16,6 +16,7 @@ pub enum View {
     Snapshots,
     Profiles,
     Blueprints,
+    ActivityLog,
     Help,
 }
 
@@ -38,6 +39,9 @@ pub struct App {
 
     /// Success message to display
     pub success_message: Option<String>,
+
+    /// Currently selected detail tab index
+    pub detail_tab: usize,
 }
 
 impl App {
@@ -53,6 +57,7 @@ impl App {
             config,
             error_message: None,
             success_message: None,
+            detail_tab: 0,
         })
     }
 
@@ -67,6 +72,7 @@ impl App {
             config,
             error_message: None,
             success_message: None,
+            detail_tab: 0,
         }
     }
 
@@ -109,10 +115,11 @@ impl App {
         match self.current_view {
             View::Dashboard => ui::dashboard::render(f, &self.state, &self.config),
             View::VmList => ui::vm_list::render(f, &mut self.state, &self.config),
-            View::VmDetails => ui::vm_details::render(f, &self.state, &self.config),
+            View::VmDetails => ui::vm_details::render(f, &self.state, &self.config, self.detail_tab),
             View::Snapshots => ui::snapshots::render(f, &self.state, &self.config),
             View::Profiles => ui::profiles::render(f, &self.state, &self.config),
             View::Blueprints => ui::blueprints::render(f, &self.state, &self.config),
+            View::ActivityLog => ui::activity_log::render(f, &self.state, &self.config),
             View::Help => ui::help::render(f, &self.config),
         }
 
@@ -205,6 +212,10 @@ impl App {
                 self.current_view = View::Blueprints;
                 return Ok(());
             }
+            KeyCode::Char('6') => {
+                self.current_view = View::ActivityLog;
+                return Ok(());
+            }
             KeyCode::Char('r') if key.modifiers.contains(KeyModifiers::CONTROL) => {
                 self.refresh_data().await?;
                 self.success_message = Some("Data refreshed".to_string());
@@ -292,6 +303,7 @@ impl App {
     async fn refresh_data(&mut self) -> Result<()> {
         self.state.refresh_vms().await?;
         self.state.refresh_snapshots().await?;
+        self.state.update_history();
         Ok(())
     }
 
@@ -302,6 +314,7 @@ impl App {
         let client = KubeClient::new().await?;
         client.start_vm(&self.state.namespace, vm_name).await?;
 
+        self.state.record_activity("▶ ", vm_name, "start requested");
         self.success_message = Some(format!("Started VM: {}", vm_name));
         self.refresh_data().await?;
 
@@ -315,6 +328,7 @@ impl App {
         let client = KubeClient::new().await?;
         client.stop_vm(&self.state.namespace, vm_name).await?;
 
+        self.state.record_activity("⏹ ", vm_name, "stop requested");
         self.success_message = Some(format!("Stopped VM: {}", vm_name));
         self.refresh_data().await?;
 
@@ -328,6 +342,7 @@ impl App {
         let client = KubeClient::new().await?;
         client.delete_vm(&self.state.namespace, vm_name).await?;
 
+        self.state.record_activity("🗑 ", vm_name, "deleted");
         self.success_message = Some(format!("Deleted VM: {}", vm_name));
         self.refresh_data().await?;
 

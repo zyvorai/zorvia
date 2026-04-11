@@ -40,9 +40,16 @@ impl ProfileStorage {
         Ok(config_dir.join("zorvia").join("profiles"))
     }
 
-    /// Get the file path for a profile
+    /// Get the file path for a profile.
+    /// Name is sanitized to prevent path traversal.
     fn profile_path(&self, name: &str) -> PathBuf {
-        self.config_dir.join(format!("{}.yaml", name))
+        // Strip path separators to prevent directory traversal
+        let safe_name: String = name
+            .chars()
+            .filter(|c| *c != '/' && *c != '\\' && *c != '.')
+            .collect();
+        let safe_name = if safe_name.is_empty() { "unnamed" } else { &safe_name };
+        self.config_dir.join(format!("{}.yaml", safe_name))
     }
 
     /// Save a profile to disk
@@ -172,7 +179,7 @@ impl ProfileStorage {
 
 impl Default for ProfileStorage {
     fn default() -> Self {
-        Self::new().expect("Failed to initialize profile storage")
+        Self::new().unwrap_or_else(|_| Self::in_memory())
     }
 }
 

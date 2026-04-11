@@ -883,7 +883,13 @@ pub async fn handle_evacuate_node(
 
         // Query VMs running on this specific node from Kubernetes
         let vms: Vec<(String, u8)> = if let Ok(client) = crate::kube::KubeClient::new().await {
-            let all_vms = client.list_all_vms().await.unwrap_or_default();
+            let all_vms = match client.list_all_vms().await {
+                Ok(vms) => vms,
+                Err(e) => {
+                    eprintln!("Warning: Failed to list VMs from Kubernetes: {}", e);
+                    Vec::new()
+                }
+            };
             all_vms
                 .iter()
                 .filter_map(|vm| {

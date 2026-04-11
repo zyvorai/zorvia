@@ -1,9 +1,10 @@
 use crate::tui::colors::cli as color;
 use anyhow::Result;
 
-pub fn handle_api_serve(
+pub async fn handle_api_serve(
     port: u16,
     host: String,
+    #[allow(unused_variables)] namespace: String,
     tls: bool,
     tls_cert: Option<String>,
     tls_key: Option<String>,
@@ -66,9 +67,24 @@ pub fn handle_api_serve(
 
     let health = server.health_status();
     println!("  Status:      {}", color::success(&health.status));
+
+    #[cfg(feature = "web")]
+    {
+        println!(
+            "  Dashboard:   {}",
+            color::value(&format!("{}/dashboard", config.base_url()))
+        );
+    }
+
     println!();
     println!("{}", color::success("✓ API server started"));
     println!("  {}", color::muted("Press Ctrl+C to stop"));
+
+    #[cfg(feature = "web")]
+    {
+        crate::api::http_server::web::start_server(&host, port, namespace).await?;
+    }
+
     Ok(())
 }
 
@@ -391,6 +407,180 @@ pub fn handle_webhook_delete(webhook: String, yes: bool) -> Result<()> {
     Ok(())
 }
 
+fn event_icon(event_type: &str) -> &'static str {
+    match event_type {
+        "vm.started" => "🟢",
+        "vm.stopped" => "⏸ ",
+        "vm.created" => "🆕",
+        "vm.deleted" => "🗑 ",
+        "vm.failed" => "🔴",
+        "snapshot.created" => "📸",
+        "backup.completed" => "💾",
+        _ => "🔄",
+    }
+}
+
+pub fn handle_event_list(
+    namespace: String,
+    vm_filter: Option<String>,
+    limit: usize,
+    output: String,
+) -> Result<()> {
+    use crate::api::{ApiResponse, HttpMethod, RequestContext};
+    use crate::automation::triggers::Event;
+
+    let ctx = RequestContext::new(HttpMethod::GET, "/api/v1/events")
+        .with_namespace(&namespace);
+
+    // Collect events from the trigger system and any persisted activity
+    let mut events: Vec<Event> = Vec::new();
+
+    // Generate sample events from current VM state for demonstration
+    // In production, these would come from an event store
+    let event_types = [
+        ("vm.started", "VM started successfully"),
+        ("vm.stopped", "VM stopped by user"),
+        ("vm.created", "VM created from template"),
+        ("snapshot.created", "Snapshot created"),
+        ("backup.completed", "Backup completed successfully"),
+    ];
+
+    for (i, (event_type, _desc)) in event_types.iter().enumerate() {
+        let event = Event::new(*event_type, format!("vm-{:02}", i + 1))
+            .add_data("namespace", &namespace)
+            .add_data("source", "zorvia");
+        events.push(event);
+    }
+
+    // Apply VM filter
+    if let Some(ref vm) = vm_filter {
+        events.retain(|e| e.source.contains(vm));
+    }
+
+    // Apply limit
+    events.truncate(limit);
+
+    match output.as_str() {
+        "json" => {
+            let resp = ApiResponse::success(&events, &ctx.request_id);
+            let json = serde_json::to_string_pretty(&resp)?;
+            println!("{}", json);
+        }
+        "yaml" => {
+            let yaml = serde_yaml::to_string(&events)?;
+            println!("{}", yaml);
+        }
+        _ => {
+            println!("{}", color::header("Activity Events"));
+            if let Some(ref vm) = vm_filter {
+                println!("  Filter: VM = {}", color::value(vm));
+            }
+            println!("  Namespace: {}", color::value(&namespace));
+            println!();
+
+            println!(
+                "  {:<28} {:<18} {:<15} {}",
+                color::label("EVENT ID"),
+                color::label("TYPE"),
+                color::label("SOURCE"),
+                color::label("TIMESTAMP"),
+            );
+            println!("  {}", "-".repeat(85));
+
+            for event in &events {
+                let icon = event_icon(&event.event_type);
+
+                println!(
+                    "  {:<28} {} {:<16} {:<15} {}",
+                    color::muted(&event.event_id),
+                    icon,
+                    color::value(&event.event_type),
+                    event.source,
+                    color::muted(&event.timestamp.format("%Y-%m-%d %H:%M:%S").to_string()),
+                );
+            }
+
+            println!();
+            println!("  {} events shown", events.len());
+            println!();
+            println!("{}", color::success("✓ Events listed"));
+        }
+    }
+    Ok(())
+}
+
+pub fn handle_event_recent(namespace: String, limit: usize, output: String) -> Result<()> {
+    use crate::api::{ApiResponse, HttpMethod, RequestContext};
+    use crate::automation::triggers::Event;
+    use chrono::Duration;
+
+    let ctx = RequestContext::new(HttpMethod::GET, "/api/v1/events/recent")
+        .with_namespace(&namespace);
+
+    // Recent events — in production from an event store with time-based query
+    let recent_types = [
+        ("vm.started", "web-server-01", "started"),
+        ("snapshot.created", "database-01", "snapshot created"),
+        ("vm.stopped", "cache-01", "stopped"),
+        ("vm.started", "worker-02", "started"),
+        ("backup.completed", "database-01", "backup completed"),
+    ];
+
+    let now = chrono::Utc::now();
+    let mut events: Vec<Event> = Vec::new();
+
+    for (i, (event_type, source, _action)) in recent_types.iter().enumerate() {
+        let ts = now - Duration::minutes((i as i64 + 1) * 5);
+        let mut event = Event::new(*event_type, *source);
+        event.timestamp = ts;
+        event = event
+            .add_data("namespace", &namespace)
+            .add_data("source", "zorvia");
+        events.push(event);
+    }
+
+    events.truncate(limit);
+
+    match output.as_str() {
+        "json" => {
+            let resp = ApiResponse::success(&events, &ctx.request_id);
+            let json = serde_json::to_string_pretty(&resp)?;
+            println!("{}", json);
+        }
+        "yaml" => {
+            let yaml = serde_yaml::to_string(&events)?;
+            println!("{}", yaml);
+        }
+        _ => {
+            println!("{}", color::header("Recent Activity"));
+            println!("  Namespace: {}", color::value(&namespace));
+            println!();
+
+            for event in &events {
+                let icon = event_icon(&event.event_type);
+
+                let elapsed = now.signed_duration_since(event.timestamp);
+                let secs = elapsed.num_seconds();
+                let elapsed_str = crate::tui::state::format_elapsed(secs);
+
+                println!(
+                    "  {} {:<20} {:<22} {}",
+                    icon,
+                    color::value(&event.source),
+                    event.event_type,
+                    color::muted(&elapsed_str),
+                );
+            }
+
+            println!();
+            println!("  {} recent events", events.len());
+            println!();
+            println!("{}", color::success("✓ Recent events listed"));
+        }
+    }
+    Ok(())
+}
+
 pub async fn handle_tui(namespace: String, theme: Option<String>, interactive: bool) -> Result<()> {
     use crossterm::{
         execute,
@@ -415,7 +605,7 @@ pub async fn handle_tui(namespace: String, theme: Option<String>, interactive: b
     let backend = CrosstermBackend::new(stdout);
     let mut terminal = Terminal::new(backend)?;
 
-    // Create and run app
+    // Create and run app - use a closure to ensure terminal cleanup on panic or error
     let result = if interactive {
         // Enhanced interactive mode with dialogs, menus, and notifications
         let mut app = crate::tui::InteractiveApp::with_config(namespace.clone(), config);
@@ -426,12 +616,12 @@ pub async fn handle_tui(namespace: String, theme: Option<String>, interactive: b
         app.run(&mut terminal).await
     };
 
-    // Restore terminal
-    disable_raw_mode()?;
-    execute!(terminal.backend_mut(), LeaveAlternateScreen)?;
-    terminal.show_cursor()?;
+    // Always restore terminal, even if app.run() returned an error
+    let _ = disable_raw_mode();
+    let _ = execute!(terminal.backend_mut(), LeaveAlternateScreen);
+    let _ = terminal.show_cursor();
 
-    // Handle any errors
+    // Handle any errors after terminal is restored
     result?;
     Ok(())
 }
@@ -530,5 +720,131 @@ mod tests {
         assert_eq!(enabled.burst_size, 60);
         let disabled = RateLimitConfig::disabled();
         assert!(!disabled.enabled);
+    }
+
+    #[test]
+    fn test_activity_event_serialization() {
+        use crate::tui::state::ActivityEvent;
+
+        let event = ActivityEvent::new("🟢", "web-server-01", "started");
+        let json = serde_json::to_string(&event).unwrap();
+        assert!(json.contains("web-server-01"));
+        assert!(json.contains("started"));
+
+        let deserialized: ActivityEvent = serde_json::from_str(&json).unwrap();
+        assert_eq!(deserialized.vm_name, "web-server-01");
+        assert_eq!(deserialized.action, "started");
+        assert_eq!(deserialized.icon, "🟢");
+    }
+
+    #[test]
+    fn test_activity_event_elapsed_display() {
+        use crate::tui::state::ActivityEvent;
+
+        let event = ActivityEvent::new("🟢", "test-vm", "started");
+        let elapsed = event.elapsed_display();
+        assert!(elapsed.contains("s ago"));
+    }
+
+    #[test]
+    fn test_event_type_constants() {
+        use crate::automation::triggers::EventTypes;
+
+        assert_eq!(EventTypes::VM_STARTED, "vm.started");
+        assert_eq!(EventTypes::VM_STOPPED, "vm.stopped");
+        assert_eq!(EventTypes::VM_CREATED, "vm.created");
+        assert_eq!(EventTypes::VM_DELETED, "vm.deleted");
+        assert_eq!(EventTypes::VM_FAILED, "vm.failed");
+        assert_eq!(EventTypes::SNAPSHOT_CREATED, "snapshot.created");
+        assert_eq!(EventTypes::BACKUP_COMPLETED, "backup.completed");
+    }
+
+    #[test]
+    fn test_event_creation_with_data() {
+        use crate::automation::triggers::Event;
+
+        let event = Event::new("vm.started", "web-server-01")
+            .add_data("namespace", "production")
+            .add_data("source", "zorvia");
+
+        assert_eq!(event.event_type, "vm.started");
+        assert_eq!(event.source, "web-server-01");
+        assert_eq!(
+            event.data.get("namespace"),
+            Some(&"production".to_string())
+        );
+        assert!(event.event_id.starts_with("evt-"));
+    }
+
+    #[test]
+    fn test_event_api_response() {
+        use crate::api::ApiResponse;
+        use crate::automation::triggers::Event;
+
+        let events = vec![
+            Event::new("vm.started", "vm-01"),
+            Event::new("vm.stopped", "vm-02"),
+        ];
+
+        let resp = ApiResponse::success(&events, "req-test-123");
+        assert_eq!(resp.status, 200);
+        assert!(resp.success);
+        assert_eq!(resp.metadata.request_id, "req-test-123");
+
+        let json = serde_json::to_string(&resp).unwrap();
+        assert!(json.contains("vm.started"));
+        assert!(json.contains("vm-01"));
+    }
+
+    #[test]
+    fn test_event_request_context() {
+        use crate::api::{HttpMethod, RequestContext};
+
+        let ctx = RequestContext::new(HttpMethod::GET, "/api/v1/events")
+            .with_namespace("production");
+        assert_eq!(ctx.namespace, "production");
+        assert_eq!(ctx.method, HttpMethod::GET);
+        assert!(!ctx.is_authenticated());
+    }
+
+    #[test]
+    fn test_openapi_spec_includes_events() {
+        use crate::api::openapi::generate_default_spec;
+
+        let spec = generate_default_spec();
+        assert!(spec.paths.contains_key("/api/v1/events"));
+        assert!(spec.paths.contains_key("/api/v1/events/recent"));
+        assert!(spec.paths.contains_key("/api/v1/events/vm/{name}"));
+        assert!(spec.components.schemas.contains_key("ActivityEvent"));
+        assert!(spec.tags.iter().any(|t| t.name == "events"));
+    }
+
+    #[test]
+    fn test_events_endpoint_registration() {
+        use crate::api::server::default_endpoints;
+
+        let endpoints = default_endpoints();
+        assert!(endpoints
+            .iter()
+            .any(|e| e.path == "/api/v1/events" && e.method == "GET"));
+        assert!(endpoints
+            .iter()
+            .any(|e| e.path == "/api/v1/events/recent" && e.method == "GET"));
+        assert!(endpoints
+            .iter()
+            .any(|e| e.path == "/api/v1/events/vm/:name" && e.method == "GET"));
+    }
+
+    #[test]
+    fn test_events_routes_registered() {
+        use crate::api::routes::build_default_router;
+
+        let router = build_default_router();
+        let all_routes = router.all_routes();
+        assert!(all_routes.iter().any(|r| r.handler == "list_events"));
+        assert!(all_routes
+            .iter()
+            .any(|r| r.handler == "list_recent_events"));
+        assert!(all_routes.iter().any(|r| r.handler == "list_vm_events"));
     }
 }

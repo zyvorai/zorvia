@@ -141,7 +141,7 @@ pub fn build_default_chain() -> MiddlewareChain {
     chain.add(
         MiddlewareConfig::new("cors", MiddlewareType::Cors)
             .with_priority(30)
-            .with_config("origins", "*")
+            .with_config("origins", "")
             .with_config("methods", "GET,POST,PUT,DELETE,PATCH"),
     );
 

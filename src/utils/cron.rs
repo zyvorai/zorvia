@@ -56,6 +56,9 @@ pub fn field_matches(field: &str, value: u32) -> bool {
     // Handle ranges: "1-5"
     if let Some((start, end)) = field.split_once('-') {
         if let (Ok(s), Ok(e)) = (start.trim().parse::<u32>(), end.trim().parse::<u32>()) {
+            if s > e {
+                return false; // Invalid range (e.g., "5-1")
+            }
             return value >= s && value <= e;
         }
     }

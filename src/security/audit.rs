@@ -197,6 +197,11 @@ impl AuditLog {
 
     pub fn add_event(&mut self, event: AuditEvent) {
         if self.events.len() >= self.max_entries {
+            log::warn!(
+                "Audit log '{}' reached max capacity ({}), dropping oldest event",
+                self.log_id,
+                self.max_entries
+            );
             self.events.remove(0);
         }
         self.events.push(event);

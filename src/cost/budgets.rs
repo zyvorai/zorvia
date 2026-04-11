@@ -335,10 +335,12 @@ impl CostForecast {
 
     /// Weighted projection (recent trends weighted higher)
     pub fn project_weighted(&mut self, recent_spend: f64, total_days: f64, recent_days: f64) {
-        let recent_daily_rate = recent_spend / recent_days;
-        self.projected_spend = recent_daily_rate * total_days;
-        self.forecast_method = ForecastMethod::Weighted;
-        self.confidence = 75.0; // Slightly lower confidence
+        if recent_days > 0.0 {
+            let recent_daily_rate = recent_spend / recent_days;
+            self.projected_spend = recent_daily_rate * total_days;
+            self.forecast_method = ForecastMethod::Weighted;
+            self.confidence = 75.0; // Slightly lower confidence
+        }
     }
 
     pub fn is_over_budget(&self, budget: f64) -> bool {

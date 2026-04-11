@@ -212,7 +212,7 @@ impl InputDialog {
 
         let help_area = Rect {
             x: area.x,
-            y: area.y + area.height,
+            y: area.y.saturating_add(area.height.saturating_sub(1)),
             width: area.width,
             height: 1,
         };

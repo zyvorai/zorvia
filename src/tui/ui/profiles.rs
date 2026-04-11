@@ -16,7 +16,7 @@ pub fn render(f: &mut Frame, state: &AppState, _config: &TuiConfig) {
     // Get profiles list
     let profiles_manager = crate::profiles::PROFILES
         .read()
-        .expect("profiles lock poisoned");
+        .unwrap_or_else(|e| e.into_inner());
     let profiles: Vec<String> = profiles_manager
         .list()
         .into_iter()
@@ -88,7 +88,7 @@ fn render_profile_list(
 
     let profiles_manager = crate::profiles::PROFILES
         .read()
-        .expect("profiles lock poisoned");
+        .unwrap_or_else(|e| e.into_inner());
     let rows = profiles.iter().enumerate().map(|(i, name)| {
         let is_selected = i == selected_index;
         let is_builtin = profiles_manager.is_builtin(name);

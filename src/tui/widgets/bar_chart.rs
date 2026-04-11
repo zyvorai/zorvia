@@ -1,10 +1,11 @@
-// Bar Chart Widget - Distribution visualization
+// Bar Chart Widget - Distribution visualization with gradient coloring
+use crate::tui::colors::gradient;
 use crate::tui::colors::tui as colors;
 
 use ratatui::{
     layout::Rect,
     style::{Modifier, Style},
-    text::Span,
+    text::Line,
     widgets::{BarChart as RatatuiBarChart, Block, Borders},
     Frame,
 };
@@ -48,28 +49,32 @@ impl BarChart {
             .map(|(label, value)| (label.as_str(), *value))
             .collect();
 
+        // Gradient title
+        let title_spans = gradient::brand().text(&self.title);
+
+        // Determine bar color from the max value's proportion
+        let max_val = self.data.iter().map(|(_, v)| *v).max().unwrap_or(1);
+        let grad = gradient::sunset();
+        let bar_color = grad.at(0.5);
+
         let chart = RatatuiBarChart::default()
             .block(
                 Block::default()
                     .borders(Borders::ALL)
                     .border_style(Style::default().fg(colors::BORDER))
-                    .title(Span::styled(
-                        &self.title,
-                        Style::default()
-                            .fg(colors::ORANGE)
-                            .add_modifier(Modifier::BOLD),
-                    )),
+                    .title(Line::from(title_spans)),
             )
             .data(&bar_data)
             .bar_width(self.bar_width)
             .bar_gap(self.bar_gap)
-            .bar_style(Style::default().fg(colors::LIGHT_ORANGE))
+            .bar_style(Style::default().fg(bar_color))
             .value_style(
                 Style::default()
                     .fg(colors::TEXT)
                     .add_modifier(Modifier::BOLD),
             );
 
+        let _ = max_val; // used for potential per-bar gradient in future
         f.render_widget(chart, area);
     }
 }

@@ -72,18 +72,30 @@ impl NodeSelector {
     }
 
     fn matches_anti_affinity(&self, rule: &AntiAffinityRule, node: &NodeInfo) -> bool {
+        // Empty selector means no VMs to avoid — anti-affinity does not apply
         if rule.vm_selector.is_empty() {
             return false;
         }
 
-        // For hostname-based anti-affinity, any existing VM on the same node conflicts
+        // For hostname-based anti-affinity, check if the node already hosts VMs
+        // matching the selector labels
         if rule.topology_key == "kubernetes.io/hostname" {
-            return node.vm_count > 0;
+            // Only conflict if the node has VMs and the selector labels match node labels
+            return node.vm_count > 0
+                && rule
+                    .vm_selector
+                    .iter()
+                    .all(|(k, v)| node.labels.get(k).map(|nv| nv == v).unwrap_or(false));
         }
 
         // For zone/region-based topology, check if the node carries the topology
-        // label and already hosts VMs (which could conflict)
-        node.labels.contains_key(&rule.topology_key) && node.vm_count > 0
+        // label and already hosts VMs with matching selector labels
+        node.labels.contains_key(&rule.topology_key)
+            && node.vm_count > 0
+            && rule
+                .vm_selector
+                .iter()
+                .all(|(k, v)| node.labels.get(k).map(|nv| nv == v).unwrap_or(false))
     }
 }
 

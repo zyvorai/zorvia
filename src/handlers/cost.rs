@@ -74,8 +74,8 @@ pub async fn handle_cost_analyze(vm: Option<String>, period: String, output: Str
                             vm_name,
                             "default",
                             cpu,
-                            memory_gi as u32,
-                            storage_gi as u32,
+                            (memory_gi as u64).min(u32::MAX as u64) as u32,
+                            (storage_gi as u64).min(u32::MAX as u64) as u32,
                             period_hours,
                         )
                     }
@@ -217,8 +217,8 @@ pub async fn handle_cost_summary(
                             name,
                             ns,
                             cpu,
-                            memory_gi as u32,
-                            storage_gi as u32,
+                            (memory_gi as u64).min(u32::MAX as u64) as u32,
+                            (storage_gi as u64).min(u32::MAX as u64) as u32,
                             period_hours,
                         );
                         summary.add_vm_cost(&vm_cost);
