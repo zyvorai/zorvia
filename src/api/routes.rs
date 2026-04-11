@@ -227,6 +227,32 @@ pub fn build_default_router() -> Router {
         .add_route(Route::new("POST", "/:id/restore", "restore_snapshot").with_middleware("auth"));
     router.add_group(snapshot_group);
 
+    // Events/Activity routes
+    let mut events_group = RouteGroup::new("events", "/events");
+    events_group.add_route(Route::new("GET", "", "list_events"));
+    events_group.add_route(Route::new("GET", "/recent", "list_recent_events"));
+    events_group.add_route(Route::new("GET", "/vm/:name", "list_vm_events"));
+    router.add_group(events_group);
+
+    // RDP routes
+    let mut rdp_group = RouteGroup::new("rdp", "/rdp");
+    rdp_group.add_route(Route::new("GET", "/sessions", "list_rdp_sessions"));
+    rdp_group.add_route(Route::new("POST", "/sessions", "create_rdp_session").with_middleware("auth"));
+    rdp_group.add_route(Route::new("GET", "/sessions/:id", "get_rdp_session"));
+    rdp_group.add_route(Route::new("DELETE", "/sessions/:id", "delete_rdp_session").with_middleware("auth"));
+    rdp_group.add_route(Route::new("POST", "/sessions/:id/resize", "resize_rdp_session"));
+    rdp_group.add_route(Route::new("GET", "/sessions/:id/clipboard", "get_clipboard"));
+    rdp_group.add_route(Route::new("POST", "/sessions/:id/clipboard", "send_clipboard"));
+    rdp_group.add_route(Route::new("GET", "/sessions/:id/stats", "get_session_stats"));
+    rdp_group.add_route(Route::new("GET", "/sessions/:id/screenshot", "take_screenshot"));
+    rdp_group.add_route(Route::new("POST", "/sessions/:id/disconnect", "disconnect_rdp_session"));
+    rdp_group.add_route(Route::new("POST", "/sessions/:id/reconnect", "reconnect_rdp_session"));
+    rdp_group.add_route(Route::new("GET", "/vms", "list_rdp_capable_vms"));
+    rdp_group.add_route(Route::new("GET", "/config/defaults", "get_default_config"));
+    rdp_group.add_route(Route::new("GET", "/gateway", "get_gateway_config"));
+    rdp_group.add_route(Route::new("POST", "/gateway", "set_gateway_config").with_middleware("auth"));
+    router.add_group(rdp_group);
+
     // Health routes
     let mut health_group = RouteGroup::new("health", "/health");
     health_group.add_route(Route::new("GET", "", "health_check"));

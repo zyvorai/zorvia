@@ -241,6 +241,14 @@ pub fn default_endpoints() -> Vec<Endpoint> {
             "Restore from snapshot",
         )
         .with_auth(),
+        // Events/Activity
+        Endpoint::new("GET", "/api/v1/events", "List all activity events"),
+        Endpoint::new("GET", "/api/v1/events/recent", "List recent activity events"),
+        Endpoint::new(
+            "GET",
+            "/api/v1/events/vm/:name",
+            "List events for a specific VM",
+        ),
         // Health
         Endpoint::new("GET", "/api/v1/health", "API health check").without_rate_limit(),
         Endpoint::new("GET", "/api/v1/vms/:name/health", "VM health check"),

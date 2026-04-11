@@ -1,0 +1,15 @@
+[Unit]
+Description=Zorvia Web Dashboard
+Documentation=https://github.com/zyvorai/zorvia
+After=network-online.target k3s.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+ExecStart=/usr/local/bin/zorvia api-serve --port 8080 --host 0.0.0.0
+Restart=on-failure
+RestartSec=5
+Environment=KUBECONFIG=/etc/rancher/k3s/k3s.yaml
+
+[Install]
+WantedBy=multi-user.target

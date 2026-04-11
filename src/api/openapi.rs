@@ -232,7 +232,9 @@ pub fn generate_default_spec() -> OpenApiSpec {
     spec.add_tag("profiles", "Resource profile management");
     spec.add_tag("blueprints", "Multi-VM blueprint management");
     spec.add_tag("snapshots", "VM snapshot operations");
+    spec.add_tag("events", "Activity event tracking");
     spec.add_tag("health", "Health check endpoints");
+    spec.add_tag("rdp", "Windows RDP remote desktop sessions");
 
     // Add security scheme
     spec.add_security_scheme(
@@ -379,6 +381,403 @@ pub fn generate_default_spec() -> OpenApiSpec {
         "/api/v1/health",
         PathItem {
             operations: health_ops,
+        },
+    );
+
+    // Add ActivityEvent schema
+    let mut event_props = HashMap::new();
+    event_props.insert(
+        "event_id".to_string(),
+        PropertyDef {
+            prop_type: "string".to_string(),
+            description: "Unique event identifier".to_string(),
+            example: Some("evt-20260401-120000-000000".to_string()),
+        },
+    );
+    event_props.insert(
+        "event_type".to_string(),
+        PropertyDef {
+            prop_type: "string".to_string(),
+            description: "Event type".to_string(),
+            example: Some("vm.started".to_string()),
+        },
+    );
+    event_props.insert(
+        "source".to_string(),
+        PropertyDef {
+            prop_type: "string".to_string(),
+            description: "Source VM or resource".to_string(),
+            example: Some("web-server-01".to_string()),
+        },
+    );
+    event_props.insert(
+        "timestamp".to_string(),
+        PropertyDef {
+            prop_type: "string".to_string(),
+            description: "ISO 8601 timestamp".to_string(),
+            example: Some("2026-04-01T12:00:00Z".to_string()),
+        },
+    );
+
+    spec.add_schema(
+        "ActivityEvent",
+        SchemaDefinition {
+            schema_type: "object".to_string(),
+            description: "An activity event from VM operations".to_string(),
+            properties: event_props,
+            required: vec![
+                "event_id".to_string(),
+                "event_type".to_string(),
+                "source".to_string(),
+                "timestamp".to_string(),
+            ],
+        },
+    );
+
+    // Add events list path
+    let mut events_ops = HashMap::new();
+    events_ops.insert(
+        "get".to_string(),
+        Operation {
+            summary: "List activity events".to_string(),
+            description: Some(
+                "Returns a list of all activity events, optionally filtered by VM".to_string(),
+            ),
+            operation_id: "listEvents".to_string(),
+            tags: vec!["events".to_string()],
+            parameters: vec![
+                Parameter {
+                    name: "vm".to_string(),
+                    location: ParameterLocation::Query,
+                    required: false,
+                    description: "Filter events by VM name".to_string(),
+                    schema_type: "string".to_string(),
+                },
+                Parameter {
+                    name: "limit".to_string(),
+                    location: ParameterLocation::Query,
+                    required: false,
+                    description: "Maximum number of events to return".to_string(),
+                    schema_type: "integer".to_string(),
+                },
+            ],
+            responses: {
+                let mut r = HashMap::new();
+                r.insert(
+                    "200".to_string(),
+                    ResponseSpec {
+                        description: "List of activity events".to_string(),
+                        content_type: Some("application/json".to_string()),
+                        schema_ref: Some("#/components/schemas/ActivityEvent".to_string()),
+                    },
+                );
+                r
+            },
+            security: Vec::new(),
+        },
+    );
+
+    spec.add_path(
+        "/api/v1/events",
+        PathItem {
+            operations: events_ops,
+        },
+    );
+
+    // Add recent events path
+    let mut recent_ops = HashMap::new();
+    recent_ops.insert(
+        "get".to_string(),
+        Operation {
+            summary: "List recent activity events".to_string(),
+            description: Some("Returns the most recent activity events".to_string()),
+            operation_id: "listRecentEvents".to_string(),
+            tags: vec!["events".to_string()],
+            parameters: vec![Parameter {
+                name: "limit".to_string(),
+                location: ParameterLocation::Query,
+                required: false,
+                description: "Maximum number of events to return".to_string(),
+                schema_type: "integer".to_string(),
+            }],
+            responses: {
+                let mut r = HashMap::new();
+                r.insert(
+                    "200".to_string(),
+                    ResponseSpec {
+                        description: "List of recent events".to_string(),
+                        content_type: Some("application/json".to_string()),
+                        schema_ref: Some("#/components/schemas/ActivityEvent".to_string()),
+                    },
+                );
+                r
+            },
+            security: Vec::new(),
+        },
+    );
+
+    spec.add_path(
+        "/api/v1/events/recent",
+        PathItem {
+            operations: recent_ops,
+        },
+    );
+
+    // Add VM-specific events path
+    let mut vm_events_ops = HashMap::new();
+    vm_events_ops.insert(
+        "get".to_string(),
+        Operation {
+            summary: "List events for a specific VM".to_string(),
+            description: Some("Returns activity events filtered by VM name".to_string()),
+            operation_id: "listVMEvents".to_string(),
+            tags: vec!["events".to_string()],
+            parameters: vec![Parameter {
+                name: "name".to_string(),
+                location: ParameterLocation::Path,
+                required: true,
+                description: "VM name".to_string(),
+                schema_type: "string".to_string(),
+            }],
+            responses: {
+                let mut r = HashMap::new();
+                r.insert(
+                    "200".to_string(),
+                    ResponseSpec {
+                        description: "List of events for the VM".to_string(),
+                        content_type: Some("application/json".to_string()),
+                        schema_ref: Some("#/components/schemas/ActivityEvent".to_string()),
+                    },
+                );
+                r
+            },
+            security: Vec::new(),
+        },
+    );
+
+    spec.add_path(
+        "/api/v1/events/vm/{name}",
+        PathItem {
+            operations: vm_events_ops,
+        },
+    );
+
+    // Add RDP session schema
+    let mut rdp_session_props = HashMap::new();
+    rdp_session_props.insert(
+        "session_id".to_string(),
+        PropertyDef {
+            prop_type: "string".to_string(),
+            description: "Unique RDP session identifier".to_string(),
+            example: Some("rdp-1712419200000000".to_string()),
+        },
+    );
+    rdp_session_props.insert(
+        "vm_name".to_string(),
+        PropertyDef {
+            prop_type: "string".to_string(),
+            description: "Target VM name".to_string(),
+            example: Some("windows-server-01".to_string()),
+        },
+    );
+    rdp_session_props.insert(
+        "state".to_string(),
+        PropertyDef {
+            prop_type: "string".to_string(),
+            description: "Session state".to_string(),
+            example: Some("Connected".to_string()),
+        },
+    );
+    rdp_session_props.insert(
+        "websocket_url".to_string(),
+        PropertyDef {
+            prop_type: "string".to_string(),
+            description: "WebSocket endpoint for this session".to_string(),
+            example: Some("/api/v1/ws/rdp/rdp-1712419200000000".to_string()),
+        },
+    );
+    rdp_session_props.insert(
+        "resolution".to_string(),
+        PropertyDef {
+            prop_type: "string".to_string(),
+            description: "Display resolution".to_string(),
+            example: Some("1920x1080".to_string()),
+        },
+    );
+
+    spec.add_schema(
+        "RdpSession",
+        SchemaDefinition {
+            schema_type: "object".to_string(),
+            description: "An RDP remote desktop session to a Windows VM".to_string(),
+            properties: rdp_session_props,
+            required: vec![
+                "session_id".to_string(),
+                "vm_name".to_string(),
+                "state".to_string(),
+            ],
+        },
+    );
+
+    // Add RDP session list path
+    let mut rdp_list_ops = HashMap::new();
+    rdp_list_ops.insert(
+        "get".to_string(),
+        Operation {
+            summary: "List active RDP sessions".to_string(),
+            description: Some("Returns all active Windows RDP sessions".to_string()),
+            operation_id: "listRdpSessions".to_string(),
+            tags: vec!["rdp".to_string()],
+            parameters: Vec::new(),
+            responses: {
+                let mut r = HashMap::new();
+                r.insert(
+                    "200".to_string(),
+                    ResponseSpec {
+                        description: "List of RDP sessions".to_string(),
+                        content_type: Some("application/json".to_string()),
+                        schema_ref: Some("#/components/schemas/RdpSession".to_string()),
+                    },
+                );
+                r
+            },
+            security: Vec::new(),
+        },
+    );
+    rdp_list_ops.insert(
+        "post".to_string(),
+        Operation {
+            summary: "Create a new RDP session".to_string(),
+            description: Some(
+                "Creates a new RDP session to a Windows VM and returns a WebSocket URL for connection"
+                    .to_string(),
+            ),
+            operation_id: "createRdpSession".to_string(),
+            tags: vec!["rdp".to_string()],
+            parameters: Vec::new(),
+            responses: {
+                let mut r = HashMap::new();
+                r.insert(
+                    "200".to_string(),
+                    ResponseSpec {
+                        description: "Created RDP session with WebSocket URL".to_string(),
+                        content_type: Some("application/json".to_string()),
+                        schema_ref: Some("#/components/schemas/RdpSession".to_string()),
+                    },
+                );
+                r
+            },
+            security: vec!["bearerAuth".to_string()],
+        },
+    );
+
+    spec.add_path(
+        "/api/v1/rdp/sessions",
+        PathItem {
+            operations: rdp_list_ops,
+        },
+    );
+
+    // Add RDP session detail path
+    let mut rdp_detail_ops = HashMap::new();
+    rdp_detail_ops.insert(
+        "get".to_string(),
+        Operation {
+            summary: "Get RDP session details".to_string(),
+            description: Some("Returns details for a specific RDP session".to_string()),
+            operation_id: "getRdpSession".to_string(),
+            tags: vec!["rdp".to_string()],
+            parameters: vec![Parameter {
+                name: "id".to_string(),
+                location: ParameterLocation::Path,
+                required: true,
+                description: "RDP session ID".to_string(),
+                schema_type: "string".to_string(),
+            }],
+            responses: {
+                let mut r = HashMap::new();
+                r.insert(
+                    "200".to_string(),
+                    ResponseSpec {
+                        description: "RDP session details".to_string(),
+                        content_type: Some("application/json".to_string()),
+                        schema_ref: Some("#/components/schemas/RdpSession".to_string()),
+                    },
+                );
+                r
+            },
+            security: Vec::new(),
+        },
+    );
+    rdp_detail_ops.insert(
+        "delete".to_string(),
+        Operation {
+            summary: "Delete an RDP session".to_string(),
+            description: Some("Terminates and removes an RDP session".to_string()),
+            operation_id: "deleteRdpSession".to_string(),
+            tags: vec!["rdp".to_string()],
+            parameters: vec![Parameter {
+                name: "id".to_string(),
+                location: ParameterLocation::Path,
+                required: true,
+                description: "RDP session ID".to_string(),
+                schema_type: "string".to_string(),
+            }],
+            responses: {
+                let mut r = HashMap::new();
+                r.insert(
+                    "200".to_string(),
+                    ResponseSpec {
+                        description: "Session deleted".to_string(),
+                        content_type: Some("application/json".to_string()),
+                        schema_ref: None,
+                    },
+                );
+                r
+            },
+            security: vec!["bearerAuth".to_string()],
+        },
+    );
+
+    spec.add_path(
+        "/api/v1/rdp/sessions/{id}",
+        PathItem {
+            operations: rdp_detail_ops,
+        },
+    );
+
+    // Add RDP VM discovery path
+    let mut rdp_vms_ops = HashMap::new();
+    rdp_vms_ops.insert(
+        "get".to_string(),
+        Operation {
+            summary: "List RDP-capable VMs".to_string(),
+            description: Some(
+                "Returns VMs that support Windows RDP connections".to_string(),
+            ),
+            operation_id: "listRdpCapableVms".to_string(),
+            tags: vec!["rdp".to_string()],
+            parameters: Vec::new(),
+            responses: {
+                let mut r = HashMap::new();
+                r.insert(
+                    "200".to_string(),
+                    ResponseSpec {
+                        description: "List of RDP-capable VMs".to_string(),
+                        content_type: Some("application/json".to_string()),
+                        schema_ref: None,
+                    },
+                );
+                r
+            },
+            security: Vec::new(),
+        },
+    );
+
+    spec.add_path(
+        "/api/v1/rdp/vms",
+        PathItem {
+            operations: rdp_vms_ops,
         },
     );
 

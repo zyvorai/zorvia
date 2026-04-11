@@ -2041,6 +2041,32 @@ pub enum Commands {
         yes: bool,
     },
 
+    /// List activity events
+    EventList {
+        /// Filter by VM name
+        #[arg(long)]
+        vm: Option<String>,
+
+        /// Maximum number of events to show
+        #[arg(short, long, default_value = "20")]
+        limit: usize,
+
+        /// Output format (text, yaml, json)
+        #[arg(short, long, default_value = "text")]
+        output: String,
+    },
+
+    /// Show recent activity events
+    EventRecent {
+        /// Maximum number of events to show
+        #[arg(short, long, default_value = "10")]
+        limit: usize,
+
+        /// Output format (text, yaml, json)
+        #[arg(short, long, default_value = "text")]
+        output: String,
+    },
+
     /// Launch interactive TUI
     Tui {
         /// Disable splash screen

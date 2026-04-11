@@ -27,6 +27,7 @@ pub enum View {
     Snapshots,
     Profiles,
     Blueprints,
+    ActivityLog,
     Help,
 }
 
@@ -55,6 +56,9 @@ pub struct InteractiveApp {
 
     /// Show search bar
     pub show_search: bool,
+
+    /// Current tab in VM Details view (0=Overview, 1=Network, 2=Events)
+    pub detail_tab: usize,
 }
 
 impl InteractiveApp {
@@ -72,6 +76,7 @@ impl InteractiveApp {
             notifications: NotificationManager::new(),
             search_filter: String::new(),
             show_search: false,
+            detail_tab: 0,
         })
     }
 
@@ -88,6 +93,7 @@ impl InteractiveApp {
             notifications: NotificationManager::new(),
             search_filter: String::new(),
             show_search: false,
+            detail_tab: 0,
         }
     }
 
@@ -134,10 +140,11 @@ impl InteractiveApp {
         match self.current_view {
             View::Dashboard => ui::dashboard::render(f, &self.state, &self.config),
             View::VmList => ui::vm_list::render(f, &mut self.state, &self.config),
-            View::VmDetails => ui::vm_details::render(f, &self.state, &self.config),
+            View::VmDetails => ui::vm_details::render(f, &self.state, &self.config, self.detail_tab),
             View::Snapshots => ui::snapshots::render(f, &self.state, &self.config),
             View::Profiles => ui::profiles::render(f, &self.state, &self.config),
             View::Blueprints => ui::blueprints::render(f, &self.state, &self.config),
+            View::ActivityLog => ui::activity_log::render(f, &self.state, &self.config),
             View::Help => ui::help::render(f, &self.config),
         }
 
@@ -229,6 +236,7 @@ impl InteractiveApp {
             KeyCode::Char('3') => self.current_view = View::Snapshots,
             KeyCode::Char('4') => self.current_view = View::Profiles,
             KeyCode::Char('5') => self.current_view = View::Blueprints,
+            KeyCode::Char('6') => self.current_view = View::ActivityLog,
             _ => {
                 // View-specific keys
                 self.handle_view_key(key).await?;
@@ -359,6 +367,11 @@ impl InteractiveApp {
             }
             KeyCode::Enter => {
                 self.current_view = View::VmDetails;
+                self.detail_tab = 0;
+                // Clear cached VMI detail to trigger fresh fetch
+                self.state.selected_vmi_name = None;
+                self.state.selected_vmi_detail = None;
+                let _ = self.state.refresh_selected_vm_detail().await;
             }
             KeyCode::Char('m') => {
                 // Show context menu
@@ -393,6 +406,17 @@ impl InteractiveApp {
                     }
                 }
             }
+            KeyCode::Char('f') => {
+                // Cycle status filter
+                self.state.cycle_status_filter();
+                let filter_name = self
+                    .state
+                    .status_filter
+                    .as_deref()
+                    .unwrap_or("All");
+                self.notifications
+                    .info(format!("Filter: {}", filter_name));
+            }
             KeyCode::Char('d') => {
                 // Delete VM with confirmation
                 if let Some(vm) = self.state.selected_vm() {
@@ -417,6 +441,17 @@ impl InteractiveApp {
         match key.code {
             KeyCode::Backspace | KeyCode::Esc => {
                 self.current_view = View::VmList;
+                self.detail_tab = 0;
+            }
+            KeyCode::Left | KeyCode::Char('h') => {
+                if self.detail_tab > 0 {
+                    self.detail_tab -= 1;
+                } else {
+                    self.detail_tab = 2;
+                }
+            }
+            KeyCode::Right | KeyCode::Char('l') | KeyCode::Tab => {
+                self.detail_tab = (self.detail_tab + 1) % 3;
             }
             _ => {}
         }
@@ -638,6 +673,8 @@ impl InteractiveApp {
             eprintln!("Failed to refresh snapshots: {}", e);
         }
 
+        self.state.update_history();
+
         Ok(())
     }
 
@@ -651,6 +688,8 @@ impl InteractiveApp {
         match KubeClient::new().await {
             Ok(client) => match client.start_vm(&self.state.namespace, vm_name).await {
                 Ok(_) => {
+                    self.state
+                        .record_activity("▶ ", vm_name, "start requested");
                     self.notifications
                         .success(format!("VM '{}' started", vm_name));
                     self.refresh_data().await?;
@@ -678,6 +717,8 @@ impl InteractiveApp {
         match KubeClient::new().await {
             Ok(client) => match client.stop_vm(&self.state.namespace, vm_name).await {
                 Ok(_) => {
+                    self.state
+                        .record_activity("⏹ ", vm_name, "stop requested");
                     self.notifications
                         .success(format!("VM '{}' stopped", vm_name));
                     self.refresh_data().await?;
@@ -705,6 +746,7 @@ impl InteractiveApp {
         match KubeClient::new().await {
             Ok(client) => match client.delete_vm(&self.state.namespace, vm_name).await {
                 Ok(_) => {
+                    self.state.record_activity("🗑 ", vm_name, "deleted");
                     self.notifications
                         .success(format!("VM '{}' deleted", vm_name));
                     self.refresh_data().await?;

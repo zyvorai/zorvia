@@ -68,6 +68,28 @@ pub mod security;
 pub mod servicemesh;
 pub mod snapshots;
 
+// Features ported from v9s
+pub mod advanced_filter;
+pub mod ai_troubleshoot;
+pub mod audit_trail;
+pub mod autoscaler;
+pub mod change_approval;
+pub mod cluster_health;
+pub mod console_panel;
+pub mod dependency_graph;
+pub mod disk_conversion;
+pub mod hypervisor;
+pub mod macros;
+pub mod multi_cluster;
+pub mod nlp_search;
+pub mod notifications;
+pub mod placement;
+pub mod recommendation;
+pub mod search_history;
+pub mod session_sharing;
+pub mod state_persistence;
+pub mod topology;
+
 // Convenience re-exports for public API
 pub use config::{VMConfig, VMConfigBuilder};
 pub use kube::converter::vm_config_to_kubevirt;
@@ -1031,7 +1053,7 @@ pub async fn run(mut cli: Cli) -> Result<()> {
             } else {
                 rate_limit
             };
-            handlers::api::handle_api_serve(port, host, tls, tls_cert, tls_key, auth, rate_limit)?;
+            handlers::api::handle_api_serve(port, host, cli.namespace.clone(), tls, tls_cert, tls_key, auth, rate_limit).await?;
         }
         Commands::ApiStatus { output } => handlers::api::handle_api_status(output)?,
         Commands::ApiRoutes { method, output } => handlers::api::handle_api_routes(method, output)?,
@@ -1058,6 +1080,12 @@ pub async fn run(mut cli: Cli) -> Result<()> {
         } => handlers::api::handle_webhook_create(name, url, events, secret)?,
         Commands::WebhookDelete { webhook, yes } => {
             handlers::api::handle_webhook_delete(webhook, yes)?
+        }
+        Commands::EventList { vm, limit, output } => {
+            handlers::api::handle_event_list(cli.namespace.clone(), vm, limit, output)?
+        }
+        Commands::EventRecent { limit, output } => {
+            handlers::api::handle_event_recent(cli.namespace.clone(), limit, output)?
         }
         Commands::Tui {
             no_splash: _,

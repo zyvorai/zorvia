@@ -6,7 +6,10 @@ use serde::{Deserialize, Serialize};
 pub mod audit;
 pub mod compliance;
 pub mod hardening;
+pub mod posture;
+pub mod rbac_visualizer;
 pub mod scan;
+pub mod vulnerability;
 
 /// Security assessment for a VM
 #[derive(Debug, Clone, Serialize, Deserialize)]

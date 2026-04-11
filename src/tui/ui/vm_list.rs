@@ -79,7 +79,13 @@ fn render_with_search(
 }
 
 fn render_header(f: &mut Frame, state: &AppState, area: Rect) {
-    let vm_count_text = format!(": {} VMs", state.vms.len());
+    let filtered_count = state.filtered_vms().len();
+    let total_count = state.vms.len();
+    let vm_count_text = if state.status_filter.is_some() {
+        format!(": {}/{} VMs", filtered_count, total_count)
+    } else {
+        format!(": {} VMs", total_count)
+    };
     let sort_indicator = if state.sort_mode != crate::tui::state::SortMode::Default {
         format!(" [Sort: {}]", state.sort_mode.display())
     } else {
@@ -90,6 +96,11 @@ fn render_header(f: &mut Frame, state: &AppState, area: Rect) {
         format!(" [Multi: {}]", state.selected_items.len())
     } else {
         String::new()
+    };
+
+    let filter_indicator = match &state.status_filter {
+        Some(f) => format!(" [Filter: {}]", f),
+        None => String::new(),
     };
 
     let header_text = Line::from(vec![
@@ -113,6 +124,7 @@ fn render_header(f: &mut Frame, state: &AppState, area: Rect) {
         ),
         Span::styled(vm_count_text, Style::default().fg(colors::TEXT)),
         Span::styled(sort_indicator, Style::default().fg(colors::INFO)),
+        Span::styled(filter_indicator, Style::default().fg(colors::WARNING)),
         Span::styled(multi_select_indicator, Style::default().fg(colors::WARNING)),
     ]);
 
@@ -195,7 +207,8 @@ fn render_vm_table(f: &mut Frame, state: &AppState, area: Rect) {
         .style(Style::default().bg(colors::DARK_ORANGE))
         .height(1);
 
-    let rows = state.vms.iter().enumerate().map(|(i, vm)| {
+    let filtered_vms = state.filtered_vms();
+    let rows = filtered_vms.iter().enumerate().map(|(i, vm)| {
         let is_selected = i == state.selected_index;
         let is_multi_selected = state.is_selected(i);
 
@@ -473,6 +486,14 @@ fn render_help(f: &mut Frame, state: &AppState, search_bar: &SearchBar, area: Re
                         .add_modifier(Modifier::BOLD),
                 ),
                 Span::styled(": Multi-select", Style::default().fg(colors::TEXT)),
+                Span::styled(" │ ", Style::default().fg(colors::TEXT_MUTED)),
+                Span::styled(
+                    "f",
+                    Style::default()
+                        .fg(colors::INFO)
+                        .add_modifier(Modifier::BOLD),
+                ),
+                Span::styled(": Filter", Style::default().fg(colors::TEXT)),
                 Span::styled(" │ ", Style::default().fg(colors::TEXT_MUTED)),
                 Span::styled(
                     "r",

@@ -5,9 +5,16 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
 pub mod alerts;
+pub mod anomaly;
+pub mod custom_metrics;
+pub mod forecasting;
 pub mod insights;
+pub mod leak_detector;
+pub mod log_aggregation;
 pub mod logs;
 pub mod metrics;
+pub mod profiler;
+pub mod tracing;
 
 /// Observability configuration
 #[derive(Debug, Clone, Serialize, Deserialize)]

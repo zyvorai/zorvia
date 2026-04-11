@@ -5,7 +5,7 @@ use crate::tui::{config::TuiConfig, state::AppState};
 use ratatui::{
     layout::{Alignment, Constraint, Direction, Layout},
     style::{Modifier, Style},
-    text::Line,
+    text::{Line, Span},
     widgets::{Block, Borders, Cell, Paragraph, Row, Table},
     Frame,
 };
@@ -24,12 +24,28 @@ pub fn render(f: &mut Frame, state: &AppState, _config: &TuiConfig) {
         .split(size);
 
     // Header
-    let header = Paragraph::new(format!("VM Snapshots ({})", state.snapshots.len()))
-        .style(
+    let header_text = Line::from(vec![
+        Span::styled(
+            "Zorvia",
             Style::default()
                 .fg(colors::ORANGE)
                 .add_modifier(Modifier::BOLD),
-        )
+        ),
+        Span::styled(" - ", Style::default().fg(colors::TEXT_MUTED)),
+        Span::styled("KubeVirt VM Manager", Style::default().fg(colors::TEXT)),
+        Span::styled("  │  ", Style::default().fg(colors::TEXT_MUTED)),
+        Span::styled(
+            "📸 Snapshots",
+            Style::default()
+                .fg(colors::LIGHT_ORANGE)
+                .add_modifier(Modifier::BOLD),
+        ),
+        Span::styled(
+            format!(": {}", state.snapshots.len()),
+            Style::default().fg(colors::TEXT),
+        ),
+    ]);
+    let header = Paragraph::new(header_text)
         .alignment(Alignment::Center)
         .block(
             Block::default()

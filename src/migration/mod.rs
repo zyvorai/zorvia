@@ -1,5 +1,11 @@
 // VM Migration - Live migration and high availability
 
+pub mod assistant;
+pub mod batch;
+pub mod dryrun;
+pub mod history;
+pub mod rollback;
+
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
