@@ -204,6 +204,9 @@ step "Step ${INSTALL_STEP}/${TOTAL_STEPS}: Installing binary and service"
 _ssh "
     cd $REMOTE_DIR
 
+    # Stop service before replacing binary (avoids 'Text file busy')
+    $SUDO systemctl stop zorvia-web.service 2>/dev/null || true
+
     # Install binary
     $SUDO cp target/release/zorvia /usr/local/bin/zorvia
     $SUDO chmod 755 /usr/local/bin/zorvia
