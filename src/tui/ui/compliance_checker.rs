@@ -47,12 +47,10 @@ pub fn render(f: &mut Frame, area: Rect) {
         ])
         .split(chunks[1]);
 
-    let frameworks = vec![
-        ("CIS K8s", 78, Color::Rgb(255, 200, 0)),
+    let frameworks = [("CIS K8s", 78, Color::Rgb(255, 200, 0)),
         ("PCI DSS", 91, Color::Rgb(50, 205, 50)),
         ("SOC 2", 85, Color::Rgb(50, 205, 50)),
-        ("HIPAA", 73, Color::Rgb(255, 200, 0)),
-    ];
+        ("HIPAA", 73, Color::Rgb(255, 200, 0))];
 
     for (i, (name, pct, color)) in frameworks.iter().enumerate() {
         let gauge = Gauge::default()

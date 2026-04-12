@@ -123,7 +123,8 @@ fn parse_resource_threshold(query: &str, resource: &str) -> Option<ComparisonFil
     use std::sync::Mutex;
 
     // Cache compiled regexes per resource name
-    static CACHE: Lazy<Mutex<HashMap<String, Vec<(Regex, Operator)>>>> =
+    type PatternCache = HashMap<String, Vec<(Regex, Operator)>>;
+    static CACHE: Lazy<Mutex<PatternCache>> =
         Lazy::new(|| Mutex::new(HashMap::new()));
 
     let patterns = {

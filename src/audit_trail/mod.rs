@@ -60,7 +60,7 @@ impl AuditTrail {
             _ => AuditSeverity::Info,
         };
         self.record(AuditEntry {
-            id: generate_id("audit", &resource_name),
+            id: generate_id("audit", resource_name),
             timestamp: Utc::now(), user: user.to_string(), action,
             resource_type: resource_type.to_string(), resource_name: resource_name.to_string(),
             namespace: namespace.to_string(), details: Value::Null,

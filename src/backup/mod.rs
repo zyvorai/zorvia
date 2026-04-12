@@ -166,17 +166,12 @@ impl RetentionPolicy {
         }
     }
 
-    /// Check if backup should be kept based on retention policy
+    /// Check if a single backup should be kept based on max_age_days.
     ///
-    /// Note: Currently only evaluates `max_age_days`. The `keep_daily`, `keep_weekly`,
-    /// `keep_monthly`, and `keep_yearly` fields are not yet implemented.
+    /// For GFS (Grandfather-Father-Son) retention that evaluates keep_daily,
+    /// keep_weekly, keep_monthly, and keep_yearly, use `filter_backups` instead,
+    /// which requires the full list of backups to determine which to keep.
     pub fn should_keep(&self, backup_date: DateTime<Utc>, now: DateTime<Utc>) -> bool {
-        if self.keep_daily > 0 || self.keep_weekly > 0 || self.keep_monthly > 0 || self.keep_yearly > 0 {
-            log::warn!(
-                "Retention counts (daily={}, weekly={}, monthly={}, yearly={}) are not yet enforced; only max_age_days is evaluated",
-                self.keep_daily, self.keep_weekly, self.keep_monthly, self.keep_yearly
-            );
-        }
         if let Some(max_days) = self.max_age_days {
             let age_days = now.signed_duration_since(backup_date).num_days();
             if age_days > max_days as i64 {
@@ -184,10 +179,85 @@ impl RetentionPolicy {
             }
         }
 
-        // NOTE: GFS (Grandfather-Father-Son) retention counts are not yet implemented.
-        // This returns true solely based on max_age_days. Once GFS retention is implemented,
-        // this should also evaluate keep_daily/keep_weekly/keep_monthly/keep_yearly counts.
         true
+    }
+
+    /// Filter a list of backups using full GFS retention logic.
+    ///
+    /// Given a list of `(name, date)` pairs and the current time, returns the
+    /// names of backups that should be kept according to the retention policy:
+    /// - `max_age_days`: discard backups older than this
+    /// - `keep_daily`: keep the most recent backup from each of the last N days
+    /// - `keep_weekly`: keep the most recent backup from each of the last N ISO weeks
+    /// - `keep_monthly`: keep the most recent backup from each of the last N months
+    /// - `keep_yearly`: keep the most recent backup from each of the last N years
+    pub fn filter_backups(&self, backups: &[(String, DateTime<Utc>)], now: DateTime<Utc>) -> Vec<String> {
+        let mut keep = std::collections::HashSet::new();
+
+        // Sort by date descending
+        let mut sorted: Vec<_> = backups.to_vec();
+        sorted.sort_by(|a, b| b.1.cmp(&a.1));
+
+        // Keep by max_age_days
+        if let Some(max_days) = self.max_age_days {
+            let cutoff = now - chrono::Duration::days(max_days as i64);
+            for (name, date) in &sorted {
+                if *date >= cutoff {
+                    keep.insert(name.clone());
+                }
+            }
+        } else {
+            // If no max_age, start by keeping all
+            for (name, _) in &sorted {
+                keep.insert(name.clone());
+            }
+        }
+
+        // Keep daily (most recent per day)
+        if self.keep_daily > 0 {
+            let mut days_seen = std::collections::HashSet::new();
+            for (name, date) in &sorted {
+                let day = date.format("%Y-%m-%d").to_string();
+                if days_seen.len() < self.keep_daily as usize && days_seen.insert(day) {
+                    keep.insert(name.clone());
+                }
+            }
+        }
+
+        // Keep weekly (most recent per ISO week)
+        if self.keep_weekly > 0 {
+            let mut weeks_seen = std::collections::HashSet::new();
+            for (name, date) in &sorted {
+                let week = date.format("%G-W%V").to_string();
+                if weeks_seen.len() < self.keep_weekly as usize && weeks_seen.insert(week) {
+                    keep.insert(name.clone());
+                }
+            }
+        }
+
+        // Keep monthly
+        if self.keep_monthly > 0 {
+            let mut months_seen = std::collections::HashSet::new();
+            for (name, date) in &sorted {
+                let month = date.format("%Y-%m").to_string();
+                if months_seen.len() < self.keep_monthly as usize && months_seen.insert(month) {
+                    keep.insert(name.clone());
+                }
+            }
+        }
+
+        // Keep yearly
+        if self.keep_yearly > 0 {
+            let mut years_seen = std::collections::HashSet::new();
+            for (name, date) in &sorted {
+                let year = date.format("%Y").to_string();
+                if years_seen.len() < self.keep_yearly as usize && years_seen.insert(year) {
+                    keep.insert(name.clone());
+                }
+            }
+        }
+
+        keep.into_iter().collect()
     }
 }
 

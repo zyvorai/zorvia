@@ -37,13 +37,11 @@ pub fn render(f: &mut Frame, area: Rect) {
     f.render_widget(header, chunks[0]);
 
     // Steps progress bar
-    let steps = vec![
-        ("1. Select VM", true),
+    let steps = [("1. Select VM", true),
         ("2. Select Target", true),
         ("3. Pre-checks", false),
         ("4. Confirm", false),
-        ("5. Migrate", false),
-    ];
+        ("5. Migrate", false)];
     let current_step = 2; // 0-indexed, currently on step 3
 
     let step_spans: Vec<Span> = steps

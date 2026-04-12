@@ -253,7 +253,7 @@ pub async fn handle_backup_restore(backup: String, target: Option<String>, start
     Ok(())
 }
 
-pub fn handle_backup_verify(name: String, verification_type: String, namespace: &str) -> Result<()> {
+pub async fn handle_backup_verify(name: String, verification_type: String, namespace: &str) -> Result<()> {
     use crate::backup::verify::{VerificationRunner, VerificationStatus, VerificationType};
 
     log::debug!("Using namespace: {}", namespace);
@@ -267,7 +267,7 @@ pub fn handle_backup_verify(name: String, verification_type: String, namespace: 
         _ => VerificationType::Standard,
     };
 
-    let report = VerificationRunner::verify(&name, v_type);
+    let report = VerificationRunner::verify(&name, namespace, v_type).await;
 
     println!("  Verification Type:  {}", report.verification_type);
     println!(
@@ -446,7 +446,7 @@ pub fn handle_recovery_plan(name: String, output: String, namespace: &str) -> Re
     Ok(())
 }
 
-pub fn handle_recovery_execute(plan: String, dry_run: bool, namespace: &str) -> Result<()> {
+pub async fn handle_recovery_execute(plan: String, dry_run: bool, namespace: &str) -> Result<()> {
     log::debug!("Using namespace: {}", namespace);
     println!(
         "{}",
@@ -457,19 +457,83 @@ pub fn handle_recovery_execute(plan: String, dry_run: bool, namespace: &str) -> 
     if dry_run {
         println!("{}", color::info("=== DRY RUN MODE ==="));
         println!();
-        println!("Recovery Steps:");
-        println!("  1. Restore infrastructure VMs");
-        println!("  2. Restore application VMs");
-        println!("  3. Restore database VMs");
-        println!("  4. Verify all VMs are running");
+
+        // List available snapshots to show what would be restored
+        let manager = crate::snapshots::SnapshotManager::new(namespace).await
+            .map_err(|e| anyhow::anyhow!("Failed to connect to Kubernetes: {}", e))?;
+
+        let snapshots = manager.list_all_snapshots().await
+            .map_err(|e| anyhow::anyhow!("Failed to list snapshots: {}", e))?;
+
+        if snapshots.is_empty() {
+            println!("{}", color::warning("No snapshots found to restore from"));
+        } else {
+            println!("Recovery Steps:");
+            for (i, snap) in snapshots.iter().enumerate() {
+                let ready = if snap.ready_to_use { color::success("ready") } else { color::warning("not ready") };
+                println!("  {}. Restore VM '{}' from snapshot '{}' ({})", i + 1, snap.vm_name, snap.name, ready);
+            }
+        }
+
         println!();
         println!("{}", color::info("ℹ Run without --dry-run to execute"));
     } else {
-        println!("  Phase 1:  Restoring infrastructure VMs...");
-        println!("  Phase 2:  Restoring application VMs...");
-        println!("  Phase 3:  Restoring database VMs...");
+        // Find the latest snapshot for each VM and trigger restores
+        let manager = crate::snapshots::SnapshotManager::new(namespace).await
+            .map_err(|e| anyhow::anyhow!("Failed to connect to Kubernetes: {}", e))?;
+
+        let snapshots = manager.list_snapshots_sorted(None).await
+            .map_err(|e| anyhow::anyhow!("Failed to list snapshots: {}", e))?;
+
+        if snapshots.is_empty() {
+            return Err(anyhow::anyhow!(
+                "No snapshots found in namespace '{}'. Cannot execute recovery without snapshots.",
+                namespace
+            ));
+        }
+
+        // Group snapshots by VM, keeping only the latest (already sorted newest-first)
+        let mut seen_vms = std::collections::HashSet::new();
+        let mut latest_per_vm = Vec::new();
+        for snap in &snapshots {
+            if seen_vms.insert(snap.vm_name.clone()) {
+                latest_per_vm.push(snap);
+            }
+        }
+
+        let restore_manager = crate::snapshots::RestoreManager::new(namespace).await
+            .map_err(|e| anyhow::anyhow!("Failed to connect to Kubernetes: {}", e))?;
+
+        let mut restored = 0usize;
+        let mut failed = 0usize;
+
+        for snap in &latest_per_vm {
+            if !snap.ready_to_use {
+                println!("  {} Skipping '{}': snapshot '{}' not ready", color::warning("⚠"), snap.vm_name, snap.name);
+                continue;
+            }
+
+            println!("  Restoring VM '{}' from snapshot '{}'...", snap.vm_name, snap.name);
+            match restore_manager.restore_in_place(&snap.vm_name, &snap.name).await {
+                Ok(info) => {
+                    println!("  {} Restore '{}' initiated for VM '{}'", color::success("✓"), info.name, snap.vm_name);
+                    restored += 1;
+                }
+                Err(e) => {
+                    println!("  {} Failed to restore VM '{}': {}", color::error("✗"), snap.vm_name, e);
+                    failed += 1;
+                }
+            }
+        }
+
         println!();
-        println!("{}", color::success("✓ Recovery completed successfully"));
+        println!("  Restored: {}  Failed: {}", restored, failed);
+        println!();
+        if failed == 0 {
+            println!("{}", color::success("✓ Recovery completed successfully"));
+        } else {
+            println!("{}", color::warning("⚠ Recovery completed with errors"));
+        }
     }
     Ok(())
 }
@@ -878,7 +942,7 @@ pub async fn handle_migration_list(
     Ok(())
 }
 
-pub fn handle_ha_config(
+pub async fn handle_ha_config(
     vm: String,
     enable: bool,
     disable: bool,
@@ -903,7 +967,7 @@ pub fn handle_ha_config(
     let mut config = HAConfig::new(&vm);
     config.enabled = enable;
 
-    if let Some(p) = priority {
+    if let Some(ref p) = priority {
         config.priority = match p.as_str() {
             "critical" => HAPriority::Critical,
             "high" => HAPriority::High,
@@ -912,13 +976,47 @@ pub fn handle_ha_config(
         };
     }
 
-    if let Some(s) = eviction_strategy {
+    let strategy_str = if let Some(ref s) = eviction_strategy {
         config.eviction_strategy = match s.as_str() {
             "shutdown" => EvictionStrategy::Shutdown,
             "none" => EvictionStrategy::None,
             _ => EvictionStrategy::LiveMigrate,
         };
-    }
+        s.clone()
+    } else {
+        "LiveMigrate".to_string()
+    };
+
+    // Patch the VM's eviction strategy via the Kubernetes API
+    let client = kube::Client::try_default().await
+        .map_err(|e| anyhow::anyhow!("Failed to connect to Kubernetes: {}", e))?;
+    let vms_api: kube::api::Api<crate::kube::types::VirtualMachine> =
+        kube::api::Api::namespaced(client, namespace);
+
+    let patch = if enable {
+        serde_json::json!({
+            "spec": {
+                "template": {
+                    "spec": {
+                        "evictionStrategy": strategy_str
+                    }
+                }
+            }
+        })
+    } else {
+        serde_json::json!({
+            "spec": {
+                "template": {
+                    "spec": {
+                        "evictionStrategy": null
+                    }
+                }
+            }
+        })
+    };
+
+    vms_api.patch(&vm, &kube::api::PatchParams::default(), &kube::api::Patch::Merge(&patch)).await
+        .map_err(|e| anyhow::anyhow!("Failed to update VM HA config: {}", e))?;
 
     println!(
         "  Enabled:            {}",
@@ -1062,8 +1160,59 @@ pub async fn handle_evacuate_node(
             color::info("ℹ Use 'zorvia evacuate-node' without --plan to execute")
         );
     } else {
-        let status = EvacuationStatus::new(&node, 5);
+        // Cordon the node (mark as unschedulable)
+        let client = kube::Client::try_default().await
+            .map_err(|e| anyhow::anyhow!("Failed to connect to Kubernetes: {}", e))?;
 
+        let nodes_api: kube::api::Api<k8s_openapi::api::core::v1::Node> =
+            kube::api::Api::all(client.clone());
+        let cordon_patch = serde_json::json!({
+            "spec": { "unschedulable": true }
+        });
+        nodes_api.patch(&node, &kube::api::PatchParams::default(), &kube::api::Patch::Merge(&cordon_patch)).await
+            .map_err(|e| anyhow::anyhow!("Failed to cordon node: {}", e))?;
+
+        println!("  {} Node '{}' cordoned (marked unschedulable)", color::success("✓"), node);
+
+        // List VMIs on the node and create migrations
+        let kube_client = crate::kube::KubeClient::new().await?;
+        let vms = kube_client.list_vms(namespace).await?;
+        let mut migrated_count: usize = 0;
+
+        for vm in &vms {
+            let vm_name = vm.metadata.name.as_deref().unwrap_or_default();
+            // Check if VM is on the target node via VMI
+            if let Ok(Some(vm_node)) = kube_client.get_vm_node(namespace, vm_name).await {
+                if vm_node == node {
+                    // Create migration CRD
+                    let mig_name = format!("{}-evacuate-{}", vm_name, chrono::Utc::now().format("%H%M%S"));
+                    let migration = crate::kube::types::VirtualMachineInstanceMigration {
+                        metadata: k8s_openapi::apimachinery::pkg::apis::meta::v1::ObjectMeta {
+                            name: Some(mig_name),
+                            namespace: Some(namespace.to_string()),
+                            ..Default::default()
+                        },
+                        spec: crate::kube::types::VirtualMachineInstanceMigrationSpec {
+                            vmi_name: Some(vm_name.to_string()),
+                        },
+                        status: None,
+                    };
+                    let mig_api: kube::api::Api<crate::kube::types::VirtualMachineInstanceMigration> =
+                        kube::api::Api::namespaced(client.clone(), namespace);
+                    match mig_api.create(&kube::api::PostParams::default(), &migration).await {
+                        Ok(_) => {
+                            println!("  {} Initiated migration for {}", color::success("✓"), vm_name);
+                            migrated_count += 1;
+                        }
+                        Err(e) => println!("  {} Failed to migrate {}: {}", color::error("✗"), vm_name, e),
+                    }
+                }
+            }
+        }
+
+        let status = EvacuationStatus::new(&node, migrated_count);
+
+        println!();
         println!("{}", color::header("Evacuation Started:"));
         println!("  Node:         {}", status.node_name);
         println!("  Total VMs:    {}", status.total_vms);
@@ -1309,17 +1458,17 @@ mod tests {
         assert_eq!(restore.vm_name, "original-vm");
     }
 
-    #[test]
-    fn test_verification_runner_all_types() {
+    #[tokio::test]
+    async fn test_verification_runner_all_types() {
         for v_type in [
             VerificationType::Quick,
             VerificationType::Standard,
             VerificationType::Full,
         ] {
-            let report = VerificationRunner::verify("test-backup", v_type);
-            // Verification is not yet implemented; all checks are stubs returning warnings
-            assert_eq!(report.status, VerificationStatus::Warning);
-            assert!(report.checks.len() >= 4);
+            let report = VerificationRunner::verify("test-backup", "default", v_type).await;
+            // Without cluster access, expect a failed cluster-connection check
+            assert_eq!(report.status, VerificationStatus::Failed);
+            assert!(!report.checks.is_empty());
         }
     }
 

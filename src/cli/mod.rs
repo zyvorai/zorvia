@@ -128,6 +128,33 @@ pub enum Commands {
         name: String,
     },
 
+    /// SSH into a running VM
+    Ssh {
+        /// VM name
+        name: String,
+        /// SSH user (default: root)
+        #[arg(long, default_value = "root")]
+        user: String,
+    },
+
+    /// Open VNC console for a VM
+    Vnc {
+        /// VM name
+        name: String,
+    },
+
+    /// Stream logs from a VM's virt-launcher pod
+    Logs {
+        /// VM name
+        name: String,
+        /// Follow log output
+        #[arg(short, long)]
+        follow: bool,
+        /// Number of lines to show
+        #[arg(long, default_value = "100")]
+        tail: u32,
+    },
+
     /// Generate a VM manifest without creating it
     Generate {
         /// VM name

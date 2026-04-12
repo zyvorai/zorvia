@@ -58,12 +58,10 @@ pub fn render(f: &mut Frame, area: Rect) {
         .style(Style::default().bg(Color::Rgb(40, 35, 55)))
         .height(1);
 
-    let sessions = vec![
-        ("sess-a1b2", "admin", "3", "VM List", "1h 22m"),
+    let sessions = [("sess-a1b2", "admin", "3", "VM List", "1h 22m"),
         ("sess-c3d4", "ops-user", "2", "Dashboard", "45m"),
         ("sess-e5f6", "dev-lead", "1", "Topology", "12m"),
-        ("sess-g7h8", "admin", "4", "Migration", "2h 05m"),
-    ];
+        ("sess-g7h8", "admin", "4", "Migration", "2h 05m")];
 
     let rows = sessions.iter().map(|(id, owner, parts, view, dur)| {
         Row::new(vec![

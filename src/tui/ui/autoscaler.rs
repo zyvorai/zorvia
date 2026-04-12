@@ -105,13 +105,11 @@ pub fn render(f: &mut Frame, area: Rect) {
         .style(Style::default().bg(Color::Rgb(40, 35, 55)))
         .height(1);
 
-    let policies = vec![
-        ("cpu-scale-web", "web-pool", "2", "8", "4", "Active"),
+    let policies = [("cpu-scale-web", "web-pool", "2", "8", "4", "Active"),
         ("cpu-scale-workers", "worker-pool", "3", "10", "5", "Scaling Up"),
         ("mem-scale-cache", "cache-pool", "1", "4", "2", "Active"),
         ("custom-api", "api-pool", "2", "6", "3", "Active"),
-        ("burst-handling", "web-pool", "4", "12", "4", "Standby"),
-    ];
+        ("burst-handling", "web-pool", "4", "12", "4", "Standby")];
 
     let rows = policies.iter().map(|(name, pool, min, max, cur, status)| {
         let status_color = match *status {

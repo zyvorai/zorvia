@@ -208,6 +208,18 @@ pub async fn run(mut cli: Cli) -> Result<()> {
             handlers::vm::handle_console(name, &cli.namespace).await?;
         }
 
+        Commands::Ssh { name, user } => {
+            handlers::vm::handle_ssh(name, user, &cli.namespace).await?;
+        }
+
+        Commands::Vnc { name } => {
+            handlers::vm::handle_vnc(name, &cli.namespace).await?;
+        }
+
+        Commands::Logs { name, follow, tail } => {
+            handlers::vm::handle_logs(name, follow, tail, &cli.namespace).await?;
+        }
+
         Commands::Generate {
             name,
             template,
@@ -575,7 +587,7 @@ pub async fn run(mut cli: Cli) -> Result<()> {
             priority,
             eviction_strategy,
         } => {
-            handlers::backup::handle_ha_config(vm, enable, disable, priority, eviction_strategy, &cli.namespace)?;
+            handlers::backup::handle_ha_config(vm, enable, disable, priority, eviction_strategy, &cli.namespace).await?;
         }
 
         Commands::HAStatus { vm, output } => {
@@ -648,7 +660,7 @@ pub async fn run(mut cli: Cli) -> Result<()> {
             name,
             verification_type,
         } => {
-            handlers::backup::handle_backup_verify(name, verification_type, &cli.namespace)?;
+            handlers::backup::handle_backup_verify(name, verification_type, &cli.namespace).await?;
         }
 
         Commands::BackupSchedules { output } => {
@@ -664,7 +676,7 @@ pub async fn run(mut cli: Cli) -> Result<()> {
         }
 
         Commands::RecoveryExecute { plan, dry_run } => {
-            handlers::backup::handle_recovery_execute(plan, dry_run, &cli.namespace)?;
+            handlers::backup::handle_recovery_execute(plan, dry_run, &cli.namespace).await?;
         }
 
         // ========== SECURITY & COMPLIANCE ==========
@@ -1165,6 +1177,9 @@ pub async fn run(mut cli: Cli) -> Result<()> {
                         "stop",
                         "restart",
                         "console",
+                        "ssh",
+                        "vnc",
+                        "logs",
                         "status",
                         "clone",
                         "resources",

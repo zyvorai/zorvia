@@ -70,7 +70,7 @@ impl EdgeDeployment {
     }
 
     pub fn with_coordinates(mut self, lat: f64, lon: f64) -> Self {
-        if lat < -90.0 || lat > 90.0 || lon < -180.0 || lon > 180.0 {
+        if !(-90.0..=90.0).contains(&lat) || !(-180.0..=180.0).contains(&lon) {
             log::warn!(
                 "EdgeDeployment '{}': coordinates out of range (lat={}, lon={}), clamping to valid range",
                 self.name,

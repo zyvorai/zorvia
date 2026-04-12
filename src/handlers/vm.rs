@@ -596,6 +596,103 @@ pub async fn handle_console(name: String, namespace: &str) -> Result<()> {
     }
 }
 
+pub async fn handle_ssh(name: String, user: String, namespace: &str) -> Result<()> {
+    use crate::kube::KubeClient;
+
+    // First try to get the VM's IP address
+    match KubeClient::new().await {
+        Ok(client) => {
+            match client.get_vm_ip(namespace, &name).await? {
+                Some(ip) => {
+                    println!("Connecting to VM '{}' at {}...", name, ip);
+                    let status = std::process::Command::new("ssh")
+                        .args([&format!("{}@{}", user, ip)])
+                        .status();
+                    match status {
+                        Ok(exit) if exit.success() => Ok(()),
+                        Ok(exit) => Err(anyhow::anyhow!("SSH session ended with exit code: {}", exit.code().unwrap_or(-1))),
+                        Err(e) => Err(anyhow::anyhow!("Failed to launch ssh: {}", e)),
+                    }
+                }
+                None => {
+                    // Fallback to virtctl ssh
+                    println!("No IP found, trying virtctl ssh...");
+                    let status = std::process::Command::new("virtctl")
+                        .args(["ssh", "--user", &user, &name, "-n", namespace])
+                        .status();
+                    match status {
+                        Ok(exit) if exit.success() => Ok(()),
+                        Ok(_) => Err(anyhow::anyhow!("SSH session failed. Ensure the VM is running and SSH is enabled.")),
+                        Err(e) if e.kind() == std::io::ErrorKind::NotFound => {
+                            Err(anyhow::anyhow!("Neither direct SSH (no IP available) nor virtctl found. Install virtctl for SSH access."))
+                        }
+                        Err(e) => Err(anyhow::anyhow!("Failed to launch virtctl: {}", e)),
+                    }
+                }
+            }
+        }
+        Err(_) => Err(anyhow::anyhow!("Failed to connect to Kubernetes cluster")),
+    }
+}
+
+pub async fn handle_vnc(name: String, namespace: &str) -> Result<()> {
+    println!("Opening VNC console for VM '{}'...", name);
+    let status = std::process::Command::new("virtctl")
+        .args(["vnc", &name, "-n", namespace])
+        .status();
+    match status {
+        Ok(exit) if exit.success() => Ok(()),
+        Ok(exit) => Err(anyhow::anyhow!("VNC session ended with exit code: {}", exit.code().unwrap_or(-1))),
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => {
+            eprintln!("Error: 'virtctl' not found in PATH.");
+            eprintln!("Install virtctl for VNC access:");
+            eprintln!("  kubectl krew install virt");
+            Err(anyhow::anyhow!("virtctl is required for VNC access"))
+        }
+        Err(e) => Err(anyhow::anyhow!("Failed to launch virtctl: {}", e)),
+    }
+}
+
+pub async fn handle_logs(name: String, follow: bool, tail: u32, namespace: &str) -> Result<()> {
+    use crate::kube::KubeClient;
+
+    println!("Fetching logs for VM '{}'...", name);
+    println!();
+
+    // Find the virt-launcher pod for this VM
+    let client = KubeClient::new().await?;
+    let k8s_client = client.client();
+
+    use k8s_openapi::api::core::v1::Pod;
+    let pods_api: kube::api::Api<Pod> = kube::api::Api::namespaced(k8s_client, namespace);
+    let lp = kube::api::ListParams::default()
+        .labels(&format!("kubevirt.io/vm={}", name));
+
+    let pod_list = pods_api.list(&lp).await
+        .map_err(|e| anyhow::anyhow!("Failed to list pods: {}", e))?;
+
+    let pod = pod_list.items.first()
+        .ok_or_else(|| anyhow::anyhow!("No virt-launcher pod found for VM '{}'. Is the VM running?", name))?;
+    let pod_name = pod.metadata.name.as_deref().unwrap_or_default();
+
+    // Use kubectl logs for streaming
+    let tail_str = tail.to_string();
+    let mut args = vec!["logs", pod_name, "-n", namespace, "--tail", &tail_str];
+    if follow {
+        args.push("-f");
+    }
+
+    let status = std::process::Command::new("kubectl")
+        .args(&args)
+        .status()
+        .map_err(|e| anyhow::anyhow!("Failed to launch kubectl: {}", e))?;
+
+    if !status.success() {
+        return Err(anyhow::anyhow!("kubectl logs exited with code: {}", status.code().unwrap_or(-1)));
+    }
+    Ok(())
+}
+
 #[allow(clippy::too_many_arguments)]
 pub fn handle_generate(
     name: String,

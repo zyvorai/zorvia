@@ -49,14 +49,12 @@ pub fn render(f: &mut Frame, area: Rect) {
         .style(Style::default().bg(Color::Rgb(40, 35, 55)))
         .height(1);
 
-    let sample_data = vec![
-        ("virt-launcher-web-01-abc12", "default", "Running", "node-1", "2d"),
+    let sample_data = [("virt-launcher-web-01-abc12", "default", "Running", "node-1", "2d"),
         ("virt-launcher-db-pri-def34", "production", "Running", "node-2", "5d"),
         ("virt-launcher-wrk-03-ghi56", "staging", "Pending", "node-1", "10m"),
         ("virt-handler-jkl78", "kubevirt", "Running", "node-3", "14d"),
         ("virt-api-mno90", "kubevirt", "Running", "node-1", "14d"),
-        ("cdi-operator-pqr12", "cdi", "Running", "node-2", "14d"),
-    ];
+        ("cdi-operator-pqr12", "cdi", "Running", "node-2", "14d")];
 
     let rows = sample_data.iter().map(|(name, ns, status, node, age)| {
         let status_color = match *status {

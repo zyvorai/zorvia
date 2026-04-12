@@ -1,6 +1,7 @@
 use crate::tui::colors::cli as color;
 use anyhow::Result;
 
+#[allow(clippy::too_many_arguments)]
 pub async fn handle_api_serve(
     port: u16,
     host: String,

@@ -49,14 +49,12 @@ pub fn render(f: &mut Frame, area: Rect) {
         .style(Style::default().bg(Color::Rgb(40, 35, 55)))
         .height(1);
 
-    let sample_data = vec![
-        ("2m ago", "Normal", "Started", "Pod/virt-launcher-web-01", "Started container compute"),
+    let sample_data = [("2m ago", "Normal", "Started", "Pod/virt-launcher-web-01", "Started container compute"),
         ("3m ago", "Normal", "Created", "Pod/virt-launcher-web-01", "Created container compute"),
         ("5m ago", "Warning", "FailedMount", "Pod/virt-launcher-db-01", "Unable to attach volume"),
         ("8m ago", "Normal", "Scheduled", "Pod/virt-launcher-wrk-03", "Assigned to node-2"),
         ("12m ago", "Warning", "Unhealthy", "Pod/virt-launcher-cache", "Readiness probe failed"),
-        ("15m ago", "Normal", "SuccessfulCreate", "VMI/web-server-01", "Created virtual machine instance"),
-    ];
+        ("15m ago", "Normal", "SuccessfulCreate", "VMI/web-server-01", "Created virtual machine instance")];
 
     let rows = sample_data.iter().map(|(time, etype, reason, obj, msg)| {
         let type_color = match *etype {

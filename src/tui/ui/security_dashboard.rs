@@ -101,15 +101,13 @@ pub fn render(f: &mut Frame, area: Rect) {
         .style(Style::default().bg(Color::Rgb(40, 35, 55)))
         .height(1);
 
-    let findings = vec![
-        ("CRIT", "Network", "Pod network policy missing", "Open"),
+    let findings = [("CRIT", "Network", "Pod network policy missing", "Open"),
         ("HIGH", "RBAC", "Overly permissive role", "In Progress"),
         ("HIGH", "Image", "Unscanned container image", "Open"),
         ("HIGH", "Config", "Secrets in env vars", "Open"),
         ("MED", "Network", "Ingress without TLS", "Remediated"),
         ("MED", "Runtime", "Privileged container", "Open"),
-        ("LOW", "Config", "Resource limits not set", "Open"),
-    ];
+        ("LOW", "Config", "Resource limits not set", "Open")];
 
     let rows = findings.iter().map(|(sev, cat, finding, status)| {
         let sev_color = match *sev {

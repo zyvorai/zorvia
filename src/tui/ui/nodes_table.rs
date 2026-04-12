@@ -50,12 +50,10 @@ pub fn render(f: &mut Frame, area: Rect) {
         .style(Style::default().bg(Color::Rgb(40, 35, 55)))
         .height(1);
 
-    let sample_data = vec![
-        ("node-1", "Ready", "control-plane", "45%", "62%", "24/110"),
+    let sample_data = [("node-1", "Ready", "control-plane", "45%", "62%", "24/110"),
         ("node-2", "Ready", "worker", "72%", "58%", "31/110"),
         ("node-3", "Ready", "worker", "38%", "41%", "18/110"),
-        ("node-4", "NotReady", "worker", "—", "—", "0/110"),
-    ];
+        ("node-4", "NotReady", "worker", "—", "—", "0/110")];
 
     let rows = sample_data.iter().map(|(name, status, role, cpu, mem, pods)| {
         let status_color = match *status {

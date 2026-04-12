@@ -58,15 +58,13 @@ pub fn render(f: &mut Frame, area: Rect) {
         .style(Style::default().bg(Color::Rgb(40, 35, 55)))
         .height(1);
 
-    let changes = vec![
-        ("CR-042", "Scale", "Scale worker pool 3->5", "ops-user", "Pending"),
+    let changes = [("CR-042", "Scale", "Scale worker pool 3->5", "ops-user", "Pending"),
         ("CR-041", "Config", "Update VM memory limits", "dev-lead", "Approved"),
         ("CR-040", "Delete", "Remove stale snapshots", "ci-bot", "Pending"),
         ("CR-039", "Migrate", "Migrate db-primary to node-3", "ops-user", "Pending"),
         ("CR-038", "Create", "New staging environment", "dev-lead", "Approved"),
         ("CR-037", "Update", "Patch KubeVirt to v1.2.1", "admin", "Rejected"),
-        ("CR-036", "Scale", "Scale API gateway replicas", "ops-user", "Executed"),
-    ];
+        ("CR-036", "Scale", "Scale API gateway replicas", "ops-user", "Executed")];
 
     let rows = changes.iter().map(|(id, ctype, desc, req, status)| {
         let status_color = match *status {

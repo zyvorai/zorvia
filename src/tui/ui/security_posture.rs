@@ -47,12 +47,10 @@ pub fn render(f: &mut Frame, area: Rect) {
         ])
         .split(chunks[1]);
 
-    let categories = vec![
-        ("Network", 75, Color::Rgb(255, 200, 0)),
+    let categories = [("Network", 75, Color::Rgb(255, 200, 0)),
         ("Identity", 90, Color::Rgb(50, 205, 50)),
         ("Workload", 68, Color::Rgb(255, 200, 0)),
-        ("Data", 85, Color::Rgb(50, 205, 50)),
-    ];
+        ("Data", 85, Color::Rgb(50, 205, 50))];
 
     for (i, (name, pct, color)) in categories.iter().enumerate() {
         let gauge = Gauge::default()

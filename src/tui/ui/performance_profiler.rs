@@ -48,12 +48,10 @@ pub fn render(f: &mut Frame, area: Rect) {
         ])
         .split(chunks[1]);
 
-    let gauges = vec![
-        ("CPU", 45, gradient::health().at(0.45)),
+    let gauges = [("CPU", 45, gradient::health().at(0.45)),
         ("Memory", 62, Color::Rgb(100, 150, 255)),
         ("Disk I/O", 28, Color::Rgb(50, 205, 50)),
-        ("Network", 51, Color::Rgb(255, 200, 0)),
-    ];
+        ("Network", 51, Color::Rgb(255, 200, 0))];
 
     for (i, (name, pct, color)) in gauges.iter().enumerate() {
         let gauge = Gauge::default()
@@ -92,15 +90,13 @@ pub fn render(f: &mut Frame, area: Rect) {
         .style(Style::default().bg(Color::Rgb(40, 35, 55)))
         .height(1);
 
-    let processes = vec![
-        ("nginx", "12.4", "8.2", "16", "Running"),
+    let processes = [("nginx", "12.4", "8.2", "16", "Running"),
         ("postgres", "18.6", "32.1", "24", "Running"),
         ("node-exporter", "2.1", "1.8", "4", "Running"),
         ("qemu-system", "8.3", "15.4", "8", "Running"),
         ("systemd", "0.4", "1.2", "1", "Running"),
         ("sshd", "0.1", "0.8", "2", "Sleeping"),
-        ("cron", "0.0", "0.3", "1", "Sleeping"),
-    ];
+        ("cron", "0.0", "0.3", "1", "Sleeping")];
 
     let rows = processes.iter().map(|(name, cpu, mem, threads, state)| {
         let state_color = match *state {

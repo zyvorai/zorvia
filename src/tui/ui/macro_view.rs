@@ -58,14 +58,12 @@ pub fn render(f: &mut Frame, area: Rect) {
         .style(Style::default().bg(Color::Rgb(40, 35, 55)))
         .height(1);
 
-    let macros = vec![
-        ("deploy-web-stack", "8", "2h ago", "Ready"),
+    let macros = [("deploy-web-stack", "8", "2h ago", "Ready"),
         ("scale-workers", "4", "1d ago", "Ready"),
         ("backup-all-vms", "12", "6h ago", "Ready"),
         ("restart-services", "6", "3d ago", "Ready"),
         ("health-check-all", "10", "30m ago", "Running"),
-        ("cleanup-snapshots", "5", "7d ago", "Ready"),
-    ];
+        ("cleanup-snapshots", "5", "7d ago", "Ready")];
 
     let rows = macros.iter().map(|(name, steps, last_run, status)| {
         let status_color = match *status {

@@ -58,14 +58,12 @@ pub fn render(f: &mut Frame, area: Rect) {
         .style(Style::default().bg(Color::Rgb(40, 35, 55)))
         .height(1);
 
-    let roles = vec![
-        ("vm-admin", "ClusterRole", "*", "12"),
+    let roles = [("vm-admin", "ClusterRole", "*", "12"),
         ("vm-operator", "ClusterRole", "*", "8"),
         ("vm-viewer", "Role", "production", "3"),
         ("snapshot-mgr", "Role", "default", "5"),
         ("migration-exec", "ClusterRole", "*", "6"),
-        ("network-admin", "Role", "kube-system", "9"),
-    ];
+        ("network-admin", "Role", "kube-system", "9")];
 
     let role_rows = roles.iter().map(|(name, rtype, ns, rules)| {
         let type_color = if *rtype == "ClusterRole" {

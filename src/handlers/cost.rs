@@ -69,8 +69,8 @@ fn extract_and_calculate_cost(
         name,
         vm_ns,
         cpu,
-        (memory_gi as u64).min(u32::MAX as u64) as u32,
-        (storage_gi as u64).min(u32::MAX as u64) as u32,
+        memory_gi.min(u32::MAX as u64) as u32,
+        storage_gi.min(u32::MAX as u64) as u32,
         period_hours,
     )
 }

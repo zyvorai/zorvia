@@ -4,6 +4,7 @@ use serde::{Deserialize, Serialize};
 
 /// RDP session security protocol
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Default)]
 pub enum RdpSecurityProtocol {
     /// Standard RDP security
     Rdp,
@@ -16,14 +17,10 @@ pub enum RdpSecurityProtocol {
     /// Hybrid security (CredSSP + TLS)
     Hybrid,
     /// Auto-negotiate best available
+    #[default]
     Auto,
 }
 
-impl Default for RdpSecurityProtocol {
-    fn default() -> Self {
-        Self::Auto
-    }
-}
 
 impl std::fmt::Display for RdpSecurityProtocol {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
