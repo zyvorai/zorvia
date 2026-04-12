@@ -57,7 +57,7 @@ axum = { version = "0.7", optional = true }
 tower-http = { version = "0.6", features = ["cors"], optional = true }
 
 [features]
-default = []
+default = ["web"]
 web = ["axum", "tower-http"]
 
 [dev-dependencies]
