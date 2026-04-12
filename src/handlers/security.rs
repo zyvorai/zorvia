@@ -285,7 +285,7 @@ pub fn handle_security_profiles(details: bool) -> Result<()> {
     Ok(())
 }
 
-pub fn handle_compliance_check(vm: String, framework: String, output: String, namespace: &str) -> Result<()> {
+pub async fn handle_compliance_check(vm: String, framework: String, output: String, namespace: &str) -> Result<()> {
     use crate::security::compliance::{ComplianceChecker, ComplianceFramework};
 
     log::debug!("Using namespace: {}", namespace);
@@ -305,15 +305,22 @@ pub fn handle_compliance_check(vm: String, framework: String, output: String, na
 
     println!("  Framework:   {}", color::value(&fw.to_string()));
     println!();
+    println!("Fetching VM from Kubernetes...");
+
+    let client = crate::kube::KubeClient::new().await
+        .map_err(|e| anyhow::anyhow!("Failed to connect to Kubernetes: {}", e))?;
+    let vm_obj = client.get_vm(namespace, &vm).await
+        .map_err(|e| anyhow::anyhow!("Failed to get VM '{}': {}", vm, e))?;
+
     println!("Checking compliance...");
 
     let report = match framework.as_str() {
-        "hipaa" => ComplianceChecker::check_hipaa(&vm),
-        "soc2" => ComplianceChecker::check_soc2(&vm),
-        "pci-dss" | "pci_dss" => ComplianceChecker::check_pci_dss(&vm),
+        "hipaa" => ComplianceChecker::check_hipaa(&vm, &vm_obj),
+        "soc2" => ComplianceChecker::check_soc2(&vm, &vm_obj),
+        "pci-dss" | "pci_dss" => ComplianceChecker::check_pci_dss(&vm, &vm_obj),
         other => {
             println!("{}", color::warning(&format!("Framework '{}' does not have a dedicated checker. Using PCI-DSS as baseline.", other)));
-            ComplianceChecker::check_pci_dss(&vm)
+            ComplianceChecker::check_pci_dss(&vm, &vm_obj)
         }
     };
 
@@ -362,7 +369,7 @@ pub fn handle_compliance_check(vm: String, framework: String, output: String, na
     Ok(())
 }
 
-pub fn handle_compliance_report(
+pub async fn handle_compliance_report(
     vm: String,
     report_id: Option<String>,
     output: String,
@@ -372,7 +379,12 @@ pub fn handle_compliance_report(
 
     log::debug!("Using namespace: {}", namespace);
 
-    let report = ComplianceChecker::check_pci_dss(&vm);
+    let client = crate::kube::KubeClient::new().await
+        .map_err(|e| anyhow::anyhow!("Failed to connect to Kubernetes: {}", e))?;
+    let vm_obj = client.get_vm(namespace, &vm).await
+        .map_err(|e| anyhow::anyhow!("Failed to get VM '{}': {}", vm, e))?;
+
+    let report = ComplianceChecker::check_pci_dss(&vm, &vm_obj);
 
     println!("{}", color::header(&format!("Compliance Report: {}", vm)));
     println!();
@@ -710,7 +722,46 @@ mod tests {
 
     #[test]
     fn test_compliance_checker_all_frameworks() {
-        let pci = ComplianceChecker::check_pci_dss("test-vm");
+        use crate::kube::types::*;
+        use k8s_openapi::apimachinery::pkg::apis::meta::v1::ObjectMeta;
+
+        let vm = VirtualMachine {
+            metadata: ObjectMeta {
+                name: Some("test-vm".to_string()),
+                namespace: Some("default".to_string()),
+                ..Default::default()
+            },
+            spec: VirtualMachineSpec {
+                running: Some(false),
+                run_strategy: None,
+                template: VirtualMachineInstanceTemplateSpec {
+                    metadata: None,
+                    spec: VirtualMachineInstanceSpec {
+                        domain: DomainSpec {
+                            resources: ResourceRequirements {
+                                requests: None,
+                                limits: None,
+                            },
+                            cpu: None,
+                            memory: None,
+                            devices: None,
+                            features: None,
+                            clock: None,
+                            firmware: None,
+                            machine: None,
+                        },
+                        volumes: None,
+                        networks: None,
+                        termination_grace_period_seconds: None,
+                        eviction_strategy: None,
+                        node_selector: None,
+                    },
+                },
+            },
+            status: None,
+        };
+
+        let pci = ComplianceChecker::check_pci_dss("test-vm", &vm);
         assert_eq!(pci.framework, ComplianceFramework::PCIDSS);
         assert!(pci.summary.total_checks >= 4);
     }

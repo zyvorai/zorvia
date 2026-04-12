@@ -710,7 +710,7 @@ pub async fn run(mut cli: Cli) -> Result<()> {
             framework,
             output,
         } => {
-            handlers::security::handle_compliance_check(vm, framework, output, &cli.namespace)?;
+            handlers::security::handle_compliance_check(vm, framework, output, &cli.namespace).await?;
         }
 
         Commands::ComplianceReport {
@@ -718,7 +718,7 @@ pub async fn run(mut cli: Cli) -> Result<()> {
             report_id,
             output,
         } => {
-            handlers::security::handle_compliance_report(vm, report_id, output, &cli.namespace)?;
+            handlers::security::handle_compliance_report(vm, report_id, output, &cli.namespace).await?;
         }
 
         Commands::AuditList {
@@ -965,7 +965,7 @@ pub async fn run(mut cli: Cli) -> Result<()> {
             name,
             namespace,
             preset,
-        } => handlers::multitenancy::handle_quotas_create(name, namespace, preset)?,
+        } => handlers::multitenancy::handle_quotas_create(name, namespace, preset).await?,
         Commands::QuotasShow {
             quota,
             utilization,

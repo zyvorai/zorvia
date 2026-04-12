@@ -713,8 +713,28 @@ pub async fn handle_disk_health(vm: String, detailed: bool, namespace: &str) -> 
                                 d.used = DiskInfo::format_size(0);
                                 d.available = DiskInfo::format_size(total);
                                 d.usage_percent = 0.0; // Note: actual disk usage not available via KubeVirt API
+
+                                // Get PVC status phase and actual capacity
+                                if let Some(ref status) = pvc_obj.status {
+                                    if let Some(ref phase) = status.phase {
+                                        d.device = format!("pvc:{} ({})", pvc.claim_name, phase);
+                                    } else {
+                                        d.device = format!("pvc:{}", pvc.claim_name);
+                                    }
+                                    // Get actual capacity if different from requested
+                                    if let Some(ref cap) = status.capacity {
+                                        if let Some(actual) = cap.get("storage") {
+                                            if actual.0 != size {
+                                                d.size = format!("{} (actual: {})", size, actual.0);
+                                            }
+                                        }
+                                    }
+                                } else {
+                                    d.device = format!("pvc:{}", pvc.claim_name);
+                                }
+                            } else {
+                                d.device = format!("pvc:{}", pvc.claim_name);
                             }
-                            d.device = format!("pvc:{}", pvc.claim_name);
                         } else if let Some(ref empty) = vol.empty_disk {
                             d.size = empty.capacity.clone();
                             let total = DiskInfo::parse_size(&empty.capacity);
@@ -1196,6 +1216,29 @@ pub async fn handle_network_bandwidth(
         println!("{}", color::header(&format!("Network Bandwidth: {}", vm)));
         println!("  Interface: {}", color::value(&iface_name));
         println!();
+
+        // Fetch real interface info from VMI
+        let client = crate::kube::KubeClient::new().await.ok();
+        if let Some(ref client) = client {
+            if let Ok(vmi) = client.get_vmi(namespace, &vm).await {
+                if let Some(status) = &vmi.status {
+                    if !status.interfaces.is_empty() {
+                        println!("{}", color::header("VMI Interfaces:"));
+                        for iface in &status.interfaces {
+                            if let Some(ref name) = iface.name {
+                                println!(
+                                    "  {} - IP: {}, MAC: {}",
+                                    color::value(name),
+                                    iface.ip_address.as_deref().unwrap_or("n/a"),
+                                    iface.mac.as_deref().unwrap_or("n/a")
+                                );
+                            }
+                        }
+                        println!();
+                    }
+                }
+            }
+        }
 
         // Collect metrics from the VM
         let metrics = collector.collect(&vm).await?;

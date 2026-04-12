@@ -318,15 +318,15 @@ pub fn handle_quotas_list(namespace: Option<String>, exceeded: bool, output: Str
     Ok(())
 }
 
-pub fn handle_quotas_create(name: String, namespace: String, preset: String) -> Result<()> {
-    use crate::multitenancy::quotas::ResourceQuota;
+pub async fn handle_quotas_create(name: String, namespace: String, preset: String) -> Result<()> {
+    use crate::multitenancy::quotas::ResourceQuota as ZorviaQuota;
 
     println!("{}", color::header(&format!("Creating Quota: {}", name)));
     println!();
 
     let limits = parse_quota_preset(&preset);
 
-    let quota = ResourceQuota::new(&name, &namespace).with_limits(limits.clone());
+    let quota = ZorviaQuota::new(&name, &namespace).with_limits(limits.clone());
 
     println!("  Name:      {}", color::value(&quota.name));
     println!("  Namespace: {}", quota.namespace);
@@ -335,7 +335,45 @@ pub fn handle_quotas_create(name: String, namespace: String, preset: String) -> 
     println!("  Max CPUs:  {}", limits.max_cpu_cores);
     println!("  Max Memory: {} Gi", limits.max_memory_gi);
     println!();
-    println!("{}", color::success("✓ Quota created successfully"));
+
+    // Determine resource limits based on preset
+    let (cpu, memory, pods) = match preset.as_str() {
+        "small" => ("4", "8Gi", "10"),
+        "medium" => ("16", "32Gi", "50"),
+        "large" => ("64", "128Gi", "200"),
+        _ => ("8", "16Gi", "25"), // default
+    };
+
+    // Create real K8s ResourceQuota
+    let client = kube::Client::try_default().await
+        .map_err(|e| anyhow::anyhow!("Failed to connect to Kubernetes: {}", e))?;
+
+    use k8s_openapi::api::core::v1::ResourceQuota;
+    use k8s_openapi::apimachinery::pkg::api::resource::Quantity;
+    let quotas_api: kube::api::Api<ResourceQuota> = kube::api::Api::namespaced(client, &namespace);
+
+    let mut hard = std::collections::BTreeMap::new();
+    hard.insert("requests.cpu".to_string(), Quantity(cpu.to_string()));
+    hard.insert("requests.memory".to_string(), Quantity(memory.to_string()));
+    hard.insert("pods".to_string(), Quantity(pods.to_string()));
+
+    let k8s_quota = ResourceQuota {
+        metadata: k8s_openapi::apimachinery::pkg::apis::meta::v1::ObjectMeta {
+            name: Some(name.clone()),
+            namespace: Some(namespace.clone()),
+            ..Default::default()
+        },
+        spec: Some(k8s_openapi::api::core::v1::ResourceQuotaSpec {
+            hard: Some(hard),
+            ..Default::default()
+        }),
+        status: None,
+    };
+
+    quotas_api.create(&kube::api::PostParams::default(), &k8s_quota).await
+        .map_err(|e| anyhow::anyhow!("Failed to create ResourceQuota: {}", e))?;
+
+    println!("{}", color::success("✓ Quota created in Kubernetes"));
     Ok(())
 }
 

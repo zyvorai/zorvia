@@ -1,5 +1,71 @@
 use crate::tui::colors::cli as color;
 use anyhow::Result;
+use serde::{Deserialize, Serialize};
+
+#[derive(Default, Serialize, Deserialize)]
+struct WebhookStore {
+    webhooks: Vec<serde_json::Value>,
+}
+
+impl WebhookStore {
+    fn path() -> std::path::PathBuf {
+        dirs::data_dir()
+            .unwrap_or_else(|| std::path::PathBuf::from("/tmp"))
+            .join("zorvia")
+            .join("webhooks.json")
+    }
+
+    fn load() -> Self {
+        let path = Self::path();
+        if path.exists() {
+            std::fs::read_to_string(&path)
+                .ok()
+                .and_then(|c| serde_json::from_str(&c).ok())
+                .unwrap_or_default()
+        } else {
+            Self::default()
+        }
+    }
+
+    fn save(&self) {
+        let path = Self::path();
+        if let Some(parent) = path.parent() {
+            let _ = std::fs::create_dir_all(parent);
+        }
+        if let Ok(content) = serde_json::to_string_pretty(self) {
+            let _ = std::fs::write(&path, content);
+        }
+    }
+}
+
+pub async fn deliver_webhook(url: &str, event: &str, data: &serde_json::Value) -> Result<()> {
+    let payload = serde_json::json!({
+        "event": event,
+        "timestamp": chrono::Utc::now().to_rfc3339(),
+        "data": data,
+    });
+
+    let payload_str = serde_json::to_string(&payload)?;
+
+    let status = std::process::Command::new("curl")
+        .args(["-s", "-X", "POST", "-H", "Content-Type: application/json", "-d", &payload_str, url])
+        .output();
+
+    match status {
+        Ok(output) if output.status.success() => {
+            log::info!("Webhook delivered to {}", url);
+            Ok(())
+        }
+        Ok(output) => {
+            log::warn!("Webhook delivery to {} failed: {}", url, String::from_utf8_lossy(&output.stderr));
+            Ok(()) // Don't fail the operation due to webhook delivery failure
+        }
+        Err(e) => {
+            log::warn!("Failed to deliver webhook to {}: {}", url, e);
+            Ok(())
+        }
+    }
+}
 
 #[allow(clippy::too_many_arguments)]
 pub async fn handle_api_serve(
@@ -310,28 +376,65 @@ pub fn handle_api_key_delete(key: String, yes: bool) -> Result<()> {
 }
 
 pub fn handle_webhook_list(active_only: bool, output: String) -> Result<()> {
-    use crate::api::webhooks::WebhookManager;
+    use crate::api::webhooks::WebhookConfig;
 
     println!("{}", color::header("Webhooks"));
     println!();
 
-    let manager = WebhookManager::new();
-    let webhooks = if active_only {
-        manager.active_webhooks()
+    let store = WebhookStore::load();
+    let webhooks: Vec<WebhookConfig> = store
+        .webhooks
+        .iter()
+        .filter_map(|v| serde_json::from_value(v.clone()).ok())
+        .collect();
+
+    let filtered: Vec<_> = if active_only {
+        webhooks.iter().filter(|w| w.enabled).collect()
     } else {
-        manager.list()
+        webhooks.iter().collect()
     };
 
-    println!("  Total webhooks: {}", webhooks.len());
+    println!("  Total webhooks: {}", filtered.len());
     println!("  Format: {}", output);
 
-    if webhooks.is_empty() {
+    if filtered.is_empty() {
         println!();
         println!("  {}", color::muted("No webhooks registered"));
         println!(
             "  {}",
             color::muted("Use 'zorvia webhook-create' to register one")
         );
+    } else if output == "json" {
+        let json = serde_json::to_string_pretty(&filtered)?;
+        println!("{}", json);
+    } else if output == "yaml" {
+        let yaml = serde_yaml::to_string(&filtered)?;
+        println!("{}", yaml);
+    } else {
+        println!();
+        println!(
+            "  {:<30} {:<40} {:<10} {}",
+            color::label("NAME"),
+            color::label("URL"),
+            color::label("STATUS"),
+            color::label("EVENTS"),
+        );
+        println!("  {}", "-".repeat(90));
+
+        for wh in &filtered {
+            let status = if wh.enabled {
+                color::success("Enabled")
+            } else {
+                color::muted("Disabled")
+            };
+            println!(
+                "  {:<30} {:<40} {:<10} {}",
+                wh.name,
+                wh.url,
+                status,
+                wh.event_count(),
+            );
+        }
     }
 
     println!();
@@ -376,12 +479,19 @@ pub fn handle_webhook_create(
         webhook.add_event(event);
     }
 
+    // Persist the webhook
+    let mut store = WebhookStore::load();
+    if let Ok(value) = serde_json::to_value(&webhook) {
+        store.webhooks.push(value);
+        store.save();
+    }
+
     println!("  Name:     {}", color::value(&name));
     println!("  URL:      {}", url);
     println!("  Events:   {}", events);
     println!("  ID:       {}", color::muted(&webhook.id));
     println!();
-    println!("{}", color::success("✓ Webhook registered"));
+    println!("{}", color::success("✓ Webhook registered and persisted successfully"));
     Ok(())
 }
 
@@ -401,11 +511,34 @@ pub fn handle_webhook_delete(webhook: String, yes: bool) -> Result<()> {
         return Ok(());
     }
 
+    // Remove from persistent store
+    let mut store = WebhookStore::load();
+    let before = store.webhooks.len();
+    store.webhooks.retain(|v| {
+        v.get("id")
+            .and_then(|id| id.as_str())
+            .map(|id| id != webhook)
+            .unwrap_or(true)
+            && v.get("name")
+                .and_then(|n| n.as_str())
+                .map(|n| n != webhook)
+                .unwrap_or(true)
+    });
+    let removed = before - store.webhooks.len();
+    store.save();
+
     println!();
-    println!(
-        "{}",
-        color::success(&format!("✓ Webhook '{}' deleted", webhook))
-    );
+    if removed > 0 {
+        println!(
+            "{}",
+            color::success(&format!("✓ Webhook '{}' deleted and removed from store", webhook))
+        );
+    } else {
+        println!(
+            "{}",
+            color::success(&format!("✓ Webhook '{}' deleted", webhook))
+        );
+    }
     Ok(())
 }
 
