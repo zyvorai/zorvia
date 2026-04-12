@@ -256,6 +256,21 @@ function drawChart(id, data, color) {
   ctx.strokeStyle = '#0f172a'; ctx.lineWidth = 2; ctx.stroke();
 }
 
+// ── API Key Auth ──
+function getApiKey() {
+  let key = sessionStorage.getItem('zorvia_api_key');
+  if (!key) {
+    key = prompt('Enter Zorvia API key:');
+    if (key) sessionStorage.setItem('zorvia_api_key', key);
+  }
+  return key || '';
+}
+function apiFetch(url, opts) {
+  opts = opts || {};
+  opts.headers = Object.assign({'X-API-Key': getApiKey()}, opts.headers || {});
+  return fetch(url, opts);
+}
+
 // ── Helpers ──
 function sc(status) { return status==='Running'?'running':status==='Stopped'?'stopped':(status==='Failed'||status==='Error')?'error':'other'; }
 function fmtTime(ts) {
@@ -266,7 +281,7 @@ function fmtTime(ts) {
 async function vmAction(ns, name, action) {
   const url = '/api/v1/vms/'+ns+'/'+name+'/'+action;
   try {
-    const r = await fetch(url, {method:'POST'});
+    const r = await apiFetch(url, {method:'POST'});
     const j = await r.json();
     if (j.success) { toast(name+' '+action+' initiated', 'success'); setTimeout(refresh, 1500); }
     else toast('Failed: '+(j.error?.message||'Unknown'), 'error');
@@ -276,7 +291,7 @@ async function vmAction(ns, name, action) {
 async function vmDelete(ns, name) {
   if (!confirm('Delete VM "'+name+'"? This cannot be undone.')) return;
   try {
-    const r = await fetch('/api/v1/vms/'+ns+'/'+name, {method:'DELETE'});
+    const r = await apiFetch('/api/v1/vms/'+ns+'/'+name, {method:'DELETE'});
     const j = await r.json();
     if (j.success) { toast(name+' deleted', 'success'); setTimeout(refresh, 1500); }
     else toast('Failed: '+(j.error?.message||'Unknown'), 'error');
@@ -300,7 +315,7 @@ function vmRow(vm, showActions) {
 // ── Fetch VMs ──
 async function fetchVMs() {
   try {
-    const r = await fetch('/api/v1/vms');
+    const r = await apiFetch('/api/v1/vms');
     const j = await r.json();
     if (!j.success||!j.data) { updateHealth(false,'API error'); return; }
     vmData = j.data;
@@ -353,7 +368,7 @@ async function fetchVMs() {
 // ── Fetch Events ──
 async function fetchEvents(full) {
   try {
-    const r = await fetch('/api/v1/events');
+    const r = await apiFetch('/api/v1/events');
     const j = await r.json();
     const events = (j.success && j.data) ? j.data : [];
     const renderEvents = (items, target) => {
@@ -372,7 +387,7 @@ async function fetchEvents(full) {
 // ── Fetch Snapshots ──
 async function fetchSnapshots() {
   try {
-    const r = await fetch('/api/v1/snapshots');
+    const r = await apiFetch('/api/v1/snapshots');
     const j = await r.json();
     const el = document.getElementById('snap-list');
     if (!j.success||!j.data||j.data.length===0) { el.innerHTML='<div class="empty-state"><div class="icon">&#x1F4F8;</div><p>No snapshots</p><p class="sub">Create a snapshot from the VM details</p></div>'; return; }
