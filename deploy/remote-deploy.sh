@@ -215,6 +215,18 @@ _ssh "
     $SUDO cp deploy/zorvia-web.service /etc/systemd/system/zorvia-web.service
     $SUDO systemctl daemon-reload
 
+    # Generate and install API key if not already present
+    $SUDO mkdir -p /etc/zorvia
+    if [ ! -f /etc/zorvia/env ]; then
+        API_KEY=\$(openssl rand -hex 32)
+        echo \"ZORVIA_API_KEY=\${API_KEY}\" | $SUDO tee /etc/zorvia/env > /dev/null
+        $SUDO chmod 600 /etc/zorvia/env
+        echo \"API key generated: \${API_KEY}\"
+        echo \"Save this key — it is required for API access.\"
+    else
+        echo 'API key: already configured (kept existing)'
+    fi
+
     # Install k3s manifest if k3s is running
     if [ -d /var/lib/rancher/k3s/server/manifests ]; then
         $SUDO cp deploy/k3s-zorvia-web.yaml /var/lib/rancher/k3s/server/manifests/zorvia-web.yaml
