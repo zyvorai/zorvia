@@ -111,6 +111,7 @@ impl AccessLogEntry {
 pub struct AccessManager {
     policies: HashMap<String, AccessPolicy>,
     logs: Vec<AccessLogEntry>,
+    max_log_entries: usize,
 }
 
 impl AccessManager {
@@ -118,6 +119,7 @@ impl AccessManager {
         Self {
             policies: HashMap::new(),
             logs: Vec::new(),
+            max_log_entries: 10_000,
         }
     }
 
@@ -140,6 +142,15 @@ impl AccessManager {
     }
 
     pub fn log_access(&mut self, entry: AccessLogEntry) {
+        if self.logs.len() >= self.max_log_entries {
+            let drain_count = self.max_log_entries / 10; // Remove oldest 10%
+            self.logs.drain(..drain_count);
+            log::warn!(
+                "AccessManager logs exceeded max_log_entries ({}), drained {} oldest entries",
+                self.max_log_entries,
+                drain_count
+            );
+        }
         self.logs.push(entry);
     }
 
@@ -198,7 +209,7 @@ mod tests {
 
     #[test]
     fn test_policy_with_expiry() {
-        let expiry = Utc::now() + chrono::Duration::days(30);
+        let expiry = Utc::now() + chrono::TimeDelta::days(30);
         let policy = AccessPolicy::new("temp-access", "user-1", "secret-1").with_expiry(expiry);
 
         assert_eq!(policy.expires_at, Some(expiry));
@@ -238,11 +249,11 @@ mod tests {
 
     #[test]
     fn test_policy_is_expired() {
-        let past = Utc::now() - chrono::Duration::days(1);
+        let past = Utc::now() - chrono::TimeDelta::days(1);
         let policy1 = AccessPolicy::new("expired", "user-1", "secret-1").with_expiry(past);
         assert!(policy1.is_expired());
 
-        let future = Utc::now() + chrono::Duration::days(30);
+        let future = Utc::now() + chrono::TimeDelta::days(30);
         let policy2 = AccessPolicy::new("active", "user-1", "secret-1").with_expiry(future);
         assert!(!policy2.is_expired());
     }
@@ -256,7 +267,7 @@ mod tests {
         let policy2 = AccessPolicy::new("invalid", "user-1", "secret-1");
         assert!(!policy2.is_valid()); // No permissions
 
-        let past = Utc::now() - chrono::Duration::days(1);
+        let past = Utc::now() - chrono::TimeDelta::days(1);
         let mut policy3 = AccessPolicy::new("expired", "user-1", "secret-1").with_expiry(past);
         policy3.add_permission(Permission::Read);
         assert!(!policy3.is_valid()); // Expired

@@ -67,10 +67,10 @@ impl ServerStats {
             self.error_count += 1;
         }
 
-        // Rolling average
-        self.avg_response_ms = (self.avg_response_ms * (self.total_requests - 1) as f64
-            + duration_ms)
-            / self.total_requests as f64;
+        // Welford's online mean: avoids precision loss at high request counts
+        // delta = x - mean; mean += delta / n
+        let delta = duration_ms - self.avg_response_ms;
+        self.avg_response_ms += delta / self.total_requests as f64;
     }
 
     pub fn success_rate(&self) -> f64 {

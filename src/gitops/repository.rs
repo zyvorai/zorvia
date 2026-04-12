@@ -115,7 +115,6 @@ impl GitRepository {
                 .arg("-C")
                 .arg(&self.path)
                 .arg("checkout")
-                .arg("--")
                 .arg(&rev)
                 .output()
                 .map_err(|e| format!("Failed to execute git checkout: {}", e))?;
@@ -345,12 +344,18 @@ impl RepositoryManager {
     }
 
     fn generate_repo_id(&self, url: &str) -> String {
-        // Simple ID generation from URL
-        url.split('/')
-            .next_back()
-            .unwrap_or("repo")
+        // Use last two path components joined by '-' for uniqueness
+        let parts: Vec<&str> = url
+            .trim_end_matches('/')
             .trim_end_matches(".git")
-            .to_string()
+            .split('/')
+            .filter(|s| !s.is_empty())
+            .collect();
+        if parts.len() >= 2 {
+            format!("{}-{}", parts[parts.len() - 2], parts[parts.len() - 1])
+        } else {
+            parts.last().unwrap_or(&"repo").to_string()
+        }
     }
 }
 
@@ -563,7 +568,7 @@ mod tests {
     fn test_history_commits_since() {
         let mut history = GitHistory::new();
 
-        let old_time = Utc::now() - chrono::Duration::hours(2);
+        let old_time = Utc::now() - chrono::TimeDelta::hours(2);
         let recent_time = Utc::now();
 
         let mut old_commit = GitCommit::new("hash1", "Author", "Old");
@@ -575,7 +580,7 @@ mod tests {
         history.add_commit(old_commit);
         history.add_commit(recent_commit);
 
-        let since = Utc::now() - chrono::Duration::hours(1);
+        let since = Utc::now() - chrono::TimeDelta::hours(1);
         let commits = history.commits_since(&since);
 
         assert_eq!(commits.len(), 1);
@@ -672,6 +677,6 @@ mod tests {
         let manager = RepositoryManager::new();
 
         let id = manager.generate_repo_id("https://github.com/org/my-repo.git");
-        assert_eq!(id, "my-repo");
+        assert_eq!(id, "org-my-repo");
     }
 }

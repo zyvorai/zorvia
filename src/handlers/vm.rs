@@ -35,11 +35,137 @@ fn vm_to_config(vm: &VirtualMachine, namespace: &str) -> VMConfig {
         .cpu(cpu_cores, cpu_sockets, cpu_threads)
         .memory(&memory);
 
-    // Extract CPU model
+    // Extract CPU model and advanced settings
     if let Some(ref cpu) = domain.cpu {
         if let Some(ref model) = cpu.model {
             builder = builder.cpu_model(model);
         }
+        if let Some(true) = cpu.dedicated_cpu_placement {
+            builder = builder.dedicated_cpu_placement(true);
+        }
+        if let Some(true) = cpu.isolate_emulator_thread {
+            builder = builder.isolate_emulator_thread(true);
+        }
+    }
+
+    // Extract memory hugepages and max_guest
+    if let Some(ref mem) = domain.memory {
+        if let Some(ref hp) = mem.hugepages {
+            if let Some(ref ps) = hp.page_size {
+                builder = builder.hugepages(ps);
+            }
+        }
+        if let Some(ref mg) = mem.max_guest {
+            builder = builder.max_guest_memory(mg);
+        }
+    }
+
+    // Extract TPM and RNG from devices
+    if let Some(ref devices) = domain.devices {
+        if devices.tpm.is_some() {
+            builder = builder.enable_tpm();
+        }
+        if devices.rng.is_some() {
+            builder = builder.enable_rng();
+        }
+    }
+
+    // Extract eviction strategy
+    if let Some(ref eviction) = spec.eviction_strategy {
+        builder = builder.eviction_strategy(eviction);
+    }
+
+    // Extract termination grace period
+    if let Some(tgp) = spec.termination_grace_period_seconds {
+        builder = builder.termination_grace_period(tgp);
+    }
+
+    // Extract machine type
+    if let Some(ref machine) = domain.machine {
+        if let Some(ref mt) = machine.machine_type {
+            builder = builder.machine_type(mt);
+        }
+    }
+
+    // Extract features (preserve HyperV enlightenments, ACPI, etc.)
+    if let Some(ref features) = domain.features {
+        let acpi = features
+            .acpi
+            .as_ref()
+            .and_then(|a| a.enabled)
+            .unwrap_or(true);
+        let apic = features
+            .apic
+            .as_ref()
+            .and_then(|a| a.enabled)
+            .unwrap_or(false);
+
+        let hyperv = features.hyperv.as_ref().map(|hv| {
+            let enabled = |fs: &Option<crate::kube::types::FeatureState>| -> bool {
+                fs.as_ref().and_then(|f| f.enabled).unwrap_or(false)
+            };
+            crate::config::HyperVConfig {
+                relaxed: enabled(&hv.relaxed),
+                vapic: enabled(&hv.vapic),
+                spinlocks: hv.spinlocks.as_ref().and_then(|s| s.spinlocks),
+                vpindex: enabled(&hv.vpindex),
+                runtime: enabled(&hv.runtime),
+                synic: enabled(&hv.synic),
+                stimer: hv.stimer.as_ref().and_then(|s| s.enabled).unwrap_or(false),
+                reset: enabled(&hv.reset),
+                frequencies: enabled(&hv.frequencies),
+                reenlightenment: enabled(&hv.reenlightenment),
+                tlbflush: enabled(&hv.tlbflush),
+                ipi: enabled(&hv.ipi),
+            }
+        });
+
+        let kvm_hidden = features.kvm.as_ref().and_then(|k| k.hidden);
+        let smm = features.smm.as_ref().and_then(|s| s.enabled);
+
+        builder = builder.features(crate::config::FeaturesConfig {
+            acpi,
+            apic,
+            hyperv,
+            kvm_hidden,
+            smm,
+        });
+    }
+
+    // Extract firmware configuration
+    if let Some(ref firmware) = domain.firmware {
+        if let Some(ref bootloader) = firmware.bootloader {
+            let fw = if let Some(ref efi) = bootloader.efi {
+                crate::config::FirmwareConfig {
+                    bootloader: crate::config::BootloaderType::EFI {
+                        secure_boot: efi.secure_boot.unwrap_or(false),
+                        persistent: efi.persistent.unwrap_or(true),
+                    },
+                }
+            } else {
+                crate::config::FirmwareConfig {
+                    bootloader: crate::config::BootloaderType::BIOS,
+                }
+            };
+            builder = builder.firmware(fw);
+        }
+    }
+
+    // Extract clock configuration
+    if let Some(ref clock) = domain.clock {
+        let utc = clock.utc.is_some();
+        let timezone = clock.timezone.clone();
+        let timers = clock.timer.as_ref().map(|t| crate::config::TimersConfig {
+            hpet_present: t.hpet.as_ref().and_then(|h| h.present),
+            pit_tick_policy: t.pit.as_ref().and_then(|p| p.tick_policy.clone()),
+            rtc_tick_policy: t.rtc.as_ref().and_then(|r| r.tick_policy.clone()),
+            hyperv_present: t.hyperv.as_ref().and_then(|h| h.present),
+        });
+        builder = builder.clock(crate::config::ClockConfig {
+            utc,
+            timezone,
+            timers,
+        });
     }
 
     // Extract disks from volumes
@@ -60,6 +186,10 @@ fn vm_to_config(vm: &VirtualMachine, namespace: &str) -> VMConfig {
                     source: crate::config::DiskSource::PVC {
                         name: pvc.claim_name.clone(),
                     },
+                    device_type: crate::config::DiskDeviceType::default(),
+                    bus: None,
+                    cache: None,
+                    io: None,
                 });
             } else if let Some(ref empty) = vol.empty_disk {
                 builder = builder.add_blank_disk(
@@ -79,12 +209,23 @@ fn vm_to_config(vm: &VirtualMachine, namespace: &str) -> VMConfig {
     if let Some(ref devices) = domain.devices {
         if let Some(ref ifaces) = devices.interfaces {
             for iface in ifaces {
+                let is_sriov = iface.sriov.is_some();
                 let network_type = if let Some(ref networks) = spec.networks {
                     networks
                         .iter()
                         .find(|n| n.name == iface.name)
                         .map(|n| {
-                            if let Some(ref multus) = n.multus {
+                            if is_sriov {
+                                if let Some(ref multus) = n.multus {
+                                    NetworkType::SRIOV {
+                                        name: multus.network_name.clone(),
+                                    }
+                                } else {
+                                    NetworkType::SRIOV {
+                                        name: iface.name.clone(),
+                                    }
+                                }
+                            } else if let Some(ref multus) = n.multus {
                                 NetworkType::Multus {
                                     name: multus.network_name.clone(),
                                 }
@@ -104,6 +245,7 @@ fn vm_to_config(vm: &VirtualMachine, namespace: &str) -> VMConfig {
                     network: iface.name.clone(),
                     model: iface.model.clone().unwrap_or_else(|| "virtio".to_string()),
                     network_type,
+                    mac_address: iface.mac_address.clone(),
                 });
             }
         }
@@ -192,6 +334,10 @@ pub async fn handle_create(
                 storage_class: None,
                 boot_order: 1,
                 source: crate::config::DiskSource::Blank,
+                device_type: crate::config::DiskDeviceType::default(),
+                bus: None,
+                cache: None,
+                io: None,
             });
         }
     }
@@ -428,6 +574,10 @@ pub fn handle_generate(
                 storage_class: None,
                 boot_order: 1,
                 source: crate::config::DiskSource::Blank,
+                device_type: crate::config::DiskDeviceType::default(),
+                bus: None,
+                cache: None,
+                io: None,
             });
         }
     }
@@ -502,6 +652,7 @@ pub async fn handle_status(
 
     let client = kube::KubeClient::new().await?;
 
+    let interval = interval.max(1); // Enforce minimum 1-second interval
     if watch {
         loop {
             // Clear screen
@@ -545,49 +696,15 @@ pub async fn handle_clone(
         color::info(&format!("Cloning VM '{}' to '{}'...", source, target))
     );
 
-    // Get source VM
+    // Get source VM and convert to VMConfig to preserve all fields
     let source_vm = client.get_vm(namespace, &source).await?;
+    let mut config = vm_to_config(&source_vm, namespace);
+    config.name = target.clone();
 
-    // Convert to VMConfig
-    let cpu_ref = source_vm
-        .spec
-        .template
-        .spec
-        .domain
-        .cpu
-        .as_ref()
-        .ok_or_else(|| anyhow!("Source VM has no CPU configuration"))?;
-    let mem_ref = source_vm
-        .spec
-        .template
-        .spec
-        .domain
-        .memory
-        .as_ref()
-        .ok_or_else(|| anyhow!("Source VM has no memory configuration"))?;
-    let guest_mem = mem_ref
-        .guest
-        .as_ref()
-        .ok_or_else(|| anyhow!("Source VM has no guest memory configuration"))?;
-
-    let mut config = VMConfigBuilder::new(&target)
-        .namespace(namespace)
-        .cpu(
-            cpu_ref.cores.unwrap_or(1),
-            cpu_ref.sockets.unwrap_or(1),
-            cpu_ref.threads.unwrap_or(1),
-        )
-        .memory(guest_mem.clone())
-        .build();
-
-    // Copy labels (but update the name label)
-    if let Some(labels) = source_vm.metadata.labels {
-        for (k, v) in labels {
-            if k != "kubevirt.io/vm" {
-                config.labels.insert(k, v);
-            }
-        }
-    }
+    // Update the kubevirt.io/vm label to the new name
+    config
+        .labels
+        .insert("kubevirt.io/vm".to_string(), target.clone());
 
     // Create the cloned VM
     client.create_vm(&config).await?;
@@ -675,7 +792,27 @@ pub async fn handle_resources(
     // Sort
     match sort_by.as_str() {
         "cpu" => vm_infos.sort_by_key(|&(_, _, cpu, _)| std::cmp::Reverse(cpu)),
-        "memory" => vm_infos.sort_by_key(|&(_, _, _, mem)| std::cmp::Reverse(mem.to_string())),
+        "memory" => {
+            vm_infos.sort_by(|a, b| {
+                let parse_mem = |s: &str| -> u64 {
+                    let s = s.trim();
+                    if let Some(v) = s.strip_suffix("Ti") {
+                        v.parse::<u64>().unwrap_or(0) * 1024 * 1024 * 1024 * 1024
+                    } else if let Some(v) = s.strip_suffix("Gi") {
+                        v.parse::<u64>().unwrap_or(0) * 1024 * 1024 * 1024
+                    } else if let Some(v) = s.strip_suffix("Mi") {
+                        v.parse::<u64>().unwrap_or(0) * 1024 * 1024
+                    } else if let Some(v) = s.strip_suffix("Ki") {
+                        v.parse::<u64>().unwrap_or(0) * 1024
+                    } else {
+                        s.parse::<u64>().unwrap_or(0)
+                    }
+                };
+                let a_bytes = parse_mem(a.3);
+                let b_bytes = parse_mem(b.3);
+                b_bytes.cmp(&a_bytes)
+            });
+        }
         _ => vm_infos.sort_by_key(|&(name, _, _, _)| name),
     }
 
@@ -1021,15 +1158,27 @@ mod tests {
                                 sockets: Some(sockets),
                                 threads: Some(threads),
                                 model: Some("host-passthrough".to_string()),
+                                dedicated_cpu_placement: None,
+                                isolate_emulator_thread: None,
+                                numa: None,
+                                realtime: None,
                             }),
                             memory: Some(Memory {
                                 guest: Some(memory.to_string()),
+                                hugepages: None,
+                                max_guest: None,
                             }),
                             devices: None,
+                            features: None,
+                            clock: None,
+                            firmware: None,
+                            machine: None,
                         },
                         volumes: None,
                         networks: None,
                         termination_grace_period_seconds: None,
+                        eviction_strategy: None,
+                        node_selector: None,
                     },
                 },
             },
@@ -1173,9 +1322,19 @@ mod tests {
             interfaces: Some(vec![Interface {
                 name: "default".to_string(),
                 model: Some("virtio".to_string()),
+                mac_address: None,
                 masquerade: None,
                 bridge: None,
+                sriov: None,
+                ports: None,
+                boot_order: None,
             }]),
+            tpm: None,
+            rng: None,
+            inputs: None,
+            watchdog: None,
+            autoattach_graphics_device: None,
+            network_interface_multiqueue: None,
         });
         vm.spec.template.spec.networks = Some(vec![Network {
             name: "default".to_string(),
@@ -1198,9 +1357,19 @@ mod tests {
             interfaces: Some(vec![Interface {
                 name: "data-net".to_string(),
                 model: Some("virtio".to_string()),
+                mac_address: None,
                 masquerade: None,
                 bridge: None,
+                sriov: None,
+                ports: None,
+                boot_order: None,
             }]),
+            tpm: None,
+            rng: None,
+            inputs: None,
+            watchdog: None,
+            autoattach_graphics_device: None,
+            network_interface_multiqueue: None,
         });
         vm.spec.template.spec.networks = Some(vec![Network {
             name: "data-net".to_string(),

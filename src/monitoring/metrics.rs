@@ -205,7 +205,7 @@ impl MetricsCollector {
                 base.memory.total_bytes,
                 base.disk.total_bytes,
             );
-            m.timestamp = Utc::now() - chrono::Duration::seconds((points - i) as i64 * 60);
+            m.timestamp = Utc::now() - chrono::TimeDelta::seconds((points - i) as i64 * 60);
             metrics.push(m);
         }
 

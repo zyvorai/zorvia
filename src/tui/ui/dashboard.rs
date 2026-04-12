@@ -439,6 +439,7 @@ fn render_recent_activity(f: &mut Frame, state: &AppState, area: Rect) {
         state
             .recent_activity
             .iter()
+            .rev()
             .take(8)
             .map(|event| {
                 let icon_color = match event.action.as_str() {

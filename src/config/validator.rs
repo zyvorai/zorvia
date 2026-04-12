@@ -53,6 +53,18 @@ fn validate_namespace(namespace: &str) -> Result<()> {
         return Err(anyhow!("Namespace cannot be empty"));
     }
 
+    if namespace.len() > 63 {
+        return Err(anyhow!("Namespace must be 63 characters or less"));
+    }
+
+    static RE: once_cell::sync::Lazy<regex::Regex> =
+        once_cell::sync::Lazy::new(|| regex::Regex::new(r"^[a-z0-9]([a-z0-9\-]*[a-z0-9])?$").unwrap());
+    if !RE.is_match(namespace) {
+        return Err(anyhow!(
+            "Namespace must consist of lowercase alphanumeric characters or '-', and must start and end with an alphanumeric character"
+        ));
+    }
+
     Ok(())
 }
 
@@ -172,7 +184,9 @@ fn validate_interfaces(interfaces: &[InterfaceConfig]) -> Result<()> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::config::{DiskConfig, DiskSource, InterfaceConfig, NetworkType, VMConfigBuilder};
+    use crate::config::{
+        DiskConfig, DiskDeviceType, DiskSource, InterfaceConfig, NetworkType, VMConfigBuilder,
+    };
 
     #[test]
     fn test_validate_name() {
@@ -267,6 +281,10 @@ mod tests {
             storage_class: None,
             boot_order: 1,
             source: DiskSource::Blank,
+            device_type: DiskDeviceType::default(),
+            bus: None,
+            cache: None,
+            io: None,
         });
 
         config.disks.push(DiskConfig {
@@ -275,6 +293,10 @@ mod tests {
             storage_class: None,
             boot_order: 1, // Duplicate boot order
             source: DiskSource::Blank,
+            device_type: DiskDeviceType::default(),
+            bus: None,
+            cache: None,
+            io: None,
         });
 
         config.interfaces.push(InterfaceConfig {
@@ -282,6 +304,7 @@ mod tests {
             network: "default".to_string(),
             model: "virtio".to_string(),
             network_type: NetworkType::Pod,
+            mac_address: None,
         });
 
         assert!(validate_vm_config(&config).is_err());
@@ -329,6 +352,7 @@ mod tests {
             network: "default".to_string(),
             model: "virtio".to_string(),
             network_type: NetworkType::Pod,
+            mac_address: None,
         });
 
         config.interfaces.push(InterfaceConfig {
@@ -336,6 +360,7 @@ mod tests {
             network: "other".to_string(),
             model: "virtio".to_string(),
             network_type: NetworkType::Pod,
+            mac_address: None,
         });
 
         assert!(validate_vm_config(&config).is_err());
@@ -358,6 +383,10 @@ mod tests {
             source: DiskSource::ContainerDisk {
                 image: "".to_string(), // Empty image
             },
+            device_type: DiskDeviceType::default(),
+            bus: None,
+            cache: None,
+            io: None,
         });
 
         assert!(validate_vm_config(&config).is_err());
@@ -380,6 +409,10 @@ mod tests {
             source: DiskSource::PVC {
                 name: "".to_string(), // Empty name
             },
+            device_type: DiskDeviceType::default(),
+            bus: None,
+            cache: None,
+            io: None,
         });
 
         assert!(validate_vm_config(&config).is_err());

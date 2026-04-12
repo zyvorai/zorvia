@@ -473,7 +473,7 @@ mod tests {
     #[test]
     fn test_reservation_with_duration() {
         let start = Utc::now();
-        let end = start + chrono::Duration::hours(24);
+        let end = start + chrono::TimeDelta::hours(24);
 
         let reservation = BandwidthReservation::new("vm-1", 300).with_duration(start, end);
 
@@ -483,14 +483,14 @@ mod tests {
 
     #[test]
     fn test_reservation_is_active() {
-        let start = Utc::now() - chrono::Duration::hours(1);
-        let end = Utc::now() + chrono::Duration::hours(1);
+        let start = Utc::now() - chrono::TimeDelta::hours(1);
+        let end = Utc::now() + chrono::TimeDelta::hours(1);
 
         let reservation1 = BandwidthReservation::new("vm-1", 100).with_duration(start, end);
         assert!(reservation1.is_active());
 
-        let past_start = Utc::now() - chrono::Duration::hours(2);
-        let past_end = Utc::now() - chrono::Duration::hours(1);
+        let past_start = Utc::now() - chrono::TimeDelta::hours(2);
+        let past_end = Utc::now() - chrono::TimeDelta::hours(1);
         let reservation2 =
             BandwidthReservation::new("vm-2", 100).with_duration(past_start, past_end);
         assert!(!reservation2.is_active());
@@ -498,8 +498,8 @@ mod tests {
 
     #[test]
     fn test_reservation_is_expired() {
-        let past_start = Utc::now() - chrono::Duration::hours(2);
-        let past_end = Utc::now() - chrono::Duration::hours(1);
+        let past_start = Utc::now() - chrono::TimeDelta::hours(2);
+        let past_end = Utc::now() - chrono::TimeDelta::hours(1);
 
         let reservation1 =
             BandwidthReservation::new("vm-1", 100).with_duration(past_start, past_end);
@@ -588,13 +588,13 @@ mod tests {
     fn test_manager_active_reservations() {
         let mut manager = QoSManager::new();
 
-        let start = Utc::now() - chrono::Duration::hours(1);
-        let end = Utc::now() + chrono::Duration::hours(1);
+        let start = Utc::now() - chrono::TimeDelta::hours(1);
+        let end = Utc::now() + chrono::TimeDelta::hours(1);
 
         manager.add_reservation(BandwidthReservation::new("vm-1", 100).with_duration(start, end));
 
-        let past_start = Utc::now() - chrono::Duration::hours(2);
-        let past_end = Utc::now() - chrono::Duration::hours(1);
+        let past_start = Utc::now() - chrono::TimeDelta::hours(2);
+        let past_end = Utc::now() - chrono::TimeDelta::hours(1);
         manager.add_reservation(
             BandwidthReservation::new("vm-2", 200).with_duration(past_start, past_end),
         );
@@ -618,8 +618,8 @@ mod tests {
     fn test_manager_total_reserved_bandwidth() {
         let mut manager = QoSManager::new();
 
-        let start = Utc::now() - chrono::Duration::hours(1);
-        let end = Utc::now() + chrono::Duration::hours(1);
+        let start = Utc::now() - chrono::TimeDelta::hours(1);
+        let end = Utc::now() + chrono::TimeDelta::hours(1);
 
         manager.add_reservation(BandwidthReservation::new("vm-1", 100).with_duration(start, end));
         manager.add_reservation(BandwidthReservation::new("vm-2", 200).with_duration(start, end));

@@ -46,6 +46,10 @@ pub struct VirtualMachineInstanceSpec {
     pub networks: Option<Vec<Network>>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub termination_grace_period_seconds: Option<i64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub eviction_strategy: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub node_selector: Option<BTreeMap<String, String>>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
@@ -58,6 +62,14 @@ pub struct DomainSpec {
     pub memory: Option<Memory>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub devices: Option<Devices>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub features: Option<Features>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub clock: Option<Clock>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub firmware: Option<Firmware>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub machine: Option<Machine>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
@@ -80,6 +92,14 @@ pub struct CPU {
     pub threads: Option<u32>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub model: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub dedicated_cpu_placement: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub isolate_emulator_thread: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub numa: Option<NUMA>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub realtime: Option<Realtime>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
@@ -87,6 +107,10 @@ pub struct CPU {
 pub struct Memory {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub guest: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub hugepages: Option<Hugepages>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub max_guest: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
@@ -96,6 +120,18 @@ pub struct Devices {
     pub disks: Option<Vec<Disk>>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub interfaces: Option<Vec<Interface>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub tpm: Option<TPMDevice>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub rng: Option<RNGDevice>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub inputs: Option<Vec<InputDevice>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub watchdog: Option<WatchdogDevice>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub autoattach_graphics_device: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub network_interface_multiqueue: Option<bool>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
@@ -105,7 +141,17 @@ pub struct Disk {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub disk: Option<DiskTarget>,
     #[serde(skip_serializing_if = "Option::is_none")]
+    pub cdrom: Option<CDROMTarget>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub boot_order: Option<u32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub cache: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub io: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub dedicated_io_thread: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub serial: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
@@ -113,6 +159,17 @@ pub struct Disk {
 pub struct DiskTarget {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub bus: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub readonly: Option<bool>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct CDROMTarget {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub bus: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub readonly: Option<bool>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
@@ -122,9 +179,17 @@ pub struct Interface {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub model: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
+    pub mac_address: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub masquerade: Option<BTreeMap<String, serde_json::Value>>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub bridge: Option<BTreeMap<String, serde_json::Value>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub sriov: Option<BTreeMap<String, serde_json::Value>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub ports: Option<Vec<InterfacePort>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub boot_order: Option<u32>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
@@ -192,6 +257,282 @@ pub struct Network {
 #[serde(rename_all = "camelCase")]
 pub struct MultusNetwork {
     pub network_name: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct InterfacePort {
+    pub port: u32,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub name: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub protocol: Option<String>,
+}
+
+// ============================================================================
+// Features
+// ============================================================================
+
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct Features {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub acpi: Option<FeatureEnabled>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub apic: Option<FeatureEnabled>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub hyperv: Option<HyperVFeatures>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub kvm: Option<KVMFeatures>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub smm: Option<SMMFeatures>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct FeatureEnabled {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub enabled: Option<bool>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct FeatureState {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub enabled: Option<bool>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct HyperVFeatures {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub relaxed: Option<FeatureState>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub vapic: Option<FeatureState>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub spinlocks: Option<SpinlockRetries>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub vpindex: Option<FeatureState>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub runtime: Option<FeatureState>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub synic: Option<FeatureState>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub stimer: Option<STimer>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub reset: Option<FeatureState>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub frequencies: Option<FeatureState>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub reenlightenment: Option<FeatureState>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub tlbflush: Option<FeatureState>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub ipi: Option<FeatureState>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub evmcs: Option<FeatureState>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct SpinlockRetries {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub spinlocks: Option<u32>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct STimer {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub enabled: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub direct: Option<FeatureState>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct KVMFeatures {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub hidden: Option<bool>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct SMMFeatures {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub enabled: Option<bool>,
+}
+
+// ============================================================================
+// Clock
+// ============================================================================
+
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct Clock {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub utc: Option<UTCClock>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub timezone: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub timer: Option<ClockTimer>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct UTCClock {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub offset_seconds: Option<i32>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct ClockTimer {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub hpet: Option<TimerConfig>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub pit: Option<TimerConfig>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub rtc: Option<RTCTimer>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub hyperv: Option<TimerConfig>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub kvm: Option<TimerConfig>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct TimerConfig {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub present: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub tick_policy: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct RTCTimer {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub present: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub tick_policy: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub track: Option<String>,
+}
+
+// ============================================================================
+// Firmware
+// ============================================================================
+
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct Firmware {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub bootloader: Option<Bootloader>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub uuid: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub serial: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct Bootloader {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub bios: Option<BIOSBootloader>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub efi: Option<EFIBootloader>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct BIOSBootloader {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub use_serial: Option<bool>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct EFIBootloader {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub secure_boot: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub persistent: Option<bool>,
+}
+
+// ============================================================================
+// Machine
+// ============================================================================
+
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct Machine {
+    #[serde(rename = "type", skip_serializing_if = "Option::is_none")]
+    pub machine_type: Option<String>,
+}
+
+// ============================================================================
+// CPU extras
+// ============================================================================
+
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct NUMA {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub guest_mapping_passthrough: Option<NUMAGuestMapping>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct NUMAGuestMapping {}
+
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct Realtime {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub mask: Option<String>,
+}
+
+// ============================================================================
+// Memory extras
+// ============================================================================
+
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct Hugepages {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub page_size: Option<String>,
+}
+
+// ============================================================================
+// Device types
+// ============================================================================
+
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct TPMDevice {}
+
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct RNGDevice {}
+
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct InputDevice {
+    #[serde(rename = "type")]
+    pub input_type: String,
+    pub name: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub bus: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct WatchdogDevice {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub model: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub action: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]

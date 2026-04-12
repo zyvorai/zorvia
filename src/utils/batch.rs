@@ -17,10 +17,23 @@ impl BatchConfig {
     pub fn from_file(path: &str) -> Result<Self> {
         let content = std::fs::read_to_string(path)?;
 
-        let config: BatchConfig = if path.ends_with(".json") {
-            serde_json::from_str(&content)?
-        } else {
-            serde_yaml::from_str(&content)?
+        let file_path = std::path::Path::new(path);
+        let ext = file_path
+            .extension()
+            .and_then(|e| e.to_str())
+            .unwrap_or("");
+
+        let config: BatchConfig = match ext {
+            "json" => serde_json::from_str(&content)
+                .map_err(|e| anyhow::anyhow!("Invalid JSON: {}", e))?,
+            "yaml" | "yml" => serde_yaml::from_str(&content)
+                .map_err(|e| anyhow::anyhow!("Invalid YAML: {}", e))?,
+            _ => {
+                return Err(anyhow::anyhow!(
+                    "Unsupported file format '{}'. Use .json, .yaml, or .yml",
+                    ext
+                ))
+            }
         };
 
         Ok(config)

@@ -29,29 +29,53 @@ pub struct DNSRecord {
 }
 
 impl DNSRecord {
+    /// Validate DNS record value based on record type.
+    fn validate_dns_value(record_type: &RecordType, value: &str) -> anyhow::Result<()> {
+        match record_type {
+            RecordType::A => {
+                value.parse::<std::net::Ipv4Addr>().map_err(|_| {
+                    anyhow::anyhow!("A record value must be a valid IPv4 address: {}", value)
+                })?;
+            }
+            RecordType::AAAA => {
+                value.parse::<std::net::Ipv6Addr>().map_err(|_| {
+                    anyhow::anyhow!("AAAA record value must be a valid IPv6 address: {}", value)
+                })?;
+            }
+            _ => {} // CNAME, MX, TXT, SRV, PTR, NS values have varied formats
+        }
+        // Validate no control characters in value
+        if value.chars().any(|c| c.is_control()) {
+            anyhow::bail!("DNS record value must not contain control characters");
+        }
+        Ok(())
+    }
+
     pub fn new(
         name: impl Into<String>,
         record_type: RecordType,
         value: impl Into<String>,
         ttl: u32,
-    ) -> Self {
+    ) -> anyhow::Result<Self> {
         let name_str = name.into();
+        let value_str = value.into();
+        Self::validate_dns_value(&record_type, &value_str)?;
         let id = format!(
             "dns-{}-{}",
             name_str.replace('.', "-"),
             Utc::now().timestamp_micros()
         );
 
-        Self {
+        Ok(Self {
             id,
             name: name_str,
             record_type,
-            value: value.into(),
+            value: value_str,
             ttl,
             priority: None,
             created_at: Utc::now(),
             updated_at: Utc::now(),
-        }
+        })
     }
 
     pub fn with_priority(mut self, priority: u16) -> Self {
@@ -59,9 +83,12 @@ impl DNSRecord {
         self
     }
 
-    pub fn update_value(&mut self, value: impl Into<String>) {
-        self.value = value.into();
+    pub fn update_value(&mut self, value: impl Into<String>) -> anyhow::Result<()> {
+        let new_value = value.into();
+        Self::validate_dns_value(&self.record_type, &new_value)?;
+        self.value = new_value;
         self.updated_at = Utc::now();
+        Ok(())
     }
 
     pub fn is_long_ttl(&self) -> bool {
@@ -201,7 +228,7 @@ mod tests {
 
     #[test]
     fn test_dns_record() {
-        let record = DNSRecord::new("example.com", RecordType::A, "192.168.1.1", 300);
+        let record = DNSRecord::new("example.com", RecordType::A, "192.168.1.1", 300).unwrap();
 
         assert_eq!(record.name, "example.com");
         assert_eq!(record.record_type, RecordType::A);
@@ -210,8 +237,24 @@ mod tests {
     }
 
     #[test]
+    fn test_dns_record_invalid_a_record() {
+        assert!(DNSRecord::new("example.com", RecordType::A, "not-an-ip", 300).is_err());
+    }
+
+    #[test]
+    fn test_dns_record_invalid_aaaa_record() {
+        assert!(DNSRecord::new("example.com", RecordType::AAAA, "not-an-ipv6", 300).is_err());
+    }
+
+    #[test]
+    fn test_dns_record_control_chars() {
+        assert!(DNSRecord::new("example.com", RecordType::TXT, "hello\x00world", 300).is_err());
+    }
+
+    #[test]
     fn test_record_with_priority() {
         let record = DNSRecord::new("example.com", RecordType::MX, "mail.example.com", 300)
+            .unwrap()
             .with_priority(10);
 
         assert_eq!(record.priority, Some(10));
@@ -219,18 +262,19 @@ mod tests {
 
     #[test]
     fn test_record_update_value() {
-        let mut record = DNSRecord::new("example.com", RecordType::A, "192.168.1.1", 300);
+        let mut record = DNSRecord::new("example.com", RecordType::A, "192.168.1.1", 300).unwrap();
 
-        record.update_value("192.168.1.2");
+        record.update_value("192.168.1.2").unwrap();
         assert_eq!(record.value, "192.168.1.2");
     }
 
     #[test]
     fn test_record_is_long_ttl() {
-        let record1 = DNSRecord::new("example.com", RecordType::A, "192.168.1.1", 3600);
+        let record1 =
+            DNSRecord::new("example.com", RecordType::A, "192.168.1.1", 3600).unwrap();
         assert!(record1.is_long_ttl());
 
-        let record2 = DNSRecord::new("example.com", RecordType::A, "192.168.1.1", 300);
+        let record2 = DNSRecord::new("example.com", RecordType::A, "192.168.1.1", 300).unwrap();
         assert!(!record2.is_long_ttl());
     }
 
@@ -279,7 +323,7 @@ mod tests {
     fn test_manager_add_record() {
         let mut manager = DNSManager::new();
 
-        let record = DNSRecord::new("example.com", RecordType::A, "192.168.1.1", 300);
+        let record = DNSRecord::new("example.com", RecordType::A, "192.168.1.1", 300).unwrap();
         manager.add_record(record);
 
         assert_eq!(manager.record_count(), 1);
@@ -289,24 +333,15 @@ mod tests {
     fn test_manager_records_by_type() {
         let mut manager = DNSManager::new();
 
-        manager.add_record(DNSRecord::new(
-            "example.com",
-            RecordType::A,
-            "192.168.1.1",
-            300,
-        ));
-        manager.add_record(DNSRecord::new(
-            "mail.example.com",
-            RecordType::MX,
-            "mail.example.com",
-            300,
-        ));
-        manager.add_record(DNSRecord::new(
-            "www.example.com",
-            RecordType::A,
-            "192.168.1.2",
-            300,
-        ));
+        manager.add_record(
+            DNSRecord::new("example.com", RecordType::A, "192.168.1.1", 300).unwrap(),
+        );
+        manager.add_record(
+            DNSRecord::new("mail.example.com", RecordType::MX, "mail.example.com", 300).unwrap(),
+        );
+        manager.add_record(
+            DNSRecord::new("www.example.com", RecordType::A, "192.168.1.2", 300).unwrap(),
+        );
 
         let a_records = manager.records_by_type(&RecordType::A);
         assert_eq!(a_records.len(), 2);
@@ -316,24 +351,15 @@ mod tests {
     fn test_manager_find_record_by_name() {
         let mut manager = DNSManager::new();
 
-        manager.add_record(DNSRecord::new(
-            "example.com",
-            RecordType::A,
-            "192.168.1.1",
-            300,
-        ));
-        manager.add_record(DNSRecord::new(
-            "example.com",
-            RecordType::AAAA,
-            "2001:db8::1",
-            300,
-        ));
-        manager.add_record(DNSRecord::new(
-            "www.example.com",
-            RecordType::A,
-            "192.168.1.2",
-            300,
-        ));
+        manager.add_record(
+            DNSRecord::new("example.com", RecordType::A, "192.168.1.1", 300).unwrap(),
+        );
+        manager.add_record(
+            DNSRecord::new("example.com", RecordType::AAAA, "2001:db8::1", 300).unwrap(),
+        );
+        manager.add_record(
+            DNSRecord::new("www.example.com", RecordType::A, "192.168.1.2", 300).unwrap(),
+        );
 
         let records = manager.find_record_by_name("example.com");
         assert_eq!(records.len(), 2);

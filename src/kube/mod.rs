@@ -167,10 +167,28 @@ impl KubeClient {
         Ok(patched)
     }
 
-    /// Restart a VM (stop then start)
+    /// Restart a VM (stop then start, polling for shutdown)
     pub async fn restart_vm(&self, namespace: &str, name: &str) -> Result<VirtualMachine> {
         self.stop_vm(namespace, name).await?;
-        tokio::time::sleep(tokio::time::Duration::from_secs(2)).await;
+        // Poll for VM to stop (max 30 seconds)
+        let mut stopped = false;
+        for _ in 0..30 {
+            tokio::time::sleep(tokio::time::Duration::from_secs(1)).await;
+            match self.is_running(namespace, name).await {
+                Ok(false) => {
+                    stopped = true;
+                    break;
+                }
+                Ok(true) => continue,
+                Err(e) => {
+                    log::warn!("Error checking VM status during restart: {}", e);
+                    return Err(e);
+                }
+            }
+        }
+        if !stopped {
+            anyhow::bail!("VM '{}' did not stop within 30 seconds", name);
+        }
         self.start_vm(namespace, name).await
     }
 
@@ -226,7 +244,16 @@ impl KubeClient {
                 }
                 Ok(None)
             }
-            Err(_) => Ok(None), // VMI doesn't exist (VM not running)
+            Err(e) => {
+                // VMI not found means VM is not running — no IP available
+                if let Some(kube::Error::Api(ae)) = e.downcast_ref::<kube::Error>() {
+                    if ae.code == 404 {
+                        return Ok(None);
+                    }
+                }
+                // Propagate real errors (auth, network, etc.)
+                Err(e)
+            }
         }
     }
 
@@ -234,7 +261,16 @@ impl KubeClient {
     pub async fn get_vm_node(&self, namespace: &str, name: &str) -> Result<Option<String>> {
         match self.get_vmi(namespace, name).await {
             Ok(vmi) => Ok(vmi.status.and_then(|s| s.node_name)),
-            Err(_) => Ok(None),
+            Err(e) => {
+                // VMI not found means VM is not running — no node available
+                if let Some(kube::Error::Api(ae)) = e.downcast_ref::<kube::Error>() {
+                    if ae.code == 404 {
+                        return Ok(None);
+                    }
+                }
+                // Propagate real errors
+                Err(e)
+            }
         }
     }
 

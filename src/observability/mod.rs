@@ -61,8 +61,14 @@ impl Default for ObservabilityConfig {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum AlertChannel {
     Email { recipients: Vec<String> },
-    Slack { webhook_url: String },
-    PagerDuty { integration_key: String },
+    Slack {
+        #[serde(skip_serializing)]
+        webhook_url: String,
+    },
+    PagerDuty {
+        #[serde(skip_serializing)]
+        integration_key: String,
+    },
     Webhook { url: String },
 }
 
@@ -343,7 +349,7 @@ impl Span {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use chrono::Duration;
+    use chrono::TimeDelta as Duration;
 
     #[test]
     fn test_observability_config() {

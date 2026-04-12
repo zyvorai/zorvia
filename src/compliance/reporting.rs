@@ -164,7 +164,7 @@ mod tests {
 
     #[test]
     fn test_compliance_report() {
-        let start = Utc::now() - chrono::Duration::days(30);
+        let start = Utc::now() - chrono::TimeDelta::days(30);
         let end = Utc::now();
 
         let report = ComplianceReport::new(
@@ -184,7 +184,7 @@ mod tests {
 
     #[test]
     fn test_report_builder() {
-        let start = Utc::now() - chrono::Duration::days(30);
+        let start = Utc::now() - chrono::TimeDelta::days(30);
         let end = Utc::now();
 
         let report = ComplianceReport::new(
@@ -202,7 +202,7 @@ mod tests {
 
     #[test]
     fn test_report_add_section() {
-        let start = Utc::now() - chrono::Duration::days(30);
+        let start = Utc::now() - chrono::TimeDelta::days(30);
         let end = Utc::now();
 
         let mut report = ComplianceReport::new(
@@ -227,7 +227,7 @@ mod tests {
 
     #[test]
     fn test_report_add_recommendation() {
-        let start = Utc::now() - chrono::Duration::days(30);
+        let start = Utc::now() - chrono::TimeDelta::days(30);
         let end = Utc::now();
 
         let mut report = ComplianceReport::new(
@@ -279,7 +279,7 @@ mod tests {
     fn test_report_generator() {
         let mut generator = ReportGenerator::new();
 
-        let start = Utc::now() - chrono::Duration::days(30);
+        let start = Utc::now() - chrono::TimeDelta::days(30);
         let end = Utc::now();
 
         let report = ComplianceReport::new(
@@ -299,7 +299,7 @@ mod tests {
     fn test_generator_by_framework() {
         let mut generator = ReportGenerator::new();
 
-        let start = Utc::now() - chrono::Duration::days(30);
+        let start = Utc::now() - chrono::TimeDelta::days(30);
         let end = Utc::now();
 
         generator.add_report(ComplianceReport::new(
@@ -332,7 +332,7 @@ mod tests {
     fn test_generator_by_type() {
         let mut generator = ReportGenerator::new();
 
-        let start = Utc::now() - chrono::Duration::days(30);
+        let start = Utc::now() - chrono::TimeDelta::days(30);
         let end = Utc::now();
 
         generator.add_report(ComplianceReport::new(
@@ -365,7 +365,7 @@ mod tests {
     fn test_generator_passing_reports() {
         let mut generator = ReportGenerator::new();
 
-        let start = Utc::now() - chrono::Duration::days(30);
+        let start = Utc::now() - chrono::TimeDelta::days(30);
         let end = Utc::now();
 
         generator.add_report(

@@ -51,7 +51,7 @@ impl RollbackManager {
                 RollbackStep { order: 4, action: "cleanup".to_string(), description: "Clean up migration artifacts".to_string(), automated: true },
             ],
             created_at: Utc::now(),
-            valid_until: Utc::now() + chrono::Duration::hours(24),
+            valid_until: Utc::now() + chrono::TimeDelta::hours(24),
         };
         let id = plan.migration_id.clone();
         self.rollback_plans.push(plan);
@@ -64,9 +64,33 @@ impl RollbackManager {
 
     pub fn execute_rollback(&mut self, migration_id: &str) -> Option<RollbackExecution> {
         let plan = self.rollback_plans.iter().find(|p| p.migration_id == migration_id)?;
+
+        // Check if the rollback plan has expired
+        if Utc::now() > plan.valid_until {
+            let execution = RollbackExecution {
+                plan_id: migration_id.to_string(),
+                executed_at: Utc::now(),
+                success: false,
+                steps_completed: 0,
+                total_steps: plan.steps.len(),
+                error: Some("Rollback plan has expired".to_string()),
+            };
+            self.executed_rollbacks.push(execution.clone());
+            return Some(execution);
+        }
+
+        // Determine success based on whether there are executable steps
+        let steps_completed = plan.steps.iter().filter(|s| s.automated).count();
+        let success = !plan.steps.is_empty() && steps_completed > 0;
+        let total_steps = plan.steps.len();
+
         let execution = RollbackExecution {
-            plan_id: migration_id.to_string(), executed_at: Utc::now(),
-            success: true, steps_completed: plan.steps.len(), total_steps: plan.steps.len(), error: None,
+            plan_id: migration_id.to_string(),
+            executed_at: Utc::now(),
+            success,
+            steps_completed,
+            total_steps,
+            error: if success { None } else { Some("No executable steps in rollback plan".to_string()) },
         };
         self.executed_rollbacks.push(execution.clone());
         Some(execution)

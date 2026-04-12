@@ -1,6 +1,6 @@
 // Alerts - Alert rules and notification management
 
-use chrono::{DateTime, Duration, Utc};
+use chrono::{DateTime, TimeDelta as Duration, Utc};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
@@ -214,14 +214,16 @@ impl Alert {
 /// Alert manager
 pub struct AlertManager {
     rules: Vec<AlertRule>,
-    active_alerts: Vec<Alert>,
+    active_alerts: std::collections::VecDeque<Alert>,
+    max_alerts: usize,
 }
 
 impl AlertManager {
     pub fn new() -> Self {
         Self {
             rules: Vec::new(),
-            active_alerts: Vec::new(),
+            active_alerts: std::collections::VecDeque::new(),
+            max_alerts: 10_000,
         }
     }
 
@@ -245,7 +247,20 @@ impl AlertManager {
     }
 
     pub fn fire_alert(&mut self, alert: Alert) {
-        self.active_alerts.push(alert);
+        if self.active_alerts.len() >= self.max_alerts {
+            // Try to remove oldest resolved alert first
+            if let Some(pos) = self
+                .active_alerts
+                .iter()
+                .position(|a| a.state == AlertState::Resolved)
+            {
+                self.active_alerts.remove(pos);
+            } else {
+                // No resolved alerts; remove the oldest firing alert
+                self.active_alerts.pop_front();
+            }
+        }
+        self.active_alerts.push_back(alert);
     }
 
     pub fn resolve_alert(&mut self, alert_id: &str) {
@@ -312,13 +327,16 @@ pub enum NotificationChannel {
         recipients: Vec<String>,
     },
     Slack {
+        #[serde(skip_serializing)]
         webhook_url: String,
         channel: String,
     },
     PagerDuty {
+        #[serde(skip_serializing)]
         integration_key: String,
     },
     Webhook {
+        #[serde(skip_serializing)]
         url: String,
         headers: HashMap<String, String>,
     },
@@ -577,7 +595,7 @@ mod tests {
         old_alert.fire();
         old_alert.resolve();
         // Manually set old resolved time
-        if let Some(alert) = manager.active_alerts.first_mut() {
+        if let Some(alert) = manager.active_alerts.front_mut() {
             alert.resolved_at = Some(Utc::now() - Duration::hours(25));
         }
 

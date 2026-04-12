@@ -26,7 +26,8 @@ pub async fn handle_api_serve(
         }
     }
 
-    let auth_method = AuthMethod::parse(&auth).unwrap_or(AuthMethod::None);
+    let auth_method = AuthMethod::parse(&auth)
+        .ok_or_else(|| anyhow::anyhow!("Invalid auth method '{}'. Valid values: none, api-key, bearer, basic", auth))?;
     config = config.with_auth(auth_method.clone());
 
     if rate_limit > 0 {
@@ -89,45 +90,28 @@ pub async fn handle_api_serve(
 }
 
 pub fn handle_api_status(output: String) -> Result<()> {
-    use crate::api::server::ApiServer;
-    use crate::api::ApiConfig;
-
-    let config = ApiConfig::new(8080);
-    let server = ApiServer::new(config);
-
+    // Note: This shows configuration info. For live server health,
+    // query the /api/v1/health endpoint directly.
     match output.as_str() {
         "json" => {
-            let health = server.health_status();
-            let json = serde_json::to_string_pretty(&health)?;
-            println!("{}", json);
+            let info = serde_json::json!({
+                "hint": "Query /api/v1/health on the running server for live status",
+                "default_port": 8080,
+            });
+            println!("{}", serde_json::to_string_pretty(&info)?);
         }
         "yaml" => {
-            let health = server.health_status();
-            let yaml = serde_yaml::to_string(&health)?;
-            println!("{}", yaml);
+            println!("hint: Query /api/v1/health on the running server for live status");
+            println!("default_port: 8080");
         }
         _ => {
             println!("{}", color::header("API Server Status"));
             println!();
-
-            let health = server.health_status();
-            println!(
-                "  Status:    {}",
-                if health.is_healthy() {
-                    color::success(&health.status)
-                } else {
-                    color::warning(&health.status)
-                }
-            );
-            println!("  Version:   {}", health.version);
-            println!("  Uptime:    {} seconds", health.uptime_secs);
+            println!("  {}", color::muted("No running server instance detected from CLI."));
+            println!("  {}", color::muted("Query the /api/v1/health endpoint on the running server for live status."));
             println!();
-
-            println!("{}", color::label("Stats:"));
-            println!("  Requests:    {}", server.stats.total_requests);
-            println!("  Errors:      {}", server.stats.error_count);
-            println!("  Avg Latency: {:.1}ms", server.stats.avg_response_ms);
-            println!("  Success:     {:.1}%", server.stats.success_rate());
+            println!("  Default port: {}", color::value("8080"));
+            println!("  Start with:   {}", color::value("zorvia api-serve"));
         }
     }
     Ok(())
@@ -260,8 +244,6 @@ pub fn handle_api_key_create(
     rate_limit: Option<u32>,
 ) -> Result<()> {
     use crate::api::ApiKey;
-    use chrono::Utc;
-
     println!("{}", color::header(&format!("Creating API Key: {}", name)));
     println!();
 
@@ -270,7 +252,12 @@ pub fn handle_api_key_create(
         .map(|p| p.trim().to_string())
         .collect();
 
-    let mut key = ApiKey::new(&name, format!("hash-{}", Utc::now().timestamp()))
+    // Generate a cryptographically random API key
+    use rand::Rng;
+    let random_bytes: Vec<u8> = (0..32).map(|_| rand::thread_rng().gen::<u8>()).collect();
+    let key_hash: String = random_bytes.iter().map(|b| format!("{:02x}", b)).collect();
+
+    let mut key = ApiKey::new(&name, key_hash.clone())
         .with_permissions(perms.clone());
 
     if let Some(limit) = rate_limit {
@@ -297,7 +284,8 @@ pub fn handle_api_key_delete(key: String, yes: bool) -> Result<()> {
             "  {}",
             color::warning("This will permanently revoke the API key")
         );
-        println!("  Use --yes to skip confirmation");
+        println!("  Use --yes to confirm");
+        return Ok(());
     }
 
     println!();
@@ -352,7 +340,7 @@ pub fn handle_webhook_create(
     );
     println!();
 
-    let mut webhook = WebhookConfig::new(&name, &url);
+    let mut webhook = WebhookConfig::new(&name, &url)?;
 
     if let Some(s) = secret {
         webhook = webhook.with_secret(s);
@@ -396,7 +384,8 @@ pub fn handle_webhook_delete(webhook: String, yes: bool) -> Result<()> {
             "  {}",
             color::warning("This will permanently remove the webhook")
         );
-        println!("  Use --yes to skip confirmation");
+        println!("  Use --yes to confirm");
+        return Ok(());
     }
 
     println!();
@@ -512,7 +501,7 @@ pub fn handle_event_list(
 pub fn handle_event_recent(namespace: String, limit: usize, output: String) -> Result<()> {
     use crate::api::{ApiResponse, HttpMethod, RequestContext};
     use crate::automation::triggers::Event;
-    use chrono::Duration;
+    use chrono::TimeDelta as Duration;
 
     let ctx = RequestContext::new(HttpMethod::GET, "/api/v1/events/recent")
         .with_namespace(&namespace);
@@ -581,7 +570,7 @@ pub fn handle_event_recent(namespace: String, limit: usize, output: String) -> R
     Ok(())
 }
 
-pub async fn handle_tui(namespace: String, theme: Option<String>, interactive: bool) -> Result<()> {
+pub async fn handle_tui(namespace: String, theme: Option<String>, interactive: bool, no_splash: bool) -> Result<()> {
     use crossterm::{
         execute,
         terminal::{disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen},
@@ -596,6 +585,20 @@ pub async fn handle_tui(namespace: String, theme: Option<String>, interactive: b
     if let Some(theme_name) = theme {
         config.theme.name = theme_name;
     }
+
+    // Apply no-splash option
+    if no_splash {
+        config.ui.show_splash = false;
+    }
+
+    // Install panic hook to restore terminal on panic
+    let original_hook = std::panic::take_hook();
+    std::panic::set_hook(Box::new(move |panic_info| {
+        let _ = crossterm::terminal::disable_raw_mode();
+        let _ = crossterm::execute!(std::io::stderr(), crossterm::terminal::LeaveAlternateScreen);
+        // Call original hook
+        eprintln!("{}", panic_info);
+    }));
 
     // Setup terminal
     enable_raw_mode()?;
@@ -620,6 +623,9 @@ pub async fn handle_tui(namespace: String, theme: Option<String>, interactive: b
     let _ = disable_raw_mode();
     let _ = execute!(terminal.backend_mut(), LeaveAlternateScreen);
     let _ = terminal.show_cursor();
+
+    // Restore the original panic hook
+    std::panic::set_hook(original_hook);
 
     // Handle any errors after terminal is restored
     result?;
@@ -700,9 +706,9 @@ mod tests {
     #[test]
     fn test_webhook_manager_for_event() {
         let mut manager = WebhookManager::new();
-        let mut wh1 = WebhookConfig::new("vm-events", "https://example.com/vm");
+        let mut wh1 = WebhookConfig::new("vm-events", "https://example.com/vm").unwrap();
         wh1.add_event(WebhookEvent::VMCreated);
-        let mut wh2 = WebhookConfig::new("backup-events", "https://example.com/backup");
+        let mut wh2 = WebhookConfig::new("backup-events", "https://example.com/backup").unwrap();
         wh2.add_event(WebhookEvent::BackupCompleted);
         manager.register(wh1);
         manager.register(wh2);

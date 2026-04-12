@@ -343,7 +343,7 @@ mod tests {
     #[test]
     fn test_cost_report() {
         let start = Utc::now();
-        let end = start + chrono::Duration::days(30);
+        let end = start + chrono::TimeDelta::days(30);
 
         let report = CostReport::new("Monthly Report", ReportType::CostSummary, start, end);
 
@@ -355,7 +355,7 @@ mod tests {
     #[test]
     fn test_report_with_format() {
         let start = Utc::now();
-        let end = start + chrono::Duration::days(30);
+        let end = start + chrono::TimeDelta::days(30);
 
         let report = CostReport::new("Report", ReportType::DetailedBreakdown, start, end)
             .with_format(ReportFormat::PDF);
@@ -366,7 +366,7 @@ mod tests {
     #[test]
     fn test_report_with_total_cost() {
         let start = Utc::now();
-        let end = start + chrono::Duration::days(30);
+        let end = start + chrono::TimeDelta::days(30);
 
         let report =
             CostReport::new("Report", ReportType::CostSummary, start, end).with_total_cost(15000.0);
@@ -377,7 +377,7 @@ mod tests {
     #[test]
     fn test_report_add_service_cost() {
         let start = Utc::now();
-        let end = start + chrono::Duration::days(30);
+        let end = start + chrono::TimeDelta::days(30);
 
         let mut report = CostReport::new("Report", ReportType::CostSummary, start, end);
 
@@ -391,7 +391,7 @@ mod tests {
     #[test]
     fn test_report_add_region_cost() {
         let start = Utc::now();
-        let end = start + chrono::Duration::days(30);
+        let end = start + chrono::TimeDelta::days(30);
 
         let mut report = CostReport::new("Report", ReportType::CostSummary, start, end);
 
@@ -404,7 +404,7 @@ mod tests {
     #[test]
     fn test_report_add_environment_cost() {
         let start = Utc::now();
-        let end = start + chrono::Duration::days(30);
+        let end = start + chrono::TimeDelta::days(30);
 
         let mut report = CostReport::new("Report", ReportType::CostSummary, start, end);
 
@@ -417,7 +417,7 @@ mod tests {
     #[test]
     fn test_report_add_trend() {
         let start = Utc::now();
-        let end = start + chrono::Duration::days(30);
+        let end = start + chrono::TimeDelta::days(30);
 
         let mut report = CostReport::new("Report", ReportType::TrendAnalysis, start, end);
 
@@ -430,7 +430,7 @@ mod tests {
     #[test]
     fn test_report_service_count() {
         let start = Utc::now();
-        let end = start + chrono::Duration::days(30);
+        let end = start + chrono::TimeDelta::days(30);
 
         let mut report = CostReport::new("Report", ReportType::CostSummary, start, end);
 
@@ -444,7 +444,7 @@ mod tests {
     #[test]
     fn test_report_top_service() {
         let start = Utc::now();
-        let end = start + chrono::Duration::days(30);
+        let end = start + chrono::TimeDelta::days(30);
 
         let mut report = CostReport::new("Report", ReportType::CostSummary, start, end);
 
@@ -459,7 +459,7 @@ mod tests {
     #[test]
     fn test_report_duration_days() {
         let start = Utc::now();
-        let end = start + chrono::Duration::days(30);
+        let end = start + chrono::TimeDelta::days(30);
 
         let report = CostReport::new("Report", ReportType::CostSummary, start, end);
 
@@ -469,7 +469,7 @@ mod tests {
     #[test]
     fn test_budget_variance_report() {
         let start = Utc::now();
-        let end = start + chrono::Duration::days(30);
+        let end = start + chrono::TimeDelta::days(30);
 
         let report =
             BudgetVarianceReport::new("budget-123", "Q1 Budget", 10000.0, 11500.0, start, end);
@@ -484,7 +484,7 @@ mod tests {
     #[test]
     fn test_variance_is_over_budget() {
         let start = Utc::now();
-        let end = start + chrono::Duration::days(30);
+        let end = start + chrono::TimeDelta::days(30);
 
         let report1 = BudgetVarianceReport::new("b1", "Budget 1", 1000.0, 1200.0, start, end);
         assert!(report1.is_over_budget());
@@ -496,7 +496,7 @@ mod tests {
     #[test]
     fn test_variance_is_under_budget() {
         let start = Utc::now();
-        let end = start + chrono::Duration::days(30);
+        let end = start + chrono::TimeDelta::days(30);
 
         let report1 = BudgetVarianceReport::new("b1", "Budget 1", 1000.0, 800.0, start, end);
         assert!(report1.is_under_budget());
@@ -508,7 +508,7 @@ mod tests {
     #[test]
     fn test_variance_is_significant() {
         let start = Utc::now();
-        let end = start + chrono::Duration::days(30);
+        let end = start + chrono::TimeDelta::days(30);
 
         let report1 = BudgetVarianceReport::new("b1", "Budget 1", 1000.0, 1150.0, start, end);
         assert!(report1.is_significant_variance()); // 15%
@@ -522,7 +522,7 @@ mod tests {
         let mut manager = ReportManager::new();
 
         let start = Utc::now();
-        let end = start + chrono::Duration::days(30);
+        let end = start + chrono::TimeDelta::days(30);
 
         let report = CostReport::new("Test Report", ReportType::CostSummary, start, end);
         let id = manager.add_report(report);
@@ -536,7 +536,7 @@ mod tests {
         let mut manager = ReportManager::new();
 
         let start = Utc::now();
-        let end = start + chrono::Duration::days(30);
+        let end = start + chrono::TimeDelta::days(30);
 
         let report = BudgetVarianceReport::new("budget-1", "Budget", 1000.0, 1200.0, start, end);
         manager.add_variance_report(report);
@@ -549,7 +549,7 @@ mod tests {
         let mut manager = ReportManager::new();
 
         let start = Utc::now();
-        let end = start + chrono::Duration::days(30);
+        let end = start + chrono::TimeDelta::days(30);
 
         manager.add_report(CostReport::new("R1", ReportType::CostSummary, start, end));
         manager.add_report(CostReport::new("R2", ReportType::TrendAnalysis, start, end));
@@ -564,7 +564,7 @@ mod tests {
         let mut manager = ReportManager::new();
 
         let start = Utc::now();
-        let end = start + chrono::Duration::days(30);
+        let end = start + chrono::TimeDelta::days(30);
 
         manager.add_report(
             CostReport::new("R1", ReportType::CostSummary, start, end)
@@ -581,7 +581,7 @@ mod tests {
         let mut manager = ReportManager::new();
 
         let start = Utc::now();
-        let end = start + chrono::Duration::days(30);
+        let end = start + chrono::TimeDelta::days(30);
 
         manager.add_variance_report(BudgetVarianceReport::new(
             "b1", "B1", 1000.0, 1200.0, start, end,
@@ -599,7 +599,7 @@ mod tests {
         let mut manager = ReportManager::new();
 
         let start = Utc::now();
-        let end = start + chrono::Duration::days(30);
+        let end = start + chrono::TimeDelta::days(30);
 
         manager.add_variance_report(BudgetVarianceReport::new(
             "b1", "B1", 1000.0, 1150.0, start, end,
@@ -617,7 +617,7 @@ mod tests {
         let mut manager = ReportManager::new();
 
         let start = Utc::now();
-        let end = start + chrono::Duration::days(30);
+        let end = start + chrono::TimeDelta::days(30);
 
         manager.add_report(CostReport::new("R1", ReportType::CostSummary, start, end));
         manager.add_report(CostReport::new("R2", ReportType::CostSummary, start, end));

@@ -193,8 +193,14 @@ fi
 
     /// Generate LVM expansion commands
     fn generate_lvm_expansion(config: &ExpansionScript) -> String {
-        let vg = config.lvm_vg.as_deref().unwrap_or("vg");
-        let lv = config.lvm_lv.as_deref().unwrap_or("root");
+        let vg = config.lvm_vg.as_deref().unwrap_or_else(|| {
+            log::warn!("LVM VG name not specified, using default 'vg'. Verify this matches your VM's LVM configuration.");
+            "vg"
+        });
+        let lv = config.lvm_lv.as_deref().unwrap_or_else(|| {
+            log::warn!("LVM LV name not specified, using default 'root'. Verify this matches your VM's LVM configuration.");
+            "root"
+        });
         let device = &config.device;
         let partition = if let Some(num) = config.partition_number {
             format!("{}{}", device, num)

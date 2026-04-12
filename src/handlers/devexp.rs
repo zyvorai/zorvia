@@ -5,7 +5,7 @@ use std::path::PathBuf;
 /// Validate that a template name is safe (no path traversal).
 /// Returns `true` if the name is valid, `false` otherwise.
 pub(crate) fn is_valid_template_name(name: &str) -> bool {
-    !name.contains("..") && !name.starts_with('/') && !name.starts_with('\\')
+    !name.is_empty() && !name.contains("..") && !name.starts_with('/') && !name.starts_with('\\')
 }
 
 /// Build the list of candidate file paths to search for a template.
@@ -270,7 +270,8 @@ pub fn handle_config_delete(name: String, yes: bool) -> Result<()> {
             "  {}",
             color::warning("This will permanently delete the saved configuration")
         );
-        println!("  Use --yes to skip confirmation");
+        println!("  Use --yes to confirm");
+        return Ok(());
     }
 
     println!();
@@ -534,7 +535,7 @@ mod tests {
 
     #[test]
     fn test_valid_template_name_empty() {
-        assert!(is_valid_template_name(""));
+        assert!(!is_valid_template_name(""));
     }
 
     // ===== build_template_candidates tests =====

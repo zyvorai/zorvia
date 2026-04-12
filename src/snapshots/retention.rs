@@ -3,7 +3,7 @@
 
 use super::{RetentionPolicy, SnapshotManager};
 use anyhow::Result;
-use chrono::{Duration, Utc};
+use chrono::{TimeDelta as Duration, Utc};
 
 /// Retention policy enforcer
 pub struct RetentionEnforcer {
@@ -28,21 +28,24 @@ impl RetentionEnforcer {
         // Sort by creation time, newest first
         snapshots.sort_by(|a, b| b.created_at.cmp(&a.created_at));
 
+        // Track the actual remaining count across both enforcement loops
+        let mut remaining_count = snapshots.len();
+
         // Apply max_snapshots policy
         if let Some(max_snapshots) = policy.max_snapshots {
-            if snapshots.len() > max_snapshots as usize {
+            if remaining_count > max_snapshots as usize {
                 // Delete oldest snapshots beyond the limit
                 for snapshot in snapshots.iter().skip(max_snapshots as usize) {
                     // Don't delete if we need to keep last N
                     if let Some(keep_last_n) = policy.keep_last_n {
-                        let remaining = snapshots.len() - deleted.len();
-                        if remaining <= keep_last_n as usize {
-                            continue;
+                        if remaining_count <= keep_last_n as usize {
+                            break;
                         }
                     }
 
                     self.manager.delete_snapshot(&snapshot.name).await?;
                     deleted.push(snapshot.name.clone());
+                    remaining_count -= 1;
                 }
             }
         }
@@ -57,19 +60,19 @@ impl RetentionEnforcer {
                     continue;
                 }
 
+                // Don't delete if we need to keep last N
+                if let Some(keep_last_n) = policy.keep_last_n {
+                    if remaining_count <= keep_last_n as usize {
+                        break;
+                    }
+                }
+
                 // Check age
                 if let Some(created_at) = snapshot.created_at {
                     if created_at < cutoff_date {
-                        // Don't delete if we need to keep last N
-                        if let Some(keep_last_n) = policy.keep_last_n {
-                            let remaining = snapshots.len() - deleted.len();
-                            if remaining <= keep_last_n as usize {
-                                continue;
-                            }
-                        }
-
                         self.manager.delete_snapshot(&snapshot.name).await?;
                         deleted.push(snapshot.name.clone());
+                        remaining_count -= 1;
                     }
                 }
             }

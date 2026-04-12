@@ -514,7 +514,7 @@ pub fn handle_audit_list(
 pub fn handle_audit_get(log_id: String, output: String) -> Result<()> {
     use crate::security::audit::AuditLog;
 
-    let log = AuditLog::new(Some("test-vm".to_string()));
+    let log = AuditLog::new(Some(log_id.to_string()));
 
     println!("{}", color::header(&format!("Audit Log: {}", log_id)));
     println!();

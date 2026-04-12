@@ -284,7 +284,7 @@ pub struct AllocationDetail {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use chrono::Duration;
+    use chrono::TimeDelta as Duration;
 
     #[test]
     fn test_cost_entry() {

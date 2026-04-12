@@ -131,6 +131,7 @@ impl EventTypes {
 pub struct WebhookTrigger {
     pub id: String,
     pub url: String,
+    #[serde(skip_serializing)]
     pub secret: Option<String>,
     pub events: Vec<String>,
     pub created_at: DateTime<Utc>,

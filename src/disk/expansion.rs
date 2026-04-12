@@ -9,8 +9,29 @@ use kube::{
     api::{Api, Patch, PatchParams},
     Client,
 };
+use regex::Regex;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
+
+/// Validate that a PVC name conforms to Kubernetes naming rules
+fn validate_pvc_name(name: &str) -> Result<()> {
+    static RE: once_cell::sync::Lazy<Regex> =
+        once_cell::sync::Lazy::new(|| Regex::new(r"^[a-z0-9]([a-z0-9\-]*[a-z0-9])?$").unwrap());
+    if name.is_empty() || name.len() > 253 || !RE.is_match(name) {
+        anyhow::bail!("Invalid PVC name: {}", name);
+    }
+    Ok(())
+}
+
+/// Validate that a size string matches Kubernetes quantity format (e.g., "10Gi", "500Mi")
+fn validate_k8s_quantity(size: &str) -> Result<()> {
+    static RE: once_cell::sync::Lazy<Regex> =
+        once_cell::sync::Lazy::new(|| Regex::new(r"^[0-9]+(\.[0-9]+)?(Ki|Mi|Gi|Ti|Pi|Ei|k|M|G|T|P|E)?$").unwrap());
+    if size.is_empty() || !RE.is_match(size) {
+        anyhow::bail!("Invalid Kubernetes quantity format: {}", size);
+    }
+    Ok(())
+}
 
 /// Expansion status
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
@@ -51,7 +72,12 @@ pub struct ExpansionPlan {
 }
 
 impl ExpansionPlan {
-    pub fn new(vm_name: impl Into<String>, config: &DiskConfig) -> Self {
+    pub fn new(vm_name: impl Into<String>, config: &DiskConfig) -> Result<Self> {
+        validate_pvc_name(&config.pvc_name)?;
+        if !config.target_size.is_empty() {
+            validate_k8s_quantity(&config.target_size)?;
+        }
+
         let steps = vec![
             ExpansionStep {
                 step_number: 1,
@@ -65,7 +91,7 @@ impl ExpansionPlan {
                 description: "Rescan disk in VM".to_string(),
                 command: format!(
                     "echo 1 | sudo tee /sys/class/block/{}/device/rescan",
-                    config.pvc_name.trim_start_matches("/dev/")
+                    config.name.trim_start_matches("/dev/")
                 ),
                 completed: false,
             },
@@ -89,7 +115,7 @@ impl ExpansionPlan {
             },
         ];
 
-        Self {
+        Ok(Self {
             vm_name: vm_name.into(),
             disk_name: config.name.clone(),
             current_size: config.current_size.clone(),
@@ -99,7 +125,7 @@ impl ExpansionPlan {
             status: ExpansionStatus::Pending,
             created_at: Utc::now(),
             completed_at: None,
-        }
+        })
     }
 
     /// Mark a step as completed
@@ -190,7 +216,7 @@ impl DiskExpansion {
 
     /// Create expansion plan
     pub fn create_plan(&self, vm_name: &str, config: &DiskConfig) -> Result<ExpansionPlan> {
-        Ok(ExpansionPlan::new(vm_name, config))
+        ExpansionPlan::new(vm_name, config)
     }
 
     /// Resize PVC in Kubernetes
@@ -297,7 +323,7 @@ mod tests {
     fn test_expansion_plan_creation() {
         let config = DiskConfig::new("disk1", "my-pvc").with_sizes("20Gi", "40Gi");
 
-        let plan = ExpansionPlan::new("test-vm", &config);
+        let plan = ExpansionPlan::new("test-vm", &config).unwrap();
 
         assert_eq!(plan.vm_name, "test-vm");
         assert_eq!(plan.current_size, "20Gi");
@@ -307,10 +333,22 @@ mod tests {
     }
 
     #[test]
+    fn test_expansion_rejects_invalid_pvc_name() {
+        let config = DiskConfig::new("disk1", "INVALID_PVC!").with_sizes("20Gi", "40Gi");
+        assert!(ExpansionPlan::new("test-vm", &config).is_err());
+    }
+
+    #[test]
+    fn test_expansion_rejects_invalid_target_size() {
+        let config = DiskConfig::new("disk1", "my-pvc").with_sizes("20Gi", "not-a-size");
+        assert!(ExpansionPlan::new("test-vm", &config).is_err());
+    }
+
+    #[test]
     fn test_expansion_progress() {
         let config = DiskConfig::new("disk1", "my-pvc").with_sizes("20Gi", "40Gi");
 
-        let mut plan = ExpansionPlan::new("test-vm", &config);
+        let mut plan = ExpansionPlan::new("test-vm", &config).unwrap();
 
         assert_eq!(plan.progress(), 0);
 
@@ -330,7 +368,7 @@ mod tests {
     #[test]
     fn test_next_step() {
         let config = DiskConfig::new("disk1", "my-pvc");
-        let mut plan = ExpansionPlan::new("test-vm", &config);
+        let mut plan = ExpansionPlan::new("test-vm", &config).unwrap();
 
         let next = plan.next_step().unwrap();
         assert_eq!(next.step_number, 1);

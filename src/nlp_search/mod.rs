@@ -5,6 +5,7 @@
 // - "stopped vms created last week"
 // - "ubuntu vms in production namespace"
 
+use once_cell::sync::Lazy;
 use regex::Regex;
 
 #[derive(Debug, Clone)]
@@ -84,8 +85,9 @@ impl SearchQuery {
         else { None };
 
         // Parse limit
-        let limit = Regex::new(r"(?:top|first|limit)\s+(\d+)").ok()
-            .and_then(|re| re.captures(&q))
+        static LIMIT_RE: Lazy<Regex> =
+            Lazy::new(|| Regex::new(r"(?:top|first|limit)\s+(\d+)").unwrap());
+        let limit = LIMIT_RE.captures(&q)
             .and_then(|caps| caps.get(1))
             .and_then(|m| m.as_str().parse().ok());
 
@@ -117,15 +119,27 @@ impl SearchQuery {
 }
 
 fn parse_resource_threshold(query: &str, resource: &str) -> Option<ComparisonFilter> {
-    let patterns = [
-        (format!(r"{}\s*(?:usage\s*)?(?:>|more than|above|over)\s*(\d+)", resource), Operator::GreaterThan),
-        (format!(r"{}\s*(?:usage\s*)?(?:<|less than|below|under)\s*(\d+)", resource), Operator::LessThan),
-        (format!(r"(?:>|more than|above|over)\s*(\d+)%?\s*{}", resource), Operator::GreaterThan),
-        (format!(r"(?:<|less than|below|under)\s*(\d+)%?\s*{}", resource), Operator::LessThan),
-    ];
+    use std::collections::HashMap;
+    use std::sync::Mutex;
 
-    for (pattern, op) in &patterns {
-        if let Some(caps) = Regex::new(pattern).ok().and_then(|re| re.captures(query)) {
+    // Cache compiled regexes per resource name
+    static CACHE: Lazy<Mutex<HashMap<String, Vec<(Regex, Operator)>>>> =
+        Lazy::new(|| Mutex::new(HashMap::new()));
+
+    let patterns = {
+        let mut cache = CACHE.lock().ok()?;
+        cache.entry(resource.to_string()).or_insert_with(|| {
+            vec![
+                (Regex::new(&format!(r"{}\s*(?:usage\s*)?(?:>|more than|above|over)\s*(\d+)", resource)).unwrap(), Operator::GreaterThan),
+                (Regex::new(&format!(r"{}\s*(?:usage\s*)?(?:<|less than|below|under)\s*(\d+)", resource)).unwrap(), Operator::LessThan),
+                (Regex::new(&format!(r"(?:>|more than|above|over)\s*(\d+)%?\s*{}", resource)).unwrap(), Operator::GreaterThan),
+                (Regex::new(&format!(r"(?:<|less than|below|under)\s*(\d+)%?\s*{}", resource)).unwrap(), Operator::LessThan),
+            ]
+        }).clone()
+    };
+
+    for (re, op) in &patterns {
+        if let Some(caps) = re.captures(query) {
             if let Some(val) = caps.get(1).and_then(|m| m.as_str().parse::<f64>().ok()) {
                 return Some(ComparisonFilter { operator: op.clone(), value: val });
             }
@@ -135,15 +149,17 @@ fn parse_resource_threshold(query: &str, resource: &str) -> Option<ComparisonFil
 }
 
 fn parse_namespace(query: &str) -> Option<String> {
-    Regex::new(r"(?:in|namespace|ns)\s+(\S+)")
-        .ok().and_then(|re| re.captures(query))
+    static RE: Lazy<Regex> =
+        Lazy::new(|| Regex::new(r"(?:in|namespace|ns)\s+(\S+)").unwrap());
+    RE.captures(query)
         .and_then(|caps| caps.get(1))
         .map(|m| m.as_str().to_string())
 }
 
 fn parse_node(query: &str) -> Option<String> {
-    Regex::new(r"(?:on|node)\s+([\w\-\.]+)")
-        .ok().and_then(|re| re.captures(query))
+    static RE: Lazy<Regex> =
+        Lazy::new(|| Regex::new(r"(?:on|node)\s+([\w\-\.]+)").unwrap());
+    RE.captures(query)
         .and_then(|caps| caps.get(1))
         .map(|m| m.as_str().to_string())
 }

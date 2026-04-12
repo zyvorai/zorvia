@@ -54,18 +54,23 @@ impl Metric {
 
 /// Metric collector
 pub struct MetricCollector {
-    metrics: Vec<Metric>,
+    metrics: std::collections::VecDeque<Metric>,
+    max_metrics: usize,
 }
 
 impl MetricCollector {
     pub fn new() -> Self {
         Self {
-            metrics: Vec::new(),
+            metrics: std::collections::VecDeque::new(),
+            max_metrics: 50_000,
         }
     }
 
     pub fn record(&mut self, metric: Metric) {
-        self.metrics.push(metric);
+        if self.metrics.len() >= self.max_metrics {
+            self.metrics.pop_front();
+        }
+        self.metrics.push_back(metric);
     }
 
     pub fn counter(&mut self, name: impl Into<String>, value: f64) {
@@ -80,8 +85,8 @@ impl MetricCollector {
         self.record(Metric::new(name, MetricType::Histogram, value));
     }
 
-    pub fn get_metrics(&self) -> &[Metric] {
-        &self.metrics
+    pub fn get_metrics(&self) -> Vec<&Metric> {
+        self.metrics.iter().collect()
     }
 
     pub fn clear(&mut self) {
@@ -413,7 +418,7 @@ impl Default for MetricsSnapshot {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use chrono::Duration;
+    use chrono::TimeDelta as Duration;
 
     #[test]
     fn test_metric_creation() {

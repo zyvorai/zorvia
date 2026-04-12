@@ -22,9 +22,14 @@ pub(crate) fn classify_disk_usage(usage_percent: f64) -> DiskUsageLevel {
     }
 }
 
-/// Derive a VM name from a snapshot name by stripping the "-snapshot" suffix.
+/// Derive a VM name from a snapshot name by stripping a trailing "-snapshot" or "-snapshot-TIMESTAMP" suffix.
 pub(crate) fn derive_vm_name_from_snapshot(snapshot: &str) -> String {
-    snapshot.replace("-snapshot", "")
+    // Strip trailing -snapshot-TIMESTAMP or -snapshot suffix
+    if let Some(pos) = snapshot.find("-snapshot") {
+        snapshot[..pos].to_string()
+    } else {
+        snapshot.to_string()
+    }
 }
 
 /// Generate a default restore target name from a snapshot name.
@@ -1395,8 +1400,12 @@ pub async fn handle_network_policies(
 pub fn handle_network_policy(name: String, output: String) -> Result<()> {
     use crate::network::policies::{NetworkPolicy, VMSelector};
 
+    let policy_name = name;
     let selector = VMSelector::default().with_label("app".to_string(), "web".to_string());
-    let policy = NetworkPolicy::new(name).with_vm_selector(selector);
+    let policy = NetworkPolicy::new(policy_name.clone()).with_vm_selector(selector);
+
+    println!("Note: Showing simulated data for policy '{}'", policy_name);
+    println!();
 
     if output == "json" {
         let json = serde_json::to_string_pretty(&policy)?;
@@ -1463,10 +1472,10 @@ mod tests {
 
     #[test]
     fn test_derive_vm_name_standard() {
-        // "-snapshot" is removed, leaving "myvm-20240101"
+        // Strips from the first "-snapshot" onward, leaving just the VM name
         assert_eq!(
             derive_vm_name_from_snapshot("myvm-snapshot-20240101"),
-            "myvm-20240101"
+            "myvm"
         );
     }
 
@@ -1485,7 +1494,7 @@ mod tests {
 
     #[test]
     fn test_derive_vm_name_multiple_snapshot() {
-        // All occurrences of "-snapshot" get replaced
+        // Strips from the first "-snapshot" onward
         assert_eq!(
             derive_vm_name_from_snapshot("snapshot-vm-snapshot"),
             "snapshot-vm"

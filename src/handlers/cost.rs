@@ -1,7 +1,7 @@
 use crate::tui::colors::cli as color;
 use anyhow::Result;
 
-pub async fn handle_cost_analyze(vm: Option<String>, period: String, output: String) -> Result<()> {
+pub async fn handle_cost_analyze(vm: Option<String>, period: String, output: String, namespace: &str) -> Result<()> {
     use crate::cost::CostCalculator;
     use crate::kube;
 
@@ -25,8 +25,8 @@ pub async fn handle_cost_analyze(vm: Option<String>, period: String, output: Str
     let cost = if let Some(ref vm_name) = vm {
         match kube::KubeClient::new().await {
             Ok(client) => {
-                // Try default namespace first, then try to get from any namespace
-                let vm_obj = client.get_vm("default", vm_name).await;
+                // Use the CLI-specified namespace
+                let vm_obj = client.get_vm(namespace, vm_name).await;
                 match vm_obj {
                     Ok(vm_obj) => {
                         let cpu = vm_obj
@@ -72,7 +72,7 @@ pub async fn handle_cost_analyze(vm: Option<String>, period: String, output: Str
 
                         calculator.calculate_vm_cost(
                             vm_name,
-                            "default",
+                            namespace,
                             cpu,
                             (memory_gi as u64).min(u32::MAX as u64) as u32,
                             (storage_gi as u64).min(u32::MAX as u64) as u32,
@@ -87,7 +87,7 @@ pub async fn handle_cost_analyze(vm: Option<String>, period: String, output: Str
                                 vm_name
                             ))
                         );
-                        calculator.calculate_vm_cost(vm_name, "default", 2, 4, 20, period_hours)
+                        calculator.calculate_vm_cost(vm_name, namespace, 2, 4, 20, period_hours)
                     }
                 }
             }
@@ -98,7 +98,7 @@ pub async fn handle_cost_analyze(vm: Option<String>, period: String, output: Str
                 );
                 calculator.calculate_vm_cost(
                     vm_name,
-                    "default",
+                    namespace,
                     2,
                     4,
                     20,
@@ -107,7 +107,7 @@ pub async fn handle_cost_analyze(vm: Option<String>, period: String, output: Str
             }
         }
     } else {
-        calculator.calculate_vm_cost("(estimate)", "default", 2, 4, 20, period_hours)
+        calculator.calculate_vm_cost("(estimate)", namespace, 2, 4, 20, period_hours)
     };
 
     println!("Cost Breakdown:");
@@ -289,7 +289,7 @@ pub fn handle_cost_report(
     let report = match report_type.as_str() {
         "monthly" => ReportGenerator::monthly_report(2024, 1),
         "weekly" => ReportGenerator::weekly_report(Utc::now()),
-        _ => ReportGenerator::custom_report(Utc::now() - chrono::Duration::days(30), Utc::now()),
+        _ => ReportGenerator::custom_report(Utc::now() - chrono::TimeDelta::days(30), Utc::now()),
     };
 
     println!("  Report ID:   {}", report.report_id);

@@ -72,7 +72,10 @@ pub enum ScheduleType {
 
 impl ScheduleType {
     pub fn hourly(minute: u32) -> Self {
-        ScheduleType::Hourly { minute }
+        if minute > 59 {
+            log::warn!("Hourly schedule minute {} is out of range 0-59, clamping", minute);
+        }
+        ScheduleType::Hourly { minute: minute.min(59) }
     }
 
     pub fn daily(hour: u32, minute: u32) -> Self {
@@ -104,8 +107,11 @@ impl ScheduleType {
             Some(t) => t,
             None => unreachable!(),
         };
+        if day == 0 || day > 31 {
+            log::warn!("Monthly schedule day {} is out of range 1-31, clamping", day);
+        }
         ScheduleType::Monthly {
-            day,
+            day: day.clamp(1, 31),
             time: NaiveTime::from_hms_opt(hour.min(23), minute.min(59), 0)
                 .unwrap_or(MIDNIGHT),
         }
@@ -153,7 +159,8 @@ impl ScheduleManager {
     pub fn get_due_schedules(&self, now: DateTime<Utc>) -> Vec<&BackupSchedule> {
         self.schedules
             .iter()
-            .filter(|s| s.enabled && s.next_run.map(|next| next <= now).unwrap_or(true))
+            // Only include schedules that have a calculated next_run time that has passed
+            .filter(|s| s.enabled && s.next_run.map(|next| next <= now).unwrap_or(false))
             .collect()
     }
 

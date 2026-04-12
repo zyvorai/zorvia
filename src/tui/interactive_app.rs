@@ -2,6 +2,7 @@
 
 use super::config::TuiConfig;
 use super::state::AppState;
+use super::ui::vm_details::TAB_NAMES;
 use super::widgets::{Dialog, InputDialog, InputField, Menu, NotificationManager, ProgressBar};
 use anyhow::Result;
 use crossterm::event::{self, Event, KeyCode, KeyEvent, KeyModifiers};
@@ -215,8 +216,25 @@ impl InteractiveApp {
 
         // Global keys
         match key.code {
-            KeyCode::Char('q') | KeyCode::Esc => {
+            KeyCode::Char('q') => {
                 self.should_quit = true;
+            }
+            KeyCode::Esc => {
+                match self.current_view {
+                    // In sub-views, go back instead of quitting
+                    View::VmDetails | View::Snapshots | View::Profiles
+                    | View::Blueprints | View::ActivityLog | View::Help => {
+                        self.current_view = View::VmList;
+                    }
+                    // In main views, quit
+                    _ => {
+                        if self.show_search {
+                            self.show_search = false;
+                        } else {
+                            self.should_quit = true;
+                        }
+                    }
+                }
             }
             KeyCode::Char('?') => {
                 self.current_view = View::Help;
@@ -397,12 +415,17 @@ impl InteractiveApp {
                 }
             }
             KeyCode::Char('x') => {
-                // Stop VM with confirmation
+                // Stop VM with confirmation (or skip if disabled in config)
                 if let Some(vm) = self.state.selected_vm() {
                     if vm.status == "Running" {
                         let vm_name = vm.name.clone();
-                        let dialog = Dialog::confirm("Stop VM", format!("Stop VM '{}'?", vm_name));
-                        self.mode = InteractiveMode::Dialog(dialog);
+                        if self.config.behavior.confirm_stop {
+                            let dialog =
+                                Dialog::confirm("Stop VM", format!("Stop VM '{}'?", vm_name));
+                            self.mode = InteractiveMode::Dialog(dialog);
+                        } else {
+                            self.stop_vm(&vm_name).await?;
+                        }
                     }
                 }
             }
@@ -418,17 +441,21 @@ impl InteractiveApp {
                     .info(format!("Filter: {}", filter_name));
             }
             KeyCode::Char('d') => {
-                // Delete VM with confirmation
+                // Delete VM with confirmation (or skip if disabled in config)
                 if let Some(vm) = self.state.selected_vm() {
                     let vm_name = vm.name.clone();
-                    let dialog = Dialog::confirm(
-                        "Delete VM",
-                        format!(
-                            "⚠ Permanently delete VM '{}'? This cannot be undone!",
-                            vm_name
-                        ),
-                    );
-                    self.mode = InteractiveMode::Dialog(dialog);
+                    if self.config.behavior.confirm_delete {
+                        let dialog = Dialog::confirm(
+                            "Delete VM",
+                            format!(
+                                "⚠ Permanently delete VM '{}'? This cannot be undone!",
+                                vm_name
+                            ),
+                        );
+                        self.mode = InteractiveMode::Dialog(dialog);
+                    } else {
+                        self.delete_vm(&vm_name).await?;
+                    }
                 }
             }
             _ => {}
@@ -447,11 +474,11 @@ impl InteractiveApp {
                 if self.detail_tab > 0 {
                     self.detail_tab -= 1;
                 } else {
-                    self.detail_tab = 2;
+                    self.detail_tab = TAB_NAMES.len() - 1;
                 }
             }
             KeyCode::Right | KeyCode::Char('l') | KeyCode::Tab => {
-                self.detail_tab = (self.detail_tab + 1) % 3;
+                self.detail_tab = (self.detail_tab + 1) % TAB_NAMES.len();
             }
             _ => {}
         }
@@ -557,15 +584,29 @@ impl InteractiveApp {
         Ok(())
     }
 
+    /// Validate a VM name according to RFC 1123 DNS subdomain rules
+    fn is_valid_vm_name(name: &str) -> bool {
+        if name.is_empty() || name.len() > 253 {
+            return false;
+        }
+        // RFC 1123 DNS subdomain: lowercase alphanumeric and hyphens, start/end with alphanumeric
+        static RE: once_cell::sync::Lazy<regex::Regex> =
+            once_cell::sync::Lazy::new(|| regex::Regex::new(r"^[a-z0-9]([a-z0-9\-]*[a-z0-9])?$").unwrap());
+        RE.is_match(name)
+    }
+
     /// Create VM from input dialog
     async fn create_vm_from_input(&mut self, input: &InputDialog) -> Result<()> {
         let name = input.get_value(0).unwrap_or("");
         let template_name = input.get_value(1).unwrap_or("ubuntu-22.04");
         let profile_name = input.get_value(2).unwrap_or("dev");
 
-        if name.is_empty() {
-            self.notifications
-                .error("VM name cannot be empty".to_string());
+        if !Self::is_valid_vm_name(name) {
+            self.notifications.error(
+                "Invalid VM name: must be 1-253 chars, lowercase alphanumeric and hyphens, \
+                 starting and ending with alphanumeric (RFC 1123)"
+                    .to_string(),
+            );
             return Ok(());
         }
 

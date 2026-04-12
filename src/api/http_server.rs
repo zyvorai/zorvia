@@ -8,24 +8,34 @@ pub mod web {
     use crate::kube::KubeClient;
     use crate::tui::state::VmInfo;
     use axum::{
-        extract::{Path, Query, State},
-        http::StatusCode,
+        extract::{DefaultBodyLimit, Path, Query, State},
+        http::{header, HeaderMap, StatusCode},
+        middleware,
         response::{Html, IntoResponse, Json},
         routing::{delete, get, post},
         Router,
     };
     use serde::{Deserialize, Serialize};
     use std::sync::Arc;
-    use tokio::sync::Mutex;
+    use tokio::sync::RwLock;
+    use tower_http::cors::{AllowOrigin, CorsLayer};
 
     pub struct WebState {
         pub namespace: String,
         pub kube_client: Option<KubeClient>,
+        pub api_key: Option<String>,
     }
 
     impl WebState {
         pub fn new(namespace: String) -> Self {
-            Self { namespace, kube_client: None }
+            let api_key = std::env::var("ZORVIA_API_KEY").ok().filter(|k| !k.is_empty());
+            if api_key.is_none() {
+                log::warn!(
+                    "ZORVIA_API_KEY is not set - API will reject all requests. \
+                     Set ZORVIA_API_KEY to enable access."
+                );
+            }
+            Self { namespace, kube_client: None, api_key }
         }
 
         pub async fn get_client(&mut self) -> anyhow::Result<&KubeClient> {
@@ -38,7 +48,153 @@ pub mod web {
         }
     }
 
-    pub type SharedState = Arc<Mutex<WebState>>;
+    pub type SharedState = Arc<RwLock<WebState>>;
+
+    // ── Kubernetes name validation (RFC 1123 DNS label) ──────────
+
+    /// Validate that a string is a valid Kubernetes name (RFC 1123 DNS label).
+    /// Must be at most 63 characters, consist of lowercase alphanumeric characters
+    /// or '-', and must start and end with an alphanumeric character.
+    fn is_valid_k8s_name(s: &str) -> bool {
+        if s.is_empty() || s.len() > 63 {
+            return false;
+        }
+        let bytes = s.as_bytes();
+        // Must start and end with alphanumeric
+        if !bytes[0].is_ascii_lowercase() && !bytes[0].is_ascii_digit() {
+            return false;
+        }
+        if !bytes[bytes.len() - 1].is_ascii_lowercase()
+            && !bytes[bytes.len() - 1].is_ascii_digit()
+        {
+            return false;
+        }
+        // All characters must be lowercase alphanumeric or '-'
+        s.bytes()
+            .all(|b| b.is_ascii_lowercase() || b.is_ascii_digit() || b == b'-')
+    }
+
+    /// Return a 400 error if a path parameter is not a valid Kubernetes name.
+    fn validate_k8s_params(
+        params: &[(&str, &str)],
+    ) -> Option<(StatusCode, Json<serde_json::Value>)> {
+        for (label, value) in params {
+            if !is_valid_k8s_name(value) {
+                return Some(err_json(
+                    400,
+                    "INVALID_PARAMETER",
+                    &format!("'{}' is not a valid Kubernetes name", label),
+                ));
+            }
+        }
+        None
+    }
+
+    // ── Auth middleware ──────────────────────────────────────────
+
+    /// Constant-time byte comparison to prevent timing attacks
+    fn constant_time_eq(a: &[u8], b: &[u8]) -> bool {
+        if a.len() != b.len() {
+            return false;
+        }
+        let mut result = 0u8;
+        for (x, y) in a.iter().zip(b.iter()) {
+            result |= x ^ y;
+        }
+        result == 0
+    }
+
+    /// API key authentication middleware.
+    ///
+    /// If the `ZORVIA_API_KEY` env var was set at startup, every request must present
+    /// that key via `X-API-Key` header or `Authorization: Bearer <key>`.
+    /// If the env var was unset, all requests are rejected (deny by default).
+    async fn auth_middleware(
+        State(state): State<SharedState>,
+        headers: HeaderMap,
+        request: axum::extract::Request,
+        next: middleware::Next,
+    ) -> impl IntoResponse {
+        // Allow health endpoint without auth
+        if request.uri().path() == "/api/v1/health" {
+            return next.run(request).await.into_response();
+        }
+
+        let s = state.read().await;
+        let expected_key = match &s.api_key {
+            Some(k) => k.clone(),
+            None => {
+                let (status, json) = err_json(
+                    503,
+                    "AUTH_NOT_CONFIGURED",
+                    "API key not configured. Set ZORVIA_API_KEY environment variable.",
+                );
+                return (status, json).into_response();
+            }
+        };
+        drop(s);
+
+        // Check X-API-Key header first, then Authorization: Bearer
+        let provided_key = headers
+            .get("x-api-key")
+            .and_then(|v| v.to_str().ok())
+            .map(|s| s.to_string())
+            .or_else(|| {
+                headers
+                    .get(header::AUTHORIZATION)
+                    .and_then(|v| v.to_str().ok())
+                    .and_then(|v| v.strip_prefix("Bearer ").map(|s| s.to_string()))
+            });
+
+        match provided_key {
+            Some(key) if constant_time_eq(key.as_bytes(), expected_key.as_bytes()) => {
+                next.run(request).await.into_response()
+            }
+            _ => {
+                let (status, json) = err_json(401, "UNAUTHORIZED", "Invalid or missing API key");
+                (status, json).into_response()
+            }
+        }
+    }
+
+    // ── CORS configuration ──────────────────────────────────────
+
+    /// Build a CORS layer. If `ZORVIA_CORS_ORIGINS` is set (comma-separated
+    /// list of origins), allow those origins. Otherwise default to same-origin
+    /// only (no extra origins allowed).
+    fn build_cors_layer() -> CorsLayer {
+        let origins = std::env::var("ZORVIA_CORS_ORIGINS").ok();
+
+        let allow_origin = match origins {
+            Some(ref raw) if !raw.is_empty() => {
+                let parsed: Vec<_> = raw
+                    .split(',')
+                    .filter_map(|s| s.trim().parse().ok())
+                    .collect();
+                if parsed.is_empty() {
+                    AllowOrigin::default()
+                } else {
+                    AllowOrigin::list(parsed)
+                }
+            }
+            _ => AllowOrigin::default(), // same-origin: no Access-Control-Allow-Origin header
+        };
+
+        CorsLayer::new()
+            .allow_origin(allow_origin)
+            .allow_methods([
+                axum::http::Method::GET,
+                axum::http::Method::POST,
+                axum::http::Method::DELETE,
+            ])
+            .allow_headers([
+                header::CONTENT_TYPE,
+                header::AUTHORIZATION,
+                "x-api-key".parse().unwrap(),
+            ])
+    }
+
+    // ── Router ──────────────────────────────────────────────────
 
     pub fn build_router(state: SharedState) -> Router {
         Router::new()
@@ -54,7 +210,10 @@ pub mod web {
             // Snapshots
             .route("/api/v1/snapshots", get(list_snapshots_handler))
             .route("/api/v1/snapshots/:ns/:vm", get(list_vm_snapshots_handler))
-            .route("/api/v1/snapshots/:ns/:name/delete", post(delete_snapshot_handler))
+            .route(
+                "/api/v1/snapshots/:ns/:name/delete",
+                post(delete_snapshot_handler),
+            )
             // Events
             .route("/api/v1/events", get(list_events_handler))
             .route("/api/v1/events/recent", get(recent_events_handler))
@@ -62,11 +221,15 @@ pub mod web {
             .route("/api/v1/dashboard/overview", get(dashboard_overview_handler))
             // Health
             .route("/api/v1/health", get(health_handler))
-            .with_state(state)
+            .with_state(state.clone())
+            // Security layers
+            .layer(middleware::from_fn_with_state(state, auth_middleware))
+            .layer(build_cors_layer())
+            .layer(DefaultBodyLimit::max(10 * 1024 * 1024)) // 10 MiB
     }
 
     pub async fn start_server(host: &str, port: u16, namespace: String) -> anyhow::Result<()> {
-        let state = Arc::new(Mutex::new(WebState::new(namespace)));
+        let state = Arc::new(RwLock::new(WebState::new(namespace)));
         let app = build_router(state);
         let addr = format!("{}:{}", host, port);
         let listener = tokio::net::TcpListener::bind(&addr).await?;
@@ -82,14 +245,35 @@ pub mod web {
         RequestContext::new(method, path)
     }
 
-    /// Sanitize internal error details before sending to clients
+    /// Sanitize internal error details before sending to clients.
+    ///
+    /// For known patterns (e.g. kube errors), returns just the first sentence.
+    /// For anything else, returns a generic message to avoid leaking internals.
     fn sanitize_error(e: &dyn std::fmt::Display) -> String {
         let msg = e.to_string();
-        // Strip internal details — only keep the high-level message
-        if let Some(pos) = msg.find(": ") {
-            msg[..pos].to_string()
+        // Known patterns where the first sentence is safe to expose
+        let known_prefixes = [
+            "ApiError",
+            "NotFound",
+            "Conflict",
+            "Unauthorized",
+            "Forbidden",
+            "Timeout",
+            "connection",
+        ];
+        let is_known = known_prefixes
+            .iter()
+            .any(|p| msg.starts_with(p) || msg.contains(p));
+
+        if is_known {
+            // Keep the first sentence (up to the first ". " or ": ")
+            let end = msg
+                .find(". ")
+                .or_else(|| msg.find(": "))
+                .unwrap_or(msg.len());
+            msg[..end].to_string()
         } else {
-            msg
+            "Internal server error".to_string()
         }
     }
 
@@ -104,7 +288,7 @@ pub mod web {
         State(state): State<SharedState>,
         Query(query): Query<VmQuery>,
     ) -> impl IntoResponse {
-        let mut s = state.lock().await;
+        let mut s = state.write().await;
         let namespace = query.namespace.clone().unwrap_or_else(|| s.namespace.clone());
 
         let client = match s.get_client().await {
@@ -131,7 +315,11 @@ pub mod web {
         State(state): State<SharedState>,
         Path((ns, name)): Path<(String, String)>,
     ) -> impl IntoResponse {
-        let mut s = state.lock().await;
+        if let Some(resp) = validate_k8s_params(&[("namespace", &ns), ("name", &name)]) {
+            return resp;
+        }
+
+        let mut s = state.write().await;
         let client = match s.get_client().await {
             Ok(c) => c,
             Err(e) => return err_json(503, "SERVICE_UNAVAILABLE", &sanitize_error(&e)),
@@ -152,7 +340,14 @@ pub mod web {
                 let ctx = req_ctx(HttpMethod::GET, "/api/v1/vms/:ns/:name");
                 ok_json(&ApiResponse::success(&detail, &ctx.request_id))
             }
-            Err(_) => err_json(404, "NOT_FOUND", &format!("VM '{}' not found", name)),
+            Err(e) => {
+                let msg = sanitize_error(&e);
+                if msg.contains("NotFound") || msg.contains("not found") {
+                    err_json(404, "NOT_FOUND", &format!("VM '{}' not found", name))
+                } else {
+                    err_json(500, "INTERNAL_ERROR", &msg)
+                }
+            }
         }
     }
 
@@ -160,7 +355,11 @@ pub mod web {
         State(state): State<SharedState>,
         Path((ns, name)): Path<(String, String)>,
     ) -> impl IntoResponse {
-        let mut s = state.lock().await;
+        if let Some(resp) = validate_k8s_params(&[("namespace", &ns), ("name", &name)]) {
+            return resp;
+        }
+
+        let mut s = state.write().await;
         let client = match s.get_client().await {
             Ok(c) => c,
             Err(e) => return err_json(503, "SERVICE_UNAVAILABLE", &sanitize_error(&e)),
@@ -182,7 +381,11 @@ pub mod web {
         State(state): State<SharedState>,
         Path((ns, name)): Path<(String, String)>,
     ) -> impl IntoResponse {
-        let mut s = state.lock().await;
+        if let Some(resp) = validate_k8s_params(&[("namespace", &ns), ("name", &name)]) {
+            return resp;
+        }
+
+        let mut s = state.write().await;
         let client = match s.get_client().await {
             Ok(c) => c,
             Err(e) => return err_json(503, "SERVICE_UNAVAILABLE", &sanitize_error(&e)),
@@ -204,7 +407,11 @@ pub mod web {
         State(state): State<SharedState>,
         Path((ns, name)): Path<(String, String)>,
     ) -> impl IntoResponse {
-        let mut s = state.lock().await;
+        if let Some(resp) = validate_k8s_params(&[("namespace", &ns), ("name", &name)]) {
+            return resp;
+        }
+
+        let mut s = state.write().await;
         let client = match s.get_client().await {
             Ok(c) => c,
             Err(e) => return err_json(503, "SERVICE_UNAVAILABLE", &sanitize_error(&e)),
@@ -226,7 +433,11 @@ pub mod web {
         State(state): State<SharedState>,
         Path((ns, name)): Path<(String, String)>,
     ) -> impl IntoResponse {
-        let mut s = state.lock().await;
+        if let Some(resp) = validate_k8s_params(&[("namespace", &ns), ("name", &name)]) {
+            return resp;
+        }
+
+        let mut s = state.write().await;
         let client = match s.get_client().await {
             Ok(c) => c,
             Err(e) => return err_json(503, "SERVICE_UNAVAILABLE", &sanitize_error(&e)),
@@ -251,7 +462,7 @@ pub mod web {
         Query(query): Query<VmQuery>,
     ) -> impl IntoResponse {
         let namespace = {
-            let s = state.lock().await;
+            let s = state.read().await;
             query.namespace.clone().unwrap_or_else(|| s.namespace.clone())
         };
 
@@ -284,6 +495,10 @@ pub mod web {
     async fn list_vm_snapshots_handler(
         Path((ns, vm)): Path<(String, String)>,
     ) -> impl IntoResponse {
+        if let Some(resp) = validate_k8s_params(&[("namespace", &ns), ("vm", &vm)]) {
+            return resp;
+        }
+
         match crate::snapshots::SnapshotManager::new(&ns).await {
             Ok(manager) => match manager.list_snapshots_for_vm(&vm).await {
                 Ok(snapshots) => {
@@ -313,6 +528,10 @@ pub mod web {
     async fn delete_snapshot_handler(
         Path((ns, name)): Path<(String, String)>,
     ) -> impl IntoResponse {
+        if let Some(resp) = validate_k8s_params(&[("namespace", &ns), ("name", &name)]) {
+            return resp;
+        }
+
         match crate::snapshots::SnapshotManager::new(&ns).await {
             Ok(manager) => match manager.delete_snapshot(&name).await {
                 Ok(_) => {
@@ -330,10 +549,16 @@ pub mod web {
 
     // ── Events ────────────────────────────────────────────────────
 
+    #[derive(Deserialize)]
+    pub struct EventsQuery {
+        pub limit: Option<u32>,
+    }
+
     async fn list_events_handler(
         State(state): State<SharedState>,
+        Query(query): Query<EventsQuery>,
     ) -> impl IntoResponse {
-        let mut s = state.lock().await;
+        let mut s = state.write().await;
         let namespace = s.namespace.clone();
 
         let client = match s.get_client().await {
@@ -341,10 +566,12 @@ pub mod web {
             Err(e) => return err_json(503, "SERVICE_UNAVAILABLE", &sanitize_error(&e)),
         };
 
+        let limit = query.limit.unwrap_or(50);
+
         use k8s_openapi::api::core::v1::Event;
         use kube::Api;
         let events_api: Api<Event> = Api::namespaced(client.client(), &namespace);
-        let lp = kube::api::ListParams::default().limit(50);
+        let lp = kube::api::ListParams::default().limit(limit);
         match events_api.list(&lp).await {
             Ok(event_list) => {
                 let items: Vec<EventItem> = event_list
@@ -375,8 +602,56 @@ pub mod web {
     async fn recent_events_handler(
         State(state): State<SharedState>,
     ) -> impl IntoResponse {
-        // Delegate to full events handler with implicit limit
-        list_events_handler(State(state)).await
+        let mut s = state.write().await;
+        let namespace = s.namespace.clone();
+
+        let client = match s.get_client().await {
+            Ok(c) => c,
+            Err(e) => return err_json(503, "SERVICE_UNAVAILABLE", &sanitize_error(&e)),
+        };
+
+        use k8s_openapi::api::core::v1::Event;
+        use kube::Api;
+        let events_api: Api<Event> = Api::namespaced(client.client(), &namespace);
+        let lp = kube::api::ListParams::default();
+        match events_api.list(&lp).await {
+            Ok(event_list) => {
+                let one_hour_ago = chrono::Utc::now() - chrono::TimeDelta::hours(1);
+                let items: Vec<EventItem> = event_list
+                    .items
+                    .into_iter()
+                    .filter(|e| {
+                        // Keep events from the last hour based on timestamp
+                        let ts = e
+                            .last_timestamp
+                            .as_ref()
+                            .map(|t| t.0)
+                            .or_else(|| e.metadata.creation_timestamp.as_ref().map(|t| t.0));
+                        match ts {
+                            Some(t) => t >= one_hour_ago,
+                            None => false, // exclude events with no timestamp
+                        }
+                    })
+                    .map(|e| EventItem {
+                        type_: e.type_.unwrap_or_default(),
+                        reason: e.reason.unwrap_or_default(),
+                        message: e.message.unwrap_or_default(),
+                        namespace: e.metadata.namespace.unwrap_or_default(),
+                        involved_object: e.involved_object.name.unwrap_or_default(),
+                        timestamp: e
+                            .last_timestamp
+                            .map(|t| t.0.to_rfc3339())
+                            .or_else(|| {
+                                e.metadata.creation_timestamp.map(|t| t.0.to_rfc3339())
+                            })
+                            .unwrap_or_default(),
+                    })
+                    .collect();
+                let ctx = req_ctx(HttpMethod::GET, "/api/v1/events/recent");
+                ok_json(&ApiResponse::success(&items, &ctx.request_id))
+            }
+            Err(e) => err_json(500, "INTERNAL_ERROR", &sanitize_error(&e)),
+        }
     }
 
     // ── Dashboard Overview ────────────────────────────────────────
@@ -384,7 +659,7 @@ pub mod web {
     async fn dashboard_overview_handler(
         State(state): State<SharedState>,
     ) -> impl IntoResponse {
-        let mut s = state.lock().await;
+        let mut s = state.write().await;
         let namespace = s.namespace.clone();
 
         let client = match s.get_client().await {
@@ -402,7 +677,11 @@ pub mod web {
         let mut running = 0usize;
         let mut stopped = 0usize;
         for vm in &vms {
-            match vm.status.as_ref().and_then(|s| s.print_able_status.as_deref()) {
+            match vm
+                .status
+                .as_ref()
+                .and_then(|s| s.print_able_status.as_deref())
+            {
                 Some("Running") => running += 1,
                 Some("Stopped") => stopped += 1,
                 _ => {}
@@ -522,7 +801,14 @@ pub mod web {
         let value = serde_json::to_value(data).unwrap_or_else(|e| {
             serde_json::json!({"error": format!("serialization failed: {}", e)})
         });
-        (StatusCode::OK, Json(value))
+        // Extract the status code from the serialized response if present,
+        // so that 201/204/etc. responses get the correct HTTP status.
+        let status_code = value
+            .get("status")
+            .and_then(|v| v.as_u64())
+            .and_then(|s| StatusCode::from_u16(s as u16).ok())
+            .unwrap_or(StatusCode::OK);
+        (status_code, Json(value))
     }
 
     fn err_json(
@@ -553,5 +839,4 @@ pub mod web {
             s.parse::<u64>().unwrap_or(0)
         }
     }
-
 }

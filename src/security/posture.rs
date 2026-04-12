@@ -64,7 +64,7 @@ impl SecurityPosture {
             FindingSeverity::Critical => 25.0, FindingSeverity::High => 15.0,
             FindingSeverity::Medium => 8.0, FindingSeverity::Low => 3.0, FindingSeverity::Info => 1.0,
         }).sum();
-        self.overall_score = (100.0 - total_impact).max(0.0) as u8;
+        self.overall_score = (100.0 - total_impact).clamp(0.0, 100.0) as u8;
     }
 }
 

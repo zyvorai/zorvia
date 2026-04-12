@@ -10,11 +10,14 @@ pub struct ProviderCredentials {
     pub id: String,
     pub provider: CloudProvider,
     pub credential_type: CredentialType,
+    #[serde(skip_serializing)]
     pub access_key: Option<String>,
+    #[serde(skip_serializing)]
     pub secret_key: Option<String>,
     pub tenant_id: Option<String>,
     pub subscription_id: Option<String>,
     pub project_id: Option<String>,
+    #[serde(skip_serializing)]
     pub service_account: Option<String>,
     pub region: String,
     pub enabled: bool,
@@ -351,7 +354,7 @@ mod tests {
 
     #[test]
     fn test_credentials_with_expiry() {
-        let expiry = Utc::now() + chrono::Duration::days(30);
+        let expiry = Utc::now() + chrono::TimeDelta::days(30);
         let creds =
             ProviderCredentials::new(CloudProvider::AWS, CredentialType::OAuth2, "us-east-1")
                 .with_expiry(expiry);
@@ -361,14 +364,14 @@ mod tests {
 
     #[test]
     fn test_credentials_is_expired() {
-        let past = Utc::now() - chrono::Duration::days(1);
+        let past = Utc::now() - chrono::TimeDelta::days(1);
         let creds =
             ProviderCredentials::new(CloudProvider::AWS, CredentialType::AccessKey, "us-east-1")
                 .with_expiry(past);
 
         assert!(creds.is_expired());
 
-        let future = Utc::now() + chrono::Duration::days(30);
+        let future = Utc::now() + chrono::TimeDelta::days(30);
         let creds2 =
             ProviderCredentials::new(CloudProvider::AWS, CredentialType::AccessKey, "us-east-1")
                 .with_expiry(future);
@@ -382,7 +385,7 @@ mod tests {
             ProviderCredentials::new(CloudProvider::AWS, CredentialType::AccessKey, "us-east-1");
         assert!(creds.is_valid());
 
-        let past = Utc::now() - chrono::Duration::days(1);
+        let past = Utc::now() - chrono::TimeDelta::days(1);
         let creds2 =
             ProviderCredentials::new(CloudProvider::AWS, CredentialType::OAuth2, "us-east-1")
                 .with_expiry(past);
@@ -547,7 +550,7 @@ mod tests {
         let creds1 =
             ProviderCredentials::new(CloudProvider::AWS, CredentialType::AccessKey, "us-east-1");
 
-        let past = Utc::now() - chrono::Duration::days(1);
+        let past = Utc::now() - chrono::TimeDelta::days(1);
         let creds2 =
             ProviderCredentials::new(CloudProvider::Azure, CredentialType::OAuth2, "eastus")
                 .with_expiry(past);
@@ -563,7 +566,7 @@ mod tests {
     fn test_manager_expired_credentials() {
         let mut manager = ProviderManager::new();
 
-        let past = Utc::now() - chrono::Duration::days(1);
+        let past = Utc::now() - chrono::TimeDelta::days(1);
         let creds1 =
             ProviderCredentials::new(CloudProvider::AWS, CredentialType::OAuth2, "us-east-1")
                 .with_expiry(past);

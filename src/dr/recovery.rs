@@ -148,8 +148,10 @@ impl RecoveryOperation {
         } else {
             RecoveryStatus::Failed
         };
-        self.completed_at = Some(Utc::now());
-        self.duration_seconds = Some((Utc::now() - self.started_at).num_seconds() as u64);
+        let now = Utc::now();
+        self.completed_at = Some(now);
+        let duration = (now - self.started_at).num_seconds();
+        self.duration_seconds = Some(if duration >= 0 { duration as u64 } else { 0 });
         self.success = success;
         self.error_message = error;
     }
@@ -441,7 +443,7 @@ mod tests {
         let mut manager = RecoveryManager::new();
 
         let mut old_point = RecoveryPoint::new("RP-old", "vm", "snap");
-        old_point.timestamp = Utc::now() - chrono::Duration::days(100);
+        old_point.timestamp = Utc::now() - chrono::TimeDelta::days(100);
 
         let recent_point = RecoveryPoint::new("RP-recent", "vm", "snap");
 

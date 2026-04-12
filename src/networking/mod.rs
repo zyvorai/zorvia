@@ -43,6 +43,12 @@ pub struct VLANConfig {
 
 impl VLANConfig {
     pub fn new(id: u16, name: impl Into<String>, subnet: impl Into<String>) -> Self {
+        let id = if id == 0 || id > 4094 {
+            log::warn!("Invalid VLAN ID: {}. Valid range is 1-4094, clamping.", id);
+            id.clamp(1, 4094)
+        } else {
+            id
+        };
         Self {
             id,
             name: name.into(),
@@ -115,7 +121,13 @@ impl NetworkAttachment {
     }
 
     pub fn with_mac(mut self, mac: impl Into<String>) -> Self {
-        self.mac_address = Some(mac.into());
+        let mac = mac.into();
+        // Validate MAC address format (XX:XX:XX:XX:XX:XX)
+        let parts: Vec<&str> = mac.split(':').collect();
+        if parts.len() != 6 || !parts.iter().all(|p| p.len() == 2 && p.chars().all(|c| c.is_ascii_hexdigit())) {
+            log::warn!("Invalid MAC address format: {}. Expected XX:XX:XX:XX:XX:XX", mac);
+        }
+        self.mac_address = Some(mac);
         self
     }
 
@@ -288,11 +300,14 @@ mod tests {
         let vlan1 = VLANConfig::new(100, "test", "10.0.0.0/24");
         assert!(vlan1.is_valid_id());
 
-        let vlan2 = VLANConfig::new(0, "invalid", "10.0.0.0/24");
-        assert!(!vlan2.is_valid_id());
+        // Invalid IDs are now clamped to valid range (1-4094)
+        let vlan2 = VLANConfig::new(0, "clamped", "10.0.0.0/24");
+        assert_eq!(vlan2.id, 1); // Clamped from 0 to 1
+        assert!(vlan2.is_valid_id());
 
-        let vlan3 = VLANConfig::new(4095, "invalid", "10.0.0.0/24");
-        assert!(!vlan3.is_valid_id());
+        let vlan3 = VLANConfig::new(4095, "clamped", "10.0.0.0/24");
+        assert_eq!(vlan3.id, 4094); // Clamped from 4095 to 4094
+        assert!(vlan3.is_valid_id());
     }
 
     #[test]

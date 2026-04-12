@@ -719,7 +719,7 @@ pub async fn run(mut cli: Cli) -> Result<()> {
 
         // ========== COST MANAGEMENT & OPTIMIZATION ==========
         Commands::CostAnalyze { vm, period, output } => {
-            handlers::cost::handle_cost_analyze(vm, period, output).await?
+            handlers::cost::handle_cost_analyze(vm, period, output, &cli.namespace).await?
         }
 
         Commands::CostSummary {
@@ -1035,7 +1035,7 @@ pub async fn run(mut cli: Cli) -> Result<()> {
             } else {
                 port
             };
-            let host = if host == "0.0.0.0" {
+            let host = if host == "127.0.0.1" {
                 app_config.api.host.clone()
             } else {
                 host
@@ -1088,10 +1088,10 @@ pub async fn run(mut cli: Cli) -> Result<()> {
             handlers::api::handle_event_recent(cli.namespace.clone(), limit, output)?
         }
         Commands::Tui {
-            no_splash: _,
+            no_splash,
             theme,
             interactive,
-        } => handlers::api::handle_tui(cli.namespace.clone(), theme, interactive).await?,
+        } => handlers::api::handle_tui(cli.namespace.clone(), theme, interactive, no_splash).await?,
 
         // ========== CONFIGURATION ==========
         Commands::ConfigShow { path } => {

@@ -172,7 +172,7 @@ mod tests {
     fn test_forecast_exhaustion() {
         let mut forecast = ResourceForecast::new(ResourceType::CPU, 85.0, ForecastMethod::Linear);
 
-        let exhaustion = Utc::now() + chrono::Duration::days(15);
+        let exhaustion = Utc::now() + chrono::TimeDelta::days(15);
         forecast.set_exhaustion_date(exhaustion);
 
         assert!(forecast.exhaustion_date.is_some());
@@ -187,7 +187,7 @@ mod tests {
         let mut forecast =
             ResourceForecast::new(ResourceType::Memory, 60.0, ForecastMethod::SeasonalTrend);
 
-        let exhaustion = Utc::now() + chrono::Duration::days(90);
+        let exhaustion = Utc::now() + chrono::TimeDelta::days(90);
         forecast.set_exhaustion_date(exhaustion);
 
         assert!(!forecast.is_critical()); // More than 30 days
@@ -233,11 +233,11 @@ mod tests {
         let mut manager = ForecastManager::new();
 
         let mut forecast1 = ResourceForecast::new(ResourceType::CPU, 90.0, ForecastMethod::Linear);
-        forecast1.set_exhaustion_date(Utc::now() + chrono::Duration::days(20));
+        forecast1.set_exhaustion_date(Utc::now() + chrono::TimeDelta::days(20));
 
         let mut forecast2 =
             ResourceForecast::new(ResourceType::Memory, 70.0, ForecastMethod::Exponential);
-        forecast2.set_exhaustion_date(Utc::now() + chrono::Duration::days(60));
+        forecast2.set_exhaustion_date(Utc::now() + chrono::TimeDelta::days(60));
 
         manager.add_forecast(forecast1);
         manager.add_forecast(forecast2);

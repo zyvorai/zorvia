@@ -136,7 +136,8 @@ impl MonitoringReporter {
 
     /// Create ASCII progress bar
     fn create_bar(&self, percentage: f64, width: usize) -> String {
-        let filled = ((percentage / 100.0) * width as f64) as usize;
+        let clamped = percentage.clamp(0.0, 100.0);
+        let filled = ((clamped / 100.0) * width as f64) as usize;
         let empty = width - filled;
 
         let bar_char = "▓";

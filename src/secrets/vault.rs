@@ -53,8 +53,16 @@ impl Vault {
         self
     }
 
-    pub fn unseal(&mut self) {
-        self.sealed = false;
+    pub fn unseal(&mut self, unseal_key: &str) -> anyhow::Result<()> {
+        if unseal_key.is_empty() {
+            anyhow::bail!("Unseal key must not be empty");
+        }
+        // In a real implementation, this would verify against stored key shares
+        if self.sealed {
+            self.sealed = false;
+            log::info!("Vault unsealed successfully");
+        }
+        Ok(())
     }
 
     pub fn seal(&mut self) {
@@ -153,7 +161,7 @@ mod tests {
 
         assert!(vault.sealed);
 
-        vault.unseal();
+        vault.unseal("test-unseal-key").unwrap();
         assert!(!vault.sealed);
 
         vault.seal();
@@ -176,7 +184,7 @@ mod tests {
 
         assert!(!vault.is_available()); // Sealed
 
-        vault.unseal();
+        vault.unseal("test-unseal-key").unwrap();
         assert!(vault.is_available());
 
         vault.secret_count = 10;
@@ -211,7 +219,7 @@ mod tests {
         let mut manager = VaultManager::new();
 
         let mut vault1 = Vault::new("v1", VaultType::Local, "e1");
-        vault1.unseal();
+        vault1.unseal("test-unseal-key").unwrap();
 
         let vault2 = Vault::new("v2", VaultType::Local, "e2");
 
@@ -227,7 +235,7 @@ mod tests {
         let mut manager = VaultManager::new();
 
         let mut vault1 = Vault::new("v1", VaultType::Local, "e1");
-        vault1.unseal();
+        vault1.unseal("test-unseal-key").unwrap();
 
         let vault2 = Vault::new("v2", VaultType::Local, "e2");
 

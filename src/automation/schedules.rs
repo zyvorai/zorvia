@@ -144,7 +144,7 @@ impl Schedule {
                 Some(crate::utils::schedule::next_monthly(from, *day, time))
             }
             Schedule::Interval { seconds } => {
-                Some(from + chrono::Duration::seconds(*seconds as i64))
+                Some(from + chrono::TimeDelta::seconds(*seconds as i64))
             }
             Schedule::Cron { expression } => crate::utils::cron::next_cron_time(from, expression),
         }
@@ -263,7 +263,7 @@ mod tests {
 
     #[test]
     fn test_schedule_once() {
-        let future = Utc::now() + chrono::Duration::hours(1);
+        let future = Utc::now() + chrono::TimeDelta::hours(1);
         let schedule = Schedule::once(future);
 
         let now = Utc::now();
@@ -275,7 +275,7 @@ mod tests {
 
     #[test]
     fn test_schedule_once_past() {
-        let past = Utc::now() - chrono::Duration::hours(1);
+        let past = Utc::now() - chrono::TimeDelta::hours(1);
         let schedule = Schedule::once(past);
 
         let now = Utc::now();
@@ -306,11 +306,11 @@ mod tests {
         let mut task = ScheduledTask::new("Test Task", schedule, "rule-1");
 
         let now = Utc::now();
-        task.next_run = Some(now - chrono::Duration::seconds(1));
+        task.next_run = Some(now - chrono::TimeDelta::seconds(1));
 
         assert!(task.is_due(now));
 
-        task.next_run = Some(now + chrono::Duration::seconds(1));
+        task.next_run = Some(now + chrono::TimeDelta::seconds(1));
         assert!(!task.is_due(now));
     }
 
@@ -320,7 +320,7 @@ mod tests {
         let mut task = ScheduledTask::new("Test Task", schedule, "rule-1").disable();
 
         let now = Utc::now();
-        task.next_run = Some(now - chrono::Duration::seconds(1));
+        task.next_run = Some(now - chrono::TimeDelta::seconds(1));
 
         assert!(!task.is_due(now));
     }
@@ -351,10 +351,10 @@ mod tests {
         let now = Utc::now();
 
         let mut task1 = ScheduledTask::new("Task 1", Schedule::interval(60), "rule-1");
-        task1.next_run = Some(now - chrono::Duration::seconds(1)); // Due
+        task1.next_run = Some(now - chrono::TimeDelta::seconds(1)); // Due
 
         let mut task2 = ScheduledTask::new("Task 2", Schedule::interval(120), "rule-2");
-        task2.next_run = Some(now + chrono::Duration::seconds(60)); // Not due
+        task2.next_run = Some(now + chrono::TimeDelta::seconds(60)); // Not due
 
         manager.add_task(task1);
         manager.add_task(task2);

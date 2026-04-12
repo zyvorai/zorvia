@@ -167,7 +167,16 @@ impl RetentionPolicy {
     }
 
     /// Check if backup should be kept based on retention policy
+    ///
+    /// Note: Currently only evaluates `max_age_days`. The `keep_daily`, `keep_weekly`,
+    /// `keep_monthly`, and `keep_yearly` fields are not yet implemented.
     pub fn should_keep(&self, backup_date: DateTime<Utc>, now: DateTime<Utc>) -> bool {
+        if self.keep_daily > 0 || self.keep_weekly > 0 || self.keep_monthly > 0 || self.keep_yearly > 0 {
+            log::warn!(
+                "Retention counts (daily={}, weekly={}, monthly={}, yearly={}) are not yet enforced; only max_age_days is evaluated",
+                self.keep_daily, self.keep_weekly, self.keep_monthly, self.keep_yearly
+            );
+        }
         if let Some(max_days) = self.max_age_days {
             let age_days = now.signed_duration_since(backup_date).num_days();
             if age_days > max_days as i64 {
@@ -275,7 +284,7 @@ pub mod verify;
 #[cfg(test)]
 mod tests {
     use super::*;
-    use chrono::Duration;
+    use chrono::TimeDelta as Duration;
 
     #[test]
     fn test_backup_config() {

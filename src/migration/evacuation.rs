@@ -97,7 +97,7 @@ impl EvacuationStatus {
         if self.total_vms == 0 {
             return 100;
         }
-        ((self.migrated_vms as f64 / self.total_vms as f64) * 100.0) as u8
+        (((self.migrated_vms + self.failed_vms) as f64 / self.total_vms as f64) * 100.0) as u8
     }
 
     pub fn is_complete(&self) -> bool {
@@ -120,9 +120,17 @@ impl EvacuationStatus {
 
     pub fn add_vm_status(&mut self, status: VMEvacuationStatus) {
         match status.state {
-            VMEvacuationState::Migrated => self.migrated_vms += 1,
-            VMEvacuationState::Failed => self.failed_vms += 1,
-            VMEvacuationState::InProgress => self.in_progress_vms += 1,
+            VMEvacuationState::InProgress => {
+                self.in_progress_vms += 1;
+            }
+            VMEvacuationState::Migrated => {
+                self.migrated_vms += 1;
+                self.in_progress_vms = self.in_progress_vms.saturating_sub(1);
+            }
+            VMEvacuationState::Failed => {
+                self.failed_vms += 1;
+                self.in_progress_vms = self.in_progress_vms.saturating_sub(1);
+            }
             _ => {}
         }
         self.vm_statuses.push(status);
@@ -209,7 +217,10 @@ pub struct EvacuationPlanner {
 
 impl EvacuationPlanner {
     pub fn new(max_parallel: u32) -> Self {
-        Self { max_parallel }
+        if max_parallel == 0 {
+            log::warn!("max_parallel cannot be 0, defaulting to 1");
+        }
+        Self { max_parallel: max_parallel.max(1) }
     }
 
     /// Plan evacuation order (by priority)

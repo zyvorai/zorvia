@@ -2,6 +2,63 @@ use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
+/// Check if an IP address is private/internal
+fn is_private_ip(ip: &std::net::IpAddr) -> bool {
+    match ip {
+        std::net::IpAddr::V4(v4) => {
+            v4.is_loopback()           // 127.0.0.0/8
+            || v4.is_private()         // 10.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16
+            || v4.is_link_local()      // 169.254.0.0/16
+            || v4.is_broadcast()       // 255.255.255.255
+            || v4.is_unspecified()     // 0.0.0.0
+        }
+        std::net::IpAddr::V6(v6) => {
+            v6.is_loopback()           // ::1
+            || v6.is_unspecified()     // ::
+            // fc00::/7 (unique local) and fe80::/10 (link-local)
+            || (v6.segments()[0] & 0xfe00) == 0xfc00
+            || (v6.segments()[0] & 0xffc0) == 0xfe80
+        }
+    }
+}
+
+/// Validate that a webhook URL is safe (HTTPS, no internal/private addresses)
+fn validate_webhook_url(url: &str) -> anyhow::Result<()> {
+    // Must be HTTPS
+    if !url.starts_with("https://") {
+        anyhow::bail!("Webhook URL must use HTTPS");
+    }
+
+    // Extract host from URL
+    let after_scheme = url.strip_prefix("https://").unwrap_or(url);
+    let host_port = after_scheme.split('/').next().unwrap_or("");
+    let host = if host_port.starts_with('[') {
+        // IPv6 bracket notation: [::1]:8080
+        host_port.split(']').next().unwrap_or("").trim_start_matches('[')
+    } else {
+        host_port.split(':').next().unwrap_or("")
+    };
+
+    if host.is_empty() {
+        anyhow::bail!("Webhook URL has no host");
+    }
+
+    // Reject known dangerous hostnames
+    let lower = host.to_lowercase();
+    if lower == "localhost" || lower.ends_with(".localhost") || lower == "metadata.google.internal" {
+        anyhow::bail!("Webhook URL must not point to internal addresses");
+    }
+
+    // If host parses as an IP, check if it's private
+    if let Ok(ip) = host.parse::<std::net::IpAddr>() {
+        if is_private_ip(&ip) {
+            anyhow::bail!("Webhook URL must not point to private/internal IP addresses");
+        }
+    }
+
+    Ok(())
+}
+
 /// Webhook event types
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum WebhookEvent {
@@ -53,6 +110,7 @@ pub struct WebhookConfig {
     pub name: String,
     pub url: String,
     pub events: Vec<WebhookEvent>,
+    #[serde(skip_serializing)]
     pub secret: Option<String>,
     pub headers: HashMap<String, String>,
     pub enabled: bool,
@@ -66,16 +124,18 @@ pub struct WebhookConfig {
 }
 
 impl WebhookConfig {
-    pub fn new(name: impl Into<String>, url: impl Into<String>) -> Self {
+    pub fn new(name: impl Into<String>, url: impl Into<String>) -> anyhow::Result<Self> {
         let name_str = name.into();
-        Self {
+        let url_str = url.into();
+        validate_webhook_url(&url_str)?;
+        Ok(Self {
             id: format!(
                 "wh-{}-{}",
                 name_str.to_lowercase().replace(' ', "-"),
                 Utc::now().timestamp()
             ),
             name: name_str,
-            url: url.into(),
+            url: url_str,
             events: Vec::new(),
             secret: None,
             headers: HashMap::new(),
@@ -87,7 +147,7 @@ impl WebhookConfig {
             last_triggered: None,
             delivery_count: 0,
             failure_count: 0,
-        }
+        })
     }
 
     pub fn add_event(&mut self, event: WebhookEvent) {
@@ -255,7 +315,7 @@ mod tests {
 
     #[test]
     fn test_webhook_config_new() {
-        let wh = WebhookConfig::new("test", "https://example.com/webhook");
+        let wh = WebhookConfig::new("test", "https://example.com/webhook").unwrap();
         assert_eq!(wh.name, "test");
         assert_eq!(wh.url, "https://example.com/webhook");
         assert!(wh.enabled);
@@ -264,8 +324,22 @@ mod tests {
     }
 
     #[test]
+    fn test_webhook_rejects_http() {
+        assert!(WebhookConfig::new("test", "http://example.com").is_err());
+    }
+
+    #[test]
+    fn test_webhook_rejects_internal_urls() {
+        assert!(WebhookConfig::new("test", "https://127.0.0.1/hook").is_err());
+        assert!(WebhookConfig::new("test", "https://localhost/hook").is_err());
+        assert!(WebhookConfig::new("test", "https://169.254.169.254/latest").is_err());
+        assert!(WebhookConfig::new("test", "https://192.168.1.1/hook").is_err());
+        assert!(WebhookConfig::new("test", "https://10.0.0.1/hook").is_err());
+    }
+
+    #[test]
     fn test_webhook_add_event() {
-        let mut wh = WebhookConfig::new("test", "https://example.com");
+        let mut wh = WebhookConfig::new("test", "https://example.com").unwrap();
         wh.add_event(WebhookEvent::VMCreated);
         wh.add_event(WebhookEvent::VMDeleted);
         wh.add_event(WebhookEvent::VMCreated); // Duplicate
@@ -276,7 +350,7 @@ mod tests {
 
     #[test]
     fn test_webhook_remove_event() {
-        let mut wh = WebhookConfig::new("test", "https://example.com");
+        let mut wh = WebhookConfig::new("test", "https://example.com").unwrap();
         wh.add_event(WebhookEvent::VMCreated);
 
         assert!(wh.remove_event(&WebhookEvent::VMCreated));
@@ -286,27 +360,31 @@ mod tests {
 
     #[test]
     fn test_webhook_with_secret() {
-        let wh = WebhookConfig::new("test", "https://example.com").with_secret("my-secret");
+        let wh = WebhookConfig::new("test", "https://example.com")
+            .unwrap()
+            .with_secret("my-secret");
         assert_eq!(wh.secret, Some("my-secret".to_string()));
     }
 
     #[test]
     fn test_webhook_add_header() {
-        let mut wh = WebhookConfig::new("test", "https://example.com");
+        let mut wh = WebhookConfig::new("test", "https://example.com").unwrap();
         wh.add_header("X-Custom", "value");
         assert_eq!(wh.headers.get("X-Custom"), Some(&"value".to_string()));
     }
 
     #[test]
     fn test_webhook_with_retry() {
-        let wh = WebhookConfig::new("test", "https://example.com").with_retry(5, 30);
+        let wh = WebhookConfig::new("test", "https://example.com")
+            .unwrap()
+            .with_retry(5, 30);
         assert_eq!(wh.retry_count, 5);
         assert_eq!(wh.retry_delay_secs, 30);
     }
 
     #[test]
     fn test_webhook_enable_disable() {
-        let mut wh = WebhookConfig::new("test", "https://example.com");
+        let mut wh = WebhookConfig::new("test", "https://example.com").unwrap();
         assert!(wh.enabled);
 
         wh.disable();
@@ -318,7 +396,7 @@ mod tests {
 
     #[test]
     fn test_webhook_record_delivery() {
-        let mut wh = WebhookConfig::new("test", "https://example.com");
+        let mut wh = WebhookConfig::new("test", "https://example.com").unwrap();
 
         wh.record_delivery(true);
         wh.record_delivery(true);
@@ -331,7 +409,7 @@ mod tests {
 
     #[test]
     fn test_webhook_success_rate() {
-        let mut wh = WebhookConfig::new("test", "https://example.com");
+        let mut wh = WebhookConfig::new("test", "https://example.com").unwrap();
         assert_eq!(wh.success_rate(), 100.0);
 
         wh.record_delivery(true);
@@ -354,7 +432,7 @@ mod tests {
     #[test]
     fn test_webhook_manager_register() {
         let mut manager = WebhookManager::new();
-        let wh = WebhookConfig::new("test", "https://example.com");
+        let wh = WebhookConfig::new("test", "https://example.com").unwrap();
         let id = manager.register(wh);
 
         assert_eq!(manager.webhook_count(), 1);
@@ -364,7 +442,7 @@ mod tests {
     #[test]
     fn test_webhook_manager_unregister() {
         let mut manager = WebhookManager::new();
-        let id = manager.register(WebhookConfig::new("test", "https://example.com"));
+        let id = manager.register(WebhookConfig::new("test", "https://example.com").unwrap());
 
         assert!(manager.unregister(&id));
         assert!(!manager.unregister(&id));
@@ -374,10 +452,10 @@ mod tests {
     fn test_webhook_manager_active_webhooks() {
         let mut manager = WebhookManager::new();
 
-        let mut disabled = WebhookConfig::new("disabled", "https://example.com");
+        let mut disabled = WebhookConfig::new("disabled", "https://example.com").unwrap();
         disabled.disable();
 
-        manager.register(WebhookConfig::new("active", "https://example.com"));
+        manager.register(WebhookConfig::new("active", "https://example.com").unwrap());
         manager.register(disabled);
 
         assert_eq!(manager.active_webhooks().len(), 1);
@@ -387,11 +465,12 @@ mod tests {
     fn test_webhook_manager_webhooks_for_event() {
         let mut manager = WebhookManager::new();
 
-        let mut wh1 = WebhookConfig::new("vm-events", "https://example.com/vm");
+        let mut wh1 = WebhookConfig::new("vm-events", "https://example.com/vm").unwrap();
         wh1.add_event(WebhookEvent::VMCreated);
         wh1.add_event(WebhookEvent::VMDeleted);
 
-        let mut wh2 = WebhookConfig::new("backup-events", "https://example.com/backup");
+        let mut wh2 =
+            WebhookConfig::new("backup-events", "https://example.com/backup").unwrap();
         wh2.add_event(WebhookEvent::BackupCompleted);
 
         manager.register(wh1);

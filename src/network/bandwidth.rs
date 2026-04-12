@@ -170,7 +170,7 @@ impl BandwidthStats {
 /// Bandwidth monitor for tracking network usage
 pub struct BandwidthMonitor {
     interface_name: String,
-    samples: Vec<BandwidthMetrics>,
+    samples: std::collections::VecDeque<BandwidthMetrics>,
     max_samples: usize,
 }
 
@@ -178,7 +178,7 @@ impl BandwidthMonitor {
     pub fn new(interface_name: impl Into<String>) -> Self {
         Self {
             interface_name: interface_name.into(),
-            samples: Vec::new(),
+            samples: std::collections::VecDeque::new(),
             max_samples: 100,
         }
     }
@@ -190,11 +190,11 @@ impl BandwidthMonitor {
 
     /// Add a bandwidth sample
     pub fn add_sample(&mut self, metrics: BandwidthMetrics) {
-        self.samples.push(metrics);
+        self.samples.push_back(metrics);
 
-        // Keep only the latest samples
-        if self.samples.len() > self.max_samples {
-            self.samples.remove(0);
+        // Keep only the latest samples (O(1) removal from front)
+        while self.samples.len() > self.max_samples {
+            self.samples.pop_front();
         }
     }
 
@@ -209,11 +209,12 @@ impl BandwidthMonitor {
         let end = &self.samples[end_idx];
 
         let duration = end.timestamp.signed_duration_since(start.timestamp);
-        let duration_secs = duration.num_seconds() as u64;
+        let duration_secs = duration.num_seconds();
 
-        if duration_secs == 0 {
+        if duration_secs <= 0 {
             return None;
         }
+        let duration_secs = duration_secs as u64;
 
         let rx_bytes_diff = end.rx_bytes.saturating_sub(start.rx_bytes);
         let tx_bytes_diff = end.tx_bytes.saturating_sub(start.tx_bytes);
@@ -293,7 +294,7 @@ impl BandwidthMonitor {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use chrono::Duration;
+    use chrono::TimeDelta as Duration;
 
     #[test]
     fn test_bandwidth_metrics_creation() {

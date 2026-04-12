@@ -148,7 +148,13 @@ pub async fn handle_backup_list(vm: Option<String>, output: String, namespace: &
 pub fn handle_backup_get(name: String, output: String) -> Result<()> {
     use crate::backup::BackupStatus;
 
-    let backup = BackupStatus::new("my-vm", name);
+    // Derive VM name from backup name (e.g., "my-vm-backup-20240101" -> "my-vm")
+    let vm_name = if let Some(pos) = name.find("-backup") {
+        name[..pos].to_string()
+    } else {
+        name.clone()
+    };
+    let backup = BackupStatus::new(vm_name, &name);
 
     if output == "json" {
         let json = serde_json::to_string_pretty(&backup)?;
@@ -162,10 +168,20 @@ pub fn handle_backup_get(name: String, output: String) -> Result<()> {
 
 pub fn handle_backup_delete(name: String, yes: bool) -> Result<()> {
     if !yes {
-        print!("Are you sure you want to delete backup '{}'? [y/N] ", name);
-        return Err(anyhow::anyhow!(
-            "Operation cancelled. Use --yes to skip confirmation."
-        ));
+        use std::io::Write;
+        print!(
+            "Are you sure you want to delete backup '{}'? Type 'yes' to confirm: ",
+            name
+        );
+        std::io::stdout().flush()?;
+
+        let mut input = String::new();
+        std::io::stdin().read_line(&mut input)?;
+
+        if input.trim() != "yes" {
+            println!("Cancelled");
+            return Ok(());
+        }
     }
 
     println!("{}", color::header(&format!("Deleting Backup: {}", name)));
@@ -433,8 +449,15 @@ pub fn handle_migrate(
         _ => MigrationType::Live,
     };
 
-    let request = MigrationRequest::new(&vm, "node1")
-        .to_node(target_node.unwrap_or_else(|| "node2".to_string()))
+    let source_node = "unknown";
+    if target_node.is_none() {
+        log::warn!("No --target-node specified; source node could not be auto-detected. Specify nodes explicitly for production use.");
+    }
+    let request = MigrationRequest::new(&vm, source_node)
+        .to_node(target_node.unwrap_or_else(|| {
+            log::warn!("No target node specified, migration may not proceed correctly");
+            "auto-select".to_string()
+        }))
         .with_type(mig_type);
 
     if plan {
@@ -463,8 +486,8 @@ pub fn handle_migrate(
         // Simulate migration
         let status = MigrationStatus::new(
             &vm,
-            "node1",
-            request.target_node.unwrap_or_else(|| "node2".to_string()),
+            source_node,
+            request.target_node.unwrap_or_else(|| "auto-select".to_string()),
         );
 
         println!("{}", color::header("Migration Started:"));
@@ -788,7 +811,10 @@ pub fn handle_ha_config(
 ) -> Result<()> {
     use crate::migration::ha::{EvictionStrategy, HAConfig, HAPriority};
 
-    if enable == disable {
+    if enable && disable {
+        return Err(anyhow::anyhow!("Cannot specify both --enable and --disable"));
+    }
+    if !enable && !disable {
         return Err(anyhow::anyhow!("Must specify either --enable or --disable"));
     }
 

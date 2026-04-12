@@ -10,7 +10,7 @@ pub fn next_cron_time(from: DateTime<Utc>, expression: &str) -> Option<DateTime<
         return None;
     }
 
-    let mut candidate = from + chrono::Duration::minutes(1);
+    let mut candidate = from + chrono::TimeDelta::minutes(1);
     // Zero out seconds
     candidate = candidate
         .date_naive()
@@ -38,39 +38,89 @@ pub fn next_cron_time(from: DateTime<Utc>, expression: &str) -> Option<DateTime<
             return Some(candidate);
         }
 
-        candidate += chrono::Duration::minutes(1);
+        candidate += chrono::TimeDelta::minutes(1);
     }
 
     None
 }
 
-/// Check if a cron field matches a value. Supports `*`, `N`, `*/N`, `N,N,...`, and `N-N`.
+/// Check if a cron field matches a value. Supports `*`, `N`, `*/N`, `N-N/S`, `N,N,...`, and `N-N`
+/// (including wrapping ranges like `5-1` for weekdays).
 pub fn field_matches(field: &str, value: u32) -> bool {
     if field == "*" {
         return true;
     }
-    // Handle comma-separated values: "1,5,10"
-    if field.contains(',') {
-        return field.split(',').any(|f| field_matches(f.trim(), value));
-    }
-    // Handle ranges: "1-5"
-    if let Some((start, end)) = field.split_once('-') {
-        if let (Ok(s), Ok(e)) = (start.trim().parse::<u32>(), end.trim().parse::<u32>()) {
-            if s > e {
-                return false; // Invalid range (e.g., "5-1")
+
+    for part in field.split(',') {
+        let part = part.trim();
+
+        // Handle step: either */N or N-N/N or N/N
+        if let Some((range_part, step_str)) = part.split_once('/') {
+            let step: u32 = match step_str.parse() {
+                Ok(s) if s > 0 => s,
+                _ => return false,
+            };
+
+            if range_part == "*" {
+                if value % step == 0 {
+                    return true;
+                }
+            } else if let Some((start_str, end_str)) = range_part.split_once('-') {
+                let start: u32 = match start_str.parse() {
+                    Ok(v) => v,
+                    _ => return false,
+                };
+                let end: u32 = match end_str.parse() {
+                    Ok(v) => v,
+                    _ => return false,
+                };
+                // Check if value is in range with step
+                if start <= end {
+                    if value >= start && value <= end && (value - start) % step == 0 {
+                        return true;
+                    }
+                } else {
+                    // Wrapping range with step
+                    if value >= start || value <= end {
+                        let offset = if value >= start {
+                            value - start
+                        } else {
+                            value + (60 - start) // approximate
+                        };
+                        if offset % step == 0 {
+                            return true;
+                        }
+                    }
+                }
+            } else if let Ok(start) = range_part.parse::<u32>() {
+                if value >= start && (value - start) % step == 0 {
+                    return true;
+                }
             }
-            return value >= s && value <= e;
+        } else if let Some((start_str, end_str)) = part.split_once('-') {
+            let start: u32 = match start_str.parse() {
+                Ok(v) => v,
+                _ => return false,
+            };
+            let end: u32 = match end_str.parse() {
+                Ok(v) => v,
+                _ => return false,
+            };
+            if start <= end {
+                if value >= start && value <= end {
+                    return true;
+                }
+            } else {
+                // Wrapping range (e.g., 5-1 for Fri-Mon)
+                if value >= start || value <= end {
+                    return true;
+                }
+            }
+        } else if let Ok(v) = part.parse::<u32>() {
+            if v == value {
+                return true;
+            }
         }
-    }
-    // Handle step: "*/5"
-    if let Some(step) = field.strip_prefix("*/") {
-        if let Ok(s) = step.parse::<u32>() {
-            return s > 0 && value % s == 0;
-        }
-    }
-    // Exact value
-    if let Ok(n) = field.parse::<u32>() {
-        return value == n;
     }
     false
 }

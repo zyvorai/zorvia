@@ -48,6 +48,8 @@ impl Default for CustomMetricsConfig {
     fn default() -> Self { Self { max_values_per_metric: 1000, collection_interval_secs: 30 } }
 }
 
+const MAX_SERIES: usize = 10_000;
+
 impl CustomMetricsManager {
     pub fn new() -> Self { Self { metrics: HashMap::new(), config: CustomMetricsConfig::default() } }
 
@@ -59,6 +61,26 @@ impl CustomMetricsManager {
     }
 
     pub fn record(&mut self, name: &str, value: f64, labels: HashMap<String, String>) {
+        // Check cardinality: count distinct label combinations across all metrics
+        let total_series: usize = self
+            .metrics
+            .values()
+            .map(|m| {
+                let mut seen = std::collections::HashSet::new();
+                for v in &m.values {
+                    let mut key: Vec<(&String, &String)> = v.labels.iter().collect();
+                    key.sort();
+                    seen.insert(format!("{:?}", key));
+                }
+                seen.len()
+            })
+            .sum();
+
+        if total_series >= MAX_SERIES {
+            // Reject recording to prevent cardinality explosion
+            return;
+        }
+
         if let Some(metric) = self.metrics.get_mut(name) {
             metric.values.push(MetricValue { timestamp: Utc::now(), value, labels });
             if metric.values.len() > self.config.max_values_per_metric {

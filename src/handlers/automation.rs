@@ -303,7 +303,16 @@ pub fn handle_workflow_create(
 pub fn handle_workflow_get(workflow: String, output: String) -> Result<()> {
     use crate::automation::workflows::WorkflowTemplates;
 
-    let wf = WorkflowTemplates::vm_provisioning();
+    let wf = match workflow.as_str() {
+        "vm-provisioning" | "vm_provisioning" => WorkflowTemplates::vm_provisioning(),
+        "disaster-recovery" | "disaster_recovery" => WorkflowTemplates::disaster_recovery(),
+        "maintenance" => WorkflowTemplates::maintenance(),
+        _ => {
+            println!("Workflow '{}' not found", workflow);
+            println!("Available workflows: vm-provisioning, disaster-recovery, maintenance");
+            return Ok(());
+        }
+    };
 
     println!("{}", color::header(&format!("Workflow: {}", workflow)));
     println!();

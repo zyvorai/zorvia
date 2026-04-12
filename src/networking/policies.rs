@@ -29,7 +29,12 @@ pub struct PortRange {
 
 impl PortRange {
     pub fn new(start: u16, end: u16) -> Self {
-        Self { start, end }
+        // Ensure start <= end by swapping if needed
+        if start > end {
+            Self { start: end, end: start }
+        } else {
+            Self { start, end }
+        }
     }
 
     pub fn single(port: u16) -> Self {
@@ -389,8 +394,11 @@ mod tests {
         let range1 = PortRange::new(80, 443);
         assert!(range1.is_valid());
 
+        // PortRange::new auto-swaps start > end, so result is always valid
         let range2 = PortRange::new(443, 80);
-        assert!(!range2.is_valid());
+        assert!(range2.is_valid());
+        assert_eq!(range2.start, 80);
+        assert_eq!(range2.end, 443);
     }
 
     #[test]

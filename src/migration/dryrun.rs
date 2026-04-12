@@ -63,7 +63,9 @@ pub fn simulate_migration(vm_name: &str, source: &str, target: &str, memory_gb: 
             target_cpu_used: cpu_cores, target_memory_used_gb: memory_gb,
             network_bandwidth_mbps: data_transfer * 1024.0 / duration.max(1) as f64,
         },
-        risks, recommendations: vec!["Schedule migration during low-traffic period".to_string()],
-        feasible: true, simulated_at: Utc::now(),
+        risks: risks.clone(), recommendations: vec!["Schedule migration during low-traffic period".to_string()],
+        // Migration is not feasible if any critical risks are present
+        feasible: !risks.iter().any(|r| matches!(r.severity, RiskSeverity::Critical)),
+        simulated_at: Utc::now(),
     }
 }

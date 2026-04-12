@@ -1,7 +1,7 @@
 // Cost Reports - Generate cost reports and analytics
 
 use super::{CostSummary, VMCost};
-use chrono::{DateTime, Duration, Utc};
+use chrono::{DateTime, TimeDelta as Duration, Utc};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
@@ -201,10 +201,13 @@ impl CostAnalytics {
         let highest_day_spend = daily_costs
             .iter()
             .fold(0.0, |max, &cost| if cost > max { cost } else { max });
-        let lowest_day_spend =
+        let lowest_day_spend = if daily_costs.is_empty() {
+            0.0
+        } else {
             daily_costs
                 .iter()
-                .fold(f64::MAX, |min, &cost| if cost < min { cost } else { min });
+                .fold(f64::MAX, |min, &cost| if cost < min { cost } else { min })
+        };
 
         let cost_trend = if previous_period_total > 0.0 {
             ((total_spend - previous_period_total) / previous_period_total) * 100.0
@@ -277,7 +280,7 @@ impl ReportGenerator {
         } else {
             chrono::NaiveDate::from_ymd_opt(year, clamped_month + 1, 1)
         }
-        .unwrap_or(start_date + chrono::Duration::days(30));
+        .unwrap_or(start_date + chrono::TimeDelta::days(30));
         // SAFETY: (0,0,0) is always a valid time
         let end = end_date.and_hms_opt(0, 0, 0).unwrap().and_utc();
 

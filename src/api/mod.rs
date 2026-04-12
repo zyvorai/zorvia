@@ -119,7 +119,7 @@ impl ApiConfig {
     pub fn new(port: u16) -> Self {
         Self {
             id: format!("api-{}", Utc::now().timestamp()),
-            host: "0.0.0.0".to_string(),
+            host: "127.0.0.1".to_string(),
             port,
             tls_enabled: false,
             tls_cert: None,
@@ -557,7 +557,7 @@ mod tests {
     fn test_api_config_new() {
         let config = ApiConfig::new(8080);
         assert_eq!(config.port, 8080);
-        assert_eq!(config.host, "0.0.0.0");
+        assert_eq!(config.host, "127.0.0.1");
         assert!(!config.tls_enabled);
         assert!(!config.cors_enabled);
         assert!(config.auth_enabled);
@@ -586,16 +586,16 @@ mod tests {
     #[test]
     fn test_api_config_address() {
         let config = ApiConfig::new(8080);
-        assert_eq!(config.address(), "0.0.0.0:8080");
+        assert_eq!(config.address(), "127.0.0.1:8080");
     }
 
     #[test]
     fn test_api_config_base_url() {
         let config = ApiConfig::new(8080);
-        assert_eq!(config.base_url(), "http://0.0.0.0:8080");
+        assert_eq!(config.base_url(), "http://127.0.0.1:8080");
 
         let tls_config = ApiConfig::new(443).with_tls("cert", "key");
-        assert_eq!(tls_config.base_url(), "https://0.0.0.0:443");
+        assert_eq!(tls_config.base_url(), "https://127.0.0.1:443");
     }
 
     #[test]

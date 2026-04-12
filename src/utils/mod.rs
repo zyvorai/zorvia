@@ -15,15 +15,18 @@ pub use error::ZorviaError;
 /// ```
 pub fn generate_id(prefix: &str, name: &str) -> String {
     use chrono::Utc;
-    use rand::Rng;
-    let micros = Utc::now().timestamp_micros();
-    let random: u16 = rand::thread_rng().gen();
+    let sanitized = name.to_lowercase().replace(' ', "-");
+    let truncated_name = if sanitized.chars().count() > 20 {
+        &sanitized[..sanitized.char_indices().nth(20).map(|(i, _)| i).unwrap_or(sanitized.len())]
+    } else {
+        &sanitized
+    };
     format!(
-        "{}-{}-{}-{}",
+        "{}-{}-{:x}-{:04x}",
         prefix,
-        name.to_lowercase().replace(' ', "-"),
-        micros,
-        random
+        truncated_name,
+        Utc::now().timestamp() as u32,
+        rand::random::<u16>()
     )
 }
 
@@ -65,6 +68,9 @@ pub fn format_bytes(bytes: u64) -> String {
 /// assert_eq!(percent_to_u8(-10.0), 0);
 /// ```
 pub fn percent_to_u8(pct: f64) -> u8 {
+    if pct.is_nan() {
+        return 0;
+    }
     if pct <= 0.0 {
         0
     } else if pct >= 100.0 {

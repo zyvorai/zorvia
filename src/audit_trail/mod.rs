@@ -78,7 +78,7 @@ impl AuditTrail {
     }
 
     pub fn recent(&self, limit: usize) -> Vec<&AuditEntry> {
-        self.entries.iter().take(limit).collect()
+        self.entries.iter().rev().take(limit).collect::<Vec<_>>().into_iter().rev().collect()
     }
 
     pub fn by_resource(&self, resource_name: &str) -> Vec<&AuditEntry> {

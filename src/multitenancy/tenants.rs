@@ -163,6 +163,9 @@ impl TenantManager {
     }
 
     pub fn delete_tenant(&mut self, tenant_id: &str) -> bool {
+        // Clean up associated configs and quotas to prevent orphaned data
+        self.configs.remove(tenant_id);
+        self.quotas.remove(tenant_id);
         self.tenants.remove(tenant_id).is_some()
     }
 

@@ -181,7 +181,7 @@ impl Certificate {
             subject: subject.into(),
             issuer: "Zorvia CA".to_string(),
             valid_from: Utc::now(),
-            valid_until: Utc::now() + chrono::Duration::days(365),
+            valid_until: Utc::now() + chrono::TimeDelta::days(365),
             san_dns: Vec::new(),
             san_ips: Vec::new(),
             key_size: 2048,
@@ -538,7 +538,7 @@ mod tests {
         let mut manager = SecurityManager::new();
 
         let mut cert = Certificate::new("cert", "default", "CN=test");
-        cert.valid_until = Utc::now() + chrono::Duration::days(10);
+        cert.valid_until = Utc::now() + chrono::TimeDelta::days(10);
         manager.add_certificate(cert);
 
         let expiring = manager.expiring_certificates(30);

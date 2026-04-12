@@ -4,55 +4,63 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
 /// Check if an IP address matches a CIDR notation string.
-/// Supports: "*" (match all), "10.0.0.5" (exact match), "10.0.0.0/24" (CIDR range).
+/// Supports: "*" (match all), "10.0.0.5" or "::1" (exact match),
+/// "10.0.0.0/24" (IPv4 CIDR range), "2001:db8::/32" (IPv6 CIDR range).
 fn ip_matches_cidr(ip: &str, cidr: &str) -> bool {
     if cidr == "*" {
         return true;
     }
 
-    if let Some(slash_pos) = cidr.find('/') {
-        let network = &cidr[..slash_pos];
-        let prefix_len: u32 = match cidr[slash_pos + 1..].parse() {
-            Ok(v) if v <= 32 => v,
-            _ => return false,
-        };
+    let ip_addr: std::net::IpAddr = match ip.parse() {
+        Ok(a) => a,
+        Err(_) => return false,
+    };
 
-        let ip_bits = match ip_to_u32(ip) {
-            Some(v) => v,
-            None => return false,
-        };
-        let net_bits = match ip_to_u32(network) {
-            Some(v) => v,
-            None => return false,
-        };
-
-        if prefix_len == 0 {
-            return true;
-        }
-        let mask = !0u32 << (32 - prefix_len);
-        (ip_bits & mask) == (net_bits & mask)
-    } else {
+    let parts: Vec<&str> = cidr.split('/').collect();
+    if parts.len() == 1 {
         // Exact IP match
-        ip == cidr
+        return ip == cidr;
     }
-}
+    if parts.len() != 2 {
+        return false;
+    }
 
-/// Parse an IPv4 address string to a u32.
-fn ip_to_u32(ip: &str) -> Option<u32> {
-    let parts: Vec<&str> = ip.split('.').collect();
-    if parts.len() != 4 {
-        return None;
+    let cidr_addr: std::net::IpAddr = match parts[0].parse() {
+        Ok(a) => a,
+        Err(_) => return false,
+    };
+    let prefix_len: u32 = match parts[1].parse() {
+        Ok(p) => p,
+        Err(_) => return false,
+    };
+
+    match (ip_addr, cidr_addr) {
+        (std::net::IpAddr::V4(ip4), std::net::IpAddr::V4(cidr4)) => {
+            let ip_bits = u32::from(ip4);
+            let cidr_bits = u32::from(cidr4);
+            if prefix_len > 32 {
+                return false;
+            }
+            if prefix_len == 0 {
+                return true;
+            }
+            let mask = !0u32 << (32 - prefix_len);
+            (ip_bits & mask) == (cidr_bits & mask)
+        }
+        (std::net::IpAddr::V6(ip6), std::net::IpAddr::V6(cidr6)) => {
+            let ip_bits = u128::from(ip6);
+            let cidr_bits = u128::from(cidr6);
+            if prefix_len > 128 {
+                return false;
+            }
+            if prefix_len == 0 {
+                return true;
+            }
+            let mask = !0u128 << (128 - prefix_len);
+            (ip_bits & mask) == (cidr_bits & mask)
+        }
+        _ => false, // Mismatched address families
     }
-    let octets: Vec<u8> = parts.iter().filter_map(|s| s.parse::<u8>().ok()).collect();
-    if octets.len() != 4 {
-        return None;
-    }
-    Some(
-        (octets[0] as u32) << 24
-            | (octets[1] as u32) << 16
-            | (octets[2] as u32) << 8
-            | octets[3] as u32,
-    )
 }
 
 /// Network policy for VM traffic control
@@ -284,7 +292,8 @@ impl Port {
 
     /// Check if port matches
     pub fn matches(&self, port: u16, protocol: &str) -> bool {
-        let proto_match = protocol.to_uppercase() == self.protocol.as_str();
+        let proto_match = self.protocol == Protocol::Any
+            || protocol.to_uppercase() == self.protocol.as_str();
 
         let port_match = if let Some(end) = self.end_port {
             port >= self.port && port <= end
@@ -454,6 +463,29 @@ mod tests {
 
         assert!(manager.remove_policy("web-policy"));
         assert_eq!(manager.policy_count(), 0);
+    }
+
+    #[test]
+    fn test_ipv6_cidr_matching() {
+        let rule = IngressRule::new()
+            .from_cidr("2001:db8::/32")
+            .allow_port(Port::tcp(80));
+
+        assert!(rule.matches("2001:db8::1", 80, "TCP"));
+        assert!(rule.matches("2001:db8:1::1", 80, "TCP"));
+        assert!(!rule.matches("2001:db9::1", 80, "TCP"));
+        // Mismatched address families should not match
+        assert!(!rule.matches("10.0.0.1", 80, "TCP"));
+    }
+
+    #[test]
+    fn test_ipv6_exact_match() {
+        let rule = IngressRule::new()
+            .from_cidr("::1")
+            .allow_port(Port::tcp(80));
+
+        assert!(rule.matches("::1", 80, "TCP"));
+        assert!(!rule.matches("::2", 80, "TCP"));
     }
 
     #[test]

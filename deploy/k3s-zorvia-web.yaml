@@ -25,20 +25,37 @@ spec:
         - name: zorvia-web
           image: zorvia:local
           command: ["/usr/local/bin/zorvia"]
-          args: ["api-serve", "--port", "8080", "--host", "0.0.0.0"]
+          args: ["api-serve", "--port", "5151", "--host", "0.0.0.0"]
           ports:
-            - containerPort: 8080
+            - containerPort: 5151
               name: http
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 65534
+            readOnlyRootFilesystem: true
+            allowPrivilegeEscalation: false
+            seccompProfile:
+              type: RuntimeDefault
+            capabilities:
+              drop:
+                - ALL
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
+            limits:
+              cpu: 500m
+              memory: 256Mi
           livenessProbe:
             httpGet:
               path: /api/v1/health
-              port: 8080
+              port: 5151
             initialDelaySeconds: 5
             periodSeconds: 30
           readinessProbe:
             httpGet:
               path: /api/v1/health
-              port: 8080
+              port: 5151
             initialDelaySeconds: 3
             periodSeconds: 10
 ---
@@ -86,7 +103,7 @@ spec:
   selector:
     app: zorvia-web
   ports:
-    - port: 8080
-      targetPort: 8080
+    - port: 5151
+      targetPort: 5151
       nodePort: 30080
       name: http

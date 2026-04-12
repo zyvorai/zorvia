@@ -162,7 +162,12 @@ impl Condition {
                 end_hour,
             } => {
                 let current_hour = Utc::now().hour();
-                current_hour >= *start_hour && current_hour < *end_hour
+                if start_hour <= end_hour {
+                    current_hour >= *start_hour && current_hour < *end_hour
+                } else {
+                    // Midnight-crossing range (e.g., 22:00 to 06:00)
+                    current_hour >= *start_hour || current_hour < *end_hour
+                }
             }
             ConditionType::DayOfWeek { days } => {
                 let current_day = Utc::now().weekday().number_from_monday();

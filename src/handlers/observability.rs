@@ -222,7 +222,7 @@ pub fn handle_alerts_create(
     };
 
     let rule = AlertRule::new(&name, alert_severity, condition)
-        .with_duration(chrono::Duration::minutes(duration));
+        .with_duration(chrono::TimeDelta::minutes(duration));
 
     println!("  Name:      {}", color::value(&rule.name));
     println!("  Severity:  {}", rule.severity);

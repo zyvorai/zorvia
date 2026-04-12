@@ -260,6 +260,7 @@ impl Default for HTTPRule {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct KafkaRule {
     pub topic: Option<String>,
+    #[serde(skip_serializing)]
     pub api_key: Option<String>,
     pub api_version: Option<String>,
     pub client_id: Option<String>,

@@ -36,7 +36,8 @@ pub struct Secret {
     pub id: String,
     pub name: String,
     pub secret_type: SecretType,
-    pub encrypted_value: String,
+    #[serde(skip_serializing)]
+    pub value: String,
     pub status: SecretStatus,
     pub version: u32,
     pub metadata: HashMap<String, String>,
@@ -52,7 +53,7 @@ impl std::fmt::Debug for Secret {
             .field("id", &self.id)
             .field("name", &self.name)
             .field("secret_type", &self.secret_type)
-            .field("encrypted_value", &"[REDACTED]")
+            .field("value", &"[REDACTED]")
             .field("status", &self.status)
             .field("version", &self.version)
             .field("metadata", &self.metadata)
@@ -68,7 +69,7 @@ impl Secret {
     pub fn new(
         name: impl Into<String>,
         secret_type: SecretType,
-        encrypted_value: impl Into<String>,
+        value: impl Into<String>,
     ) -> Self {
         let name_str = name.into();
         let id = format!(
@@ -81,7 +82,7 @@ impl Secret {
             id,
             name: name_str,
             secret_type,
-            encrypted_value: encrypted_value.into(),
+            value: value.into(),
             status: SecretStatus::Active,
             version: 1,
             metadata: HashMap::new(),
@@ -101,10 +102,14 @@ impl Secret {
         self.metadata.insert(key.into(), value.into());
     }
 
-    pub fn rotate(&mut self, new_encrypted_value: impl Into<String>) {
-        self.encrypted_value = new_encrypted_value.into();
+    pub fn rotate(&mut self, new_value: impl Into<String>) -> anyhow::Result<()> {
+        if self.status == SecretStatus::Revoked {
+            anyhow::bail!("Cannot rotate a revoked secret '{}'", self.name);
+        }
+        self.value = new_value.into();
         self.version += 1;
         self.updated_at = Utc::now();
+        Ok(())
     }
 
     pub fn revoke(&mut self) {
@@ -264,14 +269,14 @@ mod tests {
 
         assert_eq!(secret.name, "db-password");
         assert_eq!(secret.secret_type, SecretType::Password);
-        assert_eq!(secret.encrypted_value, "encrypted-data");
+        assert_eq!(secret.value, "encrypted-data");
         assert_eq!(secret.status, SecretStatus::Active);
         assert_eq!(secret.version, 1);
     }
 
     #[test]
     fn test_secret_with_expiry() {
-        let expiry = Utc::now() + chrono::Duration::days(30);
+        let expiry = Utc::now() + chrono::TimeDelta::days(30);
         let secret =
             Secret::new("api-token", SecretType::APIToken, "enc-token").with_expiry(expiry);
 
@@ -295,9 +300,9 @@ mod tests {
 
         assert_eq!(secret.version, 1);
 
-        secret.rotate("new-value");
+        secret.rotate("new-value").unwrap();
 
-        assert_eq!(secret.encrypted_value, "new-value");
+        assert_eq!(secret.value, "new-value");
         assert_eq!(secret.version, 2);
     }
 
@@ -325,11 +330,11 @@ mod tests {
 
     #[test]
     fn test_secret_is_expired() {
-        let past = Utc::now() - chrono::Duration::days(1);
+        let past = Utc::now() - chrono::TimeDelta::days(1);
         let secret1 = Secret::new("token1", SecretType::APIToken, "data").with_expiry(past);
         assert!(secret1.is_expired());
 
-        let future = Utc::now() + chrono::Duration::days(30);
+        let future = Utc::now() + chrono::TimeDelta::days(30);
         let secret2 = Secret::new("token2", SecretType::APIToken, "data").with_expiry(future);
         assert!(!secret2.is_expired());
 
@@ -346,14 +351,14 @@ mod tests {
         secret2.revoke();
         assert!(!secret2.is_active());
 
-        let past = Utc::now() - chrono::Duration::days(1);
+        let past = Utc::now() - chrono::TimeDelta::days(1);
         let secret3 = Secret::new("token3", SecretType::APIToken, "data").with_expiry(past);
         assert!(!secret3.is_active());
     }
 
     #[test]
     fn test_secret_days_until_expiry() {
-        let future = Utc::now() + chrono::Duration::days(15);
+        let future = Utc::now() + chrono::TimeDelta::days(15);
         let secret = Secret::new("token", SecretType::APIToken, "data").with_expiry(future);
 
         let days = secret.days_until_expiry().unwrap();
@@ -421,8 +426,8 @@ mod tests {
     fn test_manager_expired_secrets() {
         let mut manager = SecretManager::new();
 
-        let past = Utc::now() - chrono::Duration::days(1);
-        let future = Utc::now() + chrono::Duration::days(30);
+        let past = Utc::now() - chrono::TimeDelta::days(1);
+        let future = Utc::now() + chrono::TimeDelta::days(30);
 
         manager.add_secret(Secret::new("s1", SecretType::Password, "enc1").with_expiry(past));
         manager.add_secret(Secret::new("s2", SecretType::Password, "enc2").with_expiry(future));
@@ -435,8 +440,8 @@ mod tests {
     fn test_manager_secrets_expiring_soon() {
         let mut manager = SecretManager::new();
 
-        let soon = Utc::now() + chrono::Duration::days(5);
-        let later = Utc::now() + chrono::Duration::days(60);
+        let soon = Utc::now() + chrono::TimeDelta::days(5);
+        let later = Utc::now() + chrono::TimeDelta::days(60);
 
         manager.add_secret(Secret::new("s1", SecretType::Password, "enc1").with_expiry(soon));
         manager.add_secret(Secret::new("s2", SecretType::Password, "enc2").with_expiry(later));

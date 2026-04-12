@@ -117,7 +117,7 @@ impl DRPlan {
     }
 
     pub fn schedule_next_test(&mut self, days: i64) {
-        self.next_test_date = Some(Utc::now() + chrono::Duration::days(days));
+        self.next_test_date = Some(Utc::now() + chrono::TimeDelta::days(days));
         self.updated_at = Utc::now();
     }
 
@@ -318,7 +318,7 @@ mod tests {
     fn test_plan_overdue() {
         let mut plan = DRPlan::new("Plan", "Test");
 
-        plan.next_test_date = Some(Utc::now() - chrono::Duration::days(1));
+        plan.next_test_date = Some(Utc::now() - chrono::TimeDelta::days(1));
         assert!(plan.is_overdue_for_testing());
     }
 
@@ -429,7 +429,7 @@ mod tests {
         let mut manager = DRPlanManager::new();
 
         let mut plan1 = DRPlan::new("Plan 1", "Test");
-        plan1.next_test_date = Some(Utc::now() - chrono::Duration::days(1));
+        plan1.next_test_date = Some(Utc::now() - chrono::TimeDelta::days(1));
 
         let plan2 = DRPlan::new("Plan 2", "Test");
 

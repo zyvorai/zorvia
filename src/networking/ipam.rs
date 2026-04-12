@@ -254,10 +254,30 @@ impl IPAMManager {
         self.pools.len()
     }
 
-    pub fn add_allocation(&mut self, allocation: IPAllocation) -> String {
+    pub fn add_allocation(&mut self, allocation: IPAllocation) -> anyhow::Result<String> {
+        // Check for duplicate IP in the same pool (skip released/expired allocations)
+        let ip = &allocation.ip_address;
+        for existing in self.allocations.values() {
+            if existing.ip_address == *ip
+                && existing.pool_id == allocation.pool_id
+                && existing.status == AllocationStatus::Allocated
+                && !existing.is_expired()
+            {
+                anyhow::bail!(
+                    "IP address {} is already allocated in pool {}",
+                    ip,
+                    allocation.pool_id
+                );
+            }
+        }
+        let pool_id = allocation.pool_id.clone();
         let id = allocation.id.clone();
         self.allocations.insert(id.clone(), allocation);
-        id
+        // Update pool allocated count
+        if let Some(pool) = self.pools.get_mut(&pool_id) {
+            pool.allocated_count += 1;
+        }
+        Ok(id)
     }
 
     pub fn get_allocation(&self, id: &str) -> Option<&IPAllocation> {
@@ -467,7 +487,7 @@ mod tests {
     #[test]
     fn test_allocation_with_expiry() {
         let ip = IpAddr::V4(Ipv4Addr::new(10, 0, 1, 10));
-        let expiry = Utc::now() + chrono::Duration::hours(24);
+        let expiry = Utc::now() + chrono::TimeDelta::hours(24);
         let allocation = IPAllocation::new("pool-1", ip, "vm-1").with_expiry(expiry);
 
         assert_eq!(allocation.expires_at, Some(expiry));
@@ -498,7 +518,7 @@ mod tests {
         let allocation1 = IPAllocation::new("pool-1", ip, "vm-1");
         assert!(!allocation1.is_expired());
 
-        let past_expiry = Utc::now() - chrono::Duration::hours(1);
+        let past_expiry = Utc::now() - chrono::TimeDelta::hours(1);
         let allocation2 = IPAllocation::new("pool-1", ip, "vm-2").with_expiry(past_expiry);
         assert!(allocation2.is_expired());
     }
@@ -579,10 +599,35 @@ mod tests {
         let ip = IpAddr::V4(Ipv4Addr::new(10, 0, 1, 10));
         let allocation = IPAllocation::new("pool-1", ip, "vm-1");
 
-        let id = manager.add_allocation(allocation);
+        let id = manager.add_allocation(allocation).unwrap();
 
         assert_eq!(manager.allocation_count(), 1);
         assert!(manager.get_allocation(&id).is_some());
+    }
+
+    #[test]
+    fn test_manager_duplicate_allocation() {
+        let mut manager = IPAMManager::new();
+
+        let ip = IpAddr::V4(Ipv4Addr::new(10, 0, 1, 10));
+        let alloc1 = IPAllocation::new("pool-1", ip, "vm-1");
+        let alloc2 = IPAllocation::new("pool-1", ip, "vm-2");
+
+        manager.add_allocation(alloc1).unwrap();
+        assert!(manager.add_allocation(alloc2).is_err());
+    }
+
+    #[test]
+    fn test_manager_same_ip_different_pool() {
+        let mut manager = IPAMManager::new();
+
+        let ip = IpAddr::V4(Ipv4Addr::new(10, 0, 1, 10));
+        let alloc1 = IPAllocation::new("pool-1", ip, "vm-1");
+        let alloc2 = IPAllocation::new("pool-2", ip, "vm-2");
+
+        manager.add_allocation(alloc1).unwrap();
+        manager.add_allocation(alloc2).unwrap();
+        assert_eq!(manager.allocation_count(), 2);
     }
 
     #[test]
@@ -604,9 +649,15 @@ mod tests {
         let ip2 = IpAddr::V4(Ipv4Addr::new(10, 0, 1, 11));
         let ip3 = IpAddr::V4(Ipv4Addr::new(10, 0, 2, 10));
 
-        manager.add_allocation(IPAllocation::new("pool-1", ip1, "vm-1"));
-        manager.add_allocation(IPAllocation::new("pool-2", ip2, "vm-2"));
-        manager.add_allocation(IPAllocation::new("pool-1", ip3, "vm-3"));
+        manager
+            .add_allocation(IPAllocation::new("pool-1", ip1, "vm-1"))
+            .unwrap();
+        manager
+            .add_allocation(IPAllocation::new("pool-2", ip2, "vm-2"))
+            .unwrap();
+        manager
+            .add_allocation(IPAllocation::new("pool-1", ip3, "vm-3"))
+            .unwrap();
 
         let pool1_allocs = manager.allocations_by_pool("pool-1");
         assert_eq!(pool1_allocs.len(), 2);
@@ -619,8 +670,12 @@ mod tests {
         let ip1 = IpAddr::V4(Ipv4Addr::new(10, 0, 1, 10));
         let ip2 = IpAddr::V4(Ipv4Addr::new(10, 0, 1, 11));
 
-        manager.add_allocation(IPAllocation::new("pool-1", ip1, "vm-1"));
-        manager.add_allocation(IPAllocation::new("pool-1", ip2, "vm-1"));
+        manager
+            .add_allocation(IPAllocation::new("pool-1", ip1, "vm-1"))
+            .unwrap();
+        manager
+            .add_allocation(IPAllocation::new("pool-1", ip2, "vm-1"))
+            .unwrap();
 
         let vm1_allocs = manager.allocations_by_owner("vm-1");
         assert_eq!(vm1_allocs.len(), 2);
@@ -636,8 +691,10 @@ mod tests {
         let mut alloc1 = IPAllocation::new("pool-1", ip1, "vm-1");
         alloc1.release();
 
-        manager.add_allocation(alloc1);
-        manager.add_allocation(IPAllocation::new("pool-1", ip2, "vm-2"));
+        manager.add_allocation(alloc1).unwrap();
+        manager
+            .add_allocation(IPAllocation::new("pool-1", ip2, "vm-2"))
+            .unwrap();
 
         let active = manager.active_allocations();
         assert_eq!(active.len(), 1);
@@ -650,10 +707,14 @@ mod tests {
         let ip1 = IpAddr::V4(Ipv4Addr::new(10, 0, 1, 10));
         let ip2 = IpAddr::V4(Ipv4Addr::new(10, 0, 1, 11));
 
-        let past_expiry = Utc::now() - chrono::Duration::hours(1);
+        let past_expiry = Utc::now() - chrono::TimeDelta::hours(1);
 
-        manager.add_allocation(IPAllocation::new("pool-1", ip1, "vm-1").with_expiry(past_expiry));
-        manager.add_allocation(IPAllocation::new("pool-1", ip2, "vm-2"));
+        manager
+            .add_allocation(IPAllocation::new("pool-1", ip1, "vm-1").with_expiry(past_expiry))
+            .unwrap();
+        manager
+            .add_allocation(IPAllocation::new("pool-1", ip2, "vm-2"))
+            .unwrap();
 
         let expired = manager.expired_allocations();
         assert_eq!(expired.len(), 1);

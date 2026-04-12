@@ -67,24 +67,34 @@ spec:
       serviceAccountName: zorvia
       containers:
         - name: zorvia
-          image: ghcr.io/zyvorai/zorvia:latest
-          args: ["api-serve", "--port", "8080"]
+          image: ghcr.io/zyvorai/zorvia:0.2.0
+          args: ["api-serve", "--port", "5151"]
           ports:
-            - containerPort: 8080
+            - containerPort: 5151
               name: http
               protocol: TCP
           livenessProbe:
             httpGet:
-              path: /healthz
+              path: /api/v1/health
               port: http
             initialDelaySeconds: 5
             periodSeconds: 10
           readinessProbe:
             httpGet:
-              path: /readyz
+              path: /api/v1/health
               port: http
             initialDelaySeconds: 3
             periodSeconds: 5
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 65534
+            readOnlyRootFilesystem: true
+            allowPrivilegeEscalation: false
+            seccompProfile:
+              type: RuntimeDefault
+            capabilities:
+              drop:
+                - ALL
           resources:
             requests:
               cpu: 50m
@@ -106,7 +116,7 @@ spec:
     app.kubernetes.io/name: zorvia
     app.kubernetes.io/component: api
   ports:
-    - port: 8080
+    - port: 5151
       targetPort: http
       protocol: TCP
       name: http

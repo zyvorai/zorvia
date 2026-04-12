@@ -20,9 +20,16 @@ impl LogEntry {
             timestamp: Utc::now(),
             level,
             source: source.into(),
-            message: message.into(),
+            message: Self::sanitize_log_message(&message.into()),
             fields: HashMap::new(),
         }
+    }
+
+    /// Sanitize log message by stripping control characters (except newline and tab)
+    fn sanitize_log_message(msg: &str) -> String {
+        msg.chars()
+            .filter(|c| !c.is_control() || *c == '\n' || *c == '\t')
+            .collect()
     }
 
     pub fn with_field(mut self, key: impl Into<String>, value: impl Into<String>) -> Self {
@@ -152,18 +159,23 @@ impl Default for LogQuery {
 
 /// Log aggregator
 pub struct LogAggregator {
-    entries: Vec<LogEntry>,
+    entries: std::collections::VecDeque<LogEntry>,
+    max_entries: usize,
 }
 
 impl LogAggregator {
     pub fn new() -> Self {
         Self {
-            entries: Vec::new(),
+            entries: std::collections::VecDeque::new(),
+            max_entries: 10_000,
         }
     }
 
     pub fn add_entry(&mut self, entry: LogEntry) {
-        self.entries.push(entry);
+        if self.entries.len() >= self.max_entries {
+            self.entries.pop_front();
+        }
+        self.entries.push_back(entry);
     }
 
     pub fn query(&self, query: &LogQuery) -> Vec<&LogEntry> {
@@ -420,14 +432,14 @@ mod tests {
 
         let now = Utc::now();
         let mut old_entry = LogEntry::new(LogLevel::Info, "api", "Old message");
-        old_entry.timestamp = now - chrono::Duration::hours(2);
+        old_entry.timestamp = now - chrono::TimeDelta::hours(2);
 
         aggregator.add_entry(old_entry);
         aggregator.add_entry(LogEntry::new(LogLevel::Info, "api", "Recent message"));
 
         let query = LogQuery::new().with_time_range(
-            now - chrono::Duration::hours(1),
-            now + chrono::Duration::hours(1),
+            now - chrono::TimeDelta::hours(1),
+            now + chrono::TimeDelta::hours(1),
         );
 
         let results = aggregator.query(&query);

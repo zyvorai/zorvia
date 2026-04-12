@@ -68,11 +68,60 @@ impl GitOpsConfig {
 }
 
 /// Git credentials
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Clone, Deserialize)]
 pub enum GitCredentials {
     SSH { private_key_path: String },
     HTTPS { username: String, password: String },
     Token { token: String },
+}
+
+impl std::fmt::Debug for GitCredentials {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            GitCredentials::SSH { .. } => f
+                .debug_struct("SSH")
+                .field("private_key_path", &"[REDACTED]")
+                .finish(),
+            GitCredentials::HTTPS { username, .. } => f
+                .debug_struct("HTTPS")
+                .field("username", username)
+                .field("password", &"[REDACTED]")
+                .finish(),
+            GitCredentials::Token { .. } => f
+                .debug_struct("Token")
+                .field("token", &"[REDACTED]")
+                .finish(),
+        }
+    }
+}
+
+impl Serialize for GitCredentials {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        use serde::ser::SerializeStructVariant;
+        match self {
+            GitCredentials::SSH { .. } => {
+                let mut sv = serializer.serialize_struct_variant("GitCredentials", 0, "SSH", 1)?;
+                sv.serialize_field("private_key_path", "[REDACTED]")?;
+                sv.end()
+            }
+            GitCredentials::HTTPS { username, .. } => {
+                let mut sv =
+                    serializer.serialize_struct_variant("GitCredentials", 1, "HTTPS", 2)?;
+                sv.serialize_field("username", username)?;
+                sv.serialize_field("password", "[REDACTED]")?;
+                sv.end()
+            }
+            GitCredentials::Token { .. } => {
+                let mut sv =
+                    serializer.serialize_struct_variant("GitCredentials", 2, "Token", 1)?;
+                sv.serialize_field("token", "[REDACTED]")?;
+                sv.end()
+            }
+        }
+    }
 }
 
 /// GitOps application

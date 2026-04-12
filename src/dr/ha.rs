@@ -77,8 +77,15 @@ impl HAConfig {
     }
 
     pub fn with_replicas(mut self, min: u32, max: u32) -> Self {
-        self.min_replicas = min;
-        self.max_replicas = max;
+        // Ensure min <= max to prevent invalid configurations
+        if min > max {
+            log::warn!("HA config: min_replicas ({}) > max_replicas ({}), swapping values", min, max);
+            self.min_replicas = max;
+            self.max_replicas = min;
+        } else {
+            self.min_replicas = min;
+            self.max_replicas = max;
+        }
         self
     }
 
@@ -212,6 +219,12 @@ impl HAGroup {
     }
 
     pub fn add_member(&mut self, member: HAMember) {
+        if member.is_primary {
+            // Demote any existing primaries to prevent multiple primaries
+            for m in &mut self.members {
+                m.is_primary = false;
+            }
+        }
         self.members.push(member);
     }
 
@@ -227,6 +240,20 @@ impl HAGroup {
 
     pub fn healthy_members(&self) -> Vec<&HAMember> {
         self.members.iter().filter(|m| m.is_healthy()).collect()
+    }
+
+    pub fn promote_to_primary(&mut self, member_id: &str) -> bool {
+        // Demote all existing primaries first
+        for m in &mut self.members {
+            m.is_primary = false;
+        }
+        // Promote the target member
+        if let Some(member) = self.members.iter_mut().find(|m| m.id == member_id) {
+            member.is_primary = true;
+            true
+        } else {
+            false
+        }
     }
 
     pub fn primary_member(&self) -> Option<&HAMember> {

@@ -195,6 +195,7 @@ pub struct TrafficAnalyzer {
     interface_name: String,
     flows: HashMap<String, TrafficFlow>,
     flow_timeout_secs: i64,
+    max_flows: usize,
 }
 
 impl TrafficAnalyzer {
@@ -203,6 +204,7 @@ impl TrafficAnalyzer {
             interface_name: interface_name.into(),
             flows: HashMap::new(),
             flow_timeout_secs: 300, // 5 minutes
+            max_flows: 100_000,
         }
     }
 
@@ -220,6 +222,19 @@ impl TrafficAnalyzer {
             existing.packets += flow.packets;
             existing.last_seen = flow.last_seen;
         } else {
+            // Evict expired flows if at capacity before inserting
+            if self.flows.len() >= self.max_flows {
+                self.cleanup_expired_flows();
+            }
+            // If still at capacity after cleanup, remove oldest flow
+            if self.flows.len() >= self.max_flows {
+                if let Some(oldest_key) = self.flows.iter()
+                    .min_by_key(|(_, f)| f.last_seen)
+                    .map(|(k, _)| k.clone())
+                {
+                    self.flows.remove(&oldest_key);
+                }
+            }
             self.flows.insert(key, flow);
         }
     }

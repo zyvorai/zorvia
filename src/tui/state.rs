@@ -20,6 +20,28 @@ pub fn format_elapsed(secs: i64) -> String {
     }
 }
 
+/// Parse an age string like "5d3h10m2s" into total seconds for numeric comparison
+fn parse_age_to_seconds(age: &str) -> u64 {
+    let mut total = 0u64;
+    let mut num = String::new();
+    for c in age.chars() {
+        if c.is_ascii_digit() {
+            num.push(c);
+        } else {
+            let n: u64 = num.parse().unwrap_or(0);
+            match c {
+                'd' => total += n * 86400,
+                'h' => total += n * 3600,
+                'm' => total += n * 60,
+                's' => total += n,
+                _ => {}
+            }
+            num.clear();
+        }
+    }
+    total
+}
+
 /// Activity event recorded from real VM operations and status changes
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ActivityEvent {
@@ -472,8 +494,12 @@ impl AppState {
             SortMode::NameDesc => self.vms.sort_by(|a, b| b.name.cmp(&a.name)),
             SortMode::StatusAsc => self.vms.sort_by(|a, b| a.status.cmp(&b.status)),
             SortMode::StatusDesc => self.vms.sort_by(|a, b| b.status.cmp(&a.status)),
-            SortMode::AgeAsc => self.vms.sort_by(|a, b| a.age.cmp(&b.age)),
-            SortMode::AgeDesc => self.vms.sort_by(|a, b| b.age.cmp(&a.age)),
+            SortMode::AgeAsc => self.vms.sort_by(|a, b| {
+                parse_age_to_seconds(&a.age).cmp(&parse_age_to_seconds(&b.age))
+            }),
+            SortMode::AgeDesc => self.vms.sort_by(|a, b| {
+                parse_age_to_seconds(&b.age).cmp(&parse_age_to_seconds(&a.age))
+            }),
         }
     }
 
@@ -537,7 +563,8 @@ impl AppState {
         };
         // Reset selection, clamping to filtered list bounds
         let filtered_len = self.filtered_vms().len();
-        self.selected_index = if filtered_len > 0 { 0 } else { 0 };
+        let _ = filtered_len;
+        self.selected_index = 0;
     }
 
     /// Toggle stats bar visibility

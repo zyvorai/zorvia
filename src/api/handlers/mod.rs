@@ -48,6 +48,10 @@ pub mod webhooks;
 pub mod workloads;
 
 /// Build the combined API router from all handler sub-routers.
+///
+/// NOTE: Authentication is NOT applied here. The parent router (see
+/// `http_server::web::build_router`) is responsible for layering the
+/// `auth_middleware` so that all merged routes are protected uniformly.
 #[cfg(feature = "web")]
 pub fn all_routes() -> axum::Router {
     axum::Router::new()

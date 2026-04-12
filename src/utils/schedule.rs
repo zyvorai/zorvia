@@ -18,9 +18,15 @@ pub fn last_day_of_month(year: i32, month: u32) -> u32 {
 pub fn next_hourly(from: DateTime<Utc>, minute: u32) -> DateTime<Utc> {
     let naive = from.naive_utc();
     let clamped = minute.min(59);
-    let mut next = naive.with_minute(clamped).unwrap_or(naive).and_utc();
+    // with_minute cannot fail when clamped is in 0..=59; zero out seconds/nanos
+    let next_naive = naive
+        .with_minute(clamped)
+        .and_then(|t| t.with_second(0))
+        .and_then(|t| t.with_nanosecond(0))
+        .expect("clamped minute 0..=59 and second/nanosecond 0 are always valid");
+    let mut next = next_naive.and_utc();
     if next <= from {
-        next += chrono::Duration::hours(1);
+        next += chrono::TimeDelta::hours(1);
     }
     next
 }
@@ -29,7 +35,7 @@ pub fn next_daily(from: DateTime<Utc>, time: &NaiveTime) -> DateTime<Utc> {
     let date = from.date_naive();
     let mut next = date.and_time(*time).and_utc();
     if next <= from {
-        next += chrono::Duration::days(1);
+        next += chrono::TimeDelta::days(1);
     }
     next
 }
@@ -43,7 +49,7 @@ pub fn next_weekly(from: DateTime<Utc>, weekday: Weekday, time: &NaiveTime) -> D
     }
     let mut next = from;
     loop {
-        next += chrono::Duration::days(1);
+        next += chrono::TimeDelta::days(1);
         if next.naive_utc().weekday() == weekday {
             let date = next.date_naive();
             next = date.and_time(*time).and_utc();
@@ -64,7 +70,7 @@ pub fn next_monthly(from: DateTime<Utc>, day: u32, time: &NaiveTime) -> DateTime
     }
     let mut current = from;
     for _ in 0..60 {
-        current += chrono::Duration::days(1);
+        current += chrono::TimeDelta::days(1);
         if current.naive_utc().day() == day {
             let date = current.date_naive();
             let candidate = date.and_time(*time).and_utc();
@@ -92,7 +98,7 @@ pub fn next_monthly(from: DateTime<Utc>, day: u32, time: &NaiveTime) -> DateTime
         fallback
     } else {
         // Advance one more day to guarantee we're past `from`
-        (current + chrono::Duration::days(1))
+        (current + chrono::TimeDelta::days(1))
             .date_naive()
             .and_time(*time)
             .and_utc()

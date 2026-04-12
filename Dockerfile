@@ -2,11 +2,15 @@
 FROM rust:1.76-slim-bookworm AS builder
 
 WORKDIR /build
-COPY Cargo.toml Cargo.lock ./
-COPY src/ src/
-COPY tests/ tests/
-COPY examples/ examples/
 
+# Cache dependency compilation
+COPY Cargo.toml Cargo.lock ./
+RUN mkdir src && echo "fn main() {}" > src/main.rs && echo "" > src/lib.rs \
+    && cargo build --release --locked 2>/dev/null || true \
+    && rm -rf src
+
+# Build actual source
+COPY src/ src/
 RUN cargo build --release --locked && strip target/release/zorvia
 
 # Runtime image
@@ -18,8 +22,11 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 COPY --from=builder /build/target/release/zorvia /usr/local/bin/zorvia
 
-RUN useradd -m zorvia
+RUN useradd -u 10001 -m zorvia
 USER zorvia
 
+# Health checking is handled by Kubernetes probes (livenessProbe/readinessProbe)
+# targeting /api/v1/health on the running server.
+
 ENTRYPOINT ["zorvia"]
-CMD ["--help"]
+CMD ["api-serve"]

@@ -95,12 +95,40 @@ impl RestoreManager {
         Ok(self.restore_to_info(created))
     }
 
+    /// Check if a VM is currently running by looking for a VirtualMachineInstance
+    async fn is_vm_running(&self, namespace: &str, vm_name: &str) -> Result<bool> {
+        let vmi_resource = kube::api::ApiResource {
+            group: "kubevirt.io".to_string(),
+            version: "v1".to_string(),
+            api_version: "kubevirt.io/v1".to_string(),
+            kind: "VirtualMachineInstance".to_string(),
+            plural: "virtualmachineinstances".to_string(),
+        };
+
+        let vmi_api: Api<kube::core::DynamicObject> =
+            Api::namespaced_with(self.client.clone(), namespace, &vmi_resource);
+
+        match vmi_api.get(vm_name).await {
+            Ok(_) => Ok(true),
+            Err(kube::Error::Api(err)) if err.code == 404 => Ok(false),
+            Err(e) => Err(anyhow::anyhow!("Failed to check VM running status: {}", e)),
+        }
+    }
+
     /// Restore VM from snapshot in-place (overwrites current VM)
     pub async fn restore_in_place(
         &self,
         vm_name: &str,
         snapshot_name: &str,
     ) -> Result<RestoreInfo> {
+        // Verify VM is not running before in-place restore
+        if let Ok(true) = self.is_vm_running(&self.namespace, vm_name).await {
+            return Err(anyhow::anyhow!(
+                "Cannot restore in-place: VM '{}' is currently running. Stop the VM first.",
+                vm_name
+            ));
+        }
+
         // In-place restore uses the same VM name as target
         self.restore_to_new_vm(snapshot_name, vm_name, false).await
     }

@@ -96,7 +96,18 @@ impl ResourceForecaster {
         let sum_xy: f64 = history.iter().enumerate().map(|(i, v)| i as f64 * v).sum();
         let sum_x2: f64 = (0..history.len()).map(|i| (i as f64).powi(2)).sum();
 
-        let slope = (n * sum_xy - sum_x * sum_y) / (n * sum_x2 - sum_x.powi(2));
+        let denominator = n * sum_x2 - sum_x.powi(2);
+        if denominator.abs() < f64::EPSILON {
+            // Degenerate case: all x values are the same; return flat prediction
+            return ResourcePrediction {
+                current_value: current,
+                predicted_values: Vec::new(),
+                trend: Trend::Stable,
+                model: self.config.model.clone(),
+                confidence: 0.0,
+            };
+        }
+        let slope = (n * sum_xy - sum_x * sum_y) / denominator;
         let intercept = (sum_y - slope * sum_x) / n;
 
         let trend = if slope > 0.01 { Trend::Increasing }
@@ -108,7 +119,7 @@ impl ResourceForecaster {
             let val = (intercept + slope * x).max(0.0);
             let margin = val * (1.0 - self.config.confidence_level) * 2.0;
             PredictionPoint {
-                timestamp: Utc::now() + chrono::Duration::hours(h),
+                timestamp: Utc::now() + chrono::TimeDelta::hours(h),
                 value: val, lower_bound: (val - margin).max(0.0), upper_bound: val + margin,
             }
         }).collect();

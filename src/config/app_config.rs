@@ -148,9 +148,7 @@ impl AppConfig {
         if other.api.host != defaults.api.host {
             self.api.host = other.api.host;
         }
-        if other.api.tls {
-            self.api.tls = true;
-        }
+        self.api.tls = other.api.tls;
         if other.api.tls_cert.is_some() {
             self.api.tls_cert = other.api.tls_cert;
         }
@@ -177,23 +175,15 @@ impl AppConfig {
         if other.output.format != defaults.output.format {
             self.output.format = other.output.format;
         }
-        if !other.output.color {
-            self.output.color = false;
-        }
-        if other.output.timestamps {
-            self.output.timestamps = true;
-        }
+        self.output.color = other.output.color;
+        self.output.timestamps = other.output.timestamps;
 
         // TUI
         if other.tui.refresh_interval != defaults.tui.refresh_interval {
             self.tui.refresh_interval = other.tui.refresh_interval;
         }
-        if other.tui.interactive {
-            self.tui.interactive = true;
-        }
-        if !other.tui.splash {
-            self.tui.splash = false;
-        }
+        self.tui.interactive = other.tui.interactive;
+        self.tui.splash = other.tui.splash;
     }
 
     /// Generate default configuration file content
@@ -270,7 +260,7 @@ impl Default for ApiServerConfig {
     fn default() -> Self {
         Self {
             port: 8080,
-            host: "0.0.0.0".to_string(),
+            host: "127.0.0.1".to_string(),
             tls: false,
             tls_cert: None,
             tls_key: None,
@@ -340,7 +330,7 @@ mod tests {
         let config = AppConfig::default();
         assert_eq!(config.namespace, "default");
         assert_eq!(config.api.port, 8080);
-        assert_eq!(config.api.host, "0.0.0.0");
+        assert_eq!(config.api.host, "127.0.0.1");
         assert!(!config.api.tls);
         assert_eq!(config.api.auth, "none");
         assert_eq!(config.api.rate_limit, 60);
@@ -375,7 +365,7 @@ mod tests {
         assert_eq!(config.namespace, "production");
         assert_eq!(config.api.port, 9090);
         // Defaults should be preserved for unspecified fields
-        assert_eq!(config.api.host, "0.0.0.0");
+        assert_eq!(config.api.host, "127.0.0.1");
         assert_eq!(config.logging.level, "info");
     }
 
@@ -517,7 +507,7 @@ mod tests {
         assert_eq!(base.namespace, "production");
         assert_eq!(base.api.port, 443);
         assert_eq!(base.api.auth, "bearer");
-        assert_eq!(base.api.host, "0.0.0.0"); // kept from default
+        assert_eq!(base.api.host, "127.0.0.1"); // kept from default
         assert_eq!(base.logging.level, "debug");
     }
 

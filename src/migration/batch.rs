@@ -56,15 +56,41 @@ impl BatchMigration {
 
     pub fn add_item(&mut self, item: BatchItem) { self.items.push(item); }
 
-    pub fn start(&mut self) { self.status = BatchStatus::InProgress; self.started_at = Some(Utc::now()); }
+    /// Transition from Planning to Ready status
+    pub fn mark_ready(&mut self) -> anyhow::Result<()> {
+        if self.status != BatchStatus::Planning {
+            anyhow::bail!("Batch must be in Planning status to mark ready, currently: {:?}", self.status);
+        }
+        if self.items.is_empty() {
+            anyhow::bail!("Cannot mark batch as ready with no items");
+        }
+        self.status = BatchStatus::Ready;
+        Ok(())
+    }
+
+    pub fn start(&mut self) -> anyhow::Result<()> {
+        if self.items.is_empty() {
+            anyhow::bail!("Cannot start batch migration with no items");
+        }
+        if self.status != BatchStatus::Ready {
+            anyhow::bail!("Batch must be in Ready status to start, currently: {:?}", self.status);
+        }
+        self.status = BatchStatus::InProgress;
+        self.started_at = Some(Utc::now());
+        Ok(())
+    }
 
     pub fn complete(&mut self) {
-        let all_done = self.items.iter().all(|i| matches!(i.status, ItemStatus::Completed | ItemStatus::Failed | ItemStatus::Skipped));
-        if all_done {
-            let any_failed = self.items.iter().any(|i| i.status == ItemStatus::Failed);
-            self.status = if any_failed { BatchStatus::PartiallyCompleted } else { BatchStatus::Completed };
-            self.completed_at = Some(Utc::now());
-        }
+        let success = self.items.iter().filter(|i| i.status == ItemStatus::Completed).count();
+        let total = self.items.len();
+        self.status = if success == total {
+            BatchStatus::Completed
+        } else if success == 0 {
+            BatchStatus::Failed
+        } else {
+            BatchStatus::PartiallyCompleted
+        };
+        self.completed_at = Some(Utc::now());
     }
 
     pub fn cancel(&mut self) { self.status = BatchStatus::Cancelled; self.completed_at = Some(Utc::now()); }

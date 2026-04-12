@@ -97,8 +97,23 @@ impl SnapshotManager {
         Ok(self.snapshot_to_info(created))
     }
 
+    /// Validate a Kubernetes label value
+    fn validate_label_value(value: &str) -> Result<()> {
+        if value.len() > 63 {
+            anyhow::bail!("Label value must be 63 characters or less");
+        }
+        static RE: once_cell::sync::Lazy<regex::Regex> =
+            once_cell::sync::Lazy::new(|| regex::Regex::new(r"^[a-zA-Z0-9]([a-zA-Z0-9._-]*[a-zA-Z0-9])?$").unwrap());
+        if !value.is_empty() && !RE.is_match(value) {
+            anyhow::bail!("Invalid label value: {}", value);
+        }
+        Ok(())
+    }
+
     /// List all snapshots for a VM
     pub async fn list_snapshots_for_vm(&self, vm_name: &str) -> Result<Vec<SnapshotInfo>> {
+        Self::validate_label_value(vm_name)?;
+
         let snapshots: Api<VirtualMachineSnapshot> =
             Api::namespaced(self.client.clone(), &self.namespace);
 

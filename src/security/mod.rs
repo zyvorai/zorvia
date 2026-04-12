@@ -313,7 +313,18 @@ impl ComplianceFramework {
     }
 
     pub fn with_results(mut self, total: usize, passed: usize, failed: usize) -> Self {
-        self.total_controls = total;
+        if passed + failed > total {
+            log::warn!(
+                "ComplianceFramework '{}': passed ({}) + failed ({}) exceeds total ({}); clamping",
+                self.name,
+                passed,
+                failed,
+                total
+            );
+            self.total_controls = passed + failed;
+        } else {
+            self.total_controls = total;
+        }
         self.passed_controls = passed;
         self.failed_controls = failed;
         self.compliant = failed == 0;

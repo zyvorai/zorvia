@@ -226,20 +226,28 @@ impl std::fmt::Display for VolumeBindingMode {
 /// Parse a storage size string (e.g., "10Gi", "500Mi") to bytes
 pub fn parse_size_to_bytes(size: &str) -> Option<u64> {
     let size = size.trim();
-    if let Some(num) = size.strip_suffix("Ti") {
-        num.parse::<u64>()
+    if let Some(num) = size.strip_suffix("Ei") {
+        num.parse::<f64>()
             .ok()
-            .and_then(|v| v.checked_mul(1024 * 1024 * 1024 * 1024))
+            .map(|v| (v * 1024.0 * 1024.0 * 1024.0 * 1024.0 * 1024.0 * 1024.0) as u64)
+    } else if let Some(num) = size.strip_suffix("Pi") {
+        num.parse::<f64>()
+            .ok()
+            .map(|v| (v * 1024.0 * 1024.0 * 1024.0 * 1024.0 * 1024.0) as u64)
+    } else if let Some(num) = size.strip_suffix("Ti") {
+        num.parse::<f64>()
+            .ok()
+            .map(|v| (v * 1024.0 * 1024.0 * 1024.0 * 1024.0) as u64)
     } else if let Some(num) = size.strip_suffix("Gi") {
-        num.parse::<u64>()
+        num.parse::<f64>()
             .ok()
-            .and_then(|v| v.checked_mul(1024 * 1024 * 1024))
+            .map(|v| (v * 1024.0 * 1024.0 * 1024.0) as u64)
     } else if let Some(num) = size.strip_suffix("Mi") {
-        num.parse::<u64>()
+        num.parse::<f64>()
             .ok()
-            .and_then(|v| v.checked_mul(1024 * 1024))
+            .map(|v| (v * 1024.0 * 1024.0) as u64)
     } else if let Some(num) = size.strip_suffix("Ki") {
-        num.parse::<u64>().ok().and_then(|v| v.checked_mul(1024))
+        num.parse::<f64>().ok().map(|v| (v * 1024.0) as u64)
     } else {
         size.parse::<u64>().ok()
     }

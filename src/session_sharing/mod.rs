@@ -74,7 +74,7 @@ impl SessionManager {
                 role: ParticipantRole::Owner, joined_at: Utc::now(), last_active: Utc::now() }],
             permissions: SessionPermissions { can_modify: true, can_execute_actions: true, can_invite: true, max_participants: 10 },
             status: SessionStatus::Active, created_at: Utc::now(),
-            expires_at: Some(Utc::now() + chrono::Duration::hours(self.config.default_expiry_hours as i64)),
+            expires_at: Some(Utc::now() + chrono::TimeDelta::hours(self.config.default_expiry_hours as i64)),
             namespace: namespace.to_string(), view_state: String::new(),
         };
         self.sessions.push(session);

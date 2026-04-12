@@ -377,8 +377,8 @@ async fn list_rdp_sessions() -> Json<Vec<RdpSessionResponse>> {
 #[cfg(feature = "web")]
 async fn create_rdp_session(Json(req): Json<CreateRdpSessionRequest>) -> Json<serde_json::Value> {
     let session_id = format!("rdp-{}", chrono::Utc::now().timestamp_micros());
-    let width = req.width.unwrap_or(1920);
-    let height = req.height.unwrap_or(1080);
+    let width = req.width.unwrap_or(1920).clamp(320, 7680);
+    let height = req.height.unwrap_or(1080).clamp(240, 4320);
 
     let session = RdpSessionResponse {
         session_id: session_id.clone(),
@@ -389,7 +389,10 @@ async fn create_rdp_session(Json(req): Json<CreateRdpSessionRequest>) -> Json<se
         state: RdpSessionState::Pending,
         websocket_url: format!("/api/v1/ws/rdp/{}", session_id),
         resolution: format!("{}x{}", width, height),
-        color_depth: req.color_depth.unwrap_or(32),
+        color_depth: match req.color_depth.unwrap_or(32) {
+            8 | 16 | 24 | 32 => req.color_depth.unwrap_or(32),
+            _ => 32, // Default to 32-bit for invalid values
+        },
         security: req.security.unwrap_or_default(),
         username: req.username,
         domain: req.domain,

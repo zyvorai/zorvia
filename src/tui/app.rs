@@ -42,6 +42,9 @@ pub struct App {
 
     /// Currently selected detail tab index
     pub detail_tab: usize,
+
+    /// Pending delete confirmation: holds the index of the VM to delete
+    pub pending_delete: Option<usize>,
 }
 
 impl App {
@@ -58,6 +61,7 @@ impl App {
             error_message: None,
             success_message: None,
             detail_tab: 0,
+            pending_delete: None,
         })
     }
 
@@ -73,6 +77,7 @@ impl App {
             error_message: None,
             success_message: None,
             detail_tab: 0,
+            pending_delete: None,
         }
     }
 
@@ -182,6 +187,20 @@ impl App {
         self.error_message = None;
         self.success_message = None;
 
+        // Clear pending delete if navigating away from current view
+        if matches!(
+            key.code,
+            KeyCode::Char('1')
+                | KeyCode::Char('2')
+                | KeyCode::Char('3')
+                | KeyCode::Char('4')
+                | KeyCode::Char('5')
+                | KeyCode::Char('6')
+                | KeyCode::Char('?')
+        ) {
+            self.pending_delete = None;
+        }
+
         // Global keybindings (work in all views)
         match key.code {
             KeyCode::Char('q') | KeyCode::Esc => {
@@ -238,6 +257,31 @@ impl App {
 
     /// Handle VM list view keys
     async fn handle_vm_list_key(&mut self, key: KeyEvent) -> Result<()> {
+        // If a delete confirmation is pending, handle it first
+        if let Some(idx) = self.pending_delete {
+            match key.code {
+                KeyCode::Char('y') => {
+                    // Confirmed: perform the delete
+                    let vm_name = self
+                        .state
+                        .filtered_vms()
+                        .get(idx)
+                        .map(|vm| vm.name.clone());
+                    self.pending_delete = None;
+                    if let Some(name) = vm_name {
+                        self.delete_vm(&name).await?;
+                    }
+                }
+                _ => {
+                    // Any other key cancels
+                    self.pending_delete = None;
+                    self.error_message = None;
+                    self.success_message = Some("Delete cancelled".to_string());
+                }
+            }
+            return Ok(());
+        }
+
         match key.code {
             KeyCode::Up | KeyCode::Char('k') => {
                 self.state.select_previous();
@@ -261,9 +305,14 @@ impl App {
                 }
             }
             KeyCode::Char('d') => {
-                if let Some(vm) = self.state.selected_vm() {
+                let selected_index = self.state.selected_index;
+                if let Some(vm) = self.state.filtered_vms().get(selected_index) {
                     let vm_name = vm.name.clone();
-                    self.delete_vm(&vm_name).await?;
+                    self.pending_delete = Some(selected_index);
+                    self.error_message = Some(format!(
+                        "Press 'y' to confirm delete of VM '{}', any other key to cancel",
+                        vm_name
+                    ));
                 }
             }
             _ => {}

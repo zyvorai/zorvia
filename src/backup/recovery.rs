@@ -227,13 +227,12 @@ impl PointInTimeRecovery {
         }
     }
 
-    /// Find closest backup to target time
+    /// Find closest backup at or before target time (for point-in-time recovery)
     pub fn find_closest_backup(&self) -> Option<&BackupInfo> {
-        self.available_backups.iter().min_by_key(|b| {
-            (b.created_at.signed_duration_since(self.target_time))
-                .num_seconds()
-                .abs()
-        })
+        self.available_backups
+            .iter()
+            .filter(|b| b.created_at <= self.target_time)
+            .max_by_key(|b| b.created_at)
     }
 
     /// Find backup immediately before target time
@@ -257,7 +256,7 @@ pub struct BackupInfo {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use chrono::Duration;
+    use chrono::TimeDelta as Duration;
 
     #[test]
     fn test_recovery_plan() {

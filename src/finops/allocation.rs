@@ -337,7 +337,7 @@ mod tests {
     #[test]
     fn test_allocation_with_period() {
         let start = Utc::now();
-        let end = start + chrono::Duration::days(30);
+        let end = start + chrono::TimeDelta::days(30);
 
         let allocation = CostAllocation::new("cc-1", "vm-1", 100.0, AllocationMethod::UsageBased)
             .with_period(start, end);
@@ -363,7 +363,7 @@ mod tests {
     #[test]
     fn test_showback_entry() {
         let start = Utc::now();
-        let end = start + chrono::Duration::days(30);
+        let end = start + chrono::TimeDelta::days(30);
 
         let entry = ShowbackEntry::new("cc-eng", "Engineering", start, end);
 
@@ -375,7 +375,7 @@ mod tests {
     #[test]
     fn test_showback_add_cost() {
         let start = Utc::now();
-        let end = start + chrono::Duration::days(30);
+        let end = start + chrono::TimeDelta::days(30);
 
         let mut entry = ShowbackEntry::new("cc-eng", "Engineering", start, end);
 
@@ -391,7 +391,7 @@ mod tests {
     #[test]
     fn test_showback_resource_count() {
         let start = Utc::now();
-        let end = start + chrono::Duration::days(30);
+        let end = start + chrono::TimeDelta::days(30);
 
         let mut entry = ShowbackEntry::new("cc-eng", "Engineering", start, end);
 
@@ -524,8 +524,8 @@ mod tests {
         let mut manager = AllocationManager::new();
 
         let start = Utc::now();
-        let mid = start + chrono::Duration::days(15);
-        let end = start + chrono::Duration::days(30);
+        let mid = start + chrono::TimeDelta::days(15);
+        let end = start + chrono::TimeDelta::days(30);
 
         let alloc1 = CostAllocation::new("cc-eng", "vm-1", 100.0, AllocationMethod::DirectTag)
             .with_period(start, mid);

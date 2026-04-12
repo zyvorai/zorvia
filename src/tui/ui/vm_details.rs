@@ -10,7 +10,7 @@ use ratatui::{
     Frame,
 };
 
-const TAB_NAMES: [&str; 3] = ["Overview", "Network", "Events"];
+pub const TAB_NAMES: [&str; 3] = ["Overview", "Network", "Events"];
 
 pub fn render(f: &mut Frame, state: &AppState, _config: &TuiConfig, active_tab: usize) {
     let size = f.area();

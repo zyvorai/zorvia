@@ -203,6 +203,8 @@ impl HAManager {
     }
 
     pub fn add_config(&mut self, config: HAConfig) {
+        // Remove any existing config for the same VM to prevent duplicates
+        self.configs.retain(|c| c.vm_name != config.vm_name);
         self.configs.push(config);
     }
 

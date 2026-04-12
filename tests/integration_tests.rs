@@ -146,6 +146,10 @@ fn test_all_disk_types_conversion() {
         storage_class: Some("fast-ssd".to_string()),
         boot_order: 1,
         source: DiskSource::Blank,
+        device_type: zorvia::config::DiskDeviceType::default(),
+        bus: None,
+        cache: None,
+        io: None,
     });
 
     config.disks.push(zorvia::config::DiskConfig {
@@ -156,6 +160,10 @@ fn test_all_disk_types_conversion() {
         source: DiskSource::PVC {
             name: "existing-pvc".to_string(),
         },
+        device_type: zorvia::config::DiskDeviceType::default(),
+        bus: None,
+        cache: None,
+        io: None,
     });
 
     config.disks.push(zorvia::config::DiskConfig {
@@ -166,6 +174,10 @@ fn test_all_disk_types_conversion() {
         source: DiskSource::ContainerDisk {
             image: "registry.io/os:latest".to_string(),
         },
+        device_type: zorvia::config::DiskDeviceType::default(),
+        bus: None,
+        cache: None,
+        io: None,
     });
 
     config.disks.push(zorvia::config::DiskConfig {
@@ -176,6 +188,10 @@ fn test_all_disk_types_conversion() {
         source: DiskSource::DataVolume {
             name: "my-datavolume".to_string(),
         },
+        device_type: zorvia::config::DiskDeviceType::default(),
+        bus: None,
+        cache: None,
+        io: None,
     });
 
     config.interfaces.push(zorvia::config::InterfaceConfig {
@@ -183,6 +199,7 @@ fn test_all_disk_types_conversion() {
         network: "default".to_string(),
         model: "virtio".to_string(),
         network_type: NetworkType::Pod,
+        mac_address: None,
     });
 
     let vm = vm_config_to_kubevirt(&config).unwrap();
@@ -222,6 +239,7 @@ fn test_network_types_conversion() {
         network: "default".to_string(),
         model: "virtio".to_string(),
         network_type: NetworkType::Pod,
+        mac_address: None,
     });
 
     config.interfaces.push(zorvia::config::InterfaceConfig {
@@ -229,6 +247,7 @@ fn test_network_types_conversion() {
         network: "br0".to_string(),
         model: "e1000".to_string(),
         network_type: NetworkType::Bridge,
+        mac_address: None,
     });
 
     config.interfaces.push(zorvia::config::InterfaceConfig {
@@ -238,6 +257,7 @@ fn test_network_types_conversion() {
         network_type: NetworkType::Multus {
             name: "nad-data-network".to_string(),
         },
+        mac_address: None,
     });
 
     let vm = vm_config_to_kubevirt(&config).unwrap();
@@ -610,6 +630,10 @@ fn test_multi_disk_vm_with_all_types() {
         source: DiskSource::PVC {
             name: "existing-pvc".to_string(),
         },
+        device_type: zorvia::config::DiskDeviceType::default(),
+        bus: None,
+        cache: None,
+        io: None,
     });
 
     config.disks.push(zorvia::config::DiskConfig {
@@ -620,6 +644,10 @@ fn test_multi_disk_vm_with_all_types() {
         source: DiskSource::DataVolume {
             name: "my-dv".to_string(),
         },
+        device_type: zorvia::config::DiskDeviceType::default(),
+        bus: None,
+        cache: None,
+        io: None,
     });
 
     validate_vm_config(&config).unwrap();
@@ -1097,10 +1125,10 @@ fn test_zorvia_error_display() {
     use zorvia::ZorviaError;
 
     let not_found = ZorviaError::VmNotFound("my-vm".to_string());
-    assert_eq!(not_found.to_string(), "VM not found: my-vm");
+    assert_eq!(not_found.to_string(), "VM 'my-vm' not found");
 
     let exists = ZorviaError::VmExists("my-vm".to_string());
-    assert_eq!(exists.to_string(), "VM already exists: my-vm");
+    assert_eq!(exists.to_string(), "VM 'my-vm' already exists");
 }
 
 // ========== BUILDER EDGE CASES ==========

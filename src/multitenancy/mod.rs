@@ -107,7 +107,10 @@ impl Group {
     }
 
     pub fn add_role(&mut self, role: impl Into<String>) {
-        self.roles.push(role.into());
+        let role = role.into();
+        if !self.roles.contains(&role) {
+            self.roles.push(role);
+        }
     }
 
     pub fn has_member(&self, user_id: &str) -> bool {

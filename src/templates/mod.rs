@@ -2,6 +2,82 @@ use crate::config::*;
 use once_cell::sync::Lazy;
 use std::collections::HashMap;
 
+// ============================================================================
+// Shared feature/firmware/clock presets
+// ============================================================================
+
+/// Windows HyperV enlightenments for optimal performance
+fn windows_features() -> FeaturesConfig {
+    FeaturesConfig {
+        acpi: true,
+        apic: true,
+        hyperv: Some(HyperVConfig {
+            relaxed: true,
+            vapic: true,
+            spinlocks: Some(8191),
+            vpindex: true,
+            runtime: true,
+            synic: true,
+            stimer: true,
+            reset: true,
+            frequencies: true,
+            reenlightenment: true,
+            tlbflush: true,
+            ipi: true,
+        }),
+        kvm_hidden: None,
+        smm: Some(true),
+    }
+}
+
+/// UEFI firmware with Secure Boot (required for Windows 11)
+fn uefi_secure_boot_firmware() -> FirmwareConfig {
+    FirmwareConfig {
+        bootloader: BootloaderType::EFI {
+            secure_boot: true,
+            persistent: true,
+        },
+    }
+}
+
+/// UEFI firmware without Secure Boot
+fn uefi_firmware() -> FirmwareConfig {
+    FirmwareConfig {
+        bootloader: BootloaderType::EFI {
+            secure_boot: false,
+            persistent: true,
+        },
+    }
+}
+
+/// Windows clock configuration with HyperV timer
+fn windows_clock() -> ClockConfig {
+    ClockConfig {
+        utc: true,
+        timezone: None,
+        timers: Some(TimersConfig {
+            hpet_present: Some(false),
+            pit_tick_policy: Some("delay".to_string()),
+            rtc_tick_policy: Some("catchup".to_string()),
+            hyperv_present: Some(true),
+        }),
+    }
+}
+
+/// Linux clock configuration
+fn linux_clock() -> ClockConfig {
+    ClockConfig {
+        utc: true,
+        timezone: None,
+        timers: Some(TimersConfig {
+            hpet_present: Some(false),
+            pit_tick_policy: Some("delay".to_string()),
+            rtc_tick_policy: Some("catchup".to_string()),
+            hyperv_present: None,
+        }),
+    }
+}
+
 pub static TEMPLATES: Lazy<TemplateManager> = Lazy::new(TemplateManager::new);
 
 /// Manages VM templates
@@ -181,6 +257,8 @@ fn ubuntu_2404_template() -> VMConfig {
         .label("os", "ubuntu")
         .label("os.version", "24.04")
         .cloud_init(default_ubuntu_cloud_init())
+        .enable_rng()
+        .clock(linux_clock())
         .build()
 }
 
@@ -195,6 +273,8 @@ fn ubuntu_2204_template() -> VMConfig {
         .label("os", "ubuntu")
         .label("os.version", "22.04")
         .cloud_init(default_ubuntu_cloud_init())
+        .enable_rng()
+        .clock(linux_clock())
         .build()
 }
 
@@ -209,6 +289,8 @@ fn ubuntu_2004_template() -> VMConfig {
         .label("os", "ubuntu")
         .label("os.version", "20.04")
         .cloud_init(default_ubuntu_cloud_init())
+        .enable_rng()
+        .clock(linux_clock())
         .build()
 }
 
@@ -223,6 +305,8 @@ fn ubuntu_1804_template() -> VMConfig {
         .label("os", "ubuntu")
         .label("os.version", "18.04")
         .cloud_init(default_ubuntu_cloud_init())
+        .enable_rng()
+        .clock(linux_clock())
         .build()
 }
 
@@ -241,6 +325,8 @@ fn fedora_41_template() -> VMConfig {
         .label("os", "fedora")
         .label("os.version", "41")
         .cloud_init(default_cloud_init())
+        .enable_rng()
+        .clock(linux_clock())
         .build()
 }
 
@@ -255,6 +341,8 @@ fn fedora_40_template() -> VMConfig {
         .label("os", "fedora")
         .label("os.version", "40")
         .cloud_init(default_cloud_init())
+        .enable_rng()
+        .clock(linux_clock())
         .build()
 }
 
@@ -269,6 +357,8 @@ fn fedora_39_template() -> VMConfig {
         .label("os", "fedora")
         .label("os.version", "39")
         .cloud_init(default_cloud_init())
+        .enable_rng()
+        .clock(linux_clock())
         .build()
 }
 
@@ -287,6 +377,8 @@ fn centos_stream9_template() -> VMConfig {
         .label("os", "centos")
         .label("os.version", "stream9")
         .cloud_init(default_cloud_init())
+        .enable_rng()
+        .clock(linux_clock())
         .build()
 }
 
@@ -301,6 +393,8 @@ fn centos_stream8_template() -> VMConfig {
         .label("os", "centos")
         .label("os.version", "stream8")
         .cloud_init(default_cloud_init())
+        .enable_rng()
+        .clock(linux_clock())
         .build()
 }
 
@@ -319,6 +413,8 @@ fn debian_12_template() -> VMConfig {
         .label("os", "debian")
         .label("os.version", "12")
         .cloud_init(default_cloud_init())
+        .enable_rng()
+        .clock(linux_clock())
         .build()
 }
 
@@ -333,6 +429,8 @@ fn debian_11_template() -> VMConfig {
         .label("os", "debian")
         .label("os.version", "11")
         .cloud_init(default_cloud_init())
+        .enable_rng()
+        .clock(linux_clock())
         .build()
 }
 
@@ -350,6 +448,8 @@ fn rhel_9_template() -> VMConfig {
         .label("os", "rhel")
         .label("os.version", "9")
         .cloud_init(default_cloud_init())
+        .enable_rng()
+        .clock(linux_clock())
         .build()
 }
 
@@ -363,6 +463,8 @@ fn rhel_8_template() -> VMConfig {
         .label("os", "rhel")
         .label("os.version", "8")
         .cloud_init(default_cloud_init())
+        .enable_rng()
+        .clock(linux_clock())
         .build()
 }
 
@@ -381,6 +483,8 @@ fn almalinux_9_template() -> VMConfig {
         .label("os", "almalinux")
         .label("os.version", "9")
         .cloud_init(default_cloud_init())
+        .enable_rng()
+        .clock(linux_clock())
         .build()
 }
 
@@ -395,6 +499,8 @@ fn almalinux_8_template() -> VMConfig {
         .label("os", "almalinux")
         .label("os.version", "8")
         .cloud_init(default_cloud_init())
+        .enable_rng()
+        .clock(linux_clock())
         .build()
 }
 
@@ -413,6 +519,8 @@ fn rocky_9_template() -> VMConfig {
         .label("os", "rocky")
         .label("os.version", "9")
         .cloud_init(default_cloud_init())
+        .enable_rng()
+        .clock(linux_clock())
         .build()
 }
 
@@ -427,6 +535,8 @@ fn rocky_8_template() -> VMConfig {
         .label("os", "rocky")
         .label("os.version", "8")
         .cloud_init(default_cloud_init())
+        .enable_rng()
+        .clock(linux_clock())
         .build()
 }
 
@@ -444,6 +554,8 @@ fn opensuse_leap_template() -> VMConfig {
         .label("os", "opensuse")
         .label("os.version", "leap")
         .cloud_init(default_cloud_init())
+        .enable_rng()
+        .clock(linux_clock())
         .build()
 }
 
@@ -457,6 +569,8 @@ fn opensuse_tumbleweed_template() -> VMConfig {
         .label("os", "opensuse")
         .label("os.version", "tumbleweed")
         .cloud_init(default_cloud_init())
+        .enable_rng()
+        .clock(linux_clock())
         .build()
 }
 
@@ -475,6 +589,8 @@ fn alpine_template() -> VMConfig {
         .label("os", "alpine")
         .label("os.version", "3.19")
         .cloud_init(alpine_cloud_init())
+        .enable_rng()
+        .clock(linux_clock())
         .build()
 }
 
@@ -492,6 +608,8 @@ fn arch_template() -> VMConfig {
         .label("os", "arch")
         .label("os.version", "latest")
         .cloud_init(default_cloud_init())
+        .enable_rng()
+        .clock(linux_clock())
         .build()
 }
 
@@ -509,6 +627,8 @@ fn oracle_9_template() -> VMConfig {
         .label("os", "oracle")
         .label("os.version", "9")
         .cloud_init(default_cloud_init())
+        .enable_rng()
+        .clock(linux_clock())
         .build()
 }
 
@@ -522,6 +642,8 @@ fn oracle_8_template() -> VMConfig {
         .label("os", "oracle")
         .label("os.version", "8")
         .cloud_init(default_cloud_init())
+        .enable_rng()
+        .clock(linux_clock())
         .build()
 }
 
@@ -535,9 +657,17 @@ fn windows_2022_template() -> VMConfig {
         .cpu(4, 1, 1)
         .memory("8Gi")
         .add_blank_disk("rootdisk", "60Gi", 1)
+        .add_cdrom("virtio-drivers", "quay.io/containerdisks/virtio-win", 2)
         .add_pod_network("default")
         .label("os", "windows")
         .label("os.version", "2022")
+        .features(windows_features())
+        .firmware(uefi_firmware())
+        .clock(windows_clock())
+        .enable_tpm()
+        .enable_rng()
+        .termination_grace_period(120)
+        .machine_type("q35")
         .build()
 }
 
@@ -547,9 +677,16 @@ fn windows_2019_template() -> VMConfig {
         .cpu(4, 1, 1)
         .memory("8Gi")
         .add_blank_disk("rootdisk", "60Gi", 1)
+        .add_cdrom("virtio-drivers", "quay.io/containerdisks/virtio-win", 2)
         .add_pod_network("default")
         .label("os", "windows")
         .label("os.version", "2019")
+        .features(windows_features())
+        .firmware(uefi_firmware())
+        .clock(windows_clock())
+        .enable_rng()
+        .termination_grace_period(120)
+        .machine_type("q35")
         .build()
 }
 
@@ -559,9 +696,17 @@ fn windows_11_template() -> VMConfig {
         .cpu(4, 2, 1)
         .memory("8Gi")
         .add_blank_disk("rootdisk", "80Gi", 1)
+        .add_cdrom("virtio-drivers", "quay.io/containerdisks/virtio-win", 2)
         .add_pod_network("default")
         .label("os", "windows")
         .label("os.version", "11")
+        .features(windows_features())
+        .firmware(uefi_secure_boot_firmware())
+        .clock(windows_clock())
+        .enable_tpm()
+        .enable_rng()
+        .termination_grace_period(120)
+        .machine_type("q35")
         .build()
 }
 
@@ -571,9 +716,16 @@ fn windows_10_template() -> VMConfig {
         .cpu(4, 1, 1)
         .memory("8Gi")
         .add_blank_disk("rootdisk", "60Gi", 1)
+        .add_cdrom("virtio-drivers", "quay.io/containerdisks/virtio-win", 2)
         .add_pod_network("default")
         .label("os", "windows")
         .label("os.version", "10")
+        .features(windows_features())
+        .firmware(uefi_firmware())
+        .clock(windows_clock())
+        .enable_rng()
+        .termination_grace_period(120)
+        .machine_type("q35")
         .build()
 }
 
@@ -590,6 +742,8 @@ fn freebsd_14_template() -> VMConfig {
         .add_pod_network("default")
         .label("os", "freebsd")
         .label("os.version", "14")
+        .enable_rng()
+        .clock(linux_clock())
         .build()
 }
 
@@ -602,6 +756,8 @@ fn freebsd_13_template() -> VMConfig {
         .add_pod_network("default")
         .label("os", "freebsd")
         .label("os.version", "13")
+        .enable_rng()
+        .clock(linux_clock())
         .build()
 }
 
@@ -619,6 +775,8 @@ fn flatcar_template() -> VMConfig {
         .label("os", "flatcar")
         .label("os.version", "stable")
         .cloud_init(default_cloud_init())
+        .enable_rng()
+        .clock(linux_clock())
         .build()
 }
 
@@ -635,6 +793,8 @@ fn talos_template() -> VMConfig {
         .add_pod_network("default")
         .label("os", "talos")
         .label("os.version", "latest")
+        .enable_rng()
+        .clock(linux_clock())
         .build()
 }
 
@@ -645,9 +805,11 @@ fn talos_template() -> VMConfig {
 fn default_cloud_init() -> String {
     r#"#cloud-config
 user: zorvia
+# WARNING: Change this default password immediately
 password: zorvia
-chpasswd: { expire: False }
-ssh_pwauth: True
+lock_passwd: false
+chpasswd: { expire: True }
+ssh_pwauth: False
 package_update: true
 packages:
   - qemu-guest-agent
@@ -661,9 +823,11 @@ runcmd:
 fn default_ubuntu_cloud_init() -> String {
     r#"#cloud-config
 user: ubuntu
+# WARNING: Change this default password immediately
 password: ubuntu
-chpasswd: { expire: False }
-ssh_pwauth: True
+lock_passwd: false
+chpasswd: { expire: True }
+ssh_pwauth: False
 package_update: true
 packages:
   - qemu-guest-agent
@@ -677,9 +841,11 @@ runcmd:
 fn alpine_cloud_init() -> String {
     r#"#cloud-config
 user: alpine
+# WARNING: Change this default password immediately
 password: alpine
-chpasswd: { expire: False }
-ssh_pwauth: True
+lock_passwd: false
+chpasswd: { expire: True }
+ssh_pwauth: False
 packages:
   - qemu-guest-agent
 runcmd:

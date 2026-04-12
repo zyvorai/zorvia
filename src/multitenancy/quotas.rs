@@ -301,6 +301,11 @@ impl QuotaManager {
     pub fn allocate(&mut self, namespace: &str, request: &ResourceRequest) -> Result<(), String> {
         if let Some(quota) = self.get_quota_by_namespace_mut(namespace) {
             quota.allocate(request)?;
+        } else {
+            log::warn!(
+                "No quota defined for namespace '{}'; allocation proceeding without enforcement",
+                namespace
+            );
         }
         Ok(())
     }

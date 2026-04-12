@@ -2,7 +2,7 @@
 
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
+use std::collections::{HashMap, VecDeque};
 
 /// Audit event
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -176,20 +176,30 @@ impl std::fmt::Display for EventOutcome {
 pub struct AuditLog {
     pub log_id: String,
     pub vm_name: Option<String>,
-    pub events: Vec<AuditEvent>,
+    pub events: VecDeque<AuditEvent>,
     pub max_entries: usize,
+    pub events_dropped: u64,
     pub created_at: DateTime<Utc>,
     pub last_updated: DateTime<Utc>,
 }
 
 impl AuditLog {
     pub fn new(vm_name: Option<String>) -> Self {
-        let log_id = format!("log-{}", Utc::now().format("%Y%m%d-%H%M%S"));
+        let log_id = {
+            use rand::Rng;
+            let random: u16 = rand::thread_rng().gen();
+            format!(
+                "log-{}-{:04x}",
+                Utc::now().format("%Y%m%d-%H%M%S%f"),
+                random
+            )
+        };
         Self {
             log_id,
             vm_name,
-            events: Vec::new(),
+            events: VecDeque::new(),
             max_entries: 10_000,
+            events_dropped: 0,
             created_at: Utc::now(),
             last_updated: Utc::now(),
         }
@@ -197,14 +207,28 @@ impl AuditLog {
 
     pub fn add_event(&mut self, event: AuditEvent) {
         if self.events.len() >= self.max_entries {
-            log::warn!(
+            if let Some(dropped) = self.events.front() {
+                if dropped.is_critical() || dropped.is_security_event() {
+                    log::error!(
+                        "Audit log '{}' dropping critical/security event: id={}, type={}, severity={}, actor={}, action={}",
+                        self.log_id,
+                        dropped.event_id,
+                        dropped.event_type,
+                        dropped.severity,
+                        dropped.actor,
+                        dropped.action,
+                    );
+                }
+            }
+            log::error!(
                 "Audit log '{}' reached max capacity ({}), dropping oldest event",
                 self.log_id,
                 self.max_entries
             );
-            self.events.remove(0);
+            self.events.pop_front();
+            self.events_dropped += 1;
         }
-        self.events.push(event);
+        self.events.push_back(event);
         self.last_updated = Utc::now();
     }
 

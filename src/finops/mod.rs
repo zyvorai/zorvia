@@ -207,7 +207,7 @@ mod tests {
     #[test]
     fn test_metric_with_period() {
         let start = Utc::now();
-        let end = start + chrono::Duration::hours(24);
+        let end = start + chrono::TimeDelta::hours(24);
 
         let metric = CostMetric::new("vm-1", "compute", 120.0).with_period(start, end);
 
@@ -232,7 +232,7 @@ mod tests {
     #[test]
     fn test_metric_duration_hours() {
         let start = Utc::now();
-        let end = start + chrono::Duration::hours(10);
+        let end = start + chrono::TimeDelta::hours(10);
 
         let metric = CostMetric::new("vm-1", "compute", 100.0).with_period(start, end);
 
@@ -242,7 +242,7 @@ mod tests {
     #[test]
     fn test_metric_hourly_cost() {
         let start = Utc::now();
-        let end = start + chrono::Duration::hours(24);
+        let end = start + chrono::TimeDelta::hours(24);
 
         let metric = CostMetric::new("vm-1", "compute", 120.0).with_period(start, end);
 
@@ -346,8 +346,8 @@ mod tests {
         let mut manager = CostManager::new();
 
         let start = Utc::now();
-        let mid = start + chrono::Duration::hours(12);
-        let end = start + chrono::Duration::hours(24);
+        let mid = start + chrono::TimeDelta::hours(12);
+        let end = start + chrono::TimeDelta::hours(24);
 
         let m1 = CostMetric::new("vm-1", "compute", 100.0).with_period(start, mid);
         let m2 = CostMetric::new("vm-2", "compute", 150.0).with_period(mid, end);

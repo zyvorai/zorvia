@@ -117,6 +117,7 @@ impl AuditLogEntry {
 pub struct AuditTrail {
     entries: Vec<AuditLogEntry>,
     retention_days: i64,
+    max_entries: usize,
 }
 
 impl AuditTrail {
@@ -124,10 +125,20 @@ impl AuditTrail {
         Self {
             entries: Vec::new(),
             retention_days,
+            max_entries: 10_000,
         }
     }
 
     pub fn log(&mut self, entry: AuditLogEntry) {
+        if self.entries.len() >= self.max_entries {
+            let drain_count = self.max_entries / 10; // Remove oldest 10%
+            self.entries.drain(..drain_count);
+            log::warn!(
+                "AuditTrail exceeded max_entries ({}), drained {} oldest entries",
+                self.max_entries,
+                drain_count
+            );
+        }
         self.entries.push(entry);
     }
 
@@ -176,7 +187,7 @@ impl AuditTrail {
     }
 
     pub fn purge_old_entries(&mut self) {
-        let cutoff = Utc::now() - chrono::Duration::days(self.retention_days);
+        let cutoff = Utc::now() - chrono::TimeDelta::days(self.retention_days);
         self.entries.retain(|e| e.timestamp > cutoff);
     }
 
@@ -516,7 +527,7 @@ mod tests {
             "vm-1",
             "create",
         );
-        old_entry.timestamp = Utc::now() - chrono::Duration::days(100);
+        old_entry.timestamp = Utc::now() - chrono::TimeDelta::days(100);
 
         let recent_entry = AuditLogEntry::new(
             AuditEventType::ResourceModified,
@@ -540,7 +551,7 @@ mod tests {
     fn test_trail_entries_in_range() {
         let mut trail = AuditTrail::new(90);
 
-        let start = Utc::now() - chrono::Duration::hours(2);
+        let start = Utc::now() - chrono::TimeDelta::hours(2);
         let end = Utc::now();
 
         let mut old_entry = AuditLogEntry::new(
@@ -550,7 +561,7 @@ mod tests {
             "vm-1",
             "create",
         );
-        old_entry.timestamp = start - chrono::Duration::hours(1);
+        old_entry.timestamp = start - chrono::TimeDelta::hours(1);
 
         let mut in_range_entry1 = AuditLogEntry::new(
             AuditEventType::ResourceModified,
@@ -559,7 +570,7 @@ mod tests {
             "vm-2",
             "modify",
         );
-        in_range_entry1.timestamp = start + chrono::Duration::minutes(30);
+        in_range_entry1.timestamp = start + chrono::TimeDelta::minutes(30);
 
         let mut in_range_entry2 = AuditLogEntry::new(
             AuditEventType::ResourceDeleted,
@@ -568,7 +579,7 @@ mod tests {
             "vm-3",
             "delete",
         );
-        in_range_entry2.timestamp = start + chrono::Duration::hours(1);
+        in_range_entry2.timestamp = start + chrono::TimeDelta::hours(1);
 
         trail.log(old_entry);
         trail.log(in_range_entry1);

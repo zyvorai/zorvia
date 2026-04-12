@@ -401,6 +401,7 @@ pub fn vm_status_symbol(status: &str) -> String {
 
 /// Create a colored bar for resource usage
 pub fn resource_bar(percentage: f64, width: usize) -> String {
+    let percentage = percentage.clamp(0.0, 100.0);
     let filled = ((percentage / 100.0) * width as f64) as usize;
     let empty = width.saturating_sub(filled);
 

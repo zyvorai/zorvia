@@ -49,6 +49,8 @@ impl VMConfigBuilder {
             sockets,
             threads,
             model: None,
+            dedicated_cpu_placement: None,
+            isolate_emulator_thread: None,
         };
         self
     }
@@ -59,9 +61,33 @@ impl VMConfigBuilder {
         self
     }
 
+    /// Enable dedicated CPU placement (CPU pinning).
+    pub fn dedicated_cpu_placement(mut self, enabled: bool) -> Self {
+        self.config.cpu.dedicated_cpu_placement = Some(enabled);
+        self
+    }
+
+    /// Isolate emulator thread from vCPU threads.
+    pub fn isolate_emulator_thread(mut self, enabled: bool) -> Self {
+        self.config.cpu.isolate_emulator_thread = Some(enabled);
+        self
+    }
+
     /// Set the memory size (e.g., "4Gi", "512Mi").
     pub fn memory(mut self, size: impl Into<String>) -> Self {
-        self.config.memory = MemoryConfig { size: size.into() };
+        self.config.memory.size = size.into();
+        self
+    }
+
+    /// Set hugepages page size (e.g., "2Mi", "1Gi").
+    pub fn hugepages(mut self, page_size: impl Into<String>) -> Self {
+        self.config.memory.hugepages_page_size = Some(page_size.into());
+        self
+    }
+
+    /// Set maximum guest memory for hotplug (e.g., "16Gi").
+    pub fn max_guest_memory(mut self, size: impl Into<String>) -> Self {
+        self.config.memory.max_guest = Some(size.into());
         self
     }
 
@@ -84,6 +110,10 @@ impl VMConfigBuilder {
             storage_class: None,
             boot_order,
             source: DiskSource::Blank,
+            device_type: DiskDeviceType::default(),
+            bus: None,
+            cache: None,
+            io: None,
         });
         self
     }
@@ -103,6 +133,10 @@ impl VMConfigBuilder {
             source: DiskSource::ContainerDisk {
                 image: image.into(),
             },
+            device_type: DiskDeviceType::default(),
+            bus: None,
+            cache: None,
+            io: None,
         });
         self
     }
@@ -120,6 +154,7 @@ impl VMConfigBuilder {
             network: "default".to_string(),
             model: "virtio".to_string(),
             network_type: NetworkType::Pod,
+            mac_address: None,
         });
         self
     }
@@ -131,6 +166,7 @@ impl VMConfigBuilder {
             network: "default".to_string(),
             model: "virtio".to_string(),
             network_type: NetworkType::Bridge,
+            mac_address: None,
         });
         self
     }
@@ -147,6 +183,47 @@ impl VMConfigBuilder {
             network: net_name.clone(),
             model: "virtio".to_string(),
             network_type: NetworkType::Multus { name: net_name },
+            mac_address: None,
+        });
+        self
+    }
+
+    /// Add a CDROM disk from an ISO image or container disk.
+    pub fn add_cdrom(
+        mut self,
+        name: impl Into<String>,
+        image: impl Into<String>,
+        boot_order: u32,
+    ) -> Self {
+        self.config.disks.push(DiskConfig {
+            name: name.into(),
+            size: "0".to_string(),
+            storage_class: None,
+            boot_order,
+            source: DiskSource::ContainerDisk {
+                image: image.into(),
+            },
+            device_type: DiskDeviceType::CDROM,
+            bus: Some("sata".to_string()),
+            cache: None,
+            io: None,
+        });
+        self
+    }
+
+    /// Add an SRIOV network interface.
+    pub fn add_sriov_network(
+        mut self,
+        name: impl Into<String>,
+        network_name: impl Into<String>,
+    ) -> Self {
+        let net_name = network_name.into();
+        self.config.interfaces.push(InterfaceConfig {
+            name: name.into(),
+            network: net_name.clone(),
+            model: "virtio".to_string(),
+            network_type: NetworkType::SRIOV { name: net_name },
+            mac_address: None,
         });
         self
     }
@@ -157,6 +234,54 @@ impl VMConfigBuilder {
             user_data: user_data.into(),
             network_data: None,
         });
+        self
+    }
+
+    /// Enable TPM 2.0 device.
+    pub fn enable_tpm(mut self) -> Self {
+        self.config.enable_tpm = true;
+        self
+    }
+
+    /// Enable virtio-rng device.
+    pub fn enable_rng(mut self) -> Self {
+        self.config.enable_rng = true;
+        self
+    }
+
+    /// Set the eviction strategy (e.g., "LiveMigrate").
+    pub fn eviction_strategy(mut self, strategy: impl Into<String>) -> Self {
+        self.config.eviction_strategy = Some(strategy.into());
+        self
+    }
+
+    /// Set the termination grace period in seconds.
+    pub fn termination_grace_period(mut self, seconds: i64) -> Self {
+        self.config.termination_grace_period = Some(seconds);
+        self
+    }
+
+    /// Set the machine type (e.g., "q35").
+    pub fn machine_type(mut self, machine_type: impl Into<String>) -> Self {
+        self.config.machine_type = Some(machine_type.into());
+        self
+    }
+
+    /// Set domain features (ACPI, HyperV, etc.).
+    pub fn features(mut self, features: FeaturesConfig) -> Self {
+        self.config.features = Some(features);
+        self
+    }
+
+    /// Set firmware/bootloader configuration.
+    pub fn firmware(mut self, firmware: FirmwareConfig) -> Self {
+        self.config.firmware = Some(firmware);
+        self
+    }
+
+    /// Set clock configuration.
+    pub fn clock(mut self, clock: ClockConfig) -> Self {
+        self.config.clock = Some(clock);
         self
     }
 

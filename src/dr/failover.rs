@@ -112,8 +112,10 @@ impl FailoverEvent {
         } else {
             FailoverStatus::Failed
         };
-        self.completed_at = Some(Utc::now());
-        self.duration_seconds = Some((Utc::now() - self.started_at).num_seconds() as u64);
+        let now = Utc::now();
+        self.completed_at = Some(now);
+        let duration = (now - self.started_at).num_seconds();
+        self.duration_seconds = Some(if duration >= 0 { duration as u64 } else { 0 });
         self.success = success;
     }
 

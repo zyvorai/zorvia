@@ -181,7 +181,7 @@ mod tests {
 
     #[test]
     fn test_key_with_expiry() {
-        let expiry = Utc::now() + chrono::Duration::days(365);
+        let expiry = Utc::now() + chrono::TimeDelta::days(365);
         let key = EncryptionKey::new("temp-key", KeyType::DataKey, 128).with_expiry(expiry);
 
         assert_eq!(key.expires_at, Some(expiry));
@@ -255,11 +255,11 @@ mod tests {
 
     #[test]
     fn test_key_is_expired() {
-        let past = Utc::now() - chrono::Duration::days(1);
+        let past = Utc::now() - chrono::TimeDelta::days(1);
         let key1 = EncryptionKey::new("key1", KeyType::DataKey, 256).with_expiry(past);
         assert!(key1.is_expired());
 
-        let future = Utc::now() + chrono::Duration::days(365);
+        let future = Utc::now() + chrono::TimeDelta::days(365);
         let key2 = EncryptionKey::new("key2", KeyType::DataKey, 256).with_expiry(future);
         assert!(!key2.is_expired());
     }
@@ -273,7 +273,7 @@ mod tests {
         key2.deactivate();
         assert!(!key2.is_usable());
 
-        let past = Utc::now() - chrono::Duration::days(1);
+        let past = Utc::now() - chrono::TimeDelta::days(1);
         let key3 = EncryptionKey::new("key3", KeyType::DataKey, 256).with_expiry(past);
         assert!(!key3.is_usable());
     }
@@ -322,7 +322,7 @@ mod tests {
 
         let key1 = EncryptionKey::new("k1", KeyType::DataKey, 256);
 
-        let past = Utc::now() - chrono::Duration::days(1);
+        let past = Utc::now() - chrono::TimeDelta::days(1);
         let key2 = EncryptionKey::new("k2", KeyType::DataKey, 256).with_expiry(past);
 
         manager.add_key(key1);
