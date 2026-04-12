@@ -109,6 +109,33 @@ impl EncryptedData {
         self.tag = Some(tag.into());
         self
     }
+
+    /// Validate that AEAD algorithms have required IV and authentication tag.
+    pub fn validate(&self) -> anyhow::Result<()> {
+        let requires_iv_and_tag = matches!(
+            self.algorithm,
+            EncryptionAlgorithm::AES256GCM
+                | EncryptionAlgorithm::AES128GCM
+                | EncryptionAlgorithm::ChaCha20Poly1305
+        );
+
+        if requires_iv_and_tag {
+            if self.iv.is_none() {
+                anyhow::bail!(
+                    "AEAD algorithm {:?} requires an IV (initialization vector), but none was provided",
+                    self.algorithm
+                );
+            }
+            if self.tag.is_none() {
+                anyhow::bail!(
+                    "AEAD algorithm {:?} requires an authentication tag, but none was provided",
+                    self.algorithm
+                );
+            }
+        }
+
+        Ok(())
+    }
 }
 
 /// Encryption manager

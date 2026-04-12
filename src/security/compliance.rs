@@ -275,28 +275,28 @@ impl ComplianceChecker {
         report.add_result(
             CheckResult::new("PCI-1.1", "REQ-1", "Firewall installed and configured")
                 .with_severity(CheckSeverity::Critical)
-                .passed(),
+                .manual_review("Automated verification not yet implemented"),
         );
 
         // Requirement 2: Do not use vendor-supplied defaults
         report.add_result(
             CheckResult::new("PCI-2.1", "REQ-2", "Default passwords changed")
                 .with_severity(CheckSeverity::Critical)
-                .passed(),
+                .manual_review("Automated verification not yet implemented"),
         );
 
         // Requirement 3: Protect stored data
         report.add_result(
             CheckResult::new("PCI-3.1", "REQ-3", "Data encryption enabled")
                 .with_severity(CheckSeverity::Critical)
-                .passed(),
+                .manual_review("Automated verification not yet implemented"),
         );
 
         // Requirement 8: Identify and authenticate access
         report.add_result(
             CheckResult::new("PCI-8.1", "REQ-8", "Strong authentication configured")
                 .with_severity(CheckSeverity::High)
-                .passed(),
+                .manual_review("Automated verification not yet implemented"),
         );
 
         report.finalize();
@@ -311,21 +311,21 @@ impl ComplianceChecker {
         report.add_result(
             CheckResult::new("HIPAA-AC-1", "164.312(a)(1)", "Access control implemented")
                 .with_severity(CheckSeverity::Critical)
-                .passed(),
+                .manual_review("Automated verification not yet implemented"),
         );
 
         // Audit Controls
         report.add_result(
             CheckResult::new("HIPAA-AU-1", "164.312(b)", "Audit logging enabled")
                 .with_severity(CheckSeverity::High)
-                .passed(),
+                .manual_review("Automated verification not yet implemented"),
         );
 
         // Encryption
         report.add_result(
             CheckResult::new("HIPAA-EN-1", "164.312(e)(1)", "Data encryption in transit")
                 .with_severity(CheckSeverity::Critical)
-                .passed(),
+                .manual_review("Automated verification not yet implemented"),
         );
 
         report.finalize();
@@ -340,14 +340,14 @@ impl ComplianceChecker {
         report.add_result(
             CheckResult::new("SOC2-SEC-1", "CC6.1", "Logical access controls")
                 .with_severity(CheckSeverity::High)
-                .passed(),
+                .manual_review("Automated verification not yet implemented"),
         );
 
         // Availability Principle
         report.add_result(
             CheckResult::new("SOC2-AVL-1", "A1.1", "System monitoring")
                 .with_severity(CheckSeverity::Medium)
-                .passed(),
+                .manual_review("Automated verification not yet implemented"),
         );
 
         report.finalize();

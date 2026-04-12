@@ -50,6 +50,8 @@ pub(crate) fn parse_threshold_operator(
 }
 
 pub fn handle_logs_query(
+    start: Option<String>,
+    end: Option<String>,
     level: Option<String>,
     source: Option<String>,
     search: Option<String>,
@@ -74,6 +76,12 @@ pub fn handle_logs_query(
         _query = _query.with_search(text);
     }
 
+    if let Some(ref s) = start {
+        println!("  Start:  {}", s);
+    }
+    if let Some(ref e) = end {
+        println!("  End:    {}", e);
+    }
     println!("  Level:  {}", level.as_deref().unwrap_or("all"));
     println!("  Source: {}", source.as_deref().unwrap_or("all"));
     println!("  Limit:  {}", limit);
@@ -144,22 +152,41 @@ pub async fn handle_metrics_collect(vm: String) -> Result<()> {
     Ok(())
 }
 
-pub fn handle_metrics_query(name: String, aggregation: String) -> Result<()> {
+pub fn handle_metrics_query(
+    name: String,
+    start: Option<String>,
+    end: Option<String>,
+    aggregation: String,
+) -> Result<()> {
     println!("{}", color::header(&format!("Querying Metric: {}", name)));
     println!();
 
     println!("  Metric:      {}", color::value(&name));
+    if let Some(ref s) = start {
+        println!("  Start:       {}", s);
+    }
+    if let Some(ref e) = end {
+        println!("  End:         {}", e);
+    }
     println!("  Aggregation: {}", aggregation);
     println!();
     println!("{}", color::success("✓ Query executed"));
     Ok(())
 }
 
-pub fn handle_metrics_snapshot(cpu_threshold: f64, memory_threshold: f64) -> Result<()> {
+pub fn handle_metrics_snapshot(
+    vm: Option<String>,
+    cpu_threshold: f64,
+    memory_threshold: f64,
+) -> Result<()> {
     use crate::observability::metrics::MetricsSnapshot;
 
     println!("{}", color::header("Metrics Snapshot"));
     println!();
+
+    if let Some(ref vm_name) = vm {
+        println!("  VM Filter:          {}", color::value(vm_name));
+    }
 
     let snapshot = MetricsSnapshot::new();
     println!("  Total VMs:          {}", snapshot.total_vms);

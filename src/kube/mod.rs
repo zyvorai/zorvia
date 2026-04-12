@@ -195,7 +195,7 @@ impl KubeClient {
     /// Check if a VM is running
     pub async fn is_running(&self, namespace: &str, name: &str) -> Result<bool> {
         let vm = self.get_vm(namespace, name).await?;
-        Ok(vm.spec.running.unwrap_or(false))
+        Ok(vm.status.as_ref().and_then(|s| s.ready).unwrap_or(false))
     }
 
     /// Get VM status string
@@ -203,7 +203,7 @@ impl KubeClient {
         let vm = self.get_vm(namespace, name).await?;
 
         if let Some(status) = &vm.status {
-            if let Some(printable) = &status.print_able_status {
+            if let Some(printable) = &status.printable_status {
                 return Ok(printable.clone());
             }
             if status.ready.unwrap_or(false) {

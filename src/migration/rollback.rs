@@ -63,6 +63,7 @@ impl RollbackManager {
     }
 
     pub fn execute_rollback(&mut self, migration_id: &str) -> Option<RollbackExecution> {
+        log::warn!("Rollback execution is not yet fully implemented. No actual rollback operations were performed.");
         let plan = self.rollback_plans.iter().find(|p| p.migration_id == migration_id)?;
 
         // Check if the rollback plan has expired

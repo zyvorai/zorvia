@@ -35,7 +35,7 @@ impl VMStatus {
         let (ready, phase) = if let Some(status) = &vm.status {
             let ready = status.ready.unwrap_or(false);
             let phase = status
-                .print_able_status
+                .printable_status
                 .clone()
                 .unwrap_or_else(|| "Unknown".to_string());
             (ready, phase)
@@ -230,7 +230,10 @@ impl ResourceSummary {
             }
 
             if let Some(cpu) = &vm.spec.template.spec.domain.cpu {
-                total_cpu_cores += cpu.cores.unwrap_or(0);
+                let cores = cpu.cores.unwrap_or(1);
+                let sockets = cpu.sockets.unwrap_or(1);
+                let threads = cpu.threads.unwrap_or(1);
+                total_cpu_cores += cores * sockets * threads;
             }
 
             if let Some(memory) = &vm.spec.template.spec.domain.memory {
@@ -298,19 +301,19 @@ fn parse_memory_to_gi(mem_str: &str) -> Option<f64> {
             .ok()
             .map(|m| m * 1024.0)
     } else if mem_str.ends_with("G") {
-        mem_str.trim_end_matches("G").parse::<f64>().ok()
+        mem_str.trim_end_matches("G").parse::<f64>().ok().map(|m| m * 1_000_000_000.0 / 1_073_741_824.0)
     } else if mem_str.ends_with("M") {
         mem_str
             .trim_end_matches("M")
             .parse::<f64>()
             .ok()
-            .map(|m| m / 1024.0)
+            .map(|m| m * 1_000_000.0 / 1_073_741_824.0)
     } else if mem_str.ends_with("T") {
         mem_str
             .trim_end_matches("T")
             .parse::<f64>()
             .ok()
-            .map(|m| m * 1024.0)
+            .map(|m| m * 1_000_000_000_000.0 / 1_073_741_824.0)
     } else {
         None
     }
@@ -325,8 +328,8 @@ mod tests {
         assert_eq!(parse_memory_to_gi("4Gi"), Some(4.0));
         assert_eq!(parse_memory_to_gi("2048Mi"), Some(2.0));
         assert_eq!(parse_memory_to_gi("1Ti"), Some(1024.0));
-        assert_eq!(parse_memory_to_gi("8G"), Some(8.0));
-        assert_eq!(parse_memory_to_gi("512M"), Some(0.5));
+        assert!((parse_memory_to_gi("8G").unwrap() - 7.45).abs() < 0.01);
+        assert!((parse_memory_to_gi("512M").unwrap() - 0.477).abs() < 0.01);
         assert!(parse_memory_to_gi("invalid").is_none());
     }
 }

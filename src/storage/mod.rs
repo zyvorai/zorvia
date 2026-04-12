@@ -253,7 +253,7 @@ pub fn parse_size_to_bytes(size: &str) -> Option<u64> {
     }
 }
 
-/// Format bytes to human-readable storage size
+/// Formats bytes using Kubernetes-style binary suffixes (Ki, Mi, Gi, Ti).
 pub fn format_bytes(bytes: u64) -> String {
     if bytes >= 1024 * 1024 * 1024 * 1024 {
         format!(

@@ -68,6 +68,7 @@ impl EncryptionKey {
     }
 
     pub fn rotate(&mut self) {
+        log::warn!("Key rotation only updates metadata. Actual key material regeneration is not yet implemented.");
         self.version += 1;
         self.last_rotated = Some(Utc::now());
     }

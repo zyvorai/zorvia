@@ -29,11 +29,11 @@ pub fn next_cron_time(from: DateTime<Utc>, expression: &str) -> Option<DateTime<
         let month = candidate.naive_utc().month();
         let weekday = candidate.naive_utc().weekday().num_days_from_sunday(); // 0=Sun
 
-        if field_matches(fields[0], min)
-            && field_matches(fields[1], hour)
-            && field_matches(fields[2], day)
-            && field_matches(fields[3], month)
-            && field_matches(fields[4], weekday)
+        if field_matches(fields[0], min, 60)
+            && field_matches(fields[1], hour, 24)
+            && field_matches(fields[2], day, 32)
+            && field_matches(fields[3], month, 13)
+            && field_matches(fields[4], weekday, 7)
         {
             return Some(candidate);
         }
@@ -46,7 +46,8 @@ pub fn next_cron_time(from: DateTime<Utc>, expression: &str) -> Option<DateTime<
 
 /// Check if a cron field matches a value. Supports `*`, `N`, `*/N`, `N-N/S`, `N,N,...`, and `N-N`
 /// (including wrapping ranges like `5-1` for weekdays).
-pub fn field_matches(field: &str, value: u32) -> bool {
+/// `max` is the number of distinct values for the field (e.g. 60 for minutes, 24 for hours, 7 for weekdays).
+pub fn field_matches(field: &str, value: u32, max: u32) -> bool {
     if field == "*" {
         return true;
     }
@@ -58,7 +59,7 @@ pub fn field_matches(field: &str, value: u32) -> bool {
         if let Some((range_part, step_str)) = part.split_once('/') {
             let step: u32 = match step_str.parse() {
                 Ok(s) if s > 0 => s,
-                _ => return false,
+                _ => continue,
             };
 
             if range_part == "*" {
@@ -68,11 +69,11 @@ pub fn field_matches(field: &str, value: u32) -> bool {
             } else if let Some((start_str, end_str)) = range_part.split_once('-') {
                 let start: u32 = match start_str.parse() {
                     Ok(v) => v,
-                    _ => return false,
+                    _ => continue,
                 };
                 let end: u32 = match end_str.parse() {
                     Ok(v) => v,
-                    _ => return false,
+                    _ => continue,
                 };
                 // Check if value is in range with step
                 if start <= end {
@@ -85,7 +86,7 @@ pub fn field_matches(field: &str, value: u32) -> bool {
                         let offset = if value >= start {
                             value - start
                         } else {
-                            value + (60 - start) // approximate
+                            value + (max - start)
                         };
                         if offset % step == 0 {
                             return true;
@@ -100,11 +101,11 @@ pub fn field_matches(field: &str, value: u32) -> bool {
         } else if let Some((start_str, end_str)) = part.split_once('-') {
             let start: u32 = match start_str.parse() {
                 Ok(v) => v,
-                _ => return false,
+                _ => continue,
             };
             let end: u32 = match end_str.parse() {
                 Ok(v) => v,
-                _ => return false,
+                _ => continue,
             };
             if start <= end {
                 if value >= start && value <= end {
@@ -131,38 +132,38 @@ mod tests {
 
     #[test]
     fn test_field_matches_wildcard() {
-        assert!(field_matches("*", 0));
-        assert!(field_matches("*", 59));
+        assert!(field_matches("*", 0, 60));
+        assert!(field_matches("*", 59, 60));
     }
 
     #[test]
     fn test_field_matches_exact() {
-        assert!(field_matches("5", 5));
-        assert!(!field_matches("5", 6));
+        assert!(field_matches("5", 5, 60));
+        assert!(!field_matches("5", 6, 60));
     }
 
     #[test]
     fn test_field_matches_step() {
-        assert!(field_matches("*/5", 0));
-        assert!(field_matches("*/5", 15));
-        assert!(!field_matches("*/5", 3));
+        assert!(field_matches("*/5", 0, 60));
+        assert!(field_matches("*/5", 15, 60));
+        assert!(!field_matches("*/5", 3, 60));
     }
 
     #[test]
     fn test_field_matches_range() {
-        assert!(field_matches("1-5", 1));
-        assert!(field_matches("1-5", 3));
-        assert!(field_matches("1-5", 5));
-        assert!(!field_matches("1-5", 0));
-        assert!(!field_matches("1-5", 6));
+        assert!(field_matches("1-5", 1, 60));
+        assert!(field_matches("1-5", 3, 60));
+        assert!(field_matches("1-5", 5, 60));
+        assert!(!field_matches("1-5", 0, 60));
+        assert!(!field_matches("1-5", 6, 60));
     }
 
     #[test]
     fn test_field_matches_list() {
-        assert!(field_matches("1,5,10", 1));
-        assert!(field_matches("1,5,10", 5));
-        assert!(field_matches("1,5,10", 10));
-        assert!(!field_matches("1,5,10", 3));
+        assert!(field_matches("1,5,10", 1, 60));
+        assert!(field_matches("1,5,10", 5, 60));
+        assert!(field_matches("1,5,10", 10, 60));
+        assert!(!field_matches("1,5,10", 3, 60));
     }
 
     #[test]

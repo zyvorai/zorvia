@@ -336,7 +336,17 @@ pub fn handle_workflow_run(workflow: String, _watch: bool) -> Result<()> {
     );
     println!();
 
-    let wf = WorkflowTemplates::vm_provisioning();
+    let wf = match workflow.as_str() {
+        "vm-provisioning" | "vm_provisioning" => WorkflowTemplates::vm_provisioning(),
+        "disaster-recovery" | "disaster_recovery" => WorkflowTemplates::disaster_recovery(),
+        "maintenance" => WorkflowTemplates::maintenance(),
+        other => {
+            return Err(anyhow::anyhow!(
+                "Unknown workflow: '{}'. Available workflows: vm-provisioning, disaster-recovery, maintenance",
+                other
+            ));
+        }
+    };
     let execution = WorkflowExecutor::execute(&wf);
 
     println!("Execution:");

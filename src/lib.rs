@@ -142,7 +142,8 @@ pub async fn run(mut cli: Cli) -> Result<()> {
 
     env_logger::Builder::from_default_env()
         .filter_level(log_level)
-        .init();
+        .try_init()
+        .ok();
 
     match *cli.command {
         // ========== CORE VM MANAGEMENT ==========
@@ -153,8 +154,8 @@ pub async fn run(mut cli: Cli) -> Result<()> {
             cpus,
             memory,
             disk_size,
-            storage_class: _,
-            container_disk: _,
+            storage_class,
+            container_disk,
             cloud_init,
             dry_run,
             output,
@@ -166,6 +167,8 @@ pub async fn run(mut cli: Cli) -> Result<()> {
                 cpus,
                 memory,
                 disk_size,
+                storage_class,
+                container_disk,
                 cloud_init,
                 dry_run,
                 output,
@@ -814,13 +817,13 @@ pub async fn run(mut cli: Cli) -> Result<()> {
 
         // ========== OBSERVABILITY & ANALYTICS ==========
         Commands::LogsQuery {
-            start: _,
-            end: _,
+            start,
+            end,
             level,
             source,
             search,
             limit,
-        } => handlers::observability::handle_logs_query(level, source, search, limit)?,
+        } => handlers::observability::handle_logs_query(start, end, level, source, search, limit)?,
         Commands::LogsStats { group_by } => handlers::observability::handle_logs_stats(group_by)?,
         Commands::LogsPatterns { min_count } => {
             handlers::observability::handle_logs_patterns(min_count)?
@@ -828,15 +831,15 @@ pub async fn run(mut cli: Cli) -> Result<()> {
         Commands::MetricsCollect { vm } => handlers::observability::handle_metrics_collect(vm).await?,
         Commands::MetricsQuery {
             name,
-            start: _,
-            end: _,
+            start,
+            end,
             aggregation,
-        } => handlers::observability::handle_metrics_query(name, aggregation)?,
+        } => handlers::observability::handle_metrics_query(name, start, end, aggregation)?,
         Commands::MetricsSnapshot {
-            vm: _,
+            vm,
             cpu_threshold,
             memory_threshold,
-        } => handlers::observability::handle_metrics_snapshot(cpu_threshold, memory_threshold)?,
+        } => handlers::observability::handle_metrics_snapshot(vm, cpu_threshold, memory_threshold)?,
         Commands::AlertsList {
             enabled_only,
             severity,
@@ -1029,7 +1032,14 @@ pub async fn run(mut cli: Cli) -> Result<()> {
             auth,
             rate_limit,
         } => {
-            // Merge CLI args with config file (CLI takes priority)
+            // Merge CLI args with config file (CLI takes priority).
+            //
+            // LIMITATION: Because clap provides default values for port, host,
+            // auth, and rate_limit, we cannot distinguish "user explicitly passed
+            // --port 8080" from "clap filled in the default 8080".  If the user
+            // explicitly passes the same value as the clap default, the config-file
+            // value will win instead.  To fix this properly, the CLI fields would
+            // need to be `Option<T>` so we can detect presence vs. absence.
             let port = if port == 8080 {
                 app_config.api.port
             } else {

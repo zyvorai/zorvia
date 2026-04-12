@@ -258,9 +258,9 @@ impl RequestContext {
     pub fn new(method: HttpMethod, path: impl Into<String>) -> Self {
         Self {
             request_id: format!(
-                "req-{}-{:06x}",
+                "req-{}-{:016x}",
                 Utc::now().timestamp_micros(),
-                rand::random::<u32>() & 0xFFFFFF
+                rand::random::<u64>()
             ),
             method,
             path: path.into(),

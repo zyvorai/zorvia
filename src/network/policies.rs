@@ -107,7 +107,7 @@ impl NetworkPolicy {
     /// Check if policy allows ingress traffic
     pub fn allows_ingress(&self, source: &str, port: u16, protocol: &str) -> bool {
         if self.ingress_rules.is_empty() {
-            return self.policy_type == PolicyType::Egress; // Default allow if only egress
+            return false; // No ingress rules = deny all ingress
         }
 
         self.ingress_rules
@@ -118,7 +118,7 @@ impl NetworkPolicy {
     /// Check if policy allows egress traffic
     pub fn allows_egress(&self, dest: &str, port: u16, protocol: &str) -> bool {
         if self.egress_rules.is_empty() {
-            return self.policy_type == PolicyType::Ingress; // Default allow if only ingress
+            return false; // No egress rules = deny all egress
         }
 
         self.egress_rules

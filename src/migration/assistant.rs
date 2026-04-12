@@ -65,6 +65,7 @@ impl MigrationAssistant {
     pub fn select_target(&mut self, node: &str) { self.target_node = Some(node.to_string()); }
 
     pub fn run_pre_checks(&mut self) -> bool {
+        log::warn!("Migration pre-checks are not yet fully implemented. Returning stub results.");
         self.pre_check_results = vec![
             PreCheckResult { check_name: "Target node capacity".to_string(), check_type: CheckType::Resource,
                 status: CheckStatus::Passed, severity: CheckSeverity::Required, message: "Sufficient resources available".to_string() },
@@ -87,6 +88,7 @@ impl MigrationAssistant {
     pub fn start_migration(&mut self) { self.current_step = MigrationStep::Migrating; }
 
     pub fn run_post_checks(&mut self) {
+        log::warn!("Migration post-checks are not yet fully implemented. Returning stub results.");
         self.post_check_results = vec![
             PostCheckResult { check_name: "VM running".to_string(), passed: true, message: "VM is running on target node".to_string() },
             PostCheckResult { check_name: "Network accessible".to_string(), passed: true, message: "VM network is accessible".to_string() },

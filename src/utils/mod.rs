@@ -30,7 +30,7 @@ pub fn generate_id(prefix: &str, name: &str) -> String {
     )
 }
 
-/// Format bytes into a human-readable string.
+/// Formats bytes using human-readable binary suffixes (KiB, MiB, GiB, TiB).
 ///
 /// ```
 /// use zorvia::format_bytes;

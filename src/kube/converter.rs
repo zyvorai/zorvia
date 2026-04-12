@@ -125,6 +125,7 @@ pub fn vm_config_to_kubevirt(config: &VMConfig) -> Result<VirtualMachine> {
                 disks.push(Disk {
                     name: disk.name.clone(),
                     disk: None,
+                    lun: None,
                     cdrom: Some(CDROMTarget {
                         bus: Some(disk.bus.clone().unwrap_or_else(|| "sata".to_string())),
                         readonly: Some(true),
@@ -139,7 +140,8 @@ pub fn vm_config_to_kubevirt(config: &VMConfig) -> Result<VirtualMachine> {
             DiskDeviceType::LUN => {
                 disks.push(Disk {
                     name: disk.name.clone(),
-                    disk: Some(DiskTarget {
+                    disk: None,
+                    lun: Some(LUNTarget {
                         bus: Some(disk.bus.clone().unwrap_or_else(|| "scsi".to_string())),
                         readonly: None,
                     }),
@@ -158,6 +160,7 @@ pub fn vm_config_to_kubevirt(config: &VMConfig) -> Result<VirtualMachine> {
                         bus: Some(bus),
                         readonly: None,
                     }),
+                    lun: None,
                     cdrom: None,
                     boot_order,
                     cache: disk.cache.clone(),
@@ -177,6 +180,7 @@ pub fn vm_config_to_kubevirt(config: &VMConfig) -> Result<VirtualMachine> {
                 bus: Some("virtio".to_string()),
                 readonly: None,
             }),
+            lun: None,
             cdrom: None,
             boot_order: None,
             cache: None,

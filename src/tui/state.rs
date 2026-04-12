@@ -89,7 +89,7 @@ impl VmInfo {
         let status = vm
             .status
             .as_ref()
-            .and_then(|s| s.print_able_status.clone())
+            .and_then(|s| s.printable_status.clone())
             .unwrap_or_else(|| "Unknown".to_string());
 
         let ready = vm.status.as_ref().and_then(|s| s.ready).unwrap_or(false);

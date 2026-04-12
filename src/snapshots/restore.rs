@@ -122,11 +122,20 @@ impl RestoreManager {
         snapshot_name: &str,
     ) -> Result<RestoreInfo> {
         // Verify VM is not running before in-place restore
-        if let Ok(true) = self.is_vm_running(&self.namespace, vm_name).await {
-            return Err(anyhow::anyhow!(
-                "Cannot restore in-place: VM '{}' is currently running. Stop the VM first.",
-                vm_name
-            ));
+        match self.is_vm_running(&self.namespace, vm_name).await {
+            Ok(true) => {
+                return Err(anyhow::anyhow!(
+                    "Cannot restore in-place: VM '{}' is currently running. Stop the VM first.",
+                    vm_name
+                ));
+            }
+            Err(e) => {
+                return Err(anyhow::anyhow!(
+                    "Cannot verify VM '{}' running state: {}. Aborting restore for safety.",
+                    vm_name, e
+                ));
+            }
+            Ok(false) => {} // VM is stopped, safe to proceed
         }
 
         // In-place restore uses the same VM name as target

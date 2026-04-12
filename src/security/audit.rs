@@ -207,25 +207,18 @@ impl AuditLog {
 
     pub fn add_event(&mut self, event: AuditEvent) {
         if self.events.len() >= self.max_entries {
-            if let Some(dropped) = self.events.front() {
-                if dropped.is_critical() || dropped.is_security_event() {
-                    log::error!(
-                        "Audit log '{}' dropping critical/security event: id={}, type={}, severity={}, actor={}, action={}",
-                        self.log_id,
-                        dropped.event_id,
-                        dropped.event_type,
-                        dropped.severity,
-                        dropped.actor,
-                        dropped.action,
-                    );
-                }
+            // Find the first non-critical, non-security event to drop
+            let drop_index = self
+                .events
+                .iter()
+                .position(|e| !e.is_critical() && !e.is_security_event());
+            if let Some(idx) = drop_index {
+                self.events.remove(idx);
+            } else {
+                // All events are critical/security - drop oldest as last resort
+                log::error!("Audit log full: dropping critical event due to capacity");
+                self.events.pop_front();
             }
-            log::error!(
-                "Audit log '{}' reached max capacity ({}), dropping oldest event",
-                self.log_id,
-                self.max_entries
-            );
-            self.events.pop_front();
             self.events_dropped += 1;
         }
         self.events.push_back(event);

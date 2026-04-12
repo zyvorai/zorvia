@@ -25,7 +25,7 @@ pub(crate) fn classify_disk_usage(usage_percent: f64) -> DiskUsageLevel {
 /// Derive a VM name from a snapshot name by stripping a trailing "-snapshot" or "-snapshot-TIMESTAMP" suffix.
 pub(crate) fn derive_vm_name_from_snapshot(snapshot: &str) -> String {
     // Strip trailing -snapshot-TIMESTAMP or -snapshot suffix
-    if let Some(pos) = snapshot.find("-snapshot") {
+    if let Some(pos) = snapshot.rfind("-snapshot") {
         snapshot[..pos].to_string()
     } else {
         snapshot.to_string()
@@ -134,8 +134,8 @@ pub async fn handle_snapshot_list(
 
         for snapshot in &snapshots {
             let status_str = match snapshot.status {
-                snapshots::SnapshotStatus::Succeeded => color::vm_status("Running"),
-                snapshots::SnapshotStatus::InProgress => color::vm_status("Pending"),
+                snapshots::SnapshotStatus::Succeeded => color::vm_status("Succeeded"),
+                snapshots::SnapshotStatus::InProgress => color::vm_status("InProgress"),
                 snapshots::SnapshotStatus::Failed => color::vm_status("Failed"),
                 snapshots::SnapshotStatus::Unknown => color::vm_status("Unknown"),
             };
@@ -539,7 +539,7 @@ pub async fn handle_monitor_top(
 
     let mut reports = Vec::new();
 
-    for vm_name in vm_names.iter().take(limit) {
+    for vm_name in vm_names.iter() {
         if let Ok(metrics) = collector.collect(vm_name).await {
             let report = analyzer.analyze(vm_name, &metrics);
             reports.push(report);
@@ -570,6 +570,9 @@ pub async fn handle_monitor_top(
             _ => b.performance_score.cmp(&a.performance_score), // default: score
         }
     });
+
+    // Truncate to limit after sorting
+    reports.truncate(limit);
 
     let comparison: Vec<_> = reports
         .into_iter()
@@ -698,21 +701,19 @@ pub async fn handle_disk_health(vm: String, detailed: bool, namespace: &str) -> 
                                     .map(|q| q.0.clone())
                                     .unwrap_or_else(|| "unknown".to_string());
                                 d.size = size.clone();
-                                // Estimate usage (actual usage needs guest agent)
+                                // Actual disk usage not available via KubeVirt API
                                 let total = DiskInfo::parse_size(&size);
-                                let used = (total as f64 * 0.6) as u64; // Estimate 60% usage
-                                d.used = DiskInfo::format_size(used);
-                                d.available = DiskInfo::format_size(total - used);
-                                d.usage_percent = 60.0;
+                                d.used = DiskInfo::format_size(0);
+                                d.available = DiskInfo::format_size(total);
+                                d.usage_percent = 0.0; // Note: actual disk usage not available via KubeVirt API
                             }
                             d.device = format!("pvc:{}", pvc.claim_name);
                         } else if let Some(ref empty) = vol.empty_disk {
                             d.size = empty.capacity.clone();
                             let total = DiskInfo::parse_size(&empty.capacity);
-                            let used = (total as f64 * 0.5) as u64;
-                            d.used = DiskInfo::format_size(used);
-                            d.available = DiskInfo::format_size(total - used);
-                            d.usage_percent = 50.0;
+                            d.used = DiskInfo::format_size(0);
+                            d.available = DiskInfo::format_size(total);
+                            d.usage_percent = 0.0; // Note: actual disk usage not available via KubeVirt API
                         } else if let Some(ref dv) = vol.data_volume {
                             d.device = format!("dv:{}", dv.name);
                             d.size = "unknown".to_string();
@@ -908,10 +909,9 @@ pub async fn handle_disk_usage(
                             .unwrap_or_else(|| "unknown".to_string());
                         d.size = size.clone();
                         let total = DiskInfo::parse_size(&size);
-                        let used = (total as f64 * 0.6) as u64;
-                        d.used = DiskInfo::format_size(used);
-                        d.available = DiskInfo::format_size(total - used);
-                        d.usage_percent = 60.0;
+                        d.used = DiskInfo::format_size(0);
+                        d.available = DiskInfo::format_size(total);
+                        d.usage_percent = 0.0; // Note: actual disk usage not available via KubeVirt API
                     }
                     disks.push(d);
                 } else if let Some(ref empty) = vol.empty_disk {
@@ -919,10 +919,9 @@ pub async fn handle_disk_usage(
                     d.mount_point = format!("/{}", vol.name);
                     d.size = empty.capacity.clone();
                     let total = DiskInfo::parse_size(&empty.capacity);
-                    let used = (total as f64 * 0.5) as u64;
-                    d.used = DiskInfo::format_size(used);
-                    d.available = DiskInfo::format_size(total - used);
-                    d.usage_percent = 50.0;
+                    d.used = DiskInfo::format_size(0);
+                    d.available = DiskInfo::format_size(total);
+                    d.usage_percent = 0.0; // Note: actual disk usage not available via KubeVirt API
                     disks.push(d);
                 }
             }
@@ -1472,7 +1471,7 @@ mod tests {
 
     #[test]
     fn test_derive_vm_name_standard() {
-        // Strips from the first "-snapshot" onward, leaving just the VM name
+        // Strips from the last "-snapshot" onward, leaving just the VM name
         assert_eq!(
             derive_vm_name_from_snapshot("myvm-snapshot-20240101"),
             "myvm"
@@ -1494,7 +1493,7 @@ mod tests {
 
     #[test]
     fn test_derive_vm_name_multiple_snapshot() {
-        // Strips from the first "-snapshot" onward
+        // Strips from the last "-snapshot" onward
         assert_eq!(
             derive_vm_name_from_snapshot("snapshot-vm-snapshot"),
             "snapshot-vm"

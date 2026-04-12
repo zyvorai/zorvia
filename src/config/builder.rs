@@ -44,14 +44,9 @@ impl VMConfigBuilder {
 
     /// Set the CPU topology (cores, sockets, threads).
     pub fn cpu(mut self, cores: u32, sockets: u32, threads: u32) -> Self {
-        self.config.cpu = CPUConfig {
-            cores,
-            sockets,
-            threads,
-            model: None,
-            dedicated_cpu_placement: None,
-            isolate_emulator_thread: None,
-        };
+        self.config.cpu.cores = cores;
+        self.config.cpu.sockets = sockets;
+        self.config.cpu.threads = threads;
         self
     }
 

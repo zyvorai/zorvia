@@ -295,7 +295,11 @@ pub fn handle_compliance_check(vm: String, framework: String, output: String) ->
     let report = match framework.as_str() {
         "hipaa" => ComplianceChecker::check_hipaa(&vm),
         "soc2" => ComplianceChecker::check_soc2(&vm),
-        _ => ComplianceChecker::check_pci_dss(&vm),
+        "pci-dss" | "pci_dss" => ComplianceChecker::check_pci_dss(&vm),
+        other => {
+            println!("{}", color::warning(&format!("Framework '{}' does not have a dedicated checker. Using PCI-DSS as baseline.", other)));
+            ComplianceChecker::check_pci_dss(&vm)
+        }
     };
 
     println!();

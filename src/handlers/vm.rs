@@ -306,6 +306,8 @@ pub async fn handle_create(
     cpus: Option<u32>,
     memory: Option<String>,
     disk_size: Option<String>,
+    storage_class: Option<String>,
+    container_disk: Option<String>,
     cloud_init: Option<String>,
     dry_run: bool,
     output: String,
@@ -339,6 +341,32 @@ pub async fn handle_create(
                 cache: None,
                 io: None,
             });
+        }
+    }
+    if let Some(ref sc) = storage_class {
+        for disk in &mut config.disks {
+            disk.storage_class = Some(sc.clone());
+        }
+    }
+    if let Some(ref image) = container_disk {
+        // Add a container disk at the front of the disk list
+        let disk = crate::config::DiskConfig {
+            name: "containerdisk".to_string(),
+            size: "0".to_string(),
+            storage_class: None,
+            boot_order: 1,
+            source: crate::config::DiskSource::ContainerDisk {
+                image: image.clone(),
+            },
+            device_type: crate::config::DiskDeviceType::default(),
+            bus: None,
+            cache: None,
+            io: None,
+        };
+        if config.disks.is_empty() {
+            config.disks.push(disk);
+        } else {
+            config.disks.insert(0, disk);
         }
     }
     if let Some(cloud_init_file) = cloud_init {
@@ -438,7 +466,7 @@ pub async fn handle_list(all_namespaces: bool, output: String, namespace: &str) 
                     color::muted("No")
                 };
                 let status = if let Some(s) = &vm.status {
-                    s.print_able_status.as_deref().unwrap_or("Unknown")
+                    s.printable_status.as_deref().unwrap_or("Unknown")
                 } else {
                     "Unknown"
                 };
@@ -671,7 +699,12 @@ pub async fn handle_status(
 
             println!();
             println!("Press Ctrl+C to exit watch mode...");
-            tokio::time::sleep(tokio::time::Duration::from_secs(interval)).await;
+            tokio::select! {
+                _ = tokio::time::sleep(tokio::time::Duration::from_secs(interval)) => {}
+                _ = tokio::signal::ctrl_c() => {
+                    break;
+                }
+            }
         }
     } else {
         let vm = client.get_vm(namespace, &name).await?;

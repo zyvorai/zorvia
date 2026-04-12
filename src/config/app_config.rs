@@ -105,7 +105,7 @@ impl AppConfig {
     }
 
     /// Save configuration to a specific file
-    pub fn save_to(&self, path: &PathBuf) -> Result<()> {
+    pub fn save_to(&self, path: &std::path::Path) -> Result<()> {
         if let Some(parent) = path.parent() {
             std::fs::create_dir_all(parent).with_context(|| {
                 format!("Failed to create config directory: {}", parent.display())
@@ -148,7 +148,9 @@ impl AppConfig {
         if other.api.host != defaults.api.host {
             self.api.host = other.api.host;
         }
-        self.api.tls = other.api.tls;
+        if other.api.tls != defaults.api.tls {
+            self.api.tls = other.api.tls;
+        }
         if other.api.tls_cert.is_some() {
             self.api.tls_cert = other.api.tls_cert;
         }
@@ -175,15 +177,23 @@ impl AppConfig {
         if other.output.format != defaults.output.format {
             self.output.format = other.output.format;
         }
-        self.output.color = other.output.color;
-        self.output.timestamps = other.output.timestamps;
+        if other.output.color != defaults.output.color {
+            self.output.color = other.output.color;
+        }
+        if other.output.timestamps != defaults.output.timestamps {
+            self.output.timestamps = other.output.timestamps;
+        }
 
         // TUI
         if other.tui.refresh_interval != defaults.tui.refresh_interval {
             self.tui.refresh_interval = other.tui.refresh_interval;
         }
-        self.tui.interactive = other.tui.interactive;
-        self.tui.splash = other.tui.splash;
+        if other.tui.interactive != defaults.tui.interactive {
+            self.tui.interactive = other.tui.interactive;
+        }
+        if other.tui.splash != defaults.tui.splash {
+            self.tui.splash = other.tui.splash;
+        }
     }
 
     /// Generate default configuration file content

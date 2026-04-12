@@ -4,7 +4,7 @@ use once_cell::sync::Lazy;
 use regex::Regex;
 
 static MEMORY_SIZE_RE: Lazy<Regex> =
-    Lazy::new(|| Regex::new(r"^(\d+)(Mi|Gi|Ti|M|G|T)$").expect("invalid memory size regex"));
+    Lazy::new(|| Regex::new(r"^([1-9]\d*)(Mi|Gi|Ti|M|G|T)$").expect("invalid memory size regex"));
 
 /// Validates a VM configuration
 pub fn validate_vm_config(config: &VMConfig) -> Result<()> {
@@ -14,6 +14,12 @@ pub fn validate_vm_config(config: &VMConfig) -> Result<()> {
     validate_memory(&config.memory)?;
     validate_disks(&config.disks)?;
     validate_interfaces(&config.interfaces)?;
+
+    if let Some(tgp) = config.termination_grace_period {
+        if tgp < 0 {
+            return Err(anyhow!("Termination grace period cannot be negative"));
+        }
+    }
 
     Ok(())
 }
@@ -97,6 +103,12 @@ fn validate_cpu(cpu: &CPUConfig) -> Result<()> {
 
 fn validate_memory(memory: &MemoryConfig) -> Result<()> {
     validate_memory_size(&memory.size)?;
+    if let Some(ref hp) = memory.hugepages_page_size {
+        validate_memory_size(hp)?;
+    }
+    if let Some(ref mg) = memory.max_guest {
+        validate_memory_size(mg)?;
+    }
     Ok(())
 }
 
@@ -143,6 +155,29 @@ fn validate_disks(disks: &[DiskConfig]) -> Result<()> {
 fn validate_disk(disk: &DiskConfig) -> Result<()> {
     if disk.name.is_empty() {
         return Err(anyhow!("Disk name cannot be empty"));
+    }
+
+    // Validate disk name is DNS-compliant (lowercase alphanumeric and hyphens)
+    if !disk.name.chars().all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || c == '-') {
+        return Err(anyhow!("Disk name '{}' must contain only lowercase alphanumeric characters or '-'", disk.name));
+    }
+
+    if let Some(ref bus) = disk.bus {
+        if !["virtio", "sata", "scsi"].contains(&bus.as_str()) {
+            return Err(anyhow!("Invalid disk bus '{}'. Must be one of: virtio, sata, scsi", bus));
+        }
+    }
+
+    if let Some(ref cache) = disk.cache {
+        if !["none", "writethrough", "writeback"].contains(&cache.as_str()) {
+            return Err(anyhow!("Invalid disk cache '{}'. Must be one of: none, writethrough, writeback", cache));
+        }
+    }
+
+    if let Some(ref io) = disk.io {
+        if !["native", "threads", "default"].contains(&io.as_str()) {
+            return Err(anyhow!("Invalid disk I/O mode '{}'. Must be one of: native, threads, default", io));
+        }
     }
 
     // Validate size for non-container disks

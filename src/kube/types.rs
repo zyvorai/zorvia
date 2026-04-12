@@ -141,6 +141,8 @@ pub struct Disk {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub disk: Option<DiskTarget>,
     #[serde(skip_serializing_if = "Option::is_none")]
+    pub lun: Option<LUNTarget>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub cdrom: Option<CDROMTarget>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub boot_order: Option<u32>,
@@ -166,6 +168,15 @@ pub struct DiskTarget {
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct CDROMTarget {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub bus: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub readonly: Option<bool>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct LUNTarget {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub bus: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -545,7 +556,7 @@ pub struct VirtualMachineStatus {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub conditions: Option<Vec<Condition>>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub print_able_status: Option<String>,
+    pub printable_status: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]

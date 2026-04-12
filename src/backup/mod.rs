@@ -183,6 +183,10 @@ impl RetentionPolicy {
                 return false;
             }
         }
+
+        // NOTE: GFS (Grandfather-Father-Son) retention counts are not yet implemented.
+        // This returns true solely based on max_age_days. Once GFS retention is implemented,
+        // this should also evaluate keep_daily/keep_weekly/keep_monthly/keep_yearly counts.
         true
     }
 }

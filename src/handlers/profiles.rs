@@ -467,6 +467,7 @@ pub async fn handle_deploy(
                     "{}",
                     cli::error(&format!("Failed to create VM '{}': {}", vm_name, e))
                 );
+                continue; // Skip start attempt for failed VM
             }
         }
 

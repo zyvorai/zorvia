@@ -146,7 +146,7 @@ impl DNSZone {
     }
 
     pub fn increment_serial(&mut self) {
-        self.serial += 1;
+        self.serial = self.serial.saturating_add(1);
     }
 
     pub fn record_count(&self) -> usize {

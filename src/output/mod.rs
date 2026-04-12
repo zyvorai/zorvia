@@ -6,6 +6,7 @@ use serde::Serialize;
 pub enum OutputFormat {
     Yaml,
     Json,
+    Table,
 }
 
 impl OutputFormat {
@@ -13,6 +14,7 @@ impl OutputFormat {
         match s.to_lowercase().as_str() {
             "yaml" | "yml" => Some(Self::Yaml),
             "json" => Some(Self::Json),
+            "table" => Some(Self::Table),
             _ => None,
         }
     }
@@ -51,7 +53,7 @@ pub fn to_json<T: Serialize>(value: &T) -> Result<String> {
 /// Formats a VMConfig to the specified format
 pub fn format_output<T: Serialize>(value: &T, format: OutputFormat) -> Result<String> {
     match format {
-        OutputFormat::Yaml => to_yaml(value),
+        OutputFormat::Yaml | OutputFormat::Table => to_yaml(value),
         OutputFormat::Json => to_json(value),
     }
 }
@@ -103,6 +105,10 @@ mod tests {
         assert!(matches!(
             OutputFormat::parse_format("json"),
             Some(OutputFormat::Json)
+        ));
+        assert!(matches!(
+            OutputFormat::parse_format("table"),
+            Some(OutputFormat::Table)
         ));
         assert!(OutputFormat::parse_format("invalid").is_none());
     }

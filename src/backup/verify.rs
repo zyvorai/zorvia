@@ -166,21 +166,22 @@ pub struct VerificationRunner;
 impl VerificationRunner {
     /// Run verification checks
     pub fn verify(backup_name: &str, verification_type: VerificationType) -> VerificationReport {
+        log::warn!("Backup verification is not yet fully implemented. Returning stub results.");
         let mut report = VerificationReport::new(backup_name, verification_type.clone());
 
         // File existence check
         report
-            .add_check(VerificationCheck::new("file-exists", "Verify backup file exists").passed());
+            .add_check(VerificationCheck::new("file-exists", "Verify backup file exists").warning("Not verified - stub"));
 
         // Checksum verification
-        report.add_check(VerificationCheck::new("checksum", "Verify backup checksum").passed());
+        report.add_check(VerificationCheck::new("checksum", "Verify backup checksum").warning("Not verified - stub"));
 
         // Metadata check
-        report.add_check(VerificationCheck::new("metadata", "Verify backup metadata").passed());
+        report.add_check(VerificationCheck::new("metadata", "Verify backup metadata").warning("Not verified - stub"));
 
         // Compression check
         report.add_check(
-            VerificationCheck::new("compression", "Verify compression integrity").passed(),
+            VerificationCheck::new("compression", "Verify compression integrity").warning("Not verified - stub"),
         );
 
         match verification_type {
@@ -190,15 +191,15 @@ impl VerificationRunner {
             VerificationType::Standard => {
                 // Add decompression test
                 report
-                    .add_check(VerificationCheck::new("decompress", "Test decompression").passed());
+                    .add_check(VerificationCheck::new("decompress", "Test decompression").warning("Not verified - stub"));
             }
             VerificationType::Full => {
                 // Add full restore test
                 report.add_check(
-                    VerificationCheck::new("restore-test", "Full restore test").passed(),
+                    VerificationCheck::new("restore-test", "Full restore test").warning("Not verified - stub"),
                 );
 
-                report.add_check(VerificationCheck::new("boot-test", "VM boot test").passed());
+                report.add_check(VerificationCheck::new("boot-test", "VM boot test").warning("Not verified - stub"));
             }
         }
 
@@ -286,9 +287,12 @@ mod tests {
     fn test_verification_runner() {
         let report = VerificationRunner::verify("test-backup", VerificationType::Quick);
         assert!(report.checks.len() >= 4); // At least basic checks
+        // All checks are stubs returning warnings, so status should be Warning
+        assert_eq!(report.status, VerificationStatus::Warning);
 
         let quick_check = VerificationRunner::quick_check("test-backup");
-        assert!(quick_check);
+        // quick_check returns false because verification is not yet implemented (stubs return warnings)
+        assert!(!quick_check);
     }
 
     #[test]

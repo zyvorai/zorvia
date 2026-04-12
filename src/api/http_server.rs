@@ -92,14 +92,13 @@ pub mod web {
 
     // ── Auth middleware ──────────────────────────────────────────
 
-    /// Constant-time byte comparison to prevent timing attacks
+    /// Constant-time byte comparison to prevent timing attacks.
+    /// Avoids early return on length mismatch to prevent timing side-channel.
     fn constant_time_eq(a: &[u8], b: &[u8]) -> bool {
-        if a.len() != b.len() {
-            return false;
-        }
-        let mut result = 0u8;
-        for (x, y) in a.iter().zip(b.iter()) {
-            result |= x ^ y;
+        // XOR all bytes of the shorter slice, then factor in the length difference.
+        let mut result = (a.len() ^ b.len()) as u8;
+        for i in 0..std::cmp::min(a.len(), b.len()) {
+            result |= a[i] ^ b[i];
         }
         result == 0
     }
@@ -117,6 +116,11 @@ pub mod web {
     ) -> impl IntoResponse {
         // Allow health endpoint without auth
         if request.uri().path() == "/api/v1/health" {
+            return next.run(request).await.into_response();
+        }
+
+        // Allow CORS preflight (OPTIONS) requests without auth
+        if request.method() == axum::http::Method::OPTIONS {
             return next.run(request).await.into_response();
         }
 
@@ -263,7 +267,7 @@ pub mod web {
         ];
         let is_known = known_prefixes
             .iter()
-            .any(|p| msg.starts_with(p) || msg.contains(p));
+            .any(|p| msg.starts_with(p));
 
         if is_known {
             // Keep the first sentence (up to the first ". " or ": ")
@@ -566,7 +570,7 @@ pub mod web {
             Err(e) => return err_json(503, "SERVICE_UNAVAILABLE", &sanitize_error(&e)),
         };
 
-        let limit = query.limit.unwrap_or(50);
+        let limit = query.limit.unwrap_or(50).min(1000);
 
         use k8s_openapi::api::core::v1::Event;
         use kube::Api;
@@ -680,7 +684,7 @@ pub mod web {
             match vm
                 .status
                 .as_ref()
-                .and_then(|s| s.print_able_status.as_deref())
+                .and_then(|s| s.printable_status.as_deref())
             {
                 Some("Running") => running += 1,
                 Some("Stopped") => stopped += 1,
