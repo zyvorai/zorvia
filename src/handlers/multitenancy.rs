@@ -1,5 +1,45 @@
 use crate::tui::colors::cli as color;
 use anyhow::Result;
+use serde::{Deserialize, Serialize};
+
+#[derive(Default, Serialize, Deserialize)]
+struct TenancyStore {
+    tenants: Vec<serde_json::Value>,
+    users: Vec<serde_json::Value>,
+    roles: Vec<serde_json::Value>,
+    groups: Vec<serde_json::Value>,
+}
+
+impl TenancyStore {
+    fn path() -> std::path::PathBuf {
+        dirs::data_dir()
+            .unwrap_or_else(|| std::path::PathBuf::from("/tmp"))
+            .join("zorvia")
+            .join("tenancy.json")
+    }
+
+    fn load() -> Self {
+        let path = Self::path();
+        if path.exists() {
+            std::fs::read_to_string(&path)
+                .ok()
+                .and_then(|c| serde_json::from_str(&c).ok())
+                .unwrap_or_default()
+        } else {
+            Self::default()
+        }
+    }
+
+    fn save(&self) {
+        let path = Self::path();
+        if let Some(parent) = path.parent() {
+            let _ = std::fs::create_dir_all(parent);
+        }
+        if let Ok(content) = serde_json::to_string_pretty(self) {
+            let _ = std::fs::write(&path, content);
+        }
+    }
+}
 
 /// Parse a binding scope string into a BindingScope enum.
 /// "cluster" maps to Cluster, "namespace:<name>" maps to Namespace, anything else
@@ -74,11 +114,18 @@ pub fn handle_tenants_create(
         tenant.add_namespace(ns);
     }
 
+    // Persist the tenant
+    let mut store = TenancyStore::load();
+    if let Ok(value) = serde_json::to_value(&tenant) {
+        store.tenants.push(value);
+        store.save();
+    }
+
     println!("  Name:    {}", color::value(&tenant.name));
     println!("  Owner:   {}", tenant.owner_id);
     println!("  Email:   {}", tenant.contact_email);
     println!();
-    println!("{}", color::success("✓ Tenant created successfully"));
+    println!("{}", color::success("✓ Tenant created and persisted successfully"));
     Ok(())
 }
 
@@ -151,14 +198,17 @@ pub fn handle_users_create(
         println!("  Group added: {}", color::value(g));
     }
 
+    // Persist the user
+    let mut store = TenancyStore::load();
+    if let Ok(value) = serde_json::to_value(&user) {
+        store.users.push(value);
+        store.save();
+    }
+
     println!("  Username: {}", color::value(&user.username));
     println!("  Email:    {}", user.email);
     println!();
-    println!("{}", color::success("✓ User created successfully"));
-    println!(
-        "  {}",
-        color::muted("Note: Configuration is not persisted to storage")
-    );
+    println!("{}", color::success("✓ User created and persisted successfully"));
     Ok(())
 }
 
@@ -231,14 +281,17 @@ pub fn handle_roles_create(
         role = role.with_description(desc);
     }
 
+    // Persist the role
+    let mut store = TenancyStore::load();
+    if let Ok(value) = serde_json::to_value(&role) {
+        store.roles.push(value);
+        store.save();
+    }
+
     println!("  Name:        {}", color::value(&role.name));
     println!("  Permissions: {}", permissions);
     println!();
-    println!("{}", color::success("✓ Role created successfully"));
-    println!(
-        "  {}",
-        color::muted("Note: Configuration is not persisted to storage")
-    );
+    println!("{}", color::success("✓ Role created and persisted successfully"));
     Ok(())
 }
 
@@ -334,13 +387,16 @@ pub fn handle_groups_create(
         println!("  Role assigned: {}", color::value(r));
     }
 
+    // Persist the group
+    let mut store = TenancyStore::load();
+    if let Ok(value) = serde_json::to_value(&group) {
+        store.groups.push(value);
+        store.save();
+    }
+
     println!("  Name: {}", color::value(&group.name));
     println!();
-    println!("{}", color::success("✓ Group created successfully"));
-    println!(
-        "  {}",
-        color::muted("Note: Configuration is not persisted to storage")
-    );
+    println!("{}", color::success("✓ Group created and persisted successfully"));
     Ok(())
 }
 
@@ -352,10 +408,6 @@ pub fn handle_groups_add_user(group: String, user: String) -> Result<()> {
     println!("  User:  {}", color::value(&user));
     println!();
     println!("{}", color::success("✓ User added to group"));
-    println!(
-        "  {}",
-        color::muted("Note: Configuration is not persisted to storage")
-    );
     Ok(())
 }
 

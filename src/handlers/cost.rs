@@ -1,115 +1,82 @@
+use crate::cost::CostCalculator;
+use crate::kube;
 use crate::tui::colors::cli as color;
 use anyhow::Result;
 
-pub async fn handle_cost_analyze(vm: Option<String>, period: String, output: String, namespace: &str) -> Result<()> {
-    use crate::cost::CostCalculator;
-    use crate::kube;
+/// Average hours in a month, matching the constant in crate::cost.
+const COST_HOURS_PER_MONTH: f64 = 730.0;
 
-    println!("{}", color::header("Cost Analysis"));
-    if let Some(ref vm_name) = vm {
-        println!("  VM:      {}", color::value(vm_name));
-    }
-    println!("  Period:  {}", period);
-    println!();
+/// Extract CPU, memory, and storage from a KubeVirt VirtualMachine object
+/// and calculate costs using the provided calculator.
+fn extract_and_calculate_cost(
+    calculator: &CostCalculator,
+    vm_obj: &kube::VirtualMachine,
+    namespace: &str,
+    period_hours: f64,
+) -> crate::cost::VMCost {
+    let name = vm_obj
+        .metadata
+        .name
+        .as_deref()
+        .unwrap_or("unknown");
+    let vm_ns = vm_obj
+        .metadata
+        .namespace
+        .as_deref()
+        .unwrap_or(namespace);
+    let cpu = vm_obj
+        .spec
+        .template
+        .spec
+        .domain
+        .cpu
+        .as_ref()
+        .and_then(|c| c.cores)
+        .unwrap_or(1);
+    let memory_str = vm_obj
+        .spec
+        .template
+        .spec
+        .domain
+        .memory
+        .as_ref()
+        .and_then(|m| m.guest.as_deref())
+        .unwrap_or("2Gi");
+    let memory_gi = crate::disk::DiskInfo::parse_size(memory_str)
+        / (1024 * 1024 * 1024);
+    let storage_gi = vm_obj
+        .spec
+        .template
+        .spec
+        .volumes
+        .as_ref()
+        .map(|vols| {
+            vols.iter()
+                .map(|v| {
+                    v.empty_disk
+                        .as_ref()
+                        .map(|e| {
+                            crate::disk::DiskInfo::parse_size(&e.capacity)
+                                / (1024 * 1024 * 1024)
+                        })
+                        .unwrap_or(20) // estimate PVCs at 20Gi when size is unknown
+                })
+                .sum::<u64>()
+        })
+        .unwrap_or(20);
 
-    let calculator = CostCalculator::default();
+    calculator.calculate_vm_cost(
+        name,
+        vm_ns,
+        cpu,
+        (memory_gi as u64).min(u32::MAX as u64) as u32,
+        (storage_gi as u64).min(u32::MAX as u64) as u32,
+        period_hours,
+    )
+}
 
-    let period_hours = match period.as_str() {
-        "daily" | "1d" => 24.0,
-        "weekly" | "7d" => 168.0,
-        "yearly" | "1y" => 8760.0,
-        _ => 730.0, // monthly default
-    };
-
-    // Try to fetch real VM specs from Kubernetes
-    let cost = if let Some(ref vm_name) = vm {
-        match kube::KubeClient::new().await {
-            Ok(client) => {
-                // Use the CLI-specified namespace
-                let vm_obj = client.get_vm(namespace, vm_name).await;
-                match vm_obj {
-                    Ok(vm_obj) => {
-                        let cpu = vm_obj
-                            .spec
-                            .template
-                            .spec
-                            .domain
-                            .cpu
-                            .as_ref()
-                            .and_then(|c| c.cores)
-                            .unwrap_or(1);
-                        let memory_str = vm_obj
-                            .spec
-                            .template
-                            .spec
-                            .domain
-                            .memory
-                            .as_ref()
-                            .and_then(|m| m.guest.as_deref())
-                            .unwrap_or("2Gi");
-                        let memory_gi = crate::disk::DiskInfo::parse_size(memory_str)
-                            / (1024 * 1024 * 1024);
-                        let storage_gi = vm_obj
-                            .spec
-                            .template
-                            .spec
-                            .volumes
-                            .as_ref()
-                            .map(|vols| {
-                                vols.iter()
-                                    .map(|v| {
-                                        v.empty_disk
-                                            .as_ref()
-                                            .map(|e| {
-                                                crate::disk::DiskInfo::parse_size(&e.capacity)
-                                                    / (1024 * 1024 * 1024)
-                                            })
-                                            .unwrap_or(20) // estimate PVCs at 20Gi
-                                    })
-                                    .sum::<u64>()
-                            })
-                            .unwrap_or(20);
-
-                        calculator.calculate_vm_cost(
-                            vm_name,
-                            namespace,
-                            cpu,
-                            (memory_gi as u64).min(u32::MAX as u64) as u32,
-                            (storage_gi as u64).min(u32::MAX as u64) as u32,
-                            period_hours,
-                        )
-                    }
-                    Err(_) => {
-                        eprintln!(
-                            "{}",
-                            color::warning(&format!(
-                                "Could not fetch VM '{}', using default estimates",
-                                vm_name
-                            ))
-                        );
-                        calculator.calculate_vm_cost(vm_name, namespace, 2, 4, 20, period_hours)
-                    }
-                }
-            }
-            Err(_) => {
-                eprintln!(
-                    "{}",
-                    color::warning("K8s unavailable, using default resource estimates")
-                );
-                calculator.calculate_vm_cost(
-                    vm_name,
-                    namespace,
-                    2,
-                    4,
-                    20,
-                    period_hours,
-                )
-            }
-        }
-    } else {
-        calculator.calculate_vm_cost("(estimate)", namespace, 2, 4, 20, period_hours)
-    };
-
+/// Print a single VM cost breakdown to stdout.
+fn print_vm_cost_breakdown(cost: &crate::cost::VMCost) {
     println!("Cost Breakdown:");
     println!("  CPU:      ${:.2}", cost.cpu_cost);
     println!("  Memory:   ${:.2}", cost.memory_cost);
@@ -122,16 +89,181 @@ pub async fn handle_cost_analyze(vm: Option<String>, period: String, output: Str
     println!();
     println!("  Runtime:  {:.1} hours", cost.runtime_hours);
     println!("  Cost/hr:  ${:.4}", cost.cost_per_hour());
+}
 
-    if output == "json" {
-        println!();
-        let json = serde_json::to_string_pretty(&cost)?;
-        println!("{}", json);
-    } else if output == "yaml" {
-        println!();
-        let yaml = serde_yaml::to_string(&cost)?;
-        println!("{}", yaml);
+/// Helper to get the CPU rate from a CostCalculator for display math.
+fn calculator_rate_cpu(calculator: &CostCalculator) -> f64 {
+    calculator.rates().cpu_per_core_hour
+}
+
+/// Helper to get the memory rate from a CostCalculator for display math.
+fn calculator_rate_mem(calculator: &CostCalculator) -> f64 {
+    calculator.rates().memory_per_gb_hour
+}
+
+/// Helper to get the storage rate from a CostCalculator for display math.
+fn calculator_rate_storage(calculator: &CostCalculator) -> f64 {
+    calculator.rates().storage_per_gb_month
+}
+
+/// Parse a period string into hours.
+fn parse_period_hours(period: &str) -> f64 {
+    match period {
+        "daily" | "1d" => 24.0,
+        "weekly" | "7d" => 168.0,
+        "yearly" | "1y" => 8760.0,
+        _ => 730.0, // monthly default
     }
+}
+
+pub async fn handle_cost_analyze(vm: Option<String>, period: String, output: String, namespace: &str) -> Result<()> {
+    println!("{}", color::header("Cost Analysis"));
+    if let Some(ref vm_name) = vm {
+        println!("  VM:      {}", color::value(vm_name));
+    } else {
+        println!("  Scope:   all VMs in namespace '{}'", namespace);
+    }
+    println!("  Period:  {}", period);
+    // Cost rates are configurable estimates (default: AWS-like pricing).
+    // They do not reflect actual cloud provider billing. See ResourceRates for presets.
+    println!("  Rates:   estimated (AWS-like defaults, not real provider rates)");
+    println!();
+
+    let calculator = CostCalculator::default();
+    let period_hours = parse_period_hours(&period);
+
+    // Fetch real VM specs from Kubernetes
+    if let Some(ref vm_name) = vm {
+        // Single VM analysis
+        let cost = match kube::KubeClient::new().await {
+            Ok(client) => {
+                let vm_obj = client.get_vm(namespace, vm_name).await;
+                match vm_obj {
+                    Ok(vm_obj) => {
+                        extract_and_calculate_cost(&calculator, &vm_obj, namespace, period_hours)
+                    }
+                    Err(e) => {
+                        eprintln!(
+                            "{}",
+                            color::warning(&format!(
+                                "Could not fetch VM '{}': {}",
+                                vm_name, e
+                            ))
+                        );
+                        return Err(anyhow::anyhow!(
+                            "VM '{}' not found in namespace '{}'. Specify a valid VM name or omit it to list all VMs.",
+                            vm_name, namespace
+                        ));
+                    }
+                }
+            }
+            Err(e) => {
+                return Err(anyhow::anyhow!(
+                    "Cannot connect to Kubernetes cluster: {}. A live cluster is required for cost analysis.",
+                    e
+                ));
+            }
+        };
+
+        print_vm_cost_breakdown(&cost);
+
+        if output == "json" {
+            println!();
+            let json = serde_json::to_string_pretty(&cost)?;
+            println!("{}", json);
+        } else if output == "yaml" {
+            println!();
+            let yaml = serde_yaml::to_string(&cost)?;
+            println!("{}", yaml);
+        }
+    } else {
+        // No VM specified: list all VMs in the namespace and show per-VM costs
+        match kube::KubeClient::new().await {
+            Ok(client) => {
+                match client.list_vms(namespace).await {
+                    Ok(vms) if vms.is_empty() => {
+                        println!(
+                            "{}",
+                            color::muted(&format!("No VMs found in namespace '{}'.", namespace))
+                        );
+                    }
+                    Ok(vms) => {
+                        use crate::cost::CostSummary;
+                        let mut summary = CostSummary::new();
+                        let mut all_costs = Vec::new();
+
+                        for vm_obj in &vms {
+                            let cost = extract_and_calculate_cost(
+                                &calculator, vm_obj, namespace, period_hours,
+                            );
+                            summary.add_vm_cost(&cost);
+                            all_costs.push(cost);
+                        }
+
+                        // Print per-VM breakdown
+                        println!(
+                            "{:<25} {:<8} {:<10} {:<10} {:<12} {:<12}",
+                            color::label("VM"),
+                            color::label("CPU"),
+                            color::label("MEM(GB)"),
+                            color::label("DISK(GB)"),
+                            color::label("COST/HR"),
+                            color::label("TOTAL"),
+                        );
+                        println!("{}", "-".repeat(80));
+
+                        for cost in &all_costs {
+                            println!(
+                                "{:<25} {:<8} {:<10} {:<10} ${:<11.4} {}",
+                                cost.vm_name,
+                                format!("{:.0}", cost.cpu_cost / (calculator_rate_cpu(&calculator) * period_hours)),
+                                format!("{:.0}", cost.memory_cost / (calculator_rate_mem(&calculator) * period_hours)),
+                                format!("{:.1}", cost.storage_cost / (calculator_rate_storage(&calculator) * period_hours / COST_HOURS_PER_MONTH)),
+                                cost.cost_per_hour(),
+                                color::value(&format!("${:.2}", cost.total_cost)),
+                            );
+                        }
+
+                        println!("{}", "-".repeat(80));
+                        println!(
+                            "{:<25} {:<8} {:<10} {:<10} {:<12} {}",
+                            color::label(&format!("TOTAL ({} VMs)", summary.vm_count)),
+                            "",
+                            "",
+                            "",
+                            "",
+                            color::value(&format!("${:.2}", summary.total_cost)),
+                        );
+                        println!();
+                        println!("  Avg Cost/VM:  ${:.2}", summary.average_cost_per_vm());
+
+                        if output == "json" {
+                            println!();
+                            let json = serde_json::to_string_pretty(&all_costs)?;
+                            println!("{}", json);
+                        } else if output == "yaml" {
+                            println!();
+                            let yaml = serde_yaml::to_string(&all_costs)?;
+                            println!("{}", yaml);
+                        }
+                    }
+                    Err(e) => {
+                        return Err(anyhow::anyhow!(
+                            "Failed to list VMs in namespace '{}': {}",
+                            namespace, e
+                        ));
+                    }
+                }
+            }
+            Err(e) => {
+                return Err(anyhow::anyhow!(
+                    "Cannot connect to Kubernetes cluster: {}. A live cluster is required for cost analysis.",
+                    e
+                ));
+            }
+        }
+    }
+
     Ok(())
 }
 
@@ -141,110 +273,61 @@ pub async fn handle_cost_summary(
     group_by: Option<String>,
     output: String,
 ) -> Result<()> {
-    use crate::cost::{CostCalculator, CostSummary};
-    use crate::kube;
+    use crate::cost::CostSummary;
 
     println!("{}", color::header("Cost Summary"));
     if let Some(ref ns) = namespace {
         println!("  Namespace: {}", color::value(ns));
+    } else {
+        println!("  Namespace: {}", color::value("(all)"));
     }
     println!("  Period:    {}", period);
+    // Cost rates are configurable estimates (default: AWS-like pricing).
+    // They do not reflect actual cloud provider billing. See ResourceRates for presets.
+    println!("  Rates:     estimated (AWS-like defaults, not real provider rates)");
     if let Some(ref group) = group_by {
         println!("  Group By:  {}", group);
     }
     println!();
 
-    let period_hours = match period.as_str() {
-        "daily" | "1d" => 24.0,
-        "weekly" | "7d" => 168.0,
-        "yearly" | "1y" => 8760.0,
-        _ => 730.0,
-    };
+    let period_hours = parse_period_hours(&period);
 
     let mut summary = CostSummary::new();
     let calculator = CostCalculator::default();
 
-    // Try to fetch real VMs from Kubernetes
-    match kube::KubeClient::new().await {
-        Ok(client) => {
-            let ns = namespace.as_deref().unwrap_or("default");
-            match client.list_vms(ns).await {
-                Ok(vms) => {
-                    for vm in &vms {
-                        let name = vm.metadata.name.as_deref().unwrap_or("unknown");
-                        let cpu = vm
-                            .spec
-                            .template
-                            .spec
-                            .domain
-                            .cpu
-                            .as_ref()
-                            .and_then(|c| c.cores)
-                            .unwrap_or(1);
-                        let memory_str = vm
-                            .spec
-                            .template
-                            .spec
-                            .domain
-                            .memory
-                            .as_ref()
-                            .and_then(|m| m.guest.as_deref())
-                            .unwrap_or("2Gi");
-                        let memory_gi =
-                            crate::disk::DiskInfo::parse_size(memory_str) / (1024 * 1024 * 1024);
-                        let storage_gi = vm
-                            .spec
-                            .template
-                            .spec
-                            .volumes
-                            .as_ref()
-                            .map(|vols| {
-                                vols.iter()
-                                    .map(|v| {
-                                        v.empty_disk
-                                            .as_ref()
-                                            .map(|e| {
-                                                crate::disk::DiskInfo::parse_size(&e.capacity)
-                                                    / (1024 * 1024 * 1024)
-                                            })
-                                            .unwrap_or(20)
-                                    })
-                                    .sum::<u64>()
-                            })
-                            .unwrap_or(20);
-
-                        let vm_cost = calculator.calculate_vm_cost(
-                            name,
-                            ns,
-                            cpu,
-                            (memory_gi as u64).min(u32::MAX as u64) as u32,
-                            (storage_gi as u64).min(u32::MAX as u64) as u32,
-                            period_hours,
-                        );
-                        summary.add_vm_cost(&vm_cost);
-                    }
-
-                    if vms.is_empty() {
-                        println!(
-                            "{}",
-                            color::muted("No VMs found in namespace. Showing empty summary.")
-                        );
-                        println!();
-                    }
-                }
-                Err(e) => {
-                    eprintln!(
-                        "{}",
-                        color::warning(&format!("Failed to list VMs: {}. Showing empty summary.", e))
-                    );
-                }
-            }
+    // Fetch real VMs from Kubernetes
+    let client = match kube::KubeClient::new().await {
+        Ok(c) => c,
+        Err(e) => {
+            return Err(anyhow::anyhow!(
+                "Cannot connect to Kubernetes cluster: {}. A live cluster is required for cost summary.",
+                e
+            ));
         }
-        Err(_) => {
-            eprintln!(
-                "{}",
-                color::warning("K8s unavailable. Showing empty summary.")
-            );
+    };
+
+    // If a namespace is specified, list VMs in that namespace; otherwise list across all namespaces.
+    let vms = if let Some(ref ns) = namespace {
+        client.list_vms(ns).await.map_err(|e| {
+            anyhow::anyhow!("Failed to list VMs in namespace '{}': {}", ns, e)
+        })?
+    } else {
+        client.list_all_vms().await.map_err(|e| {
+            anyhow::anyhow!("Failed to list VMs across all namespaces: {}", e)
+        })?
+    };
+
+    if vms.is_empty() {
+        println!(
+            "{}",
+            color::muted("No VMs found. Showing empty summary.")
+        );
+        println!();
+    } else {
+        for vm_obj in &vms {
+            let ns_for_calc = namespace.as_deref().unwrap_or("default");
+            let vm_cost = extract_and_calculate_cost(&calculator, vm_obj, ns_for_calc, period_hours);
+            summary.add_vm_cost(&vm_cost);
         }
     }
 

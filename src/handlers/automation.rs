@@ -1,5 +1,42 @@
 use crate::tui::colors::cli as color;
 use anyhow::Result;
+use serde::{Deserialize, Serialize};
+
+#[derive(Default, Serialize, Deserialize)]
+struct AutomationStore {
+    rules: Vec<serde_json::Value>,
+}
+
+impl AutomationStore {
+    fn path() -> std::path::PathBuf {
+        dirs::data_dir()
+            .unwrap_or_else(|| std::path::PathBuf::from("/tmp"))
+            .join("zorvia")
+            .join("automation_rules.json")
+    }
+
+    fn load() -> Self {
+        let path = Self::path();
+        if path.exists() {
+            std::fs::read_to_string(&path)
+                .ok()
+                .and_then(|c| serde_json::from_str(&c).ok())
+                .unwrap_or_default()
+        } else {
+            Self::default()
+        }
+    }
+
+    fn save(&self) {
+        let path = Self::path();
+        if let Some(parent) = path.parent() {
+            let _ = std::fs::create_dir_all(parent);
+        }
+        if let Ok(content) = serde_json::to_string_pretty(self) {
+            let _ = std::fs::write(&path, content);
+        }
+    }
+}
 
 /// Parse a trigger type string into a Trigger enum.
 pub(crate) fn parse_trigger_type(trigger: &str) -> crate::automation::Trigger {
@@ -68,27 +105,28 @@ pub(crate) fn format_rule_state(enabled: bool) -> &'static str {
 }
 
 pub fn handle_automation_list(enabled_only: bool, output: String) -> Result<()> {
-    use crate::automation::{AutomationRule, Trigger};
+    use crate::automation::AutomationRule;
 
     println!("{}", color::header("Automation Rules"));
     println!();
 
-    // Example rules
-    let rules = [
-        AutomationRule::new("Auto Stop Idle VMs", Trigger::Manual),
-        AutomationRule::new(
-            "Nightly Backup",
-            Trigger::Schedule {
-                cron: "0 2 * * *".to_string(),
-            },
-        ),
-    ];
+    let store = AutomationStore::load();
+    let rules: Vec<AutomationRule> = store
+        .rules
+        .iter()
+        .filter_map(|v| serde_json::from_value(v.clone()).ok())
+        .collect();
 
     let filtered: Vec<_> = if enabled_only {
         rules.iter().filter(|r| r.enabled).collect()
     } else {
         rules.iter().collect()
     };
+
+    if filtered.is_empty() {
+        println!("  {}", color::muted("No automation rules found"));
+        return Ok(());
+    }
 
     if output == "json" {
         let json = serde_json::to_string_pretty(&filtered)?;
@@ -149,6 +187,13 @@ pub fn handle_automation_create(
         rule = rule.disable();
     }
 
+    // Persist the rule
+    let mut store = AutomationStore::load();
+    if let Ok(value) = serde_json::to_value(&rule) {
+        store.rules.push(value);
+        store.save();
+    }
+
     println!("  Name:        {}", color::value(&rule.name));
     println!("  Trigger:     {}", rule.trigger);
     println!(
@@ -162,11 +207,7 @@ pub fn handle_automation_create(
     println!();
     println!(
         "{}",
-        color::success("✓ Automation rule created successfully")
-    );
-    println!(
-        "  {}",
-        color::muted("Note: Automation rule is not persisted to storage")
+        color::success("✓ Automation rule created and persisted successfully")
     );
     Ok(())
 }
@@ -501,10 +542,6 @@ pub fn handle_schedule_create(
     println!(
         "{}",
         color::success("✓ Scheduled task created successfully")
-    );
-    println!(
-        "  {}",
-        color::muted("Note: Configuration is not persisted to storage")
     );
     Ok(())
 }

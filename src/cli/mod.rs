@@ -122,6 +122,12 @@ pub enum Commands {
         name: String,
     },
 
+    /// Attach to a VM's serial console
+    Console {
+        /// VM name
+        name: String,
+    },
+
     /// Generate a VM manifest without creating it
     Generate {
         /// VM name

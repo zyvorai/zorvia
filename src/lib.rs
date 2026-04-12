@@ -204,6 +204,10 @@ pub async fn run(mut cli: Cli) -> Result<()> {
             handlers::vm::handle_restart(name, &cli.namespace).await?;
         }
 
+        Commands::Console { name } => {
+            handlers::vm::handle_console(name, &cli.namespace).await?;
+        }
+
         Commands::Generate {
             name,
             template,
@@ -544,7 +548,7 @@ pub async fn run(mut cli: Cli) -> Result<()> {
             migration_type,
             plan,
         } => {
-            handlers::backup::handle_migrate(vm, target_node, migration_type, plan, &cli.namespace)?;
+            handlers::backup::handle_migrate(vm, target_node, migration_type, plan, &cli.namespace).await?;
         }
 
         Commands::MigrationStatus {
@@ -616,7 +620,8 @@ pub async fn run(mut cli: Cli) -> Result<()> {
                 compression,
                 no_encryption,
                 &cli.namespace,
-            )?;
+            )
+            .await?;
         }
 
         Commands::BackupList { vm, output } => {
@@ -628,7 +633,7 @@ pub async fn run(mut cli: Cli) -> Result<()> {
         }
 
         Commands::BackupDelete { name, yes } => {
-            handlers::backup::handle_backup_delete(name, yes, &cli.namespace)?;
+            handlers::backup::handle_backup_delete(name, yes, &cli.namespace).await?;
         }
 
         Commands::BackupRestore {
@@ -636,7 +641,7 @@ pub async fn run(mut cli: Cli) -> Result<()> {
             target,
             start,
         } => {
-            handlers::backup::handle_backup_restore(backup, target, start, &cli.namespace)?;
+            handlers::backup::handle_backup_restore(backup, target, start, &cli.namespace).await?;
         }
 
         Commands::BackupVerify {
@@ -1159,6 +1164,7 @@ pub async fn run(mut cli: Cli) -> Result<()> {
                         "start",
                         "stop",
                         "restart",
+                        "console",
                         "status",
                         "clone",
                         "resources",

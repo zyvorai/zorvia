@@ -46,7 +46,13 @@ impl Default for CostConfig {
     }
 }
 
-/// Resource pricing rates
+/// Resource pricing rates.
+///
+/// These are configurable cost estimates, NOT actual cloud provider rates.
+/// The default rates use AWS-like pricing as a baseline for estimation.
+/// Use `aws_like()`, `gcp_like()`, or `azure_like()` presets, or set custom
+/// rates to match your environment. In production, these should be configured
+/// to reflect your actual infrastructure costs.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ResourceRates {
     pub cpu_per_core_hour: f64,     // Cost per CPU core per hour
@@ -175,6 +181,11 @@ pub struct CostCalculator {
 impl CostCalculator {
     pub fn new(config: CostConfig) -> Self {
         Self { config }
+    }
+
+    /// Access the underlying resource rates (useful for display/reverse calculations).
+    pub fn rates(&self) -> &ResourceRates {
+        &self.config.rates
     }
 
     /// Calculate VM costs for a period

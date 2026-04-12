@@ -566,6 +566,36 @@ pub async fn handle_restart(name: String, namespace: &str) -> Result<()> {
     Ok(())
 }
 
+pub async fn handle_console(name: String, namespace: &str) -> Result<()> {
+    use std::process::Command;
+
+    println!("Attaching to console of VM '{}'...", name);
+    println!("(Use Ctrl+] to detach)");
+    println!();
+
+    // Use virtctl (KubeVirt CLI) to connect to the console
+    // This is the standard way to access VM consoles in KubeVirt
+    let status = Command::new("virtctl")
+        .args(["console", &name, "-n", namespace])
+        .status();
+
+    match status {
+        Ok(exit) if exit.success() => Ok(()),
+        Ok(exit) => {
+            Err(anyhow::anyhow!("Console session ended with exit code: {}", exit.code().unwrap_or(-1)))
+        }
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => {
+            eprintln!("Error: 'virtctl' not found in PATH.");
+            eprintln!();
+            eprintln!("Install virtctl to use the console command:");
+            eprintln!("  kubectl krew install virt");
+            eprintln!("  # or download from: https://github.com/kubevirt/kubevirt/releases");
+            Err(anyhow::anyhow!("virtctl is required for console access"))
+        }
+        Err(e) => Err(anyhow::anyhow!("Failed to launch virtctl: {}", e)),
+    }
+}
+
 #[allow(clippy::too_many_arguments)]
 pub fn handle_generate(
     name: String,

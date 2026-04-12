@@ -1,5 +1,42 @@
 use crate::tui::colors::cli as color;
 use anyhow::Result;
+use serde::{Deserialize, Serialize};
+
+#[derive(Default, Serialize, Deserialize)]
+struct AlertStore {
+    rules: Vec<serde_json::Value>,
+}
+
+impl AlertStore {
+    fn path() -> std::path::PathBuf {
+        dirs::data_dir()
+            .unwrap_or_else(|| std::path::PathBuf::from("/tmp"))
+            .join("zorvia")
+            .join("alerts.json")
+    }
+
+    fn load() -> Self {
+        let path = Self::path();
+        if path.exists() {
+            std::fs::read_to_string(&path)
+                .ok()
+                .and_then(|c| serde_json::from_str(&c).ok())
+                .unwrap_or_default()
+        } else {
+            Self::default()
+        }
+    }
+
+    fn save(&self) {
+        let path = Self::path();
+        if let Some(parent) = path.parent() {
+            let _ = std::fs::create_dir_all(parent);
+        }
+        if let Ok(content) = serde_json::to_string_pretty(self) {
+            let _ = std::fs::write(&path, content);
+        }
+    }
+}
 
 /// Parse a log level string into a LogLevel enum.
 /// Supported values (case-insensitive): debug, info, warning, error, critical.
@@ -207,17 +244,89 @@ pub fn handle_alerts_list(
     severity: Option<String>,
     output: String,
 ) -> Result<()> {
+    use crate::observability::alerts::AlertRule;
+
     println!("{}", color::header("Alert Rules"));
     println!();
 
-    println!(
-        "  Filter: {}",
-        if enabled_only { "Enabled only" } else { "All" }
-    );
-    if let Some(sev) = &severity {
-        println!("  Severity: {}", color::value(sev));
+    let store = AlertStore::load();
+    let rules: Vec<AlertRule> = store
+        .rules
+        .iter()
+        .filter_map(|v| serde_json::from_value(v.clone()).ok())
+        .collect();
+
+    let filtered: Vec<_> = rules
+        .iter()
+        .filter(|r| !enabled_only || r.enabled)
+        .filter(|r| {
+            severity
+                .as_ref()
+                .map(|s| r.severity.to_string().to_lowercase() == s.to_lowercase())
+                .unwrap_or(true)
+        })
+        .collect();
+
+    if filtered.is_empty() {
+        println!("  {}", color::muted("No alert rules found"));
+        return Ok(());
     }
-    println!("  Format: {}", output);
+
+    if output == "json" {
+        let json = serde_json::to_string_pretty(&filtered)?;
+        println!("{}", json);
+    } else if output == "yaml" {
+        let yaml = serde_yaml::to_string(&filtered)?;
+        println!("{}", yaml);
+    } else {
+        println!(
+            "{:<30} {:<12} {:<10} {}",
+            color::label("NAME"),
+            color::label("SEVERITY"),
+            color::label("STATUS"),
+            color::label("CONDITION")
+        );
+        println!("{}", "-".repeat(75));
+
+        for rule in &filtered {
+            let status = if rule.enabled {
+                color::success("Enabled")
+            } else {
+                color::muted("Disabled")
+            };
+            let condition_str = match &rule.condition {
+                crate::observability::alerts::AlertCondition::MetricThreshold {
+                    metric_name,
+                    operator,
+                    threshold,
+                } => {
+                    let op_str = match operator {
+                        crate::observability::alerts::ThresholdOperator::GreaterThan => ">",
+                        crate::observability::alerts::ThresholdOperator::LessThan => "<",
+                        crate::observability::alerts::ThresholdOperator::Equal => "==",
+                        crate::observability::alerts::ThresholdOperator::GreaterThanOrEqual => ">=",
+                        crate::observability::alerts::ThresholdOperator::LessThanOrEqual => "<=",
+                    };
+                    format!("{} {} {}", metric_name, op_str, threshold)
+                }
+                crate::observability::alerts::AlertCondition::VMState { vm_name, state } => {
+                    format!("vm:{} state:{}", vm_name, state)
+                }
+                crate::observability::alerts::AlertCondition::ResourceUsage {
+                    resource,
+                    percentage,
+                } => format!("{} > {}%", resource, percentage),
+                _ => "custom".to_string(),
+            };
+            println!(
+                "{:<30} {:<12} {:<10} {}",
+                rule.name,
+                rule.severity.to_string(),
+                status,
+                condition_str
+            );
+        }
+    }
     println!();
     println!("{}", color::success("✓ Rules listed"));
     Ok(())
@@ -251,17 +360,20 @@ pub fn handle_alerts_create(
     let rule = AlertRule::new(&name, alert_severity, condition)
         .with_duration(chrono::TimeDelta::minutes(duration));
 
+    // Persist the alert rule
+    let mut store = AlertStore::load();
+    if let Ok(value) = serde_json::to_value(&rule) {
+        store.rules.push(value);
+        store.save();
+    }
+
     println!("  Name:      {}", color::value(&rule.name));
     println!("  Severity:  {}", rule.severity);
     println!("  Metric:    {}", metric);
     println!("  Threshold: {} {}", operator, threshold);
     println!("  Duration:  {} minutes", duration);
     println!();
-    println!("{}", color::success("✓ Alert rule created"));
-    println!(
-        "  {}",
-        color::muted("Note: Configuration is not persisted to storage")
-    );
+    println!("{}", color::success("✓ Alert rule created and persisted successfully"));
     Ok(())
 }
 

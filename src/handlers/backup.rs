@@ -1,7 +1,7 @@
 use crate::tui::colors::cli as color;
 use anyhow::Result;
 
-pub fn handle_backup_create(
+pub async fn handle_backup_create(
     vm: String,
     name: Option<String>,
     backup_type: String,
@@ -53,6 +53,22 @@ pub fn handle_backup_create(
         }
     );
     println!();
+
+    // Create actual VirtualMachineSnapshot via SnapshotManager
+    let manager = crate::snapshots::SnapshotManager::new(namespace).await
+        .map_err(|e| anyhow::anyhow!("Failed to connect to Kubernetes: {}", e))?;
+
+    let snapshot_config = crate::snapshots::SnapshotConfig::new(&vm, &backup_name)
+        .with_description(format!(
+            "Backup snapshot (type={}, compression={})",
+            config.backup_type.as_str(),
+            config.compression
+        ))
+        .with_label("zorvia.io/backup-type", config.backup_type.as_str());
+
+    manager.create_snapshot(&snapshot_config).await
+        .map_err(|e| anyhow::anyhow!("Failed to create backup snapshot: {}", e))?;
+
     println!("{}", color::success("✓ Backup created successfully"));
     println!();
     println!(
@@ -171,7 +187,7 @@ pub fn handle_backup_get(name: String, output: String, namespace: &str) -> Resul
     Ok(())
 }
 
-pub fn handle_backup_delete(name: String, yes: bool, namespace: &str) -> Result<()> {
+pub async fn handle_backup_delete(name: String, yes: bool, namespace: &str) -> Result<()> {
     log::debug!("Using namespace: {}", namespace);
 
     if !yes {
@@ -193,13 +209,19 @@ pub fn handle_backup_delete(name: String, yes: bool, namespace: &str) -> Result<
 
     println!("{}", color::header(&format!("Deleting Backup: {}", name)));
     println!();
+
+    // Delete actual VirtualMachineSnapshot via SnapshotManager
+    let manager = crate::snapshots::SnapshotManager::new(namespace).await
+        .map_err(|e| anyhow::anyhow!("Failed to connect to Kubernetes: {}", e))?;
+
+    manager.delete_snapshot(&name).await
+        .map_err(|e| anyhow::anyhow!("Failed to delete backup: {}", e))?;
+
     println!("{}", color::success("✓ Backup deleted successfully"));
     Ok(())
 }
 
-pub fn handle_backup_restore(backup: String, target: Option<String>, start: bool, namespace: &str) -> Result<()> {
-    use crate::backup::recovery::RestoreOperation;
-
+pub async fn handle_backup_restore(backup: String, target: Option<String>, start: bool, namespace: &str) -> Result<()> {
     log::debug!("Using namespace: {}", namespace);
 
     let target_vm = target.unwrap_or_else(|| backup.replace("-backup-", "-restored-"));
@@ -210,10 +232,14 @@ pub fn handle_backup_restore(backup: String, target: Option<String>, start: bool
     );
     println!();
 
-    let _restore =
-        RestoreOperation::new("restore-001", "original-vm", &backup).to_new_vm(&target_vm);
+    // Restore via RestoreManager (creates VirtualMachineRestore CRD)
+    let restore_manager = crate::snapshots::RestoreManager::new(namespace).await
+        .map_err(|e| anyhow::anyhow!("Failed to connect to Kubernetes: {}", e))?;
 
-    println!("  Restore ID:   {}", color::value("restore-001"));
+    let restore_info = restore_manager.restore_to_new_vm(&backup, &target_vm, start).await
+        .map_err(|e| anyhow::anyhow!("Failed to initiate restore: {}", e))?;
+
+    println!("  Restore ID:   {}", color::value(&restore_info.name));
     println!("  Backup:       {}", backup);
     println!("  Target VM:    {}", target_vm);
     println!("  Start After:  {}", if start { "Yes" } else { "No" });
@@ -450,14 +476,15 @@ pub fn handle_recovery_execute(plan: String, dry_run: bool, namespace: &str) -> 
 
 // ========== NETWORK & MIGRATION ==========
 
-pub fn handle_migrate(
+pub async fn handle_migrate(
     vm: String,
     target_node: Option<String>,
     migration_type: String,
     plan: bool,
     namespace: &str,
 ) -> Result<()> {
-    use crate::migration::{MigrationRequest, MigrationStatus, MigrationType};
+    use crate::kube::types::VirtualMachineInstanceMigration;
+    use crate::migration::{MigrationRequest, MigrationType};
 
     log::debug!("Using namespace: {}", namespace);
 
@@ -504,17 +531,45 @@ pub fn handle_migrate(
             color::info("ℹ Use 'zorvia migrate' without --plan to execute")
         );
     } else {
-        // Simulate migration
-        let status = MigrationStatus::new(
-            &vm,
-            source_node,
-            request.target_node.unwrap_or_else(|| "auto-select".to_string()),
+        // Create actual VirtualMachineInstanceMigration CRD
+        let client = kube::Client::try_default()
+            .await
+            .map_err(|e| anyhow::anyhow!("Failed to connect to Kubernetes: {}", e))?;
+
+        let migrations_api: kube::api::Api<VirtualMachineInstanceMigration> =
+            kube::api::Api::namespaced(client, namespace);
+
+        let migration_name = format!(
+            "{}-migration-{}",
+            vm,
+            chrono::Utc::now().format("%Y%m%d%H%M%S")
         );
 
+        let migration = VirtualMachineInstanceMigration {
+            metadata: k8s_openapi::apimachinery::pkg::apis::meta::v1::ObjectMeta {
+                name: Some(migration_name.clone()),
+                namespace: Some(namespace.to_string()),
+                ..Default::default()
+            },
+            spec: crate::kube::types::VirtualMachineInstanceMigrationSpec {
+                vmi_name: Some(vm.clone()),
+            },
+            status: None,
+        };
+
+        let pp = kube::api::PostParams::default();
+        migrations_api
+            .create(&pp, &migration)
+            .await
+            .map_err(|e| anyhow::anyhow!("Failed to create migration: {}", e))?;
+
         println!("{}", color::header("Migration Started:"));
-        println!("  Migration ID: {}", color::value("mig-12345"));
-        println!("  Source:       {}", status.source_node);
-        println!("  Target:       {}", status.target_node);
+        println!("  Migration ID: {}", color::value(&migration_name));
+        println!("  VM:           {}", color::value(&vm));
+        println!(
+            "  Target:       {}",
+            color::value(request.target_node.as_deref().unwrap_or("auto-select"))
+        );
         println!("  Type:         {}", request.migration_type.as_str());
         println!();
         println!("{}", color::success("✓ Migration initiated successfully"));
