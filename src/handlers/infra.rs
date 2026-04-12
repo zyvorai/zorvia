@@ -486,7 +486,7 @@ pub async fn handle_monitor_compare(
 }
 
 pub async fn handle_monitor_top(
-    _all_namespaces: bool,
+    all_namespaces: bool,
     sort_by: String,
     limit: usize,
     namespace: &str,
@@ -497,10 +497,17 @@ pub async fn handle_monitor_top(
     // Query real VMs from Kubernetes
     let vm_names: Vec<String> = match KubeClient::new().await {
         Ok(client) => {
-            let vms = client
-                .list_vms(namespace)
-                .await
-                .map_err(|e| anyhow::anyhow!("Failed to list VMs: {}", e))?;
+            let vms = if all_namespaces {
+                client
+                    .list_all_vms()
+                    .await
+                    .map_err(|e| anyhow::anyhow!("Failed to list VMs: {}", e))?
+            } else {
+                client
+                    .list_vms(namespace)
+                    .await
+                    .map_err(|e| anyhow::anyhow!("Failed to list VMs: {}", e))?
+            };
             vms.iter()
                 .filter_map(|vm| vm.metadata.name.clone())
                 .collect()

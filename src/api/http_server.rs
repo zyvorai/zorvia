@@ -17,8 +17,55 @@ pub mod web {
     };
     use serde::{Deserialize, Serialize};
     use std::sync::Arc;
+    use std::sync::atomic::{AtomicU64, Ordering};
     use tokio::sync::RwLock;
     use tower_http::cors::{AllowOrigin, CorsLayer};
+    use tower_http::timeout::TimeoutLayer;
+
+    /// Simple sliding-window rate limiter state.
+    struct RateLimiterState {
+        /// Number of requests in the current window
+        count: AtomicU64,
+        /// Start of the current window (unix timestamp seconds)
+        window_start: AtomicU64,
+        /// Maximum requests per window
+        max_requests: u64,
+        /// Window duration in seconds
+        window_secs: u64,
+    }
+
+    impl RateLimiterState {
+        fn new(max_requests: u64, window_secs: u64) -> Self {
+            let now = std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap_or_default()
+                .as_secs();
+            Self {
+                count: AtomicU64::new(0),
+                window_start: AtomicU64::new(now),
+                max_requests,
+                window_secs,
+            }
+        }
+
+        fn check_rate_limit(&self) -> bool {
+            let now = std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap_or_default()
+                .as_secs();
+            let window_start = self.window_start.load(Ordering::Relaxed);
+
+            // Reset window if expired
+            if now - window_start >= self.window_secs {
+                self.window_start.store(now, Ordering::Relaxed);
+                self.count.store(1, Ordering::Relaxed);
+                return true;
+            }
+
+            let count = self.count.fetch_add(1, Ordering::Relaxed);
+            count < self.max_requests
+        }
+    }
 
     /// TLS configuration for the API server.
     #[derive(Clone, Debug)]
@@ -50,10 +97,11 @@ pub mod web {
         pub namespace: String,
         pub kube_client: KubeClient,
         pub api_key: Option<String>,
+        rate_limiter: RateLimiterState,
     }
 
     impl WebState {
-        pub async fn new(namespace: String) -> anyhow::Result<Self> {
+        pub async fn new(namespace: String, rate_limit_per_minute: u64) -> anyhow::Result<Self> {
             let api_key = std::env::var("ZORVIA_API_KEY").ok().filter(|k| !k.is_empty());
             if api_key.is_none() {
                 log::warn!(
@@ -62,7 +110,12 @@ pub mod web {
                 );
             }
             let kube_client = KubeClient::new().await?;
-            Ok(Self { namespace, kube_client, api_key })
+            Ok(Self {
+                namespace,
+                kube_client,
+                api_key,
+                rate_limiter: RateLimiterState::new(rate_limit_per_minute, 60),
+            })
         }
 
         pub fn client(&self) -> &KubeClient {
@@ -183,6 +236,28 @@ pub mod web {
         }
     }
 
+    // ── Rate limiting middleware ──────────────────────────────────
+
+    /// Middleware that enforces a global request rate limit.
+    async fn rate_limit_middleware(
+        State(state): State<SharedState>,
+        request: axum::extract::Request,
+        next: middleware::Next,
+    ) -> impl IntoResponse {
+        // Allow health endpoint without rate limiting
+        if request.uri().path() == "/api/v1/health" {
+            return next.run(request).await.into_response();
+        }
+
+        let s = state.read().await;
+        if !s.rate_limiter.check_rate_limit() {
+            let (status, json) = err_json(429, "RATE_LIMITED", "Too many requests. Please slow down.");
+            return (status, json).into_response();
+        }
+        drop(s);
+        next.run(request).await.into_response()
+    }
+
     // ── Security headers middleware ─────────────────────────────
 
     /// Middleware that adds security headers to every response.
@@ -264,10 +339,16 @@ pub mod web {
             // Health
             .route("/api/v1/health", get(health_handler))
             .with_state(state.clone())
-            // Security layers
+            // Layers applied in reverse order (outermost = last .layer() call)
             .layer(middleware::from_fn(security_headers_middleware))
+            .layer(middleware::from_fn_with_state(state.clone(), rate_limit_middleware))
             .layer(middleware::from_fn_with_state(state, auth_middleware))
             .layer(build_cors_layer())
+            // Request timeout: 30 seconds
+            .layer(TimeoutLayer::with_status_code(
+                StatusCode::REQUEST_TIMEOUT,
+                std::time::Duration::from_secs(30),
+            ))
             .layer(DefaultBodyLimit::max(10 * 1024 * 1024)) // 10 MiB
     }
 
@@ -276,6 +357,7 @@ pub mod web {
         port: u16,
         namespace: String,
         tls_config: Option<TlsConfig>,
+        rate_limit_per_minute: u64,
     ) -> anyhow::Result<()> {
         // Validate TLS config early if provided
         if let Some(ref tls) = tls_config {
@@ -283,7 +365,7 @@ pub mod web {
         }
 
         // Initialize kube client at startup instead of lazily per-request
-        let state = Arc::new(RwLock::new(WebState::new(namespace).await?));
+        let state = Arc::new(RwLock::new(WebState::new(namespace, rate_limit_per_minute).await?));
         let app = build_router(state);
         let addr = format!("{}:{}", host, port);
 

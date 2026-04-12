@@ -95,7 +95,7 @@ pub async fn handle_api_serve(
         } else {
             None
         };
-        crate::api::http_server::web::start_server(&host, port, namespace, tls_config).await?;
+        crate::api::http_server::web::start_server(&host, port, namespace, tls_config, rate_limit as u64).await?;
     }
 
     Ok(())

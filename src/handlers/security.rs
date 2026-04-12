@@ -194,7 +194,13 @@ pub fn handle_security_harden(vm: String, profile: String, verify_only: bool, na
 
     let hardening_profile = match profile.as_str() {
         "stig" => HardeningEngine::stig_profile(),
-        _ => HardeningEngine::cis_profile(),
+        "cis" => HardeningEngine::cis_profile(),
+        other => {
+            println!("{}", color::warning(&format!(
+                "Profile '{}' does not have a dedicated hardening ruleset. Using CIS as baseline.", other
+            )));
+            HardeningEngine::cis_profile()
+        }
     };
 
     println!("  Profile:     {}", color::value(&baseline.to_string()));

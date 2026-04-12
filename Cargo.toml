@@ -56,7 +56,7 @@ rustyline = "17.0"
 axum = { version = "0.7", optional = true }
 axum-server = { version = "0.7", features = ["tls-rustls-no-provider"], optional = true }
 rustls = { version = "0.23", default-features = false, features = ["ring", "logging", "std", "tls12"], optional = true }
-tower-http = { version = "0.6", features = ["cors"], optional = true }
+tower-http = { version = "0.6", features = ["cors", "timeout"], optional = true }
 
 [features]
 default = ["web"]
