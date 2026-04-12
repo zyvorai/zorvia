@@ -544,7 +544,7 @@ pub async fn run(mut cli: Cli) -> Result<()> {
             migration_type,
             plan,
         } => {
-            handlers::backup::handle_migrate(vm, target_node, migration_type, plan)?;
+            handlers::backup::handle_migrate(vm, target_node, migration_type, plan, &cli.namespace)?;
         }
 
         Commands::MigrationStatus {
@@ -571,11 +571,11 @@ pub async fn run(mut cli: Cli) -> Result<()> {
             priority,
             eviction_strategy,
         } => {
-            handlers::backup::handle_ha_config(vm, enable, disable, priority, eviction_strategy)?;
+            handlers::backup::handle_ha_config(vm, enable, disable, priority, eviction_strategy, &cli.namespace)?;
         }
 
         Commands::HAStatus { vm, output } => {
-            handlers::backup::handle_ha_status(vm, output)?;
+            handlers::backup::handle_ha_status(vm, output, &cli.namespace)?;
         }
 
         Commands::EvacuateNode {
@@ -593,6 +593,7 @@ pub async fn run(mut cli: Cli) -> Result<()> {
                 timeout,
                 force,
                 plan,
+                &cli.namespace,
             )
             .await?;
         }
@@ -614,6 +615,7 @@ pub async fn run(mut cli: Cli) -> Result<()> {
                 backup_type,
                 compression,
                 no_encryption,
+                &cli.namespace,
             )?;
         }
 
@@ -622,11 +624,11 @@ pub async fn run(mut cli: Cli) -> Result<()> {
         }
 
         Commands::BackupGet { name, output } => {
-            handlers::backup::handle_backup_get(name, output)?;
+            handlers::backup::handle_backup_get(name, output, &cli.namespace)?;
         }
 
         Commands::BackupDelete { name, yes } => {
-            handlers::backup::handle_backup_delete(name, yes)?;
+            handlers::backup::handle_backup_delete(name, yes, &cli.namespace)?;
         }
 
         Commands::BackupRestore {
@@ -634,30 +636,30 @@ pub async fn run(mut cli: Cli) -> Result<()> {
             target,
             start,
         } => {
-            handlers::backup::handle_backup_restore(backup, target, start)?;
+            handlers::backup::handle_backup_restore(backup, target, start, &cli.namespace)?;
         }
 
         Commands::BackupVerify {
             name,
             verification_type,
         } => {
-            handlers::backup::handle_backup_verify(name, verification_type)?;
+            handlers::backup::handle_backup_verify(name, verification_type, &cli.namespace)?;
         }
 
         Commands::BackupSchedules { output } => {
-            handlers::backup::handle_backup_schedules(output)?;
+            handlers::backup::handle_backup_schedules(output, &cli.namespace)?;
         }
 
         Commands::BackupScheduleCreate { name, schedule, vm } => {
-            handlers::backup::handle_backup_schedule_create(name, schedule, vm)?;
+            handlers::backup::handle_backup_schedule_create(name, schedule, vm, &cli.namespace)?;
         }
 
         Commands::RecoveryPlan { name, output } => {
-            handlers::backup::handle_recovery_plan(name, output)?;
+            handlers::backup::handle_recovery_plan(name, output, &cli.namespace)?;
         }
 
         Commands::RecoveryExecute { plan, dry_run } => {
-            handlers::backup::handle_recovery_execute(plan, dry_run)?;
+            handlers::backup::handle_recovery_execute(plan, dry_run, &cli.namespace)?;
         }
 
         // ========== SECURITY & COMPLIANCE ==========
@@ -667,11 +669,11 @@ pub async fn run(mut cli: Cli) -> Result<()> {
             containers,
             output,
         } => {
-            handlers::security::handle_security_scan(vm, scan_type, containers, output)?;
+            handlers::security::handle_security_scan(vm, scan_type, containers, output, &cli.namespace)?;
         }
 
         Commands::SecurityAssess { vm, output } => {
-            handlers::security::handle_security_assess(vm, output)?;
+            handlers::security::handle_security_assess(vm, output, &cli.namespace)?;
         }
 
         Commands::SecurityHarden {
@@ -679,7 +681,7 @@ pub async fn run(mut cli: Cli) -> Result<()> {
             profile,
             verify_only,
         } => {
-            handlers::security::handle_security_harden(vm, profile, verify_only)?;
+            handlers::security::handle_security_harden(vm, profile, verify_only, &cli.namespace)?;
         }
 
         Commands::SecurityProfiles { details } => {
@@ -691,7 +693,7 @@ pub async fn run(mut cli: Cli) -> Result<()> {
             framework,
             output,
         } => {
-            handlers::security::handle_compliance_check(vm, framework, output)?;
+            handlers::security::handle_compliance_check(vm, framework, output, &cli.namespace)?;
         }
 
         Commands::ComplianceReport {
@@ -699,7 +701,7 @@ pub async fn run(mut cli: Cli) -> Result<()> {
             report_id,
             output,
         } => {
-            handlers::security::handle_compliance_report(vm, report_id, output)?;
+            handlers::security::handle_compliance_report(vm, report_id, output, &cli.namespace)?;
         }
 
         Commands::AuditList {
@@ -709,15 +711,15 @@ pub async fn run(mut cli: Cli) -> Result<()> {
             security_only,
             output,
         } => {
-            handlers::security::handle_audit_list(vm, event_type, severity, security_only, output)?;
+            handlers::security::handle_audit_list(vm, event_type, severity, security_only, output, &cli.namespace)?;
         }
 
         Commands::AuditGet { log_id, output } => {
-            handlers::security::handle_audit_get(log_id, output)?;
+            handlers::security::handle_audit_get(log_id, output, &cli.namespace)?;
         }
 
         Commands::AuditStats { vm, period, output } => {
-            handlers::security::handle_audit_stats(vm, period, output)?;
+            handlers::security::handle_audit_stats(vm, period, output, &cli.namespace)?;
         }
 
         // ========== COST MANAGEMENT & OPTIMIZATION ==========
@@ -1032,37 +1034,13 @@ pub async fn run(mut cli: Cli) -> Result<()> {
             auth,
             rate_limit,
         } => {
-            // Merge CLI args with config file (CLI takes priority).
-            //
-            // LIMITATION: Because clap provides default values for port, host,
-            // auth, and rate_limit, we cannot distinguish "user explicitly passed
-            // --port 8080" from "clap filled in the default 8080".  If the user
-            // explicitly passes the same value as the clap default, the config-file
-            // value will win instead.  To fix this properly, the CLI fields would
-            // need to be `Option<T>` so we can detect presence vs. absence.
-            let port = if port == 8080 {
-                app_config.api.port
-            } else {
-                port
-            };
-            let host = if host == "127.0.0.1" {
-                app_config.api.host.clone()
-            } else {
-                host
-            };
+            let port = port.unwrap_or(app_config.api.port);
+            let host = host.unwrap_or_else(|| app_config.api.host.clone());
             let tls = tls || app_config.api.tls;
             let tls_cert = tls_cert.or(app_config.api.tls_cert.clone());
             let tls_key = tls_key.or(app_config.api.tls_key.clone());
-            let auth = if auth == "none" {
-                app_config.api.auth.clone()
-            } else {
-                auth
-            };
-            let rate_limit = if rate_limit == 60 {
-                app_config.api.rate_limit
-            } else {
-                rate_limit
-            };
+            let auth = auth.unwrap_or_else(|| app_config.api.auth.clone());
+            let rate_limit = rate_limit.unwrap_or(app_config.api.rate_limit);
             handlers::api::handle_api_serve(port, host, cli.namespace.clone(), tls, tls_cert, tls_key, auth, rate_limit).await?;
         }
         Commands::ApiStatus { output } => handlers::api::handle_api_status(output)?,

@@ -127,11 +127,43 @@ pub enum VMSelector {
 }
 
 /// Schedule manager
+#[derive(Serialize, Deserialize)]
 pub struct ScheduleManager {
     schedules: Vec<BackupSchedule>,
 }
 
 impl ScheduleManager {
+    fn persistence_path() -> std::path::PathBuf {
+        dirs::data_dir()
+            .unwrap_or_else(|| std::path::PathBuf::from("/tmp"))
+            .join("zorvia")
+            .join("backup_schedules.json")
+    }
+
+    pub fn load() -> Self {
+        let path = Self::persistence_path();
+        if path.exists() {
+            match std::fs::read_to_string(&path) {
+                Ok(content) => match serde_json::from_str(&content) {
+                    Ok(manager) => return manager,
+                    Err(e) => log::warn!("Failed to parse backup schedules: {}", e),
+                },
+                Err(e) => log::warn!("Failed to read backup schedules: {}", e),
+            }
+        }
+        Self::new()
+    }
+
+    pub fn save(&self) -> anyhow::Result<()> {
+        let path = Self::persistence_path();
+        if let Some(parent) = path.parent() {
+            std::fs::create_dir_all(parent)?;
+        }
+        let content = serde_json::to_string_pretty(self)?;
+        std::fs::write(&path, content)?;
+        Ok(())
+    }
+
     pub fn new() -> Self {
         Self {
             schedules: Vec::new(),
@@ -140,11 +172,17 @@ impl ScheduleManager {
 
     pub fn add_schedule(&mut self, schedule: BackupSchedule) {
         self.schedules.push(schedule);
+        if let Err(e) = self.save() {
+            log::warn!("Failed to persist backup schedules: {}", e);
+        }
     }
 
     pub fn remove_schedule(&mut self, name: &str) -> bool {
         if let Some(pos) = self.schedules.iter().position(|s| s.name == name) {
             self.schedules.remove(pos);
+            if let Err(e) = self.save() {
+                log::warn!("Failed to persist backup schedules: {}", e);
+            }
             true
         } else {
             false

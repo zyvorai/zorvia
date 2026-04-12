@@ -30,11 +30,48 @@ pub struct MigrationRecord {
 pub enum MigrationOutcome { Succeeded, Failed(String), Cancelled, RolledBack }
 
 impl MigrationHistory {
+    /// Default persistence path
+    fn persistence_path() -> std::path::PathBuf {
+        dirs::data_dir()
+            .unwrap_or_else(|| std::path::PathBuf::from("/tmp"))
+            .join("zorvia")
+            .join("migration_history.json")
+    }
+
+    /// Load migration history from disk
+    pub fn load() -> Self {
+        let path = Self::persistence_path();
+        if path.exists() {
+            match std::fs::read_to_string(&path) {
+                Ok(content) => match serde_json::from_str(&content) {
+                    Ok(history) => return history,
+                    Err(e) => log::warn!("Failed to parse migration history: {}", e),
+                },
+                Err(e) => log::warn!("Failed to read migration history: {}", e),
+            }
+        }
+        Self::default()
+    }
+
+    /// Save migration history to disk
+    pub fn save(&self) -> anyhow::Result<()> {
+        let path = Self::persistence_path();
+        if let Some(parent) = path.parent() {
+            std::fs::create_dir_all(parent)?;
+        }
+        let content = serde_json::to_string_pretty(self)?;
+        std::fs::write(&path, content)?;
+        Ok(())
+    }
+
     pub fn new(max: usize) -> Self { Self { records: Vec::new(), max_records: max } }
 
     pub fn record(&mut self, record: MigrationRecord) {
         self.records.insert(0, record);
         self.records.truncate(self.max_records);
+        if let Err(e) = self.save() {
+            log::warn!("Failed to persist migration history: {}", e);
+        }
     }
 
     pub fn by_vm(&self, vm_name: &str) -> Vec<&MigrationRecord> { self.records.iter().filter(|r| r.vm_name == vm_name).collect() }

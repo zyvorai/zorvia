@@ -7,9 +7,12 @@ pub fn handle_backup_create(
     backup_type: String,
     compression: String,
     no_encryption: bool,
+    namespace: &str,
 ) -> Result<()> {
     use crate::backup::{BackupConfig, BackupType, CompressionType};
     use chrono::Utc;
+
+    log::debug!("Using namespace: {}", namespace);
 
     let backup_name =
         name.unwrap_or_else(|| format!("{}-backup-{}", vm, Utc::now().format("%Y%m%d-%H%M%S")));
@@ -145,8 +148,10 @@ pub async fn handle_backup_list(vm: Option<String>, output: String, namespace: &
     Ok(())
 }
 
-pub fn handle_backup_get(name: String, output: String) -> Result<()> {
+pub fn handle_backup_get(name: String, output: String, namespace: &str) -> Result<()> {
     use crate::backup::BackupStatus;
+
+    log::debug!("Using namespace: {}", namespace);
 
     // Derive VM name from backup name (e.g., "my-vm-backup-20240101" -> "my-vm")
     let vm_name = if let Some(pos) = name.rfind("-backup") {
@@ -166,7 +171,9 @@ pub fn handle_backup_get(name: String, output: String) -> Result<()> {
     Ok(())
 }
 
-pub fn handle_backup_delete(name: String, yes: bool) -> Result<()> {
+pub fn handle_backup_delete(name: String, yes: bool, namespace: &str) -> Result<()> {
+    log::debug!("Using namespace: {}", namespace);
+
     if !yes {
         use std::io::Write;
         print!(
@@ -190,8 +197,10 @@ pub fn handle_backup_delete(name: String, yes: bool) -> Result<()> {
     Ok(())
 }
 
-pub fn handle_backup_restore(backup: String, target: Option<String>, start: bool) -> Result<()> {
+pub fn handle_backup_restore(backup: String, target: Option<String>, start: bool, namespace: &str) -> Result<()> {
     use crate::backup::recovery::RestoreOperation;
+
+    log::debug!("Using namespace: {}", namespace);
 
     let target_vm = target.unwrap_or_else(|| backup.replace("-backup-", "-restored-"));
 
@@ -218,8 +227,10 @@ pub fn handle_backup_restore(backup: String, target: Option<String>, start: bool
     Ok(())
 }
 
-pub fn handle_backup_verify(name: String, verification_type: String) -> Result<()> {
+pub fn handle_backup_verify(name: String, verification_type: String, namespace: &str) -> Result<()> {
     use crate::backup::verify::{VerificationRunner, VerificationStatus, VerificationType};
+
+    log::debug!("Using namespace: {}", namespace);
 
     println!("{}", color::header(&format!("Verifying Backup: {}", name)));
     println!();
@@ -270,8 +281,10 @@ pub fn handle_backup_verify(name: String, verification_type: String) -> Result<(
     Ok(())
 }
 
-pub fn handle_backup_schedules(output: String) -> Result<()> {
+pub fn handle_backup_schedules(output: String, namespace: &str) -> Result<()> {
     use crate::backup::schedule::BackupSchedule;
+
+    log::debug!("Using namespace: {}", namespace);
 
     println!("{}", color::header("Backup Schedules"));
     println!();
@@ -375,7 +388,9 @@ pub fn handle_backup_schedule_create(
     name: String,
     schedule: String,
     vm: Option<String>,
+    namespace: &str,
 ) -> Result<()> {
+    log::debug!("Using namespace: {}", namespace);
     println!(
         "{}",
         color::header(&format!("Creating Backup Schedule: {}", name))
@@ -388,8 +403,10 @@ pub fn handle_backup_schedule_create(
     Ok(())
 }
 
-pub fn handle_recovery_plan(name: String, output: String) -> Result<()> {
+pub fn handle_recovery_plan(name: String, output: String, namespace: &str) -> Result<()> {
     use crate::backup::recovery::RecoveryPlan;
+
+    log::debug!("Using namespace: {}", namespace);
 
     let plan = RecoveryPlan::new(name).with_description("Disaster recovery plan");
 
@@ -403,7 +420,8 @@ pub fn handle_recovery_plan(name: String, output: String) -> Result<()> {
     Ok(())
 }
 
-pub fn handle_recovery_execute(plan: String, dry_run: bool) -> Result<()> {
+pub fn handle_recovery_execute(plan: String, dry_run: bool, namespace: &str) -> Result<()> {
+    log::debug!("Using namespace: {}", namespace);
     println!(
         "{}",
         color::header(&format!("Executing Recovery Plan: {}", plan))
@@ -437,8 +455,11 @@ pub fn handle_migrate(
     target_node: Option<String>,
     migration_type: String,
     plan: bool,
+    namespace: &str,
 ) -> Result<()> {
     use crate::migration::{MigrationRequest, MigrationStatus, MigrationType};
+
+    log::debug!("Using namespace: {}", namespace);
 
     println!("{}", color::header(&format!("VM Migration: {}", vm)));
     println!();
@@ -808,8 +829,11 @@ pub fn handle_ha_config(
     disable: bool,
     priority: Option<String>,
     eviction_strategy: Option<String>,
+    namespace: &str,
 ) -> Result<()> {
     use crate::migration::ha::{EvictionStrategy, HAConfig, HAPriority};
+
+    log::debug!("Using namespace: {}", namespace);
 
     if enable && disable {
         return Err(anyhow::anyhow!("Cannot specify both --enable and --disable"));
@@ -864,8 +888,10 @@ pub fn handle_ha_config(
     Ok(())
 }
 
-pub fn handle_ha_status(vm: String, output: String) -> Result<()> {
+pub fn handle_ha_status(vm: String, output: String, namespace: &str) -> Result<()> {
     use crate::migration::ha::HAConfig;
+
+    log::debug!("Using namespace: {}", namespace);
 
     let config = HAConfig::new(&vm);
 
@@ -886,8 +912,11 @@ pub async fn handle_evacuate_node(
     timeout: u64,
     force: bool,
     plan: bool,
+    namespace: &str,
 ) -> Result<()> {
     use crate::migration::evacuation::{EvacuationPlanner, EvacuationRequest, EvacuationStatus};
+
+    log::debug!("Using namespace: {}", namespace);
 
     println!("{}", color::header(&format!("Node Evacuation: {}", node)));
     println!();

@@ -6,8 +6,11 @@ pub fn handle_security_scan(
     scan_type: String,
     containers: bool,
     output: String,
+    namespace: &str,
 ) -> Result<()> {
     use crate::security::scan::{ScanConfig, ScanType, VulnerabilityScanner};
+
+    log::debug!("Using namespace: {}", namespace);
 
     println!("{}", color::header(&format!("Scanning VM: {}", vm)));
     println!();
@@ -79,8 +82,10 @@ pub fn handle_security_scan(
     Ok(())
 }
 
-pub fn handle_security_assess(vm: String, output: String) -> Result<()> {
+pub fn handle_security_assess(vm: String, output: String, namespace: &str) -> Result<()> {
     use crate::security::{SecurityAssessment, Vulnerability};
+
+    log::debug!("Using namespace: {}", namespace);
 
     let mut assessment = SecurityAssessment::new(&vm);
 
@@ -171,8 +176,10 @@ pub fn handle_security_assess(vm: String, output: String) -> Result<()> {
     Ok(())
 }
 
-pub fn handle_security_harden(vm: String, profile: String, verify_only: bool) -> Result<()> {
+pub fn handle_security_harden(vm: String, profile: String, verify_only: bool, namespace: &str) -> Result<()> {
     use crate::security::hardening::{HardeningEngine, SecurityBaseline};
+
+    log::debug!("Using namespace: {}", namespace);
 
     println!("{}", color::header(&format!("Security Hardening: {}", vm)));
     println!();
@@ -272,8 +279,10 @@ pub fn handle_security_profiles(details: bool) -> Result<()> {
     Ok(())
 }
 
-pub fn handle_compliance_check(vm: String, framework: String, output: String) -> Result<()> {
+pub fn handle_compliance_check(vm: String, framework: String, output: String, namespace: &str) -> Result<()> {
     use crate::security::compliance::{ComplianceChecker, ComplianceFramework};
+
+    log::debug!("Using namespace: {}", namespace);
 
     println!("{}", color::header(&format!("Compliance Check: {}", vm)));
     println!();
@@ -351,8 +360,11 @@ pub fn handle_compliance_report(
     vm: String,
     report_id: Option<String>,
     output: String,
+    namespace: &str,
 ) -> Result<()> {
     use crate::security::compliance::ComplianceChecker;
+
+    log::debug!("Using namespace: {}", namespace);
 
     let report = ComplianceChecker::check_pci_dss(&vm);
 
@@ -385,8 +397,11 @@ pub fn handle_audit_list(
     severity: Option<String>,
     security_only: bool,
     output: String,
+    namespace: &str,
 ) -> Result<()> {
     use crate::security::audit::{AuditEvent, AuditLog, EventSeverity};
+
+    log::debug!("Using namespace: {}", namespace);
 
     println!("{}", color::header("Audit Events"));
     if let Some(ref vm_name) = vm {
@@ -515,8 +530,10 @@ pub fn handle_audit_list(
     Ok(())
 }
 
-pub fn handle_audit_get(log_id: String, output: String) -> Result<()> {
+pub fn handle_audit_get(log_id: String, output: String, namespace: &str) -> Result<()> {
     use crate::security::audit::AuditLog;
+
+    log::debug!("Using namespace: {}", namespace);
 
     let log = AuditLog::new(Some(log_id.to_string()));
 
@@ -541,8 +558,10 @@ pub fn handle_audit_get(log_id: String, output: String) -> Result<()> {
     Ok(())
 }
 
-pub fn handle_audit_stats(vm: Option<String>, period: String, output: String) -> Result<()> {
+pub fn handle_audit_stats(vm: Option<String>, period: String, output: String, namespace: &str) -> Result<()> {
     use crate::security::audit::{AuditLog, AuditStatistics};
+
+    log::debug!("Using namespace: {}", namespace);
 
     println!("{}", color::header("Audit Statistics"));
     if let Some(ref vm_name) = vm {

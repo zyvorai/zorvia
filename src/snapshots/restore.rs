@@ -2,7 +2,9 @@
 // Real KubeVirt CRD integration
 
 use super::crds::{RestoreTarget, VirtualMachineRestore, VirtualMachineRestoreSpec};
+use super::manager::SnapshotManager;
 use super::types::{RestoreInfo, RestoreStatus};
+use super::SnapshotConfig;
 use anyhow::{Context, Result};
 use chrono::{DateTime, Utc};
 use k8s_openapi::apimachinery::pkg::apis::meta::v1::ObjectMeta;
@@ -136,6 +138,28 @@ impl RestoreManager {
                 ));
             }
             Ok(false) => {} // VM is stopped, safe to proceed
+        }
+
+        // Create a pre-restore safety snapshot
+        let safety_snapshot_name = format!(
+            "{}-pre-restore-{}",
+            vm_name,
+            Utc::now().format("%Y%m%d%H%M%S")
+        );
+        log::info!("Creating pre-restore safety snapshot: {}", safety_snapshot_name);
+        let snapshot_manager = SnapshotManager::from_client(self.client.clone(), &self.namespace);
+        let safety_config = SnapshotConfig::new(vm_name, &safety_snapshot_name)
+            .with_description(format!(
+                "Automatic pre-restore safety snapshot before restoring from '{}'",
+                snapshot_name
+            ))
+            .with_label("zorvia.io/safety-snapshot", "pre-restore");
+        match snapshot_manager.create_snapshot(&safety_config).await {
+            Ok(_) => log::info!("Pre-restore safety snapshot created successfully"),
+            Err(e) => log::warn!(
+                "Failed to create pre-restore safety snapshot: {}. Proceeding with restore.",
+                e
+            ),
         }
 
         // In-place restore uses the same VM name as target

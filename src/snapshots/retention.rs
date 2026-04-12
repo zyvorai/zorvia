@@ -43,9 +43,22 @@ impl RetentionEnforcer {
                         }
                     }
 
-                    self.manager.delete_snapshot(&snapshot.name).await?;
-                    deleted.push(snapshot.name.clone());
-                    remaining_count -= 1;
+                    // Skip snapshots that may be in use by active restores
+                    if self.manager.is_snapshot_in_use(&snapshot.name).await.unwrap_or(true) {
+                        log::warn!("Skipping deletion of snapshot '{}': may be in use by an active restore", snapshot.name);
+                        continue;
+                    }
+
+                    match self.manager.delete_snapshot(&snapshot.name).await {
+                        Ok(_) => {
+                            deleted.push(snapshot.name.clone());
+                            remaining_count -= 1;
+                        }
+                        Err(e) => {
+                            log::error!("Failed to delete snapshot '{}': {}", snapshot.name, e);
+                            // Continue trying to delete other snapshots
+                        }
+                    }
                 }
             }
         }
@@ -70,9 +83,22 @@ impl RetentionEnforcer {
                 // Check age
                 if let Some(created_at) = snapshot.created_at {
                     if created_at < cutoff_date {
-                        self.manager.delete_snapshot(&snapshot.name).await?;
-                        deleted.push(snapshot.name.clone());
-                        remaining_count -= 1;
+                        // Skip snapshots that may be in use by active restores
+                        if self.manager.is_snapshot_in_use(&snapshot.name).await.unwrap_or(true) {
+                            log::warn!("Skipping deletion of snapshot '{}': may be in use by an active restore", snapshot.name);
+                            continue;
+                        }
+
+                        match self.manager.delete_snapshot(&snapshot.name).await {
+                            Ok(_) => {
+                                deleted.push(snapshot.name.clone());
+                                remaining_count -= 1;
+                            }
+                            Err(e) => {
+                                log::error!("Failed to delete snapshot '{}': {}", snapshot.name, e);
+                                // Continue trying to delete other snapshots
+                            }
+                        }
                     }
                 }
             }

@@ -20,14 +20,40 @@ pub mod web {
     use tokio::sync::RwLock;
     use tower_http::cors::{AllowOrigin, CorsLayer};
 
+    /// TLS configuration for the API server.
+    #[derive(Clone, Debug)]
+    pub struct TlsConfig {
+        pub cert_path: String,
+        pub key_path: String,
+    }
+
+    impl TlsConfig {
+        /// Validate that the cert and key files exist on disk.
+        pub fn validate(&self) -> anyhow::Result<()> {
+            if !std::path::Path::new(&self.cert_path).exists() {
+                return Err(anyhow::anyhow!(
+                    "TLS certificate file not found: {}",
+                    self.cert_path
+                ));
+            }
+            if !std::path::Path::new(&self.key_path).exists() {
+                return Err(anyhow::anyhow!(
+                    "TLS key file not found: {}",
+                    self.key_path
+                ));
+            }
+            Ok(())
+        }
+    }
+
     pub struct WebState {
         pub namespace: String,
-        pub kube_client: Option<KubeClient>,
+        pub kube_client: KubeClient,
         pub api_key: Option<String>,
     }
 
     impl WebState {
-        pub fn new(namespace: String) -> Self {
+        pub async fn new(namespace: String) -> anyhow::Result<Self> {
             let api_key = std::env::var("ZORVIA_API_KEY").ok().filter(|k| !k.is_empty());
             if api_key.is_none() {
                 log::warn!(
@@ -35,16 +61,12 @@ pub mod web {
                      Set ZORVIA_API_KEY to enable access."
                 );
             }
-            Self { namespace, kube_client: None, api_key }
+            let kube_client = KubeClient::new().await?;
+            Ok(Self { namespace, kube_client, api_key })
         }
 
-        pub async fn get_client(&mut self) -> anyhow::Result<&KubeClient> {
-            if self.kube_client.is_none() {
-                self.kube_client = Some(KubeClient::new().await?);
-            }
-            self.kube_client
-                .as_ref()
-                .ok_or_else(|| anyhow::anyhow!("Kubernetes client not initialized"))
+        pub fn client(&self) -> &KubeClient {
+            &self.kube_client
         }
     }
 
@@ -161,6 +183,22 @@ pub mod web {
         }
     }
 
+    // ── Security headers middleware ─────────────────────────────
+
+    /// Middleware that adds security headers to every response.
+    async fn security_headers_middleware(
+        request: axum::extract::Request,
+        next: middleware::Next,
+    ) -> impl IntoResponse {
+        let mut response = next.run(request).await;
+        let headers = response.headers_mut();
+        headers.insert("x-content-type-options", "nosniff".parse().unwrap());
+        headers.insert("x-frame-options", "DENY".parse().unwrap());
+        headers.insert("cache-control", "no-store".parse().unwrap());
+        headers.insert("x-xss-protection", "0".parse().unwrap());
+        response
+    }
+
     // ── CORS configuration ──────────────────────────────────────
 
     /// Build a CORS layer. If `ZORVIA_CORS_ORIGINS` is set (comma-separated
@@ -227,17 +265,49 @@ pub mod web {
             .route("/api/v1/health", get(health_handler))
             .with_state(state.clone())
             // Security layers
+            .layer(middleware::from_fn(security_headers_middleware))
             .layer(middleware::from_fn_with_state(state, auth_middleware))
             .layer(build_cors_layer())
             .layer(DefaultBodyLimit::max(10 * 1024 * 1024)) // 10 MiB
     }
 
-    pub async fn start_server(host: &str, port: u16, namespace: String) -> anyhow::Result<()> {
-        let state = Arc::new(RwLock::new(WebState::new(namespace)));
+    pub async fn start_server(
+        host: &str,
+        port: u16,
+        namespace: String,
+        tls_config: Option<TlsConfig>,
+    ) -> anyhow::Result<()> {
+        // Validate TLS config early if provided
+        if let Some(ref tls) = tls_config {
+            tls.validate()?;
+        }
+
+        // Initialize kube client at startup instead of lazily per-request
+        let state = Arc::new(RwLock::new(WebState::new(namespace).await?));
         let app = build_router(state);
         let addr = format!("{}:{}", host, port);
-        let listener = tokio::net::TcpListener::bind(&addr).await?;
-        axum::serve(listener, app).await?;
+
+        if let Some(tls) = tls_config {
+            log::info!("Starting HTTPS server on {}", addr);
+
+            // Install the ring crypto provider (already used by kube-client)
+            let _ = rustls::crypto::ring::default_provider().install_default();
+
+            let rustls_config = axum_server::tls_rustls::RustlsConfig::from_pem_file(
+                &tls.cert_path,
+                &tls.key_path,
+            )
+            .await?;
+            let addr: std::net::SocketAddr = addr.parse()?;
+            axum_server::bind_rustls(addr, rustls_config)
+                .serve(app.into_make_service())
+                .await?;
+        } else {
+            log::info!("Starting HTTP server on {}", addr);
+            let listener = tokio::net::TcpListener::bind(&addr).await?;
+            axum::serve(listener, app).await?;
+        }
+
         Ok(())
     }
 
@@ -292,13 +362,9 @@ pub mod web {
         State(state): State<SharedState>,
         Query(query): Query<VmQuery>,
     ) -> impl IntoResponse {
-        let mut s = state.write().await;
+        let s = state.read().await;
         let namespace = query.namespace.clone().unwrap_or_else(|| s.namespace.clone());
-
-        let client = match s.get_client().await {
-            Ok(c) => c,
-            Err(e) => return err_json(503, "SERVICE_UNAVAILABLE", &sanitize_error(&e)),
-        };
+        let client = s.client();
 
         match client.list_vms(&namespace).await {
             Ok(vms) => {
@@ -323,11 +389,8 @@ pub mod web {
             return resp;
         }
 
-        let mut s = state.write().await;
-        let client = match s.get_client().await {
-            Ok(c) => c,
-            Err(e) => return err_json(503, "SERVICE_UNAVAILABLE", &sanitize_error(&e)),
-        };
+        let s = state.read().await;
+        let client = s.client();
 
         match client.get_vm(&ns, &name).await {
             Ok(vm) => {
@@ -363,11 +426,8 @@ pub mod web {
             return resp;
         }
 
-        let mut s = state.write().await;
-        let client = match s.get_client().await {
-            Ok(c) => c,
-            Err(e) => return err_json(503, "SERVICE_UNAVAILABLE", &sanitize_error(&e)),
-        };
+        let s = state.read().await;
+        let client = s.client();
 
         match client.start_vm(&ns, &name).await {
             Ok(_) => {
@@ -389,11 +449,8 @@ pub mod web {
             return resp;
         }
 
-        let mut s = state.write().await;
-        let client = match s.get_client().await {
-            Ok(c) => c,
-            Err(e) => return err_json(503, "SERVICE_UNAVAILABLE", &sanitize_error(&e)),
-        };
+        let s = state.read().await;
+        let client = s.client();
 
         match client.stop_vm(&ns, &name).await {
             Ok(_) => {
@@ -415,11 +472,8 @@ pub mod web {
             return resp;
         }
 
-        let mut s = state.write().await;
-        let client = match s.get_client().await {
-            Ok(c) => c,
-            Err(e) => return err_json(503, "SERVICE_UNAVAILABLE", &sanitize_error(&e)),
-        };
+        let s = state.read().await;
+        let client = s.client();
 
         match client.restart_vm(&ns, &name).await {
             Ok(_) => {
@@ -441,11 +495,8 @@ pub mod web {
             return resp;
         }
 
-        let mut s = state.write().await;
-        let client = match s.get_client().await {
-            Ok(c) => c,
-            Err(e) => return err_json(503, "SERVICE_UNAVAILABLE", &sanitize_error(&e)),
-        };
+        let s = state.read().await;
+        let client = s.client();
 
         match client.delete_vm(&ns, &name).await {
             Ok(_) => {
@@ -562,13 +613,9 @@ pub mod web {
         State(state): State<SharedState>,
         Query(query): Query<EventsQuery>,
     ) -> impl IntoResponse {
-        let mut s = state.write().await;
+        let s = state.read().await;
         let namespace = s.namespace.clone();
-
-        let client = match s.get_client().await {
-            Ok(c) => c,
-            Err(e) => return err_json(503, "SERVICE_UNAVAILABLE", &sanitize_error(&e)),
-        };
+        let client = s.client();
 
         let limit = query.limit.unwrap_or(50).min(1000);
 
@@ -606,13 +653,9 @@ pub mod web {
     async fn recent_events_handler(
         State(state): State<SharedState>,
     ) -> impl IntoResponse {
-        let mut s = state.write().await;
+        let s = state.read().await;
         let namespace = s.namespace.clone();
-
-        let client = match s.get_client().await {
-            Ok(c) => c,
-            Err(e) => return err_json(503, "SERVICE_UNAVAILABLE", &sanitize_error(&e)),
-        };
+        let client = s.client();
 
         use k8s_openapi::api::core::v1::Event;
         use kube::Api;
@@ -663,13 +706,9 @@ pub mod web {
     async fn dashboard_overview_handler(
         State(state): State<SharedState>,
     ) -> impl IntoResponse {
-        let mut s = state.write().await;
+        let s = state.read().await;
         let namespace = s.namespace.clone();
-
-        let client = match s.get_client().await {
-            Ok(c) => c,
-            Err(e) => return err_json(503, "SERVICE_UNAVAILABLE", &sanitize_error(&e)),
-        };
+        let client = s.client();
 
         let vms = match client.list_vms(&namespace).await {
             Ok(vms) => vms,

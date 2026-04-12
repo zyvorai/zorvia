@@ -200,6 +200,23 @@ impl SnapshotManager {
         Ok(snapshots)
     }
 
+    /// Check if a snapshot is currently referenced by an active (incomplete) restore
+    pub async fn is_snapshot_in_use(&self, snapshot_name: &str) -> Result<bool> {
+        let restores: Api<crate::snapshots::crds::VirtualMachineRestore> =
+            Api::namespaced(self.client.clone(), &self.namespace);
+        let lp = ListParams::default();
+        match restores.list(&lp).await {
+            Ok(list) => Ok(list.items.iter().any(|r| {
+                r.spec.snapshot_name == snapshot_name
+                    && r.status
+                        .as_ref()
+                        .map(|s| !s.complete.unwrap_or(false))
+                        .unwrap_or(true)
+            })),
+            Err(_) => Ok(false), // If we can't check, assume not in use
+        }
+    }
+
     /// Apply retention policy (delete old snapshots)
     pub async fn apply_retention_policy(
         &self,
@@ -216,8 +233,21 @@ impl SnapshotManager {
 
             // Delete oldest snapshots beyond the limit
             for snapshot in sorted.iter().skip(max_snapshots as usize) {
-                self.delete_snapshot(&snapshot.name).await?;
-                deleted.push(snapshot.name.clone());
+                // Skip snapshots that may be in use by active restores
+                if self.is_snapshot_in_use(&snapshot.name).await.unwrap_or(true) {
+                    log::warn!("Skipping deletion of snapshot '{}': may be in use by an active restore", snapshot.name);
+                    continue;
+                }
+
+                match self.delete_snapshot(&snapshot.name).await {
+                    Ok(_) => {
+                        deleted.push(snapshot.name.clone());
+                    }
+                    Err(e) => {
+                        log::error!("Failed to delete snapshot '{}': {}", snapshot.name, e);
+                        // Continue trying to delete other snapshots
+                    }
+                }
             }
         }
 

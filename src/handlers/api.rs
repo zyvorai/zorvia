@@ -16,6 +16,10 @@ pub async fn handle_api_serve(
 
     let mut config = ApiConfig::new(port).with_host(&host);
 
+    // Clone TLS paths before they are consumed by ApiConfig
+    let tls_cert_path = tls_cert.clone();
+    let tls_key_path = tls_key.clone();
+
     if tls {
         if let (Some(cert), Some(key)) = (tls_cert, tls_key) {
             config = config.with_tls(cert, key);
@@ -83,7 +87,15 @@ pub async fn handle_api_serve(
 
     #[cfg(feature = "web")]
     {
-        crate::api::http_server::web::start_server(&host, port, namespace).await?;
+        let tls_config = if tls {
+            Some(crate::api::http_server::web::TlsConfig {
+                cert_path: tls_cert_path.unwrap_or_default(),
+                key_path: tls_key_path.unwrap_or_default(),
+            })
+        } else {
+            None
+        };
+        crate::api::http_server::web::start_server(&host, port, namespace, tls_config).await?;
     }
 
     Ok(())

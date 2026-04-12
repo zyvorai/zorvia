@@ -1910,12 +1910,12 @@ pub enum Commands {
     /// Start the REST API server
     ApiServe {
         /// Port to listen on
-        #[arg(short, long, default_value = "8080")]
-        port: u16,
+        #[arg(short, long)]
+        port: Option<u16>,
 
         /// Host to bind to
-        #[arg(long, default_value = "127.0.0.1")]
-        host: String,
+        #[arg(long)]
+        host: Option<String>,
 
         /// Enable TLS
         #[arg(long)]
@@ -1930,12 +1930,12 @@ pub enum Commands {
         tls_key: Option<String>,
 
         /// Authentication method (none, api-key, bearer, basic, oauth2, mtls)
-        #[arg(long, default_value = "none")]
-        auth: String,
+        #[arg(long)]
+        auth: Option<String>,
 
         /// Rate limit (requests per minute, 0 to disable)
-        #[arg(long, default_value = "60")]
-        rate_limit: u32,
+        #[arg(long)]
+        rate_limit: Option<u32>,
     },
 
     /// Show API server status
