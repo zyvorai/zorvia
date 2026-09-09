@@ -10,7 +10,7 @@ We release patches for security vulnerabilities for the following versions:
 
 ## Reporting a Vulnerability
 
-We take the security of zorvia seriously. If you have discovered a security vulnerability, please follow these steps:
+We take the security of Zorvia seriously. If you have discovered a security vulnerability, please follow these steps:
 
 ### 🔒 Private Disclosure
 
@@ -114,4 +114,4 @@ We'd like to thank the following people for responsibly disclosing security issu
 
 ---
 
-Thank you for helping keep zorvia and our users safe!
+Thank you for helping keep Zorvia and our users safe!

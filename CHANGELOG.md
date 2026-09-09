@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- **Renamed project to Zorvia** — crate, binary, config paths, deploy manifests, and docs now use `zorvia` / `Zorvia` (repository: [zyvorai/zorvia](https://github.com/zyvorai/zorvia))
+- **Apache License 2.0 only** — removed the MIT dual-license; `LICENSE` is Apache-2.0 exclusively
+
 ### Security
 
 - **Path traversal prevention** - Profile and blueprint storage now sanitize names to block directory traversal attacks
