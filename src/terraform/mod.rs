@@ -1,5 +1,7 @@
 //! Terraform scaffold generator for the Zorvia HTTP API.
 
+pub mod provider;
+
 use anyhow::{Context, Result};
 use std::path::Path;
 
@@ -112,6 +114,7 @@ pub fn write_scaffold(dir: &Path, zorvia_url: &str) -> Result<Vec<String>> {
         ("variables.tf", example_variables_tf()),
         ("outputs.tf", example_outputs_tf()),
         ("terraform.tfvars.example", "zorvia_url = \"https://127.0.0.1:30152\"\nzorvia_token = \"replace-me\"\nvm_name = \"tf-web-01\"\n".into()),
+        ("schema.json", provider::provider_schema_pretty()?),
     ];
     let mut written = Vec::new();
     for (name, body) in files {
@@ -139,8 +142,9 @@ mod tests {
         let dir = std::env::temp_dir().join(format!("zorvia-tf-{}", std::process::id()));
         let _ = std::fs::remove_dir_all(&dir);
         let files = write_scaffold(&dir, "https://example:30152").unwrap();
-        assert_eq!(files.len(), 4);
+        assert_eq!(files.len(), 5);
         assert!(dir.join("main.tf").exists());
+        assert!(dir.join("schema.json").exists());
         let _ = std::fs::remove_dir_all(&dir);
     }
 }

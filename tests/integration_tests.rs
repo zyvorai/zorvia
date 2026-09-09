@@ -1533,4 +1533,29 @@ fn test_download_job_and_terraform_scaffold() {
     let tf = zorvia::terraform::example_main_tf("https://lab:30152");
     assert!(tf.contains("POST"));
     assert!(tf.contains("/api/vms"));
+
+    let schema = zorvia::terraform::provider::provider_schema();
+    assert_eq!(schema["provider"]["name"], "zorvia");
+    assert!(schema["resources"]["zorvia_vm"]["endpoints"]["pause"]
+        .as_str()
+        .unwrap()
+        .contains("pause"));
+}
+
+#[test]
+fn test_guest_metrics_and_dv_wait_classifier() {
+    use serde_json::json;
+    use zorvia::kube::cdi::{classify_data_volume_phase, DataVolumeWait};
+    use zorvia::kube::guest_metrics::metrics_from_guest_payloads;
+
+    let m = metrics_from_guest_payloads(
+        Some(&json!({"hostname": "n1", "cpuUsagePercent": 11.0})),
+        Some(&json!({"items": [{"usedBytes": 1, "totalBytes": 2}]})),
+    );
+    assert_eq!(m.hostname.as_deref(), Some("n1"));
+    assert_eq!(m.cpu_usage, 11.0);
+    assert_eq!(
+        classify_data_volume_phase(Some("Succeeded")),
+        DataVolumeWait::Ready
+    );
 }

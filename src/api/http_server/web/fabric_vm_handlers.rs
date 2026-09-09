@@ -622,6 +622,7 @@ pub async fn fabric_clone_vm(
 
     let mut added_disk = false;
     let mut pvc_notes = Vec::new();
+    let mut pending_dvs: Vec<String> = Vec::new();
     if let Some(volumes) = &spec.volumes {
         for (i, vol) in volumes.iter().enumerate() {
             let order = (i as u32).saturating_add(1);
@@ -668,6 +669,7 @@ pub async fn fabric_clone_vm(
                                     "CDI DataVolume {clone_name} cloning PVC {}",
                                     pvc.claim_name
                                 ));
+                                pending_dvs.push(clone_name.clone());
                             }
                             Err(e) => {
                                 log::warn!("CDI clone {} failed, empty PVC fallback: {e}", pvc.claim_name);
@@ -714,6 +716,7 @@ pub async fn fabric_clone_vm(
                             builder = builder.add_pvc_disk(&vol.name, &clone_name, "20Gi", order);
                             added_disk = true;
                             pvc_notes.push(format!("CDI cloned DataVolume {}", dv.name));
+                            pending_dvs.push(clone_name.clone());
                         }
                         Err(e) => pvc_notes.push(format!(
                             "could not clone DataVolume {}: {}",
@@ -732,14 +735,31 @@ pub async fn fabric_clone_vm(
     let config = builder.build();
     match client.create_vm(&config).await {
         Ok(_) => {
-            let _ = client.start_vm(&namespace, &body.target_name).await;
+            let mut ready = Vec::new();
+            for dv in &pending_dvs {
+                match client
+                    .wait_for_data_volume(&namespace, dv, dv_wait_secs())
+                    .await
+                {
+                    Ok(crate::kube::cdi::DataVolumeWait::Ready) => ready.push(dv.clone()),
+                    Ok(other) => pvc_notes.push(format!("DataVolume {dv} wait={other:?}")),
+                    Err(e) => pvc_notes.push(format!("DataVolume {dv} wait error: {}", sanitize_error(&e))),
+                }
+            }
+            let skip_wait = std::env::var("ZORVIA_SKIP_DV_WAIT").ok().as_deref() == Some("1");
+            if skip_wait || pending_dvs.is_empty() || ready.len() == pending_dvs.len() {
+                let _ = client.start_vm(&namespace, &body.target_name).await;
+            } else {
+                pvc_notes.push("start deferred: DataVolume import not Succeeded".into());
+            }
             Json(json!({
                 "name": body.target_name,
                 "source": source,
                 "pvc_notes": pvc_notes,
-                "data_copied": pvc_notes.iter().any(|n| n.starts_with("CDI")),
+                "data_volumes_ready": ready,
+                "data_copied": pvc_notes.iter().any(|n| n.contains("CDI")),
                 "clone_mode": body.clone_mode.clone().unwrap_or_else(|| "cdi".into()),
-                "message": "VM cloned. PVC/DataVolume disks use CDI when available; otherwise an empty PVC is allocated."
+                "message": "VM cloned. Start waits for CDI DataVolume Succeeded unless ZORVIA_SKIP_DV_WAIT=1."
             }))
             .into_response()
         }
@@ -880,18 +900,99 @@ pub async fn fabric_vm_metrics(
         .as_ref()
         .and_then(|v| v.status.as_ref())
         .and_then(|st| st.node_name.clone());
+
+    let osinfo = client
+        .get_vmi_subresource_json(&namespace, &name, "guestosinfo")
+        .await
+        .ok();
+    let fslist = client
+        .get_vmi_subresource_json(&namespace, &name, "filesystemlist")
+        .await
+        .ok();
+    let gm = crate::kube::guest_metrics::metrics_from_guest_payloads(
+        osinfo.as_ref(),
+        fslist.as_ref(),
+    );
+    let source = if gm.agent {
+        "guest-agent"
+    } else {
+        "kubevirt-status"
+    };
     Json(json!({
-        "cpu_usage": 0.0,
-        "memory_usage": 0,
-        "disk_usage": 0,
-        "network_rx": 0,
-        "network_tx": 0,
+        "cpu_usage": gm.cpu_usage,
+        "memory_usage": gm.memory_usage,
+        "memory_available": gm.memory_available,
+        "disk_usage": gm.disk_usage,
+        "disk_total": gm.disk_total,
+        "network_rx": gm.network_rx,
+        "network_tx": gm.network_tx,
+        "hostname": gm.hostname,
+        "agent": gm.agent,
         "phase": phase,
         "paused": paused,
         "node": node,
-        "source": "kubevirt-status",
-        "note": "Guest agent counters require virt-launcher metrics; this payload reports live KubeVirt state."
+        "source": source,
     }))
+}
+
+pub async fn fabric_guest_insight(
+    State(state): State<SharedState>,
+    Path(name): Path<String>,
+) -> impl IntoResponse {
+    let s = state.read().await;
+    let namespace = s.namespace.clone();
+    let client = s.client();
+    drop(s);
+    let status = client
+        .get_vmi(&namespace, &name)
+        .await
+        .ok()
+        .and_then(|vmi| vmi.status);
+    let report = crate::guest_insight::GuestInsightReport::from_status(
+        name,
+        namespace,
+        status.as_ref(),
+    );
+    Json(json!(report))
+}
+
+fn dv_wait_secs() -> u64 {
+    std::env::var("ZORVIA_DV_WAIT_SECS")
+        .ok()
+        .and_then(|s| s.parse().ok())
+        .unwrap_or(90)
+}
+
+pub async fn fabric_wait_data_volume(
+    State(state): State<SharedState>,
+    Path(name): Path<String>,
+) -> impl IntoResponse {
+    let s = state.read().await;
+    let namespace = s.namespace.clone();
+    let client = s.client();
+    drop(s);
+    match client
+        .wait_for_data_volume(&namespace, &name, dv_wait_secs())
+        .await
+    {
+        Ok(crate::kube::cdi::DataVolumeWait::Ready) => Json(json!({
+            "name": name,
+            "state": "succeeded"
+        }))
+        .into_response(),
+        Ok(crate::kube::cdi::DataVolumeWait::Failed) => {
+            let (st, j) = err_json(409, "IMPORT_FAILED", "DataVolume entered Failed phase");
+            (st, j).into_response()
+        }
+        Ok(crate::kube::cdi::DataVolumeWait::Pending) => {
+            let (st, j) = err_json(408, "TIMEOUT", "DataVolume did not reach Succeeded in time");
+            (st, j).into_response()
+        }
+        Err(e) => {
+            let (st, j) = err_json(500, "WAIT_FAILED", &sanitize_error(&e));
+            (st, j).into_response()
+        }
+    }
 }
 
 pub async fn fabric_vm_logs(

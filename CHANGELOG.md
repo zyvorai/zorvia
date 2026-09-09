@@ -9,6 +9,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Guest-agent metrics** — `GET /api/vms/:name/metrics` reads `guestosinfo` + `filesystemlist`; `GET /api/vms/:name/guest-insight`
+- **CDI wait** — clone waits for DataVolume Succeeded before start; `zorvia wait-image`; `POST /api/datavolumes/:name/wait`
+- **Terraform provider schema** — scaffold writes `schema.json` (`zorvia_vm`, snapshots, downloads)
 - **In-browser SSH** — `/ws/ssh/:vm?user=` proxies `ssh` or `virtctl ssh` into an xterm tab
 - **CDI clone** — `POST /api/vms/:name/clone` with `clone_mode=cdi` creates a DataVolume from the source PVC
 - **Cloud download jobs** — `POST /api/images/cloud/download` + `GET /api/images/downloads` (SPA-compatible)

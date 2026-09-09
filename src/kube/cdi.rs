@@ -61,6 +61,29 @@ pub fn data_volume_clone_manifest(spec: &CdiPvcCloneSpec) -> Result<Value> {
     }))
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum DataVolumeWait {
+    Ready,
+    Pending,
+    Failed,
+}
+
+/// Classify a CDI DataVolume status.phase.
+pub fn classify_data_volume_phase(phase: Option<&str>) -> DataVolumeWait {
+    match phase.map(|s| s.to_ascii_lowercase()).as_deref() {
+        Some("succeeded") | Some("ready") => DataVolumeWait::Ready,
+        Some("failed") | Some("paused") | Some("unknown") => DataVolumeWait::Failed,
+        _ => DataVolumeWait::Pending,
+    }
+}
+
+pub fn data_volume_phase_from_object(obj: &serde_json::Value) -> Option<String> {
+    obj.get("status")
+        .and_then(|s| s.get("phase"))
+        .and_then(|p| p.as_str())
+        .map(|s| s.to_string())
+}
+
 /// Suggested DataVolume name for a cloned disk.
 pub fn clone_dv_name(target_vm: &str, disk: &str) -> String {
     let raw = format!("{target_vm}-{disk}");
@@ -110,6 +133,24 @@ mod tests {
         let mut bad = spec();
         bad.target_name = "NOPE_UPPER".into();
         assert!(data_volume_clone_manifest(&bad).is_err());
+    }
+
+    #[test]
+    fn classifies_dv_phases() {
+        assert_eq!(
+            classify_data_volume_phase(Some("Succeeded")),
+            DataVolumeWait::Ready
+        );
+        assert_eq!(
+            classify_data_volume_phase(Some("ImportInProgress")),
+            DataVolumeWait::Pending
+        );
+        assert_eq!(
+            classify_data_volume_phase(Some("Failed")),
+            DataVolumeWait::Failed
+        );
+        let obj = serde_json::json!({"status": {"phase": "Succeeded"}});
+        assert_eq!(data_volume_phase_from_object(&obj).as_deref(), Some("Succeeded"));
     }
 
     #[test]

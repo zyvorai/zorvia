@@ -2052,6 +2052,16 @@ pub enum Commands {
         format: String,
     },
 
+    /// Wait until a CDI DataVolume reaches Succeeded
+    WaitImage {
+        /// DataVolume name
+        name: String,
+
+        /// Timeout in seconds
+        #[arg(long, default_value_t = 90)]
+        timeout: u64,
+    },
+
     /// Write a Terraform scaffold that drives the Zorvia HTTP API
     TerraformScaffold {
         /// Output directory
@@ -2575,6 +2585,18 @@ mod tests {
         match *cli.command {
             Commands::Tui { interactive, .. } => assert!(interactive),
             _ => panic!("Expected Tui command"),
+        }
+    }
+
+    #[test]
+    fn test_wait_image_command() {
+        let cli = parse(&["zorvia", "wait-image", "ubuntu-import", "--timeout", "30"]).unwrap();
+        match *cli.command {
+            Commands::WaitImage { name, timeout } => {
+                assert_eq!(name, "ubuntu-import");
+                assert_eq!(timeout, 30);
+            }
+            _ => panic!("Expected WaitImage"),
         }
     }
 

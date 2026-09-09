@@ -24,6 +24,11 @@ terraform apply
 | Destroy VM | `DELETE /api/vms/:name` |
 | Console | `${zorvia_url}/app/vms/${name}/console` |
 
+## Provider schema
+
+`terraform-scaffold` writes `schema.json`: the resource contract a future
+`zyvorai/zorvia` provider would implement. CRUD maps onto the Fabric HTTP API.
+
 ## Why not a full provider yet
 
 A first-class `hashicorp/zorvia` provider needs a published registry module,

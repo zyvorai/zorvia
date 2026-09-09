@@ -2,6 +2,7 @@ pub mod catalog;
 pub mod cdi;
 pub mod converter;
 pub mod expose;
+pub mod guest_metrics;
 pub mod lifecycle;
 pub mod ssh;
 pub mod status;
@@ -392,6 +393,68 @@ impl KubeClient {
             .header(http::header::CONTENT_TYPE, "application/json")
             .body(body)
             .map_err(|e| anyhow::anyhow!("failed to build DataVolume request: {e}"))?;
+        Ok(self.client.request::<serde_json::Value>(req).await?)
+    }
+
+    pub async fn get_data_volume(
+        &self,
+        namespace: &str,
+        name: &str,
+    ) -> Result<serde_json::Value> {
+        lifecycle::validate_k8s_name("namespace", namespace)?;
+        lifecycle::validate_k8s_name("name", name)?;
+        let path =
+            format!("/apis/cdi.kubevirt.io/v1beta1/namespaces/{namespace}/datavolumes/{name}");
+        let req = http::Request::builder()
+            .method(http::Method::GET)
+            .uri(&path)
+            .body(Vec::new())
+            .map_err(|e| anyhow::anyhow!("failed to build DataVolume get: {e}"))?;
+        Ok(self.client.request::<serde_json::Value>(req).await?)
+    }
+
+    /// Poll a DataVolume until Succeeded, Failed, or timeout.
+    pub async fn wait_for_data_volume(
+        &self,
+        namespace: &str,
+        name: &str,
+        timeout_secs: u64,
+    ) -> Result<cdi::DataVolumeWait> {
+        let deadline = std::time::Instant::now() + std::time::Duration::from_secs(timeout_secs.max(1));
+        loop {
+            match self.get_data_volume(namespace, name).await {
+                Ok(obj) => {
+                    let phase = cdi::data_volume_phase_from_object(&obj);
+                    match cdi::classify_data_volume_phase(phase.as_deref()) {
+                        cdi::DataVolumeWait::Pending
+                            if std::time::Instant::now() < deadline =>
+                        {
+                            tokio::time::sleep(std::time::Duration::from_secs(2)).await;
+                        }
+                        other => return Ok(other),
+                    }
+                }
+                Err(e) if std::time::Instant::now() < deadline => {
+                    log::debug!("wait DataVolume {name}: {e}");
+                    tokio::time::sleep(std::time::Duration::from_secs(2)).await;
+                }
+                Err(e) => return Err(e),
+            }
+        }
+    }
+
+    pub async fn get_vmi_subresource_json(
+        &self,
+        namespace: &str,
+        name: &str,
+        subresource: &str,
+    ) -> Result<serde_json::Value> {
+        let path = lifecycle::vmi_subresource_path(namespace, name, subresource)?;
+        let req = http::Request::builder()
+            .method(http::Method::GET)
+            .uri(&path)
+            .body(Vec::new())
+            .map_err(|e| anyhow::anyhow!("failed to build {subresource} get: {e}"))?;
         Ok(self.client.request::<serde_json::Value>(req).await?)
     }
 }

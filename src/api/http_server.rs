@@ -376,7 +376,9 @@ pub mod web {
             .route("/vms/:name/pause", post(fabric_pause_vm))
             .route("/vms/:name/resume", post(fabric_resume_vm))
             .route("/vms/:name/metrics", get(fabric_vm_metrics))
+            .route("/vms/:name/guest-insight", get(fabric_guest_insight))
             .route("/vms/:name/logs", get(fabric_vm_logs))
+            .route("/datavolumes/:name/wait", post(fabric_wait_data_volume))
             .route("/vms/:name/port-forwards", post(fabric_add_port_forward))
             .route(
                 "/vms/:name/port-forwards/:host_port",

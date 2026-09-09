@@ -277,9 +277,9 @@ Secure-by-default defaults: no `unsafe`, CORS off unless configured, TLS verific
 
 ## Roadmap (near-term)
 
-- Guest-agent live CPU/memory scrape  
-- Official HashiCorp Terraform *provider* plugin (scaffold is shipped: `zorvia terraform-scaffold`)  
-- CDI DataVolume wait-until-Succeeded before start  
+- Published HashiCorp registry provider binary (`schema.json` is generated)  
+- Prometheus scrape of virt-launcher vCPU counters  
+- Block create-wizard start until cloud-init reports ready  
 
 ---
 

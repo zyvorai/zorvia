@@ -1159,6 +1159,24 @@ pub async fn run(mut cli: Cli) -> Result<()> {
             &cli.namespace,
         )?,
 
+        Commands::WaitImage { name, timeout } => {
+            let client = crate::kube::KubeClient::new().await?;
+            match client
+                .wait_for_data_volume(&cli.namespace, &name, timeout)
+                .await?
+            {
+                crate::kube::cdi::DataVolumeWait::Ready => {
+                    println!("DataVolume '{name}' succeeded");
+                }
+                crate::kube::cdi::DataVolumeWait::Failed => {
+                    anyhow::bail!("DataVolume '{name}' failed");
+                }
+                crate::kube::cdi::DataVolumeWait::Pending => {
+                    anyhow::bail!("DataVolume '{name}' still pending after {timeout}s");
+                }
+            }
+        }
+
         Commands::TerraformScaffold { output, url } => {
             let written = crate::terraform::write_scaffold(std::path::Path::new(&output), &url)?;
             println!("Wrote Terraform scaffold:");
