@@ -89,6 +89,9 @@ Pause / resume call KubeVirt `virtualmachineinstances/pause` and `…/unpause`. 
 | GET | `/vms/:name/metrics\|logs` | Guest-agent CPU/memory/disk when qemu-ga is connected |
 | GET | `/vms/:name/guest-insight` | OS/kernel/interfaces + readiness score |
 | POST | `/datavolumes/:name/wait` | Block until CDI DataVolume Succeeded |
+| POST | `/vms/:name/wait-ready` | Block until VMI Ready + guest IP |
+| GET | `/readyz` | Kube connectivity probe (readiness) |
+| GET | `/metrics` | Prometheus text for the API process |
 | POST | `/vms/:name/pause\|resume` | KubeVirt VMI pause / unpause (204) |
 | GET | `/images/cloud` | Template-backed cloud images (`name`, `distro`, `url`, …) |
 | POST | `/images/cloud/download` | Start a CDI import job |

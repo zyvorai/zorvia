@@ -3,7 +3,9 @@ pub mod cdi;
 pub mod converter;
 pub mod expose;
 pub mod guest_metrics;
+pub mod guest_ready;
 pub mod lifecycle;
+pub mod prom;
 pub mod ssh;
 pub mod status;
 pub mod types;
@@ -456,6 +458,38 @@ impl KubeClient {
             .body(Vec::new())
             .map_err(|e| anyhow::anyhow!("failed to build {subresource} get: {e}"))?;
         Ok(self.client.request::<serde_json::Value>(req).await?)
+    }
+
+    pub async fn guest_ready_report(
+        &self,
+        namespace: &str,
+        name: &str,
+    ) -> Result<guest_ready::GuestReadyReport> {
+        let status = match self.get_vmi(namespace, name).await {
+            Ok(vmi) => vmi.status,
+            Err(_) => None,
+        };
+        Ok(guest_ready::guest_ready_from_status(status.as_ref()))
+    }
+
+    pub async fn wait_until_guest_ready(
+        &self,
+        namespace: &str,
+        name: &str,
+        timeout_secs: u64,
+    ) -> Result<guest_ready::GuestReadyReport> {
+        let deadline =
+            std::time::Instant::now() + std::time::Duration::from_secs(timeout_secs.max(1));
+        loop {
+            let report = self.guest_ready_report(namespace, name).await?;
+            if report.cloud_init_ready {
+                return Ok(report);
+            }
+            if std::time::Instant::now() >= deadline {
+                return Ok(report);
+            }
+            tokio::time::sleep(std::time::Duration::from_secs(2)).await;
+        }
     }
 }
 

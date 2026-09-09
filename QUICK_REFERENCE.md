@@ -54,6 +54,7 @@ zorvia pause myvm                # Pause running VMI
 zorvia resume myvm               # Resume paused VMI
 zorvia terraform-scaffold --output ./terraform/zorvia-vm
 zorvia wait-image ubuntu-import --timeout 120
+zorvia wait-ready myvm --timeout 120
 zorvia delete myvm               # Delete VM
 zorvia status myvm               # Detailed status
 zorvia clone source target       # Clone VM

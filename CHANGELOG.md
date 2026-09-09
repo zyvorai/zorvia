@@ -9,6 +9,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Guest ready wait** — create+start waits for Ready+IP; `zorvia wait-ready`; `POST /api/vms/:name/wait-ready`
+- **Prometheus** — `/api/metrics` exposition, virt-launcher text parser, `deploy/servicemonitor.yaml`; readiness uses `/api/readyz` (kube reachable)
 - **Guest-agent metrics** — `GET /api/vms/:name/metrics` reads `guestosinfo` + `filesystemlist`; `GET /api/vms/:name/guest-insight`
 - **CDI wait** — clone waits for DataVolume Succeeded before start; `zorvia wait-image`; `POST /api/datavolumes/:name/wait`
 - **Terraform provider schema** — scaffold writes `schema.json` (`zorvia_vm`, snapshots, downloads)

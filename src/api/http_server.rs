@@ -237,6 +237,8 @@ pub mod web {
             path,
             "/api/v1/health"
                 | "/api/health"
+                | "/api/readyz"
+                | "/api/metrics"
                 | "/api/v1/auth/login"
                 | "/api/v1/auth/providers"
                 | "/api/v1/instance"
@@ -257,6 +259,8 @@ pub mod web {
         if !path.starts_with("/api/")
             || path == "/api/v1/health"
             || path == "/api/health"
+            || path == "/api/readyz"
+            || path == "/api/metrics"
         {
             return next.run(request).await.into_response();
         }
@@ -377,8 +381,11 @@ pub mod web {
             .route("/vms/:name/resume", post(fabric_resume_vm))
             .route("/vms/:name/metrics", get(fabric_vm_metrics))
             .route("/vms/:name/guest-insight", get(fabric_guest_insight))
+            .route("/vms/:name/wait-ready", post(fabric_wait_guest_ready))
             .route("/vms/:name/logs", get(fabric_vm_logs))
             .route("/datavolumes/:name/wait", post(fabric_wait_data_volume))
+            .route("/readyz", get(fabric_readyz))
+            .route("/metrics", get(fabric_prom_metrics))
             .route("/vms/:name/port-forwards", post(fabric_add_port_forward))
             .route(
                 "/vms/:name/port-forwards/:host_port",
@@ -584,6 +591,40 @@ pub mod web {
             "service": "zorvia-api",
             "version": env!("CARGO_PKG_VERSION"),
         }))
+    }
+
+    async fn fabric_readyz(State(state): State<SharedState>) -> impl IntoResponse {
+        let s = state.read().await;
+        match s.kube_client.list_vms(&s.namespace).await {
+            Ok(_) => (
+                StatusCode::OK,
+                Json(serde_json::json!({"status": "ready", "kube": true})),
+            )
+                .into_response(),
+            Err(e) => (
+                StatusCode::SERVICE_UNAVAILABLE,
+                Json(serde_json::json!({
+                    "status": "not-ready",
+                    "kube": false,
+                    "error": sanitize_error(&e),
+                })),
+            )
+                .into_response(),
+        }
+    }
+
+    async fn fabric_prom_metrics() -> impl IntoResponse {
+        let body = format!(
+            "# HELP zorvia_up 1 if the API process is running\n# TYPE zorvia_up gauge\nzorvia_up 1\n# HELP zorvia_build_info Build version\n# TYPE zorvia_build_info gauge\nzorvia_build_info{{version=\"{}\"}} 1\n",
+            env!("CARGO_PKG_VERSION")
+        );
+        (
+            [(
+                header::CONTENT_TYPE,
+                "text/plain; version=0.0.4; charset=utf-8",
+            )],
+            body,
+        )
     }
 
     async fn fabric_not_implemented() -> impl IntoResponse {

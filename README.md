@@ -278,8 +278,7 @@ Secure-by-default defaults: no `unsafe`, CORS off unless configured, TLS verific
 ## Roadmap (near-term)
 
 - Published HashiCorp registry provider binary (`schema.json` is generated)  
-- Prometheus scrape of virt-launcher vCPU counters  
-- Block create-wizard start until cloud-init reports ready  
+- Wire Prometheus Operator samples into the live metrics graph  
 
 ---
 

@@ -2052,6 +2052,16 @@ pub enum Commands {
         format: String,
     },
 
+    /// Wait until a VM has an IP and Ready=True (cloud-init / DHCP done)
+    WaitReady {
+        /// VM name
+        name: String,
+
+        /// Timeout in seconds
+        #[arg(long, default_value_t = 120)]
+        timeout: u64,
+    },
+
     /// Wait until a CDI DataVolume reaches Succeeded
     WaitImage {
         /// DataVolume name
@@ -2585,6 +2595,18 @@ mod tests {
         match *cli.command {
             Commands::Tui { interactive, .. } => assert!(interactive),
             _ => panic!("Expected Tui command"),
+        }
+    }
+
+    #[test]
+    fn test_wait_ready_command() {
+        let cli = parse(&["zorvia", "wait-ready", "web-01", "--timeout", "15"]).unwrap();
+        match *cli.command {
+            Commands::WaitReady { name, timeout } => {
+                assert_eq!(name, "web-01");
+                assert_eq!(timeout, 15);
+            }
+            _ => panic!("Expected WaitReady"),
         }
     }
 

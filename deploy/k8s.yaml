@@ -140,7 +140,7 @@ spec:
             periodSeconds: 10
           readinessProbe:
             httpGet:
-              path: /api/v1/health
+              path: /api/readyz
               port: https
               scheme: HTTPS
             initialDelaySeconds: 3

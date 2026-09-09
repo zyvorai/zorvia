@@ -1559,3 +1559,18 @@ fn test_guest_metrics_and_dv_wait_classifier() {
         DataVolumeWait::Ready
     );
 }
+
+#[test]
+fn test_guest_ready_and_prom_parser() {
+    use zorvia::kube::guest_ready::guest_ready_from_status;
+    use zorvia::kube::prom::{fabric_from_prom, parse_prom_text, servicemonitor_yaml};
+
+    assert!(!guest_ready_from_status(None).cloud_init_ready);
+    let samples = parse_prom_text(
+        "kubevirt_vmi_vcpu_seconds{name=\"web-01\"} 3\nkubevirt_vmi_memory_available_bytes{name=\"web-01\"} 100\n",
+    );
+    let (cpu, mem, _) = fabric_from_prom(&samples, "web-01");
+    assert_eq!(cpu, 3.0);
+    assert_eq!(mem, 100);
+    assert!(servicemonitor_yaml("ns").contains("virt-launcher"));
+}

@@ -383,6 +383,11 @@ pub async fn fabric_create_vm(
             let start = req.start.unwrap_or(true);
             if start {
                 let _ = client.start_vm(&namespace, &req.name).await;
+                if std::env::var("ZORVIA_SKIP_GUEST_WAIT").ok().as_deref() != Some("1") {
+                    let _ = client
+                        .wait_until_guest_ready(&namespace, &req.name, guest_wait_secs())
+                        .await;
+                }
             }
 
             // Port forwards + convenience expose flags
@@ -432,6 +437,9 @@ pub async fn fabric_create_vm(
                     let ip = client.get_vm_ip(&namespace, &req.name).await.unwrap_or(None);
                     let mut body = fabric_vm_json(&VmInfo::from_vm_with_ip(&vm, ip));
                     if let Some(obj) = body.as_object_mut() {
+                        if let Ok(ready) = client.guest_ready_report(&namespace, &req.name).await {
+                            obj.insert("guest_ready".into(), json!(ready));
+                        }
                         obj.insert(
                             "port_forwards".into(),
                             json!(pf_infos
@@ -961,6 +969,37 @@ fn dv_wait_secs() -> u64 {
         .ok()
         .and_then(|s| s.parse().ok())
         .unwrap_or(90)
+}
+
+fn guest_wait_secs() -> u64 {
+    std::env::var("ZORVIA_GUEST_WAIT_SECS")
+        .ok()
+        .and_then(|s| s.parse().ok())
+        .unwrap_or(120)
+}
+
+pub async fn fabric_wait_guest_ready(
+    State(state): State<SharedState>,
+    Path(name): Path<String>,
+) -> impl IntoResponse {
+    let s = state.read().await;
+    let namespace = s.namespace.clone();
+    let client = s.client();
+    drop(s);
+    match client
+        .wait_until_guest_ready(&namespace, &name, guest_wait_secs())
+        .await
+    {
+        Ok(report) if report.cloud_init_ready => Json(json!(report)).into_response(),
+        Ok(report) => {
+            let (st, j) = err_json(408, "TIMEOUT", &report.reason);
+            (st, j).into_response()
+        }
+        Err(e) => {
+            let (st, j) = err_json(500, "WAIT_FAILED", &sanitize_error(&e));
+            (st, j).into_response()
+        }
+    }
 }
 
 pub async fn fabric_wait_data_volume(

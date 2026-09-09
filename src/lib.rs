@@ -1159,6 +1159,18 @@ pub async fn run(mut cli: Cli) -> Result<()> {
             &cli.namespace,
         )?,
 
+        Commands::WaitReady { name, timeout } => {
+            let client = crate::kube::KubeClient::new().await?;
+            let report = client
+                .wait_until_guest_ready(&cli.namespace, &name, timeout)
+                .await?;
+            if report.cloud_init_ready {
+                println!("VM '{name}' ready: {}", report.reason);
+            } else {
+                anyhow::bail!("VM '{name}' not ready after {timeout}s: {}", report.reason);
+            }
+        }
+
         Commands::WaitImage { name, timeout } => {
             let client = crate::kube::KubeClient::new().await?;
             match client
