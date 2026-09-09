@@ -91,18 +91,19 @@ async fn build_kubevirt_ws(
     );
     let url = format!("{ws_scheme}://{host}{path}");
 
-    let proto = if subresource == "vnc" {
-        "binary.kubevirt.io"
-    } else {
-        "plain.kubevirt.io"
-    };
-
     let mut req =
         tokio_tungstenite::tungstenite::client::IntoClientRequest::into_client_request(url)?;
-    req.headers_mut().insert(
-        http::header::SEC_WEBSOCKET_PROTOCOL,
-        http::HeaderValue::from_static(proto),
-    );
+    // KubeVirt's `console` subresource echoes back the requested subprotocol, but its
+    // `vnc` subresource never does (confirmed against this cluster's apiserver directly:
+    // it replies 101 with no Sec-WebSocket-Protocol header regardless of what we send).
+    // tungstenite's client handshake hard-fails a connection if it sent a subprotocol
+    // request and got none back, so only request one where the upstream actually honors it.
+    if subresource != "vnc" {
+        req.headers_mut().insert(
+            http::header::SEC_WEBSOCKET_PROTOCOL,
+            http::HeaderValue::from_static("plain.kubevirt.io"),
+        );
+    }
 
     // In-cluster kube config stores the SA path in token_file; kubeconfig may use token.
     let bearer = if let Some(token) = config.auth_info.token.as_ref() {
