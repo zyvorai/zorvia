@@ -603,6 +603,8 @@ pub struct VirtualMachineInstanceStatus {
     pub node_name: Option<String>,
     #[serde(default)]
     pub interfaces: Vec<VmiInterface>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub conditions: Option<Vec<Condition>>,
     #[serde(
         rename = "guestOSInfo",
         skip_serializing_if = "Option::is_none",
@@ -747,6 +749,7 @@ mod tests {
     #[test]
     fn test_vmi_status_serialization_roundtrip() {
         let status = VirtualMachineInstanceStatus {
+            conditions: None,
             phase: Some("Running".to_string()),
             node_name: Some("node-1".to_string()),
             interfaces: vec![VmiInterface {
@@ -821,6 +824,7 @@ mod tests {
     #[test]
     fn test_vmi_status_skips_none_on_serialize() {
         let status = VirtualMachineInstanceStatus {
+            conditions: None,
             phase: Some("Running".to_string()),
             node_name: None,
             interfaces: vec![],
@@ -849,6 +853,7 @@ mod tests {
     #[test]
     fn test_extract_ip_from_interfaces() {
         let status = VirtualMachineInstanceStatus {
+            conditions: None,
             phase: Some("Running".to_string()),
             node_name: None,
             interfaces: vec![
@@ -877,6 +882,7 @@ mod tests {
     #[test]
     fn test_extract_ip_skips_empty() {
         let status = VirtualMachineInstanceStatus {
+            conditions: None,
             phase: Some("Running".to_string()),
             node_name: None,
             interfaces: vec![
@@ -905,6 +911,7 @@ mod tests {
     #[test]
     fn test_extract_ip_no_interfaces() {
         let status = VirtualMachineInstanceStatus {
+            conditions: None,
             phase: Some("Scheduling".to_string()),
             node_name: None,
             interfaces: vec![],
@@ -917,6 +924,7 @@ mod tests {
     #[test]
     fn test_extract_ip_none_ip_address() {
         let status = VirtualMachineInstanceStatus {
+            conditions: None,
             phase: Some("Running".to_string()),
             node_name: None,
             interfaces: vec![VmiInterface {

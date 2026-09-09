@@ -1,5 +1,7 @@
+pub mod catalog;
 pub mod converter;
 pub mod expose;
+pub mod lifecycle;
 pub mod status;
 pub mod types;
 
@@ -315,6 +317,62 @@ impl KubeClient {
         let created = pvcs.create(&pp, &pvc).await?;
 
         Ok(created)
+    }
+
+    /// Fetch a PVC by name.
+    pub async fn get_pvc(
+        &self,
+        namespace: &str,
+        name: &str,
+    ) -> Result<PersistentVolumeClaim> {
+        let pvcs: Api<PersistentVolumeClaim> = self.pvc_api(namespace);
+        Ok(pvcs.get(name).await?)
+    }
+
+    /// Pause a running VMI via the KubeVirt `pause` subresource.
+    pub async fn pause_vm(&self, namespace: &str, name: &str) -> Result<()> {
+        self.vmi_subresource(namespace, name, "pause").await
+    }
+
+    /// Resume a paused VMI via the KubeVirt `unpause` subresource.
+    pub async fn resume_vm(&self, namespace: &str, name: &str) -> Result<()> {
+        self.vmi_subresource(namespace, name, "unpause").await
+    }
+
+    /// Whether the VMI currently reports the Paused condition.
+    pub async fn is_paused(&self, namespace: &str, name: &str) -> Result<bool> {
+        let vmi = self.get_vmi(namespace, name).await?;
+        let phase = vmi.status.as_ref().and_then(|s| s.phase.as_deref());
+        let conds: Vec<(&str, &str)> = vmi
+            .status
+            .as_ref()
+            .and_then(|s| s.conditions.as_ref())
+            .map(|cs| {
+                cs.iter()
+                    .map(|c| (c.type_.as_str(), c.status.as_str()))
+                    .collect()
+            })
+            .unwrap_or_default();
+        Ok(lifecycle::status_is_paused(None, phase, &conds))
+    }
+
+    async fn vmi_subresource(&self, namespace: &str, name: &str, subresource: &str) -> Result<()> {
+        let path = lifecycle::vmi_subresource_path(namespace, name, subresource)?;
+        let req = http::Request::builder()
+            .method(http::Method::PUT)
+            .uri(&path)
+            .header(http::header::CONTENT_TYPE, "application/json")
+            .body("{}".as_bytes().to_vec())
+            .map_err(|e| anyhow::anyhow!("failed to build {subresource} request: {e}"))?;
+
+        match self.client.request::<serde_json::Value>(req).await {
+            Ok(_) => Ok(()),
+            Err(kube::Error::SerdeError(_)) => Ok(()),
+            Err(kube::Error::Api(ae)) if ae.code == 404 => {
+                Err(ZorviaError::VmNotFound(name.to_string()).into())
+            }
+            Err(e) => Err(e.into()),
+        }
     }
 }
 

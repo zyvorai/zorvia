@@ -28,8 +28,14 @@ rules:
     resources: ["virtualmachines", "virtualmachineinstances", "virtualmachineinstancemigrations"]
     verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
   - apiGroups: ["subresources.kubevirt.io"]
-    resources: ["virtualmachineinstances/console", "virtualmachineinstances/vnc"]
-    verbs: ["get"]
+    resources:
+      - virtualmachineinstances/console
+      - virtualmachineinstances/vnc
+      - virtualmachineinstances/pause
+      - virtualmachineinstances/unpause
+      - virtualmachineinstances/freeze
+      - virtualmachineinstances/unfreeze
+    verbs: ["get", "update", "patch"]
   - apiGroups: ["snapshot.kubevirt.io"]
     resources: ["virtualmachinesnapshots", "virtualmachinesnapshotcontents", "virtualmachinerestores"]
     verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]

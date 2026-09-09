@@ -201,6 +201,7 @@ mod tests {
 
     fn running_status(with_guest: bool) -> VirtualMachineInstanceStatus {
         VirtualMachineInstanceStatus {
+            conditions: None,
             phase: Some("Running".to_string()),
             node_name: Some("worker-1".to_string()),
             interfaces: vec![VmiInterface {

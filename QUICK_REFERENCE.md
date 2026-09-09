@@ -50,6 +50,8 @@ zorvia list                      # List all VMs
 zorvia get myvm                  # Get VM details
 zorvia start myvm                # Start VM
 zorvia stop myvm                 # Stop VM
+zorvia pause myvm                # Pause running VMI
+zorvia resume myvm               # Resume paused VMI
 zorvia delete myvm               # Delete VM
 zorvia status myvm               # Detailed status
 zorvia clone source target       # Clone VM
@@ -70,6 +72,10 @@ curl -sk -H "Authorization: Bearer $TOKEN" https://HOST:30152/api/vms
 # Power
 curl -sk -X POST -H "Authorization: Bearer $TOKEN" \
   https://HOST:30152/api/vms/myvm/start
+curl -sk -X POST -H "Authorization: Bearer $TOKEN" \
+  https://HOST:30152/api/vms/myvm/pause
+curl -sk -X POST -H "Authorization: Bearer $TOKEN" \
+  https://HOST:30152/api/vms/myvm/resume
 ```
 
 Serial console: `wss://HOST:30152/ws/console/myvm?token=$TOKEN`  

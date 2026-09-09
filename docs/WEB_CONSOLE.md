@@ -54,7 +54,7 @@ Wizard supports:
 - **Expose**: SSH (22), VNC (5900, Windows create path), RDP (3389) as Kubernetes **NodePort** Services
 - **Auto-start** after create (default)
 
-Catalog (`GET /api/images`) returns blank sizes plus Fedora 40 / Ubuntu 24.04 / CentOS Stream 9 containerdisks. Cloud image download / golden-image APIs currently return empty lists.
+Catalog (`GET /api/images`) returns blank sizes plus major Linux containerdisks. `GET /api/images/cloud` lists unique containerdisk images sourced from the 44 OS templates. Direct download jobs still return an empty item list with a pointer to the catalog.
 
 ## Day-2 operations
 
@@ -68,7 +68,9 @@ Catalog (`GET /api/images`) returns blank sizes plus Fedora 40 / Ubuntu 24.04 / 
 | Clone | `POST /api/vms/:name/clone` |
 | Snapshots | Create / list / delete / revert via Fabric `/api/vms/:name/snapshots…` |
 
-Out of scope this pass: in-browser SSH to guest:22, live migrate, pause/resume (API returns 501), hotplug, Fabric host NAT.
+Out of scope this pass: in-browser SSH to guest:22, live migrate, hotplug, Fabric host NAT.
+
+Pause / resume call KubeVirt `virtualmachineinstances/pause` and `…/unpause`. The VMI must be Running. Linux create-time `expose_vnc` now opens guest TCP 5900 the same way as Windows.
 
 ## Fabric-compatible HTTP (under `/api`)
 
@@ -84,8 +86,8 @@ Out of scope this pass: in-browser SSH to guest:22, live migrate, pause/resume (
 | DELETE | `/vms/:name/snapshots/:id` | Delete snapshot |
 | POST | `/vms/:name/snapshots/:id/revert` | Revert |
 | GET | `/images` | Image catalog |
-| GET | `/vms/:name/metrics\|logs` | Soft stubs (empty / zeros) |
-| POST | `/vms/:name/pause\|resume` | 501 |
+| GET | `/vms/:name/metrics\|logs` | Phase/paused/node + virt-launcher log tail |
+| POST | `/vms/:name/pause\|resume` | KubeVirt VMI pause / unpause (204) |
 
 Native v1 routes remain under `/api/v1/…` (auth, health, namespaced VM power, snapshots, events).
 
@@ -103,13 +105,14 @@ Server proxies to the apiserver using the in-cluster service account (trusts clu
 ClusterRole `zorvia` includes:
 
 - `kubevirt.io` VMs / VMIs
-- `subresources.kubevirt.io` `virtualmachineinstances/console` and `…/vnc`
+- `subresources.kubevirt.io` `virtualmachineinstances/console`, `…/vnc`, `…/pause`, `…/unpause`
 - core `services` (NodePort expose)
 - snapshots CRDs, PVCs, pods, events (as in `deploy/k8s.yaml`)
 
 ## Limitations
 
 - Blank-disk VMs have no guest OS — console may connect with little/no serial output; use a containerdisk image for real SSH/VNC guest tests.
-- Linux create-time `expose_vnc` is not applied the same way as Windows (use port-forwards afterward if needed).
-- Clone does not deep-copy PVCs; non-container/blank volumes may fall back to blank disk.
-- Metrics/logs/events stream endpoints may be stubbed or 501 — UI soft-fails where possible.
+- Linux create-time `expose_vnc` now creates a NodePort on guest 5900 (same as Windows).
+- Clone allocates empty same-size PVCs for PVC-backed disks; it does not bit-copy guest data (use snapshots or CDI for that).
+- Metrics include KubeVirt phase / paused / node. Guest CPU counters still require virt-launcher metrics.
+- Logs pull recent virt-launcher pod lines when the launcher pod is labeled `kubevirt.io/vm=<name>`.

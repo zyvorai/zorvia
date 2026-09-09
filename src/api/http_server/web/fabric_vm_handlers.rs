@@ -263,11 +263,15 @@ pub async fn fabric_list_images() -> impl IntoResponse {
 }
 
 pub async fn fabric_list_cloud_images() -> impl IntoResponse {
-    Json(json!([]))
+    let images = crate::kube::catalog::cloud_images_from_templates();
+    Json(json!(images))
 }
 
 pub async fn fabric_list_downloads() -> impl IntoResponse {
-    Json(json!([]))
+    Json(json!({
+        "items": [],
+        "message": "Direct cloud-image download is scheduled by golden-image jobs; use GET /api/images or /api/images/cloud for ready containerdisks."
+    }))
 }
 
 pub async fn fabric_create_vm(
@@ -367,7 +371,7 @@ pub async fn fabric_create_vm(
                     protocol: "tcp".into(),
                 });
             }
-            if req.expose_vnc.unwrap_or(guest_os == "windows") && guest_os == "windows" {
+            if req.expose_vnc.unwrap_or(guest_os == "windows") {
                 forwards.push(FabricPortForward {
                     host_port: 0,
                     guest_port: 5900,
@@ -594,6 +598,7 @@ pub async fn fabric_clone_vm(
         .add_pod_network("default");
 
     let mut added_disk = false;
+    let mut pvc_notes = Vec::new();
     if let Some(volumes) = &spec.volumes {
         for (i, vol) in volumes.iter().enumerate() {
             let order = (i as u32).saturating_add(1);
@@ -603,6 +608,40 @@ pub async fn fabric_clone_vm(
             } else if let Some(cd) = &vol.container_disk {
                 builder = builder.add_container_disk(&vol.name, &cd.image, order);
                 added_disk = true;
+            } else if let Some(pvc) = &vol.persistent_volume_claim {
+                let clone_name = format!("{}-{}", body.target_name, vol.name);
+                let size = match client.get_pvc(&namespace, &pvc.claim_name).await {
+                    Ok(src_pvc) => src_pvc
+                        .spec
+                        .as_ref()
+                        .and_then(|s| s.resources.as_ref())
+                        .and_then(|r| r.requests.as_ref())
+                        .and_then(|req| req.get("storage"))
+                        .map(|q| q.0.clone())
+                        .unwrap_or_else(|| "20Gi".into()),
+                    Err(_) => "20Gi".into(),
+                };
+                match client
+                    .create_pvc(&namespace, &clone_name, &size, None)
+                    .await
+                {
+                    Ok(_) => {
+                        builder = builder.add_pvc_disk(&vol.name, &clone_name, &size, order);
+                        added_disk = true;
+                        pvc_notes.push(format!(
+                            "allocated empty PVC {clone_name} ({size}) from {src}",
+                            src = pvc.claim_name
+                        ));
+                    }
+                    Err(e) => {
+                        log::warn!("clone PVC {} failed: {e}", pvc.claim_name);
+                        pvc_notes.push(format!(
+                            "could not clone PVC {}: {}",
+                            pvc.claim_name,
+                            sanitize_error(&e)
+                        ));
+                    }
+                }
             }
         }
     }
@@ -614,7 +653,14 @@ pub async fn fabric_clone_vm(
     match client.create_vm(&config).await {
         Ok(_) => {
             let _ = client.start_vm(&namespace, &body.target_name).await;
-            StatusCode::NO_CONTENT.into_response()
+            Json(json!({
+                "name": body.target_name,
+                "source": source,
+                "pvc_notes": pvc_notes,
+                "data_copied": false,
+                "message": "VM cloned. PVC-backed disks received empty same-size claims; use snapshots or CDI for a data-preserving clone."
+            }))
+            .into_response()
         }
         Err(e) => {
             let (st, j) = err_json(500, "CLONE_FAILED", &sanitize_error(&e));
@@ -706,37 +752,148 @@ pub async fn fabric_revert_snapshot(
     }
 }
 
-pub async fn fabric_vm_metrics(Path(_name): Path<String>) -> impl IntoResponse {
+pub async fn fabric_vm_metrics(
+    State(state): State<SharedState>,
+    Path(name): Path<String>,
+) -> impl IntoResponse {
+    let s = state.read().await;
+    let namespace = s.namespace.clone();
+    let client = s.client();
+    drop(s);
+
+    let vm = client.get_vm(&namespace, &name).await.ok();
+    let vmi = client.get_vmi(&namespace, &name).await.ok();
+    let paused = if let Some(vmi) = &vmi {
+        let phase = vmi.status.as_ref().and_then(|st| st.phase.as_deref());
+        let conds: Vec<(&str, &str)> = vmi
+            .status
+            .as_ref()
+            .and_then(|st| st.conditions.as_ref())
+            .map(|cs| {
+                cs.iter()
+                    .map(|c| (c.type_.as_str(), c.status.as_str()))
+                    .collect()
+            })
+            .unwrap_or_default();
+        crate::kube::lifecycle::status_is_paused(
+            vm.as_ref()
+                .and_then(|v| v.status.as_ref())
+                .and_then(|st| st.printable_status.as_deref()),
+            phase,
+            &conds,
+        )
+    } else {
+        false
+    };
+    let phase = vmi
+        .as_ref()
+        .and_then(|v| v.status.as_ref())
+        .and_then(|st| st.phase.clone())
+        .or_else(|| {
+            vm.as_ref()
+                .and_then(|v| v.status.as_ref())
+                .and_then(|st| st.printable_status.clone())
+        })
+        .unwrap_or_else(|| "Unknown".into());
+    let node = vmi
+        .as_ref()
+        .and_then(|v| v.status.as_ref())
+        .and_then(|st| st.node_name.clone());
     Json(json!({
         "cpu_usage": 0.0,
         "memory_usage": 0,
         "disk_usage": 0,
         "network_rx": 0,
         "network_tx": 0,
+        "phase": phase,
+        "paused": paused,
+        "node": node,
+        "source": "kubevirt-status",
+        "note": "Guest agent counters require virt-launcher metrics; this payload reports live KubeVirt state."
     }))
 }
 
-pub async fn fabric_vm_logs(Path(_name): Path<String>) -> impl IntoResponse {
-    Json(json!({
-        "entries": [],
-        "count": 0,
-    }))
+pub async fn fabric_vm_logs(
+    State(state): State<SharedState>,
+    Path(name): Path<String>,
+) -> impl IntoResponse {
+    use k8s_openapi::api::core::v1::Pod;
+    use kube::api::{Api, ListParams, LogParams};
+
+    let s = state.read().await;
+    let namespace = s.namespace.clone();
+    let kube_client = s.kube_client.client();
+    drop(s);
+
+    let pods: Api<Pod> = Api::namespaced(kube_client, &namespace);
+    let lp = ListParams::default().labels(&format!("kubevirt.io/vm={name}"));
+    match pods.list(&lp).await {
+        Ok(list) => {
+            let mut entries = Vec::new();
+            for pod in list.items.into_iter().take(3) {
+                let Some(pod_name) = pod.metadata.name else {
+                    continue;
+                };
+                let params = LogParams {
+                    tail_lines: Some(80),
+                    ..Default::default()
+                };
+                match pods.logs(&pod_name, &params).await {
+                    Ok(text) => {
+                        for line in text.lines().rev().take(80).collect::<Vec<_>>().into_iter().rev() {
+                            if !line.is_empty() {
+                                entries.push(json!({
+                                    "pod": pod_name,
+                                    "line": line,
+                                }));
+                            }
+                        }
+                    }
+                    Err(e) => log::debug!("logs for {pod_name}: {e}"),
+                }
+            }
+            let count = entries.len();
+            Json(json!({ "entries": entries, "count": count })).into_response()
+        }
+        Err(e) => {
+            log::warn!("list virt-launcher pods for {name}: {e}");
+            Json(json!({ "entries": [], "count": 0 })).into_response()
+        }
+    }
 }
 
-pub async fn fabric_pause_stub(Path(_name): Path<String>) -> impl IntoResponse {
-    let (st, j) = err_json(
-        501,
-        "NOT_IMPLEMENTED",
-        "Pause is not supported on Zorvia yet",
-    );
-    (st, j).into_response()
+pub async fn fabric_pause_vm(
+    State(state): State<SharedState>,
+    Path(name): Path<String>,
+) -> impl IntoResponse {
+    let s = state.read().await;
+    let namespace = s.namespace.clone();
+    let client = s.client();
+    match client.pause_vm(&namespace, &name).await {
+        Ok(()) => StatusCode::NO_CONTENT.into_response(),
+        Err(e) => {
+            let raw = sanitize_error(&e);
+            let (code, kind, msg) = crate::kube::lifecycle::classify_lifecycle_error("pause", &raw);
+            let (st, j) = err_json(code, kind, &msg);
+            (st, j).into_response()
+        }
+    }
 }
 
-pub async fn fabric_resume_stub(Path(_name): Path<String>) -> impl IntoResponse {
-    let (st, j) = err_json(
-        501,
-        "NOT_IMPLEMENTED",
-        "Resume is not supported on Zorvia yet",
-    );
-    (st, j).into_response()
+pub async fn fabric_resume_vm(
+    State(state): State<SharedState>,
+    Path(name): Path<String>,
+) -> impl IntoResponse {
+    let s = state.read().await;
+    let namespace = s.namespace.clone();
+    let client = s.client();
+    match client.resume_vm(&namespace, &name).await {
+        Ok(()) => StatusCode::NO_CONTENT.into_response(),
+        Err(e) => {
+            let raw = sanitize_error(&e);
+            let (code, kind, msg) = crate::kube::lifecycle::classify_lifecycle_error("resume", &raw);
+            let (st, j) = err_json(code, kind, &msg);
+            (st, j).into_response()
+        }
+    }
 }

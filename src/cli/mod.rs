@@ -122,6 +122,18 @@ pub enum Commands {
         name: String,
     },
 
+    /// Pause a running VM (KubeVirt VMI pause)
+    Pause {
+        /// VM name
+        name: String,
+    },
+
+    /// Resume a paused VM
+    Resume {
+        /// VM name
+        name: String,
+    },
+
     /// Attach to a VM's serial console
     Console {
         /// VM name
@@ -2416,6 +2428,15 @@ mod tests {
 
         let cli = parse(&["zorvia", "restart", "vm1"]).unwrap();
         assert!(matches!(*cli.command, Commands::Restart { name } if name == "vm1"));
+    }
+
+    #[test]
+    fn test_pause_resume() {
+        let cli = parse(&["zorvia", "pause", "vm1"]).unwrap();
+        assert!(matches!(*cli.command, Commands::Pause { name } if name == "vm1"));
+
+        let cli = parse(&["zorvia", "resume", "vm1"]).unwrap();
+        assert!(matches!(*cli.command, Commands::Resume { name } if name == "vm1"));
     }
 
     #[test]

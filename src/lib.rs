@@ -213,6 +213,14 @@ pub async fn run(mut cli: Cli) -> Result<()> {
             handlers::vm::handle_restart(name, &cli.namespace).await?;
         }
 
+        Commands::Pause { name } => {
+            handlers::vm::handle_pause(name, &cli.namespace).await?;
+        }
+
+        Commands::Resume { name } => {
+            handlers::vm::handle_resume(name, &cli.namespace).await?;
+        }
+
         Commands::Console { name } => {
             handlers::vm::handle_console(name, &cli.namespace).await?;
         }

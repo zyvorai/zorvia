@@ -553,6 +553,30 @@ pub async fn handle_stop(name: String, namespace: &str) -> Result<()> {
     Ok(())
 }
 
+pub async fn handle_pause(name: String, namespace: &str) -> Result<()> {
+    use crate::kube;
+
+    let client = kube::KubeClient::new().await?;
+    client.pause_vm(namespace, &name).await?;
+    println!(
+        "{}",
+        color::success(&format!("VM '{}' paused successfully", name))
+    );
+    Ok(())
+}
+
+pub async fn handle_resume(name: String, namespace: &str) -> Result<()> {
+    use crate::kube;
+
+    let client = kube::KubeClient::new().await?;
+    client.resume_vm(namespace, &name).await?;
+    println!(
+        "{}",
+        color::success(&format!("VM '{}' resumed successfully", name))
+    );
+    Ok(())
+}
+
 pub async fn handle_restart(name: String, namespace: &str) -> Result<()> {
     use crate::kube;
 

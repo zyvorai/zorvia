@@ -1436,3 +1436,51 @@ fn test_bridge_network_kubevirt_conversion() {
     assert!(interfaces[0].bridge.is_some()); // Bridge binding
     assert!(interfaces[0].masquerade.is_none());
 }
+
+#[test]
+fn test_template_catalog_production_surface() {
+    let names = TEMPLATES.list();
+    assert!(
+        names.len() >= 40,
+        "expected the advertised template catalog, got {}",
+        names.len()
+    );
+    for required in [
+        "ubuntu-22.04",
+        "ubuntu-24.04",
+        "fedora-41",
+        "debian-12",
+        "almalinux-9",
+        "rocky-9",
+        "windows-11",
+        "talos",
+    ] {
+        assert!(TEMPLATES.exists(required), "missing template {required}");
+        let cfg = TEMPLATES.get(required).unwrap();
+        validate_vm_config(&cfg).unwrap();
+        vm_config_to_kubevirt(&cfg).unwrap();
+    }
+
+    let images = zorvia::kube::catalog::cloud_images_from_templates();
+    assert!(images.len() >= 10);
+    assert!(images.iter().all(|i| i.format == "containerdisk"));
+}
+
+#[test]
+fn test_vnc_and_pause_paths() {
+    use zorvia::kube::lifecycle::{
+        classify_lifecycle_error, kubevirt_ws_subprotocol, vmi_subresource_path,
+        zorvia_console_ws_path,
+    };
+
+    let vnc = vmi_subresource_path("default", "win-01", "vnc").unwrap();
+    assert!(vnc.ends_with("/win-01/vnc"));
+    assert_eq!(kubevirt_ws_subprotocol("vnc"), Some("binary.kubevirt.io"));
+    assert_eq!(zorvia_console_ws_path("vnc", "win-01").unwrap(), "/ws/vnc/win-01");
+
+    let pause = vmi_subresource_path("prod", "db-1", "pause").unwrap();
+    assert!(pause.contains("/pause"));
+    let (code, kind, _) = classify_lifecycle_error("pause", "virtualmachineinstances \"db-1\" not found");
+    assert_eq!(code, 404);
+    assert_eq!(kind, "NOT_FOUND");
+}

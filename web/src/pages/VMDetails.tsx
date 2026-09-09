@@ -195,8 +195,14 @@ export default function VMDetails() {
             <>
               {vm.state === 'stopped' || vm.state === 'failed' ? (
                 <ActionBtn onClick={handleStart} color="green" icon={Play} label="Start" />
+              ) : vm.state === 'paused' ? (
+                <>
+                  <ActionBtn onClick={handleResume} color="green" icon={Play} label="Resume" />
+                  <ActionBtn onClick={handleStop} color="red" icon={Square} label="Stop" />
+                </>
               ) : (
                 <>
+                  <ActionBtn onClick={handlePause} color="blue" icon={Pause} label="Pause" />
                   <ActionBtn onClick={handleStop} color="red" icon={Square} label="Stop" />
                   <ActionBtn onClick={handleRestart} color="blue" icon={RotateCw} label="Restart" />
                 </>

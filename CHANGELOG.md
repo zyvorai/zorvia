@@ -9,8 +9,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Pause / resume** — CLI (`zorvia pause|resume`), Fabric `POST /api/vms/:name/pause|resume`, and console buttons call KubeVirt VMI `pause` / `unpause` instead of returning 501
+- **Template-backed cloud catalog** — `GET /api/images/cloud` lists unique containerdisks from the OS template library
+- **Linux expose_vnc** — create-time VNC NodePort is no longer Windows-only
+- **PVC-aware clone** — clone allocates empty same-size PVCs for PVC-backed source disks
+- **Live-ish metrics/logs** — metrics include phase/paused/node; logs read virt-launcher pods
 - **Web console VM ops** — Create VM (Linux cloud-init / Windows), serial console + VNC WebSocket proxies to KubeVirt, NodePort expose (SSH/VNC/RDP), clone, snapshot create/delete/revert; SPA routes under `/app/create` and `/app/vms/:name/console`
-- **Fabric-compatible HTTP** — `POST /api/vms`, `/api/images`, port-forwards, cloud-init annotate, clone, snapshots; soft stubs for metrics/logs; pause/resume return 501
+- **Fabric-compatible HTTP** — `POST /api/vms`, `/api/images`, port-forwards, cloud-init annotate, clone, snapshots; metrics/logs from KubeVirt; pause/resume via VMI subresources
 - **Kube expose helpers** — managed NodePort Services labeled `zorvia.io/vm`; `ZORVIA_EXPOSE_HOST` for UI connection hints
 - **Docs** — [docs/WEB_CONSOLE.md](docs/WEB_CONSOLE.md) for UI/API/WebSocket/RBAC
 - **Drift Guard** — semantic desired-vs-live VM drift detection with Kubernetes-noise normalization, named-list canonicalization, operational risk scoring, JSON-pointer ignores, CI severity gates, and table/JSON/YAML output

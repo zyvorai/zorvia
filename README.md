@@ -278,9 +278,8 @@ Secure-by-default defaults: no `unsafe`, CORS off unless configured, TLS verific
 ## Roadmap (near-term)
 
 - In-browser SSH to the guest  
-- Pause / resume API  
-- Deep PVC / CDI-aware clone  
-- Cloud image download + golden images in the SPA  
+- Deep CDI DataVolume clone (empty PVC clone is implemented)  
+- Scheduled cloud-image download jobs in the SPA  
 - Terraform provider  
 
 ---
