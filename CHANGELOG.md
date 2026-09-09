@@ -9,6 +9,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Live metrics graph** — metrics API returns a 30-point `history` ring; `ZORVIA_PROM_SAMPLES` overlays Prometheus text; console shows source
+- **Terraform module** — `terraform/modules/zorvia_vm` create/destroy via the Fabric API
 - **Guest ready wait** — create+start waits for Ready+IP; `zorvia wait-ready`; `POST /api/vms/:name/wait-ready`
 - **Prometheus** — `/api/metrics` exposition, virt-launcher text parser, `deploy/servicemonitor.yaml`; readiness uses `/api/readyz` (kube reachable)
 - **Guest-agent metrics** — `GET /api/vms/:name/metrics` reads `guestosinfo` + `filesystemlist`; `GET /api/vms/:name/guest-insight`

@@ -1573,4 +1573,9 @@ fn test_guest_ready_and_prom_parser() {
     assert_eq!(cpu, 3.0);
     assert_eq!(mem, 100);
     assert!(servicemonitor_yaml("ns").contains("virt-launcher"));
+    let url = zorvia::kube::prom::prom_query_url("http://prom:9090", "up");
+    assert!(url.contains("/api/v1/query"));
+    let api = serde_json::json!({"data":{"result":[{"metric":{"name":"web-01","__name__":"kubevirt_vmi_vcpu_seconds"},"value":[0,"4"]}]}});
+    let parsed = zorvia::kube::prom::parse_prom_query_api(&api, "web-01");
+    assert_eq!(parsed[0].value, 4.0);
 }

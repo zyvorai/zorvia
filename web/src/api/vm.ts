@@ -51,12 +51,24 @@ export interface CreateVMRequest {
   start?: boolean
 }
 
+export interface VMMetricsPoint {
+  ts: string
+  cpu_usage: number
+  memory_usage: number
+  disk_usage: number
+}
+
 export interface VMMetrics {
   cpu_usage: number
   memory_usage: number
   disk_usage: number
   network_rx: number
   network_tx: number
+  hostname?: string
+  agent?: boolean
+  source?: string
+  phase?: string
+  history?: VMMetricsPoint[]
 }
 
 const API_BASE = '/api'

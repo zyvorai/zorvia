@@ -921,16 +921,39 @@ pub async fn fabric_vm_metrics(
         osinfo.as_ref(),
         fslist.as_ref(),
     );
-    let source = if gm.agent {
+    let mut source = if gm.agent {
         "guest-agent"
     } else {
         "kubevirt-status"
     };
+    let mut cpu_usage = gm.cpu_usage;
+    let mut memory_usage = gm.memory_usage;
+    let mut disk_usage = gm.disk_usage;
+    if let Some((pcpu, pmem, pdisk)) = crate::kube::prom::samples_from_env_file(&name) {
+        if pcpu > 0.0 || cpu_usage == 0.0 {
+            cpu_usage = pcpu;
+        }
+        if pmem > 0 {
+            memory_usage = pmem;
+        }
+        if pdisk > 0 {
+            disk_usage = pdisk;
+        }
+        source = "prometheus";
+    }
+    let point = crate::kube::prom::MetricsPoint {
+        ts: chrono::Utc::now().to_rfc3339(),
+        cpu_usage,
+        memory_usage,
+        disk_usage,
+    };
+    crate::kube::prom::MetricsRing::global().push(&name, point);
+    let history = crate::kube::prom::MetricsRing::global().history(&name);
     Json(json!({
-        "cpu_usage": gm.cpu_usage,
-        "memory_usage": gm.memory_usage,
+        "cpu_usage": cpu_usage,
+        "memory_usage": memory_usage,
         "memory_available": gm.memory_available,
-        "disk_usage": gm.disk_usage,
+        "disk_usage": disk_usage,
         "disk_total": gm.disk_total,
         "network_rx": gm.network_rx,
         "network_tx": gm.network_tx,
@@ -940,6 +963,7 @@ pub async fn fabric_vm_metrics(
         "paused": paused,
         "node": node,
         "source": source,
+        "history": history,
     }))
 }
 

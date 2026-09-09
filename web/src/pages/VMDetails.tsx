@@ -393,19 +393,29 @@ function MetricsTab({ vm }: { vm: VM }) {
       try {
         const m = await getMetrics(vm.name)
         setLatest(m)
-        // memory_usage is raw bytes, not a percentage (unlike cpu_usage) —
-        // express it as a percentage of this VM's own allocated memory
-        // (vm.memory, in MiB) so it's on the same 0-100 chart scale as CPU.
-        const memoryPct = vm.memory > 0 ? (m.memory_usage / (vm.memory * 1024 * 1024)) * 100 : 0
-        setHistory((prev) => [...prev.slice(-29), {
-          time: new Date().toLocaleTimeString(),
-          cpu: parseFloat(m.cpu_usage.toFixed(1)),
-          memory: parseFloat(memoryPct.toFixed(1)),
-          disk_read: m.disk_usage,
-          disk_write: m.disk_usage,
-          net_rx: m.network_rx,
-          net_tx: m.network_tx,
-        }])
+        const memoryPct = (bytes: number) =>
+          vm.memory > 0 ? (bytes / (vm.memory * 1024 * 1024)) * 100 : 0
+        if (m.history && m.history.length > 1) {
+          setHistory(m.history.map((p) => ({
+            time: new Date(p.ts).toLocaleTimeString(),
+            cpu: parseFloat(p.cpu_usage.toFixed(1)),
+            memory: parseFloat(memoryPct(p.memory_usage).toFixed(1)),
+            disk_read: p.disk_usage,
+            disk_write: p.disk_usage,
+            net_rx: m.network_rx,
+            net_tx: m.network_tx,
+          })))
+        } else {
+          setHistory((prev) => [...prev.slice(-29), {
+            time: new Date().toLocaleTimeString(),
+            cpu: parseFloat(m.cpu_usage.toFixed(1)),
+            memory: parseFloat(memoryPct(m.memory_usage).toFixed(1)),
+            disk_read: m.disk_usage,
+            disk_write: m.disk_usage,
+            net_rx: m.network_rx,
+            net_tx: m.network_tx,
+          }])
+        }
       } catch { /* running VM may not have metrics yet */ }
     }
     load()
@@ -433,6 +443,11 @@ function MetricsTab({ vm }: { vm: VM }) {
   return (
     <div className="space-y-4">
       {/* Quick stats */}
+      {latest?.source && (
+        <p className="text-xs text-[var(--zf-muted)]">
+          Source: {latest.source}{latest.hostname ? ` · ${latest.hostname}` : ''}{latest.agent ? ' · guest-agent connected' : ''}
+        </p>
+      )}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
         <MetricStat label="CPU" value={latest ? `${latest.cpu_usage.toFixed(1)}%` : '--'} color="blue" />
         <MetricStat label="Memory" value={latest && vm.memory > 0 ? `${((latest.memory_usage / (vm.memory * 1024 * 1024)) * 100).toFixed(1)}%` : '--'} color="emerald" />

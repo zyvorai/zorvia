@@ -277,8 +277,7 @@ Secure-by-default defaults: no `unsafe`, CORS off unless configured, TLS verific
 
 ## Roadmap (near-term)
 
-- Published HashiCorp registry provider binary (`schema.json` is generated)  
-- Wire Prometheus Operator samples into the live metrics graph  
+- Published HashiCorp registry provider binary (module + schema.json ship today)  
 
 ---
 

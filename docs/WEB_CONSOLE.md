@@ -86,7 +86,7 @@ Pause / resume call KubeVirt `virtualmachineinstances/pause` and `…/unpause`. 
 | DELETE | `/vms/:name/snapshots/:id` | Delete snapshot |
 | POST | `/vms/:name/snapshots/:id/revert` | Revert |
 | GET | `/images` | Image catalog |
-| GET | `/vms/:name/metrics\|logs` | Guest-agent CPU/memory/disk when qemu-ga is connected |
+| GET | `/vms/:name/metrics\|logs` | Guest-agent / Prometheus samples + rolling `history` for the graph |
 | GET | `/vms/:name/guest-insight` | OS/kernel/interfaces + readiness score |
 | POST | `/datavolumes/:name/wait` | Block until CDI DataVolume Succeeded |
 | POST | `/vms/:name/wait-ready` | Block until VMI Ready + guest IP |

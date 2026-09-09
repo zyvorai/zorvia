@@ -24,6 +24,19 @@ terraform apply
 | Destroy VM | `DELETE /api/vms/:name` |
 | Console | `${zorvia_url}/app/vms/${name}/console` |
 
+## Module
+
+`terraform/modules/zorvia_vm` create/destroy a VM through the Fabric API.
+
+```hcl
+module "web" {
+  source       = "./terraform/modules/zorvia_vm"
+  zorvia_url   = var.zorvia_url
+  zorvia_token = var.zorvia_token
+  name         = "tf-web-01"
+}
+```
+
 ## Provider schema
 
 `terraform-scaffold` writes `schema.json`: the resource contract a future
