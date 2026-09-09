@@ -551,3 +551,10 @@ See [examples/](examples/) directory for complete examples:
 - [disk-expansion-workflow.sh](examples/disk-expansion-workflow.sh)
 - [health-monitoring.sh](examples/health-monitoring.sh)
 - [automated-expansion.sh](examples/automated-expansion.sh)
+
+## Related
+
+- [GOLDEN_IMAGES.md](GOLDEN_IMAGES.md) — CDI golden / containerdisk sources
+- [SNAPSHOTS.md](SNAPSHOTS.md) — snapshot before expansion windows
+- [WEB_CONSOLE.md](WEB_CONSOLE.md) — Fabric API day-2
+- [README.md](../README.md)

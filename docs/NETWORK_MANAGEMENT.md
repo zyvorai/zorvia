@@ -707,3 +707,9 @@ See the [examples/network/](examples/network/) directory for:
 - Traffic analysis automation
 - Cilium policy templates
 - Service mesh integration
+
+## Related
+
+- [WEB_CONSOLE.md](WEB_CONSOLE.md) — NodePort expose (SSH/VNC/RDP)
+- [GUEST_INSIGHT.md](GUEST_INSIGHT.md) — guest interfaces from QEMU GA
+- [README.md](../README.md)

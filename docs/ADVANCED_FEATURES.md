@@ -467,15 +467,19 @@ zorvia batch backups/*.yaml
 
 ---
 
-## 🚀 What's Next?
+## Related day-2 docs
 
-Future enhancements planned:
-- SSH key injection command
-- VM snapshots and backups
-- Live migration support
-- Resource usage graphs
-- Auto-scaling groups
-- Health checks and monitoring integration
+Many items once listed as “next” here now ship elsewhere:
+
+| Capability | Where |
+|------------|--------|
+| Snapshots & retention | [SNAPSHOTS.md](SNAPSHOTS.md) |
+| Health & monitoring | CLI `zorvia health` / `zorvia monitor-*`; web metrics |
+| Live migration | CLI `zorvia migrate` / HA helpers |
+| Web console & Fabric API | [WEB_CONSOLE.md](WEB_CONSOLE.md) |
+| Drift / plan / guest insight | [DRIFT_GUARD.md](DRIFT_GUARD.md), [CHANGE_PLANNER.md](CHANGE_PLANNER.md), [GUEST_INSIGHT.md](GUEST_INSIGHT.md) |
+
+Near-term product roadmap (registry Terraform provider, etc.) lives in the root [README.md](../README.md) and [CHANGELOG.md](../CHANGELOG.md).
 
 ---
 

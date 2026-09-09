@@ -36,10 +36,11 @@ Useful env on the API pod:
 | `/app` | Dashboard |
 | `/app/vms` | VM list |
 | `/app/vms/:name` | VM details (power, network/port-forwards, cloud-init, snapshots) |
-| `/app/vms/:name/console` | Serial terminal + VNC tabs |
+| `/app/vms/:name/console` | Serial + VNC + SSH tabs |
 | `/app/create` | Create VM wizard |
 | `/app/favorites` | Favorites |
 | `/app/snapshots` | Snapshots |
+| `/app/windows` | Kryton Windows plane (when `KRYTON_URL` is set) |
 
 Auth is JWT (login) or API key. WebSockets pass `?token=` because browsers cannot set `Authorization` on upgrades.
 
@@ -54,7 +55,7 @@ Wizard supports:
 - **Expose**: SSH (22), VNC (5900, Windows create path), RDP (3389) as Kubernetes **NodePort** Services
 - **Auto-start** after create (default)
 
-Catalog (`GET /api/images`) returns blank sizes plus major Linux containerdisks. `GET /api/images/cloud` lists unique containerdisk images sourced from the 44 OS templates. Direct download jobs still return an empty item list with a pointer to the catalog.
+Catalog (`GET /api/images`) returns blank sizes plus major Linux containerdisks. `GET /api/images/cloud` lists unique containerdisk images sourced from the 43 OS templates. Direct download jobs still return an empty item list with a pointer to the catalog.
 
 ## Day-2 operations
 
@@ -63,14 +64,15 @@ Catalog (`GET /api/images`) returns blank sizes plus major Linux containerdisks.
 | Start / stop / restart / delete | VM details, list, API |
 | Serial console | `/app/vms/:name/console` → Terminal → `GET /ws/console/:name` → KubeVirt `vmis/console` |
 | VNC | Console page VNC tab → `GET /ws/vnc/:name` → KubeVirt `vmis/vnc` |
+| In-browser SSH | Console page SSH tab → `GET /ws/ssh/:name?user=` → proxies `ssh` or `virtctl ssh` |
 | Expose SSH/VNC/RDP | Port-forwards section or create-time flags → NodePort Service labeled `zorvia.io/vm=<name>` |
 | Cloud-init update | `POST /api/vms/:name/cloud-init` (annotates VM; volume rewrite requires recreate) |
 | Clone | `POST /api/vms/:name/clone` |
 | Snapshots | Create / list / delete / revert via Fabric `/api/vms/:name/snapshots…` |
 
-Out of scope this pass: in-browser SSH to guest:22, live migrate, hotplug, Fabric host NAT.
+Out of scope for the Fabric SPA today: live migrate UI, disk hotplug UI, Fabric host NAT.
 
-Pause / resume call KubeVirt `virtualmachineinstances/pause` and `…/unpause`. The VMI must be Running. Linux create-time `expose_vnc` now opens guest TCP 5900 the same way as Windows.
+Pause / resume call KubeVirt `virtualmachineinstances/pause` and `…/unpause`. The VMI must be Running. Linux create-time `expose_vnc` opens guest TCP 5900 the same way as Windows.
 
 ## Fabric-compatible HTTP (under `/api`)
 

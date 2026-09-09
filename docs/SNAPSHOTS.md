@@ -451,9 +451,13 @@ test result: ok. 16 passed; 0 failed
 
 ---
 
-## 🔮 Future Enhancements
+## Retention (shipped)
 
-Planned features for future releases:
+Retention policies are modeled in `src/snapshots/retention.rs` and applied when snapshot configs include a `RetentionPolicy` (max count / age). Operators can also delete snapshots explicitly via CLI and the web console.
+
+## Future Enhancements
+
+Still open for future releases:
 
 - [ ] Scheduled snapshots (cron-like)
 - [ ] Snapshot chains visualization
@@ -461,7 +465,6 @@ Planned features for future releases:
 - [ ] Snapshot encryption
 - [ ] Cross-namespace snapshots
 - [ ] Snapshot import/export
-- [ ] Automated retention policy enforcement
 - [ ] Snapshot size prediction
 - [ ] Multi-VM snapshot coordination
 

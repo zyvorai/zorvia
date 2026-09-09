@@ -1,5 +1,7 @@
 # Zorvia Interactive TUI Guide
 
+Canonical interactive TUI documentation (other TUI markdown files in this folder are short pointers here).
+
 ## Overview
 
 Zorvia provides a fully interactive Terminal User Interface (TUI) with dialogs, forms, context menus, and real-time notifications for managing KubeVirt VMs.

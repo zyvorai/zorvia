@@ -1,20 +1,20 @@
-# 🎯 Zorvia OS Templates - Complete Catalog
+# Zorvia OS Templates - Complete Catalog
 
-Zorvia now includes **44 OS templates** across **15 operating system families**!
+Zorvia includes **43 named OS templates** (including aliases) across **15 operating system families**.
 
-## 📊 Template Statistics
+## Template Statistics
 
-- **Total Templates**: 44
+- **Total named keys**: 43
 - **OS Families**: 15
-- **Linux Distros**: 39
-- **Windows Versions**: 5
-- **BSD Systems**: 3
+- **Linux distro keys**: ~35 (including version aliases)
+- **Windows keys**: 5
+- **BSD keys**: 3
 
 ## 🐧 Available OS Templates
 
 ### Ubuntu (5 templates)
 ```bash
-ubuntu          # Latest (22.04) - Default choice
+ubuntu          # Default alias → 22.04
 ubuntu-24.04    # Noble Numbat (2 CPU, 4GB RAM)
 ubuntu-22.04    # Jammy Jellyfish (2 CPU, 4GB RAM)
 ubuntu-20.04    # Focal Fossa (2 CPU, 4GB RAM)
@@ -331,17 +331,16 @@ zorvia template alpine --output yaml
 ## 📊 Statistics
 
 ```
-Total Templates:    44
-Linux:              39
+Total named keys:   43
+Linux keys:         ~35 (incl. aliases)
 Windows:            5
 BSD:                3
 Container-opt:      2 (Alpine, Flatcar)
 Kubernetes-native:  1 (Talos)
 Rolling Release:    2 (Arch, OpenSUSE Tumbleweed)
-LTS/Stable:         30
 ```
 
-## 🎨 Themed Output
+## Themed Output
 
 All template commands support the Zorvia theme:
 
@@ -353,18 +352,15 @@ zorvia templates
 zorvia template ubuntu
 ```
 
-## 🚀 Future Enhancements
+## Future Enhancements
 
-Coming soon:
-- [ ] More OS versions (Gentoo, NixOS, etc.)
-- [ ] Custom template creation
+Possible later work:
+- [ ] More OS families (Gentoo, NixOS, etc.)
+- [ ] Custom template creation UX
 - [ ] Template variants (minimal, desktop, server)
 - [ ] Template tags and search
-- [ ] Template versioning
 - [ ] Community template repository
 
 ---
 
-**Now you have 44 OS templates at your fingertips!** 🎉
-
-Choose the right OS for your workload and deploy in seconds!
+**43 named templates** — pick an OS for the workload and deploy in seconds.

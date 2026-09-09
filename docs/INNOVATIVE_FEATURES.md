@@ -441,13 +441,14 @@ Custom profile/blueprint CRUD and cost tooling already ship in the CLI (`zorvia 
 
 ---
 
-## 📚 Documentation
+## Documentation
 
-- `docs/INNOVATIVE_FEATURES.md` - This file
-- `docs/OS_TEMPLATES.md` - Complete OS template catalog
-- `docs/THEME.md` - Theme system documentation
-- `docs/WEB_CONSOLE.md` - Web UI and HTTP/WS API
-- `README.md` - Project overview
+- [INNOVATIVE_FEATURES.md](INNOVATIVE_FEATURES.md) — this file
+- [OS_TEMPLATES.md](OS_TEMPLATES.md) — 43 named OS templates
+- [DRIFT_GUARD.md](DRIFT_GUARD.md) / [CHANGE_PLANNER.md](CHANGE_PLANNER.md) / [GUEST_INSIGHT.md](GUEST_INSIGHT.md)
+- [THEME.md](THEME.md) — theme system
+- [WEB_CONSOLE.md](WEB_CONSOLE.md) — web UI and HTTP/WS API
+- [README.md](../README.md) — project overview
 
 ---
 

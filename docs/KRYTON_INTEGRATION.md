@@ -52,7 +52,7 @@ If `KRYTON_URL` is absent, Zorvia starts normally and the integration reports `e
 
 All `/api/v1/kryton/*` routes are protected by Zorvia's existing auth middleware.
 
-## Deliberately not proxied in this PR
+## Deliberately not proxied yet
 
 Kryton's HTML console/VNC stream is not proxied yet. A correct implementation needs websocket-aware reverse proxying and explicit origin/auth handling. The Windows page exposes machine lifecycle, images, RDP coordinates, diagnostics and snapshots without leaking the Kryton token.
 

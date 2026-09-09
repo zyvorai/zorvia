@@ -86,10 +86,25 @@ VNC: `wss://HOST:30152/ws/vnc/myvm?token=$TOKEN`
 SSH: `wss://HOST:30152/ws/ssh/myvm?token=$TOKEN&user=ubuntu`  
 Expose: port-forwards API → NodePort (`ZORVIA_EXPOSE_HOST`). See `docs/WEB_CONSOLE.md`.
 
+### Drift, plan & guest insight
+```bash
+zorvia drift desired.yaml
+zorvia plan desired.yaml --vm myvm
+zorvia guest-insight myvm
+zorvia guest-insight myvm -o json --strict
+```
+
 ### Templates
 ```bash
 zorvia templates                 # List all templates
 zorvia template ubuntu-22.04     # View template details
+```
+
+### Kryton (Windows plane)
+```bash
+# Enable on API: KRYTON_URL, KRYTON_TOKEN, KRYTON_PROJECT
+open https://HOST:30152/app/windows
+# See docs/KRYTON_INTEGRATION.md
 ```
 
 ### vCenter-style ops
@@ -107,6 +122,7 @@ zorvia placement-advisor --cpu 2 --memory-gib 4
 # Golden CDI library (needs StorageClass + CDI):
 STORAGE_CLASS=fast ./fixtures/golden-images/generate-bundles.sh
 kubectl apply -f fixtures/golden-images/out/
+zorvia image-bundle --help
 # See docs/GOLDEN_IMAGES.md
 ```
 
@@ -116,6 +132,7 @@ zorvia wizard                    # Interactive wizard
 zorvia batch config.yaml         # Batch operations
 zorvia export myvm               # Export config
 zorvia validate config.yaml      # Validate config
+zorvia terraform-scaffold --output ./terraform/zorvia-vm
 zorvia api-serve --tls --port 5151
 ```
 
@@ -148,30 +165,30 @@ zorvia api-serve --tls --port 5151
 
 ---
 
-## 🐧 OS Templates (44 total)
+## OS Templates (43 named keys)
 
 ### Linux
-- **Ubuntu**: 18.04, 20.04, 22.04, 24.04, latest
-- **Fedora**: 38, 39, 40, latest
-- **CentOS**: stream9, 7, latest
-- **Debian**: 11, 12, latest
-- **RHEL**: 8, 9, latest
-- **AlmaLinux**: 8, 9, latest
-- **Rocky**: 8, 9, latest
-- **OpenSUSE**: leap, tumbleweed, latest
-- **Alpine**: 3.18, latest
-- **Arch**: latest
-- **Oracle**: 8, 9, latest
+- **Ubuntu**: 18.04, 20.04, 22.04, 24.04 (`ubuntu` → 22.04)
+- **Fedora**: 39, 40, 41 (`fedora` → 41)
+- **CentOS Stream**: 8, 9 (`centos` → stream-9)
+- **Debian**: 11, 12 (`debian` → 12)
+- **RHEL**: 8, 9 (`rhel` → 9)
+- **AlmaLinux**: 8, 9 (`almalinux` → 9)
+- **Rocky**: 8, 9 (`rocky` → 9)
+- **OpenSUSE**: leap, tumbleweed (`opensuse` → leap)
+- **Alpine**: 3.19 (`alpine` → 3.19)
+- **Arch**: `arch`
+- **Oracle**: 8, 9 (`oracle` → 9)
 
 ### BSD
-- **FreeBSD**: 13, 14, latest
+- **FreeBSD**: 13, 14 (`freebsd` → 14)
 
-### Container
-- **Flatcar**: stable
-- **Talos**: latest
+### Container / Kubernetes
+- **Flatcar**: `flatcar`
+- **Talos**: `talos`
 
 ### Windows
-- 2k19, 2k22, 10, 11, latest
+- 2019, 2022, 10, 11 (`windows` → 2022)
 
 ---
 
@@ -234,11 +251,14 @@ export KUBECONFIG=~/.kube/config
 
 ---
 
-## 📚 More Info
+## More Info
 
-- `docs/WEB_CONSOLE.md` - Web UI, Fabric API, console/VNC, expose
+- `docs/WEB_CONSOLE.md` - Web UI, Fabric API, console/VNC/SSH, expose
+- `docs/KRYTON_INTEGRATION.md` - Windows plane via Kryton
+- `docs/TERRAFORM.md` - Terraform scaffold + module
+- `docs/DRIFT_GUARD.md` / `docs/CHANGE_PLANNER.md` / `docs/GUEST_INSIGHT.md`
 - `docs/GOLDEN_IMAGES.md` - Deploy Linux images (quay containerdisks + CDI golden)
-- `docs/INNOVATIVE_FEATURES.md` - Complete feature guide
+- `docs/INNOVATIVE_FEATURES.md` - Profiles, blueprints, health
 - `docs/OS_TEMPLATES.md` - All OS templates
 - `docs/THEME.md` - Theme documentation
 - `docs/SNAPSHOTS.md` - Snapshot management

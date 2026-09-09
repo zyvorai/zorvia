@@ -2,15 +2,19 @@
 
 ## Project Statistics
 
-- **Lines of Code**: ~76,400
-- **Modules**: 37 public modules + 11 handler modules
-- **Templates**: 44 OS templates
-- **CLI Commands**: 145
+Approximate counts from the current tree (regenerate when stats matter):
+
+- **Lines of Code**: ~116,000 (`src/**/*.rs`)
+- **Top-level modules**: 62 `pub mod` entries in `src/lib.rs` (plus nested modules under handlers/API)
+- **Templates**: 43 named OS templates (including aliases)
+- **CLI Commands**: ~178 top-level `Commands` variants
 - **Resource Profiles**: 8 built-in
 - **Deployment Blueprints**: 5 built-in
-- **Tests**: 2,032 (all passing)
-- **Compiler Warnings**: 0
-- **Dependencies**: 24 core + 1 dev
+- **Tests**: ~2,478 `#[test]` / `#[tokio::test]` attributes
+- **Compiler Warnings**: 0 on `make ci` when green
+- **Feature flags**: default `web` (Axum SPA/API); `pam` exists but is a placeholder reject
+
+Honest scope: core VM craft, Fabric SPA, snapshots, drift/plan, golden images, and Terraform scaffold are the day-2 product surface. Larger libraries under FinOps, AI/ML, edge, service-mesh-style modules, etc. ship as CLI/library code — treat them as advanced surfaces, not every-cluster guarantees. See root [README.md](README.md) for the product front door.
 
 ## Architecture
 
@@ -33,7 +37,7 @@ src/
 ├── cli/                (command-line parsing with clap)
 ├── config/             (VM configuration types, builder, validator)
 ├── kube/               (Kubernetes client, CRD types, converter, expose)
-├── templates/          (44 OS templates)
+├── templates/          (43 OS templates)
 ├── tui/                (terminal UI with ratatui)
 ├── profiles/           (resource profile system)
 ├── blueprints/         (multi-VM deployment templates)
@@ -60,7 +64,7 @@ src/
 - [x] VM cloning, export, batch operations
 - [x] Interactive creation wizard
 - [x] Configuration validation (46 tests)
-- [x] 44 OS templates (Ubuntu, Fedora, CentOS, Debian, RHEL, Windows, etc.)
+- [x] 43 OS templates (Ubuntu, Fedora, CentOS Stream, Debian, RHEL, Windows, etc.)
 - [x] Builder pattern for VMConfig
 - [x] YAML/JSON output formatting
 

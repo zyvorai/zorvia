@@ -1,8 +1,8 @@
 # Zorvia vCenter-style Operations Feature Matrix
 
-This patch series deliberately uses Kubernetes/KubeVirt primitives rather than cloning VMware APIs.
+Zorvia maps familiar vCenter operator workflows onto Kubernetes and KubeVirt primitives rather than cloning VMware APIs.
 
-| Familiar vCenter capability | Zorvia capability in this series | Native representation |
+| Familiar vCenter capability | Zorvia capability | Native representation |
 |---|---|---|
 | Datacenter / Cluster / Folder inventory | Inventory Navigator | `inventory.zorvia.io/*` labels + live VMI placement |
 | Tags | VM Tags | `tag.zorvia.io/<key>` labels |
@@ -10,11 +10,27 @@ This patch series deliberately uses Kubernetes/KubeVirt primitives rather than c
 | Recent Tasks / Events / Alarms | Activity Center | Kubernetes Events, normalized and classified |
 | Host Maintenance Mode | Maintenance Orchestrator | Node cordon + KubeVirt migration/controlled stop |
 | DRS recommendations | Placement Advisor | K8s capacity + labels + KubeVirt VMI requests; recommendation-first |
-| vMotion | Existing Zorvia migration | KubeVirt `VirtualMachineInstanceMigration` |
-| Snapshots | Existing Zorvia snapshots | KubeVirt snapshots |
-| Templates / Content Library | Existing templates + CDI Golden Image patch | KubeVirt/CDI |
-| Health / monitoring | Existing Zorvia monitoring and cluster health | Kubernetes/KubeVirt telemetry |
-| RBAC | Existing Zorvia multitenancy/RBAC | Kubernetes/Zorvia RBAC |
+| vMotion | Live migration | KubeVirt `VirtualMachineInstanceMigration` |
+| Snapshots | Snapshots | KubeVirt snapshots + Zorvia CLI/UI |
+| Templates / Content Library | Templates + CDI golden images | KubeVirt/CDI · [GOLDEN_IMAGES.md](GOLDEN_IMAGES.md) |
+| Health / monitoring | Health + metrics | Kubernetes/KubeVirt telemetry · guest-insight |
+| RBAC | Multitenancy / RBAC helpers | Kubernetes + Zorvia RBAC surfaces |
+
+## CLI
+
+```bash
+zorvia inventory
+zorvia inventory --datacenter dc1 --cluster rack-a
+zorvia tag-set myvm env prod
+zorvia attribute-set myvm owner platform
+zorvia inventory-datacenter-set myvm dc1
+zorvia activity --limit 50
+zorvia maintenance-plan worker-3
+zorvia maintenance-enter worker-3 --dry-run
+zorvia maintenance-exit worker-3
+zorvia placement-advisor --cpu 2 --memory-gib 4
+zorvia placement-rebalance --threshold 0.15
+```
 
 ## Metadata conventions
 
@@ -26,4 +42,8 @@ This patch series deliberately uses Kubernetes/KubeVirt primitives rather than c
 - `maintenance.zorvia.io/policy`: `migrate`, `stop`, `skip`, `block`
 - `maintenance.zorvia.io/priority`: `0..255`
 
-The maintenance `--force` switch is intentionally explicit. It can stop a workload whose policy otherwise blocks a complete evacuation; it should be controlled by RBAC/change approval in production.
+The maintenance `--force` switch is intentionally explicit. It can stop a workload whose policy otherwise blocks a complete evacuation; gate it with RBAC and change approval in production.
+
+## Related
+
+- [GOLDEN_IMAGES.md](GOLDEN_IMAGES.md) · [SNAPSHOTS.md](SNAPSHOTS.md) · [GUEST_INSIGHT.md](GUEST_INSIGHT.md) · root [README.md](../README.md)

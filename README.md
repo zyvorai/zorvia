@@ -5,16 +5,17 @@
 [![Rust](https://img.shields.io/badge/rust-1.76%2B-orange.svg)](https://www.rust-lang.org/)
 [![KubeVirt](https://img.shields.io/badge/KubeVirt-native-6d28d9.svg)](https://kubevirt.io/)
 
-**Craft VMs. One control plane.**
+**Craft VMs. Day-2 them. One control plane.**
 
 Zorvia is the KubeVirt operator’s toolkit — a fast Rust CLI, an interactive TUI, and a signed-in web console — for creating, running, and day-2 managing virtual machines on Kubernetes.
 
 ```text
   template + profile  →  VirtualMachine  →  Running
        CLI / TUI / Web console                 │
-                                               ├─ serial console + VNC
+                                               ├─ serial · VNC · in-browser SSH
                                                ├─ expose SSH · VNC · RDP
-                                               └─ snapshot · clone · power
+                                               ├─ snapshot · clone · pause
+                                               └─ drift · plan · guest-insight
 ```
 
 Apache License 2.0 only · [zyvorai/zorvia](https://github.com/zyvorai/zorvia) · [zyvor.dev](https://zyvor.dev)
@@ -25,11 +26,15 @@ Apache License 2.0 only · [zyvorai/zorvia](https://github.com/zyvorai/zorvia) �
 
 | You need | Zorvia gives you |
 |----------|------------------|
-| Ship a VM without writing a CRD by hand | **44 OS templates** + **8 resource profiles** |
+| Ship a VM without writing a CRD by hand | **43 OS templates** + **8 resource profiles** |
 | Stand up a whole stack | **Blueprints** (LAMP, 3-tier, k8s-cluster, CI/CD, …) |
 | Operate from a browser | **Web console** — create, power, console, expose, snapshots |
+| Reach the guest | Serial, VNC, and in-browser SSH over authenticated WebSockets |
+| Catch config drift | **Drift Guard** + **Change Planner** (`zorvia drift` / `zorvia plan`) |
+| Seed a golden library | **CDI image bundles** + quay.io containerdisks |
+| Drive it from Terraform | Scaffold + module over the same Fabric HTTP API |
+| Windows control plane | **Kryton** proxy when `KRYTON_URL` is set (`/app/windows`) |
 | Stay close to the metal | **CLI + TUI** on the same cluster APIs |
-| Trust the supply chain | **Safe Rust**, validated configs, sanitized API errors |
 
 No OpenShift tax. No raw YAML required. Same VMs whether you use the terminal or `https://host:30152/app`.
 
@@ -46,7 +51,8 @@ cargo build --release --features web
 # binary: target/release/zorvia
 ```
 
-Or from a checkout: `cargo install --path . --features web`
+Or from a checkout: `cargo install --path . --features web`  
+(`web` is the default feature — Axum SPA/API. PAM auth is stubbed and not production-ready.)
 
 ### Create a VM (CLI)
 
@@ -54,6 +60,7 @@ Or from a checkout: `cargo install --path . --features web`
 zorvia recommend database
 zorvia create prod-db --template ubuntu-22.04 --profile database
 zorvia start prod-db
+zorvia wait-ready prod-db --timeout 120
 zorvia status prod-db --watch
 ```
 
@@ -81,36 +88,98 @@ open https://<HOST>:30152/app
 | `/app` | Dashboard |
 | `/app/create` | Create VM (Linux cloud-init / Windows) |
 | `/app/vms/:name` | Details, power, port-forwards, snapshots |
-| `/app/vms/:name/console` | Serial terminal + VNC |
+| `/app/vms/:name/console` | Serial + VNC + SSH tabs |
 | `/app/snapshots` | Snapshot browser |
-
-Serial and VNC proxy through authenticated WebSockets to KubeVirt:
+| `/app/windows` | Kryton Windows plane (when enabled) |
 
 ```text
 wss://<HOST>:30152/ws/console/<vm>?token=<jwt>
 wss://<HOST>:30152/ws/vnc/<vm>?token=<jwt>
+wss://<HOST>:30152/ws/ssh/<vm>?token=<jwt>&user=ubuntu
 ```
 
 Expose guest **SSH / VNC / RDP** as NodePort Services (`ZORVIA_EXPOSE_HOST` sets the host shown in the UI). Full map: [docs/WEB_CONSOLE.md](docs/WEB_CONSOLE.md).
 
 ---
 
-## What you can do
+## Ports
 
-**Lifecycle** — create, start, stop, restart, clone, export, delete  
-**Day-2** — serial console, VNC, NodePort expose, snapshots, cloud-init  
-**Scale-out** — profiles, blueprints, health scores, workload recommendations  
+| Surface | Port | Notes |
+|---------|------|--------|
+| Lab / cluster HTTPS | **30152** | Service NodePort → UI + API |
+| In-pod / `api-serve` | **5151** | Container listen port in `deploy/k8s.yaml` |
+| Config default | **8080** | `~/.config/zorvia/config.toml` listen default if you do not pass `--port` |
+
+---
+
+## Day-2 surface
+
+**Lifecycle** — create, start, stop, restart, pause, resume, clone, export, delete  
+**Console** — serial, VNC, in-browser SSH (needs `ssh` or `virtctl` on the API pod)  
+**Guests** — NodePort expose, cloud-init, wait-ready, wait-image, guest-insight, health  
+**Scale-out** — profiles, blueprints, workload recommendations  
 **Surfaces** — CLI · TUI · web SPA · Fabric-compatible HTTP API · Rust library
 
 ```bash
 zorvia list
 zorvia get prod-db
+zorvia pause prod-db
+zorvia resume prod-db
 zorvia clone prod-db staging-db --start
 zorvia snapshot-create prod-db --name before-upgrade
+zorvia guest-insight prod-db
 zorvia health prod-db --detailed
 zorvia tui --interactive
 zorvia api-serve --tls --port 5151
 ```
+
+---
+
+## Ops that differentiate
+
+### Drift Guard & Change Planner
+
+```bash
+zorvia drift desired.yaml                         # vs live cluster
+zorvia drift desired.yaml --actual live.yaml -o json
+zorvia plan desired.yaml --vm payments-01         # conservative execution plan
+zorvia plan desired.yaml --actual live.yaml --fail-on-downtime
+```
+
+Details: [docs/DRIFT_GUARD.md](docs/DRIFT_GUARD.md) · [docs/CHANGE_PLANNER.md](docs/CHANGE_PLANNER.md)
+
+### Golden images & CDI
+
+```bash
+zorvia image-bundle --distro ubuntu --version 22.04 --storage-class fast
+# or: STORAGE_CLASS=fast ./fixtures/golden-images/generate-bundles.sh
+```
+
+Catalog: [docs/GOLDEN_IMAGES.md](docs/GOLDEN_IMAGES.md)
+
+### Terraform (Fabric API)
+
+```bash
+zorvia terraform-scaffold --output ./terraform/zorvia-vm --url https://HOST:30152
+# module: terraform/modules/zorvia_vm
+```
+
+No HashiCorp registry provider binary yet — scaffold + `schema.json` ship today. [docs/TERRAFORM.md](docs/TERRAFORM.md)
+
+### Kryton (Windows)
+
+Set `KRYTON_URL` (and usually `KRYTON_TOKEN` + `KRYTON_PROJECT`) on the API pod. The SPA gains `/app/windows`; credentials never leave the server. [docs/KRYTON_INTEGRATION.md](docs/KRYTON_INTEGRATION.md)
+
+### vCenter-style inventory
+
+```bash
+zorvia inventory
+zorvia activity
+zorvia maintenance-plan NODE
+zorvia placement-advisor --cpu 2 --memory-gib 4
+```
+
+Matrix: [docs/VCENTER_FEATURE_MATRIX.md](docs/VCENTER_FEATURE_MATRIX.md)
 
 ---
 
@@ -157,7 +226,7 @@ zorvia deploy lamp --prefix demo --start
 
 ## Templates
 
-**44 OS templates** across Ubuntu, Fedora, CentOS Stream, Debian, RHEL, Alma, Rocky, OpenSUSE, Alpine, Arch, Oracle, FreeBSD, Flatcar, Talos, and Windows.
+**43 named templates** (including aliases) across Ubuntu, Fedora, CentOS Stream, Debian, RHEL, Alma, Rocky, OpenSUSE, Alpine, Arch, Oracle, FreeBSD, Flatcar, Talos, and Windows.
 
 ```bash
 zorvia templates
@@ -251,6 +320,8 @@ Lab ship (build image, apply `deploy/k8s.yaml`, NodePort 30152):
 ./deploy/remote-deploy.sh <host> sus --quick
 ```
 
+Architecture notes and deeper CLI surfaces (FinOps, mesh-style libraries, etc.): [DEVELOPMENT.md](DEVELOPMENT.md).
+
 ---
 
 ## Docs
@@ -258,14 +329,18 @@ Lab ship (build image, apply `deploy/k8s.yaml`, NodePort 30152):
 | Doc | Topic |
 |-----|--------|
 | [docs/WEB_CONSOLE.md](docs/WEB_CONSOLE.md) | SPA, HTTP API, WebSockets, expose |
-| [docs/INNOVATIVE_FEATURES.md](docs/INNOVATIVE_FEATURES.md) | Profiles, blueprints, health |
+| [docs/KRYTON_INTEGRATION.md](docs/KRYTON_INTEGRATION.md) | Windows plane via Kryton |
+| [docs/TERRAFORM.md](docs/TERRAFORM.md) | Scaffold + Fabric API module |
+| [docs/DRIFT_GUARD.md](docs/DRIFT_GUARD.md) | Desired-vs-live drift |
+| [docs/CHANGE_PLANNER.md](docs/CHANGE_PLANNER.md) | Plans from drift |
+| [docs/GUEST_INSIGHT.md](docs/GUEST_INSIGHT.md) | QEMU Guest Agent readiness |
+| [docs/GOLDEN_IMAGES.md](docs/GOLDEN_IMAGES.md) | quay + CDI golden bundles |
 | [docs/OS_TEMPLATES.md](docs/OS_TEMPLATES.md) | Template catalog |
 | [docs/SNAPSHOTS.md](docs/SNAPSHOTS.md) | Snapshots |
-| [docs/INTERACTIVE_TUI.md](docs/INTERACTIVE_TUI.md) | TUI |
+| [docs/INTERACTIVE_TUI.md](docs/INTERACTIVE_TUI.md) | Interactive TUI |
 | [QUICK_REFERENCE.md](QUICK_REFERENCE.md) | Command card |
-| [DEVELOPMENT.md](DEVELOPMENT.md) | Architecture |
-| [CHANGELOG.md](CHANGELOG.md) | What’s new |
 | [docs/README.md](docs/README.md) | Full index |
+| [CHANGELOG.md](CHANGELOG.md) | What’s new |
 
 ---
 
@@ -277,7 +352,7 @@ Secure-by-default defaults: no `unsafe`, CORS off unless configured, TLS verific
 
 ## Roadmap (near-term)
 
-- Published HashiCorp registry provider binary (module + schema.json ship today)  
+- Published HashiCorp registry provider binary (module + `schema.json` ship today)
 
 ---
 
