@@ -25,6 +25,7 @@ const CreateVM = lazy(() => import('./pages/CreateVM'))
 const Console = lazy(() => import('./pages/Console'))
 const Snapshots = lazy(() => import('./pages/Snapshots'))
 const FavoriteVMs = lazy(() => import('./pages/FavoriteVMs'))
+const KrytonWindows = lazy(() => import('./pages/KrytonWindows'))
 
 function ProtectedRoute({ children }: { children: ReactNode }) {
   const { isAuthenticated, loading } = useAuth()
@@ -60,6 +61,7 @@ function ConsoleRoutes() {
             <Route path="create" element={<CreateVM />} />
             <Route path="favorites" element={<FavoriteVMs />} />
             <Route path="snapshots" element={<Snapshots />} />
+            <Route path="windows" element={<KrytonWindows />} />
             <Route path="*" element={<Navigate to="/app" replace />} />
           </Routes>
         </Suspense>

@@ -164,6 +164,24 @@ spec:
                   name: zorvia-auth
                   key: api-key
                   optional: true
+            - name: KRYTON_URL
+              valueFrom:
+                secretKeyRef:
+                  name: zorvia-kryton
+                  key: url
+                  optional: true
+            - name: KRYTON_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: zorvia-kryton
+                  key: token
+                  optional: true
+            - name: KRYTON_PROJECT
+              valueFrom:
+                secretKeyRef:
+                  name: zorvia-kryton
+                  key: project
+                  optional: true
           volumeMounts:
             - name: tls-certs
               mountPath: /certs

@@ -32,6 +32,8 @@
 pub mod cli;
 pub mod config;
 pub mod kube;
+#[cfg(feature = "web")]
+pub mod kryton;
 pub mod network;
 pub mod output;
 pub mod storage;

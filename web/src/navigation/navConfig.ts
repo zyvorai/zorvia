@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import type { LucideIcon } from 'lucide-react'
-import { Home, Server, Star, Camera, Plus } from 'lucide-react'
+import { Home, Server, Star, Camera, Plus, MonitorCog } from 'lucide-react'
 
 export interface NavItem {
   label: string
@@ -56,6 +56,7 @@ export const NAV_GROUPS: NavGroup[] = [
       { label: 'Create VM', path: '/app/create', icon: Plus },
       { label: 'Favorites', path: '/app/favorites', icon: Star },
       { label: 'Snapshots', path: '/app/snapshots', icon: Camera },
+      { label: 'Windows', path: '/app/windows', icon: MonitorCog },
     ],
   },
 ]

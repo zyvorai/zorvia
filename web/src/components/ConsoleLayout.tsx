@@ -37,6 +37,7 @@ function ConsoleShortcuts({
       { sequence: ['g', 'c'] as [string, string], handler: () => navigate('/app/create') },
       { sequence: ['g', 'f'] as [string, string], handler: () => navigate('/app/favorites') },
       { sequence: ['g', 's'] as [string, string], handler: () => navigate('/app/snapshots') },
+      { sequence: ['g', 'w'] as [string, string], handler: () => navigate('/app/windows') },
     ],
     [navigate],
   )

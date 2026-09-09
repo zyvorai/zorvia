@@ -27,6 +27,10 @@ pub mod web {
     mod fabric_vm_handlers;
     use fabric_vm_handlers::*;
 
+    #[path = "kryton_handlers.rs"]
+    mod kryton_handlers;
+    use kryton_handlers::*;
+
     #[path = "ws_proxy_handlers.rs"]
     mod ws_proxy_handlers;
     use ws_proxy_handlers::{ws_console, ws_vnc};
@@ -107,6 +111,7 @@ pub mod web {
         pub kube_client: KubeClient,
         pub api_key: Option<String>,
         pub auth: crate::api::auth::SharedAuth,
+        pub kryton: Option<crate::kryton::Client>,
         rate_limiter: RateLimiterState,
     }
 
@@ -121,11 +126,16 @@ pub mod web {
                 );
             }
             let kube_client = KubeClient::new().await?;
+            let kryton = crate::kryton::Client::from_env()?;
+            if let Some(ref client) = kryton {
+                log::info!("Kryton integration enabled: {} (project={:?})", client.base_url(), client.configured_project());
+            }
             Ok(Self {
                 namespace,
                 kube_client,
                 api_key,
                 auth,
+                kryton,
                 rate_limiter: RateLimiterState::new(rate_limit_per_minute, 60),
             })
         }
@@ -407,6 +417,20 @@ pub mod web {
             .route("/v1/events", get(list_events_handler))
             .route("/v1/events/recent", get(recent_events_handler))
             .route("/v1/dashboard/overview", get(dashboard_overview_handler))
+            // Kryton Windows control plane (server-side token; Zorvia auth at edge)
+            .route("/v1/kryton/status", get(kryton_status))
+            .route("/v1/kryton/capabilities", get(kryton_capabilities))
+            .route("/v1/kryton/doctor", get(kryton_doctor))
+            .route("/v1/kryton/images", get(kryton_images))
+            .route("/v1/kryton/summary", get(kryton_summary))
+            .route("/v1/kryton/machines", get(kryton_list_machines).post(kryton_create_machine))
+            .route("/v1/kryton/machines/:id", get(kryton_get_machine).delete(kryton_delete_machine))
+            .route("/v1/kryton/machines/:id/start", post(kryton_start_machine))
+            .route("/v1/kryton/machines/:id/stop", post(kryton_stop_machine))
+            .route("/v1/kryton/machines/:id/snapshot", post(kryton_snapshot_machine))
+            .route("/v1/kryton/machines/:id/snapshots", get(kryton_list_snapshots))
+            .route("/v1/kryton/machines/:id/snapshots/:sid/restore", post(kryton_restore_snapshot))
+            .route("/v1/kryton/machines/:id/snapshots/:sid", delete(kryton_delete_snapshot))
             .route("/v1/health", get(health_handler))
             .fallback(fabric_not_implemented)
             .layer(TimeoutLayer::with_status_code(

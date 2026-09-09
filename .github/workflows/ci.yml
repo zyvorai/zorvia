@@ -12,6 +12,34 @@ env:
   RUST_MIN_STACK: 8388608
 
 jobs:
+  web:
+    name: Web typecheck, lint, test & build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+      - name: Verify Kryton integration contract
+        run: python3 tests/verify_integration.py
+      - name: Install web dependencies
+        working-directory: web
+        run: npm ci
+      - name: Typecheck
+        working-directory: web
+        run: npm run typecheck
+      - name: Lint
+        working-directory: web
+        run: npm run lint
+      - name: Test
+        working-directory: web
+        run: npm test
+      - name: Build
+        working-directory: web
+        run: npm run build
+
   fmt:
     name: Format Check
     runs-on: ubuntu-latest

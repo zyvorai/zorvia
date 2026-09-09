@@ -70,6 +70,7 @@ futures-util = { version = "0.3", optional = true }
 tokio-tungstenite = { version = "0.24", optional = true, default-features = false, features = ["connect", "native-tls"] }
 native-tls = { version = "0.2", optional = true }
 http = { version = "1", optional = true }
+reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls"], optional = true }
 secrecy = "0.8"
 
 [features]
@@ -79,6 +80,7 @@ web = [
   "dep:jsonwebtoken", "dep:bcrypt", "dep:rusqlite", "dep:uuid",
   "dep:totp-rs", "dep:base64", "dep:sha2", "dep:subtle", "dep:urlencoding",
   "dep:futures-util", "dep:tokio-tungstenite", "dep:native-tls", "dep:http",
+  "dep:reqwest",
 ]
 # PAM host auth (Linux): enable with --features pam and system libpam-dev
 pam = []
