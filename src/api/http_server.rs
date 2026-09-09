@@ -387,6 +387,8 @@ pub mod web {
             )
             .route("/snapshots", get(fabric_list_snapshots))
             .route("/events", get(fabric_list_events))
+            .route("/events/stream", get(fabric_events_stream))
+            .route("/capabilities", get(fabric_capabilities))
             .route("/health", get(fabric_health))
             .route("/dashboard/overview", get(fabric_overview))
             // Native Zorvia v1 API
@@ -843,6 +845,106 @@ pub mod web {
                 (st, j).into_response()
             }
         }
+    }
+
+    /// Live SSE stream of cluster `Event` objects, shaped for `useEventStream.ts`.
+    async fn fabric_events_stream(State(state): State<SharedState>) -> impl IntoResponse {
+        use axum::response::sse::{Event as SseEvent, KeepAlive, Sse};
+        use futures_util::StreamExt;
+        use k8s_openapi::api::core::v1::Event as K8sEvent;
+        use kube::runtime::{watcher, WatchStreamExt};
+        use kube::Api;
+        use std::convert::Infallible;
+
+        let s = state.read().await;
+        let namespace = s.namespace.clone();
+        let client = s.client();
+        drop(s);
+
+        let api: Api<K8sEvent> = Api::namespaced(client.client(), &namespace);
+        let stream = watcher(api, watcher::Config::default())
+            .applied_objects()
+            .filter_map(|res| async move { res.ok() })
+            .map(|e| {
+                let payload = serde_json::json!({
+                    "id": e.metadata.uid.clone().unwrap_or_default(),
+                    "event_type": e.reason.clone().unwrap_or_else(|| "Normal".into()),
+                    "vm_name": e.involved_object.name.clone().unwrap_or_default(),
+                    "detail": e.message.clone(),
+                    "timestamp": e.last_timestamp
+                        .as_ref()
+                        .map(|t| t.0.to_rfc3339())
+                        .or_else(|| {
+                            e.metadata.creation_timestamp.as_ref().map(|t| t.0.to_rfc3339())
+                        })
+                        .unwrap_or_default(),
+                });
+                Ok::<_, Infallible>(SseEvent::default().event("vm-event").data(payload.to_string()))
+            });
+
+        Sse::new(stream).keep_alive(KeepAlive::default())
+    }
+
+    /// Lightweight live-reachability probe for each subsystem the "offline" pill and
+    /// capabilities page care about.
+    async fn fabric_capabilities(State(state): State<SharedState>) -> impl IntoResponse {
+        use k8s_openapi::api::core::v1::PersistentVolumeClaim;
+        use k8s_openapi::api::networking::v1::NetworkPolicy;
+        use kube::Api;
+
+        fn phase(ok: bool, err: Option<String>) -> serde_json::Value {
+            serde_json::json!({ "phase": if ok { "live" } else { "unreachable" }, "detail": err })
+        }
+
+        let s = state.read().await;
+        let namespace = s.namespace.clone();
+        let client = s.client();
+        let auth_configured =
+            s.api_key.is_some() || std::env::var("ZORVIA_ADMIN_PASSWORD").is_ok();
+        drop(s);
+
+        let vm_driver = match client.list_vms(&namespace).await {
+            Ok(_) => phase(true, None),
+            Err(e) => phase(false, Some(sanitize_error(&e))),
+        };
+
+        let events = {
+            use k8s_openapi::api::core::v1::Event;
+            let api: Api<Event> = Api::namespaced(client.client(), &namespace);
+            match api.list(&kube::api::ListParams::default().limit(1)).await {
+                Ok(_) => phase(true, None),
+                Err(e) => phase(false, Some(sanitize_error(&e))),
+            }
+        };
+
+        let storage = {
+            let api: Api<PersistentVolumeClaim> = Api::namespaced(client.client(), &namespace);
+            match api.list(&kube::api::ListParams::default().limit(1)).await {
+                Ok(_) => phase(true, None),
+                Err(e) => phase(false, Some(sanitize_error(&e))),
+            }
+        };
+
+        let network_security = {
+            let api: Api<NetworkPolicy> = Api::namespaced(client.client(), &namespace);
+            match api.list(&kube::api::ListParams::default().limit(1)).await {
+                Ok(_) => phase(true, None),
+                Err(e) => phase(false, Some(sanitize_error(&e))),
+            }
+        };
+
+        let auth_phase = if auth_configured { "live" } else { "off" };
+        let auth = serde_json::json!({ "phase": auth_phase, "detail": null });
+
+        Json(serde_json::json!({
+            "vm_driver": vm_driver,
+            "storage": storage,
+            "network_security": network_security,
+            "vm_dataplane": network_security,
+            "auth": auth,
+            "events": events,
+            "hubble_ui_url": std::env::var("ZORVIA_HUBBLE_UI_URL").ok(),
+        }))
     }
 
     async fn fabric_overview(State(state): State<SharedState>) -> impl IntoResponse {

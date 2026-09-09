@@ -8,7 +8,25 @@ use axum::extract::{
 use futures_util::{SinkExt, StreamExt};
 use secrecy::ExposeSecret;
 use serde::Deserialize;
-use tokio_tungstenite::tungstenite::protocol::Message as TMsg;
+use tokio_tungstenite::tungstenite::protocol::{CloseFrame as TCloseFrame, Message as TMsg};
+
+/// Translate a tungstenite close frame (from the KubeVirt side) into an axum one.
+fn to_client_close(
+    frame: Option<TCloseFrame<'_>>,
+) -> Option<axum::extract::ws::CloseFrame<'static>> {
+    frame.map(|f| axum::extract::ws::CloseFrame {
+        code: f.code.into(),
+        reason: f.reason.into_owned().into(),
+    })
+}
+
+/// Translate an axum close frame (from the browser side) into a tungstenite one.
+fn to_kube_close(frame: Option<axum::extract::ws::CloseFrame<'_>>) -> Option<TCloseFrame<'static>> {
+    frame.map(|f| TCloseFrame {
+        code: f.code.into(),
+        reason: f.reason.into_owned().into(),
+    })
+}
 
 #[derive(Debug, Deserialize)]
 pub struct WsAuthQuery {
@@ -140,7 +158,10 @@ async fn proxy_kube_ws(
                 Message::Binary(b) => TMsg::Binary(b),
                 Message::Ping(p) => TMsg::Ping(p),
                 Message::Pong(p) => TMsg::Pong(p),
-                Message::Close(_) => break,
+                Message::Close(frame) => {
+                    let _ = kube_sink.send(TMsg::Close(to_kube_close(frame))).await;
+                    break;
+                }
             };
             if kube_sink.send(mapped).await.is_err() {
                 break;
@@ -155,7 +176,12 @@ async fn proxy_kube_ws(
                 TMsg::Binary(b) => Message::Binary(b),
                 TMsg::Ping(p) => Message::Ping(p),
                 TMsg::Pong(p) => Message::Pong(p),
-                TMsg::Close(_) | TMsg::Frame(_) => break,
+                TMsg::Close(frame) => {
+                    let _ = client_sink.send(Message::Close(to_client_close(frame))).await;
+                    let _ = client_sink.close().await;
+                    break;
+                }
+                TMsg::Frame(_) => break,
             };
             if client_sink.send(mapped).await.is_err() {
                 break;
