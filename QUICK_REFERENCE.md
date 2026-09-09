@@ -82,6 +82,24 @@ zorvia templates                 # List all templates
 zorvia template ubuntu-22.04     # View template details
 ```
 
+### vCenter-style ops
+```bash
+zorvia inventory                 # DC -> Cluster -> Host/Folder -> VM
+zorvia activity                  # Recent tasks / events / alarms
+zorvia maintenance-plan NODE
+zorvia placement-advisor --cpu 2 --memory-gib 4
+# See docs/VCENTER_FEATURE_MATRIX.md
+```
+
+### Deploy images (quay.io + golden)
+```bash
+# Instant: Create VM → pick quay.io/containerdisks/* from GET /api/images
+# Golden CDI library (needs StorageClass + CDI):
+STORAGE_CLASS=fast ./fixtures/golden-images/generate-bundles.sh
+kubectl apply -f fixtures/golden-images/out/
+# See docs/GOLDEN_IMAGES.md
+```
+
 ### Advanced
 ```bash
 zorvia wizard                    # Interactive wizard
@@ -209,6 +227,7 @@ export KUBECONFIG=~/.kube/config
 ## 📚 More Info
 
 - `docs/WEB_CONSOLE.md` - Web UI, Fabric API, console/VNC, expose
+- `docs/GOLDEN_IMAGES.md` - Deploy Linux images (quay containerdisks + CDI golden)
 - `docs/INNOVATIVE_FEATURES.md` - Complete feature guide
 - `docs/OS_TEMPLATES.md` - All OS templates
 - `docs/THEME.md` - Theme documentation

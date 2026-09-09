@@ -3,6 +3,8 @@
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
+pub mod advisor;
+
 #[derive(Debug, Clone)]
 pub struct PlacementEngine {
     pub nodes: Vec<PlacementNode>,

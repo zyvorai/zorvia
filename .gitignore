@@ -18,6 +18,9 @@ Thumbs.db
 *.local.yaml
 *.local.json
 
+# Generated golden-image manifests (StorageClass-specific)
+fixtures/golden-images/out/
+
 # Frontend
 web/node_modules/
 web/dist/

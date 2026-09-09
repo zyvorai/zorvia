@@ -148,6 +148,8 @@ fn memory_to_kube(mib: u64) -> String {
 }
 
 pub async fn fabric_list_images() -> impl IntoResponse {
+    // Ready quay.io/containerdisks catalog (major Linux) + blank disks.
+    // See docs/GOLDEN_IMAGES.md for CDI golden import of the same sources.
     Json(json!([
         {
             "name": "Blank disk (20 Gi)",
@@ -162,20 +164,98 @@ pub async fn fabric_list_images() -> impl IntoResponse {
             "size_bytes": 42949672960u64
         },
         {
-            "name": "Fedora 40 (containerdisk)",
-            "path": "quay.io/containerdisks/fedora:40",
-            "format": "containerdisk",
-            "size_bytes": 0
-        },
-        {
             "name": "Ubuntu 24.04 (containerdisk)",
             "path": "quay.io/containerdisks/ubuntu:24.04",
             "format": "containerdisk",
             "size_bytes": 0
         },
         {
+            "name": "Ubuntu 22.04 (containerdisk)",
+            "path": "quay.io/containerdisks/ubuntu:22.04",
+            "format": "containerdisk",
+            "size_bytes": 0
+        },
+        {
+            "name": "Ubuntu 20.04 (containerdisk)",
+            "path": "quay.io/containerdisks/ubuntu:20.04",
+            "format": "containerdisk",
+            "size_bytes": 0
+        },
+        {
+            "name": "Ubuntu 18.04 (containerdisk)",
+            "path": "quay.io/containerdisks/ubuntu:18.04",
+            "format": "containerdisk",
+            "size_bytes": 0
+        },
+        {
+            "name": "Fedora 41 (containerdisk)",
+            "path": "quay.io/containerdisks/fedora:41",
+            "format": "containerdisk",
+            "size_bytes": 0
+        },
+        {
+            "name": "Fedora 40 (containerdisk)",
+            "path": "quay.io/containerdisks/fedora:40",
+            "format": "containerdisk",
+            "size_bytes": 0
+        },
+        {
+            "name": "Fedora 39 (containerdisk)",
+            "path": "quay.io/containerdisks/fedora:39",
+            "format": "containerdisk",
+            "size_bytes": 0
+        },
+        {
             "name": "CentOS Stream 9 (containerdisk)",
             "path": "quay.io/containerdisks/centos-stream:9",
+            "format": "containerdisk",
+            "size_bytes": 0
+        },
+        {
+            "name": "CentOS Stream 8 (containerdisk)",
+            "path": "quay.io/containerdisks/centos-stream:8",
+            "format": "containerdisk",
+            "size_bytes": 0
+        },
+        {
+            "name": "Debian 12 (containerdisk)",
+            "path": "quay.io/containerdisks/debian:12",
+            "format": "containerdisk",
+            "size_bytes": 0
+        },
+        {
+            "name": "Debian 11 (containerdisk)",
+            "path": "quay.io/containerdisks/debian:11",
+            "format": "containerdisk",
+            "size_bytes": 0
+        },
+        {
+            "name": "AlmaLinux 9 (containerdisk)",
+            "path": "quay.io/containerdisks/almalinux:9",
+            "format": "containerdisk",
+            "size_bytes": 0
+        },
+        {
+            "name": "AlmaLinux 8 (containerdisk)",
+            "path": "quay.io/containerdisks/almalinux:8",
+            "format": "containerdisk",
+            "size_bytes": 0
+        },
+        {
+            "name": "Rocky Linux 9 (containerdisk)",
+            "path": "quay.io/containerdisks/rockylinux:9",
+            "format": "containerdisk",
+            "size_bytes": 0
+        },
+        {
+            "name": "Rocky Linux 8 (containerdisk)",
+            "path": "quay.io/containerdisks/rockylinux:8",
+            "format": "containerdisk",
+            "size_bytes": 0
+        },
+        {
+            "name": "Alpine 3.19 (containerdisk)",
+            "path": "quay.io/containerdisks/alpine:3.19",
             "format": "containerdisk",
             "size_bytes": 0
         }
