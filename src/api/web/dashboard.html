@@ -147,6 +147,7 @@
   <div class="navbar-right">
     <span class="refresh-text" id="last-refresh"></span>
     <div class="nav-status"><span class="nav-dot ok" id="health-dot"></span><span id="health-text">Connecting...</span></div>
+    <button class="nav-link" type="button" onclick="logout()">Sign out</button>
   </div>
 </nav>
 
@@ -256,20 +257,36 @@ function drawChart(id, data, color) {
   ctx.strokeStyle = '#0f172a'; ctx.lineWidth = 2; ctx.stroke();
 }
 
-// ── API Key Auth ──
-function getApiKey() {
-  let key = sessionStorage.getItem('zorvia_api_key');
-  if (!key) {
-    key = prompt('Enter Zorvia API key:');
-    if (key) sessionStorage.setItem('zorvia_api_key', key);
+// ── JWT / API key auth ──
+const TOKEN_KEY = 'zorvia_token';
+function getToken() {
+  return localStorage.getItem(TOKEN_KEY) || sessionStorage.getItem('zorvia_api_key') || '';
+}
+function requireAuth() {
+  if (!getToken()) {
+    location.href = '/sign-in';
+    return false;
   }
-  return key || '';
+  return true;
+}
+function logout() {
+  localStorage.removeItem(TOKEN_KEY);
+  sessionStorage.removeItem('zorvia_api_key');
+  location.href = '/sign-in';
 }
 function apiFetch(url, opts) {
   opts = opts || {};
-  opts.headers = Object.assign({'X-API-Key': getApiKey()}, opts.headers || {});
-  return fetch(url, opts);
+  const token = getToken();
+  opts.headers = Object.assign(
+    { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' },
+    opts.headers || {}
+  );
+  return fetch(url, opts).then(function (r) {
+    if (r.status === 401) { logout(); }
+    return r;
+  });
 }
+if (!requireAuth()) { /* redirected */ }
 
 // ── Helpers ──
 function sc(status) { return status==='Running'?'running':status==='Stopped'?'stopped':(status==='Failed'||status==='Error')?'error':'other'; }
@@ -420,6 +437,7 @@ function refresh() {
 }
 
 window.addEventListener('load', () => {
+  if (!getToken()) return;
   refresh();
   setInterval(refresh, 5000);
   window.addEventListener('resize', () => {

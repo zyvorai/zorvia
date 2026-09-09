@@ -57,10 +57,25 @@ axum = { version = "0.7", optional = true }
 axum-server = { version = "0.7", features = ["tls-rustls-no-provider"], optional = true }
 rustls = { version = "0.23", default-features = false, features = ["ring", "logging", "std", "tls12"], optional = true }
 tower-http = { version = "0.6", features = ["cors", "timeout"], optional = true }
+jsonwebtoken = { version = "9", optional = true }
+bcrypt = { version = "0.15", optional = true }
+rusqlite = { version = "0.32", features = ["bundled"], optional = true }
+uuid = { version = "1", features = ["v4"], optional = true }
+totp-rs = { version = "5.7", features = ["gen_secret", "otpauth"], optional = true }
+base64 = { version = "0.22", optional = true }
+sha2 = { version = "0.10", optional = true }
+subtle = { version = "2.6", optional = true }
+urlencoding = { version = "2", optional = true }
 
 [features]
 default = ["web"]
-web = ["axum", "axum-server", "rustls", "tower-http"]
+web = [
+  "axum", "axum-server", "rustls", "tower-http",
+  "dep:jsonwebtoken", "dep:bcrypt", "dep:rusqlite", "dep:uuid",
+  "dep:totp-rs", "dep:base64", "dep:sha2", "dep:subtle", "dep:urlencoding",
+]
+# PAM host auth (Linux): enable with --features pam and system libpam-dev
+pam = []
 
 [dev-dependencies]
 tempfile = "3.8"

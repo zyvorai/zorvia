@@ -13,6 +13,9 @@ pub mod server;
 pub mod webhooks;
 pub mod websocket;
 
+#[cfg(feature = "web")]
+pub mod auth;
+
 /// API server configuration
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ApiConfig {

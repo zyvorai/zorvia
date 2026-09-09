@@ -1,0 +1,10 @@
+# Runtime image for host-built release binary (ubuntu 24.04 / glibc 2.39+).
+FROM ubuntu:24.04
+RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates \
+    && rm -rf /var/lib/apt/lists/* \
+    && useradd -u 10001 -m zorvia
+COPY zorvia /usr/local/bin/zorvia
+RUN chmod 755 /usr/local/bin/zorvia
+USER zorvia
+ENTRYPOINT ["/usr/local/bin/zorvia"]
+CMD ["api-serve"]

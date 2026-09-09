@@ -97,16 +97,18 @@ pub mod web {
         pub namespace: String,
         pub kube_client: KubeClient,
         pub api_key: Option<String>,
+        pub auth: crate::api::auth::SharedAuth,
         rate_limiter: RateLimiterState,
     }
 
     impl WebState {
         pub async fn new(namespace: String, rate_limit_per_minute: u64) -> anyhow::Result<Self> {
-            let api_key = std::env::var("ZORVIA_API_KEY").ok().filter(|k| !k.is_empty());
-            if api_key.is_none() {
+            let auth = Arc::new(crate::api::auth::AuthState::from_env()?);
+            let api_key = auth.api_key.clone();
+            if api_key.is_none() && std::env::var("ZORVIA_ADMIN_PASSWORD").is_err() {
                 log::warn!(
-                    "ZORVIA_API_KEY is not set - API will reject all requests. \
-                     Set ZORVIA_API_KEY to enable access."
+                    "Neither ZORVIA_API_KEY nor custom ZORVIA_ADMIN_PASSWORD set; \
+                     using lab default admin/Admin@321 for login"
                 );
             }
             let kube_client = KubeClient::new().await?;
@@ -114,6 +116,7 @@ pub mod web {
                 namespace,
                 kube_client,
                 api_key,
+                auth,
                 rate_limiter: RateLimiterState::new(rate_limit_per_minute, 60),
             })
         }
@@ -167,73 +170,57 @@ pub mod web {
 
     // ── Auth middleware ──────────────────────────────────────────
 
-    /// Constant-time byte comparison to prevent timing attacks.
-    /// Avoids early return on length mismatch to prevent timing side-channel.
-    fn constant_time_eq(a: &[u8], b: &[u8]) -> bool {
-        // XOR all bytes of the shorter slice, then factor in the length difference.
-        let mut result = (a.len() ^ b.len()) as u8;
-        for i in 0..std::cmp::min(a.len(), b.len()) {
-            result |= a[i] ^ b[i];
-        }
-        result == 0
-    }
-
-    /// API key authentication middleware.
-    ///
-    /// If the `ZORVIA_API_KEY` env var was set at startup, every request must present
-    /// that key via `X-API-Key` header or `Authorization: Bearer <key>`.
-    /// If the env var was unset, all requests are rejected (deny by default).
+    /// Authentication middleware: JWT Bearer, or shared API key.
+    /// Public: health, auth login/OIDC, static SPA/dashboard assets.
     async fn auth_middleware(
         State(state): State<SharedState>,
         headers: HeaderMap,
         request: axum::extract::Request,
         next: middleware::Next,
     ) -> impl IntoResponse {
-        // Allow health endpoint without auth
-        if request.uri().path() == "/api/v1/health" {
-            return next.run(request).await.into_response();
-        }
+        let path = request.uri().path().to_string();
 
-        // Allow CORS preflight (OPTIONS) requests without auth
-        if request.method() == axum::http::Method::OPTIONS {
+        if is_public_path(&path) || request.method() == axum::http::Method::OPTIONS {
             return next.run(request).await.into_response();
         }
 
         let s = state.read().await;
-        let expected_key = match &s.api_key {
-            Some(k) => k.clone(),
-            None => {
-                let (status, json) = err_json(
-                    503,
-                    "AUTH_NOT_CONFIGURED",
-                    "API key not configured. Set ZORVIA_API_KEY environment variable.",
-                );
-                return (status, json).into_response();
-            }
-        };
-        drop(s);
 
-        // Check X-API-Key header first, then Authorization: Bearer
-        let provided_key = headers
-            .get("x-api-key")
-            .and_then(|v| v.to_str().ok())
-            .map(|s| s.to_string())
-            .or_else(|| {
-                headers
-                    .get(header::AUTHORIZATION)
-                    .and_then(|v| v.to_str().ok())
-                    .and_then(|v| v.strip_prefix("Bearer ").map(|s| s.to_string()))
-            });
-
-        match provided_key {
-            Some(key) if constant_time_eq(key.as_bytes(), expected_key.as_bytes()) => {
-                next.run(request).await.into_response()
-            }
-            _ => {
-                let (status, json) = err_json(401, "UNAUTHORIZED", "Invalid or missing API key");
-                (status, json).into_response()
+        if let Some(key) = headers.get("x-api-key").and_then(|v| v.to_str().ok()) {
+            if s.auth.api_key_ok(key) {
+                drop(s);
+                return next.run(request).await.into_response();
             }
         }
+
+        if let Some(token) = headers
+            .get(header::AUTHORIZATION)
+            .and_then(|v| v.to_str().ok())
+            .and_then(|v| v.strip_prefix("Bearer "))
+        {
+            if s.auth.api_key_ok(token) || s.auth.validate_bearer(token).is_some() {
+                drop(s);
+                return next.run(request).await.into_response();
+            }
+        }
+
+        drop(s);
+        let (status, json) = err_json(401, "UNAUTHORIZED", "Invalid or missing credentials");
+        (status, json).into_response()
+    }
+
+    fn is_public_path(path: &str) -> bool {
+        matches!(
+            path,
+            "/api/v1/health"
+                | "/api/v1/auth/login"
+                | "/api/v1/auth/providers"
+                | "/dashboard"
+                | "/sign-in"
+                | "/"
+                | "/zyvor-premium-login.css"
+        ) || path.starts_with("/api/v1/auth/oidc/")
+            || path.starts_with("/assets/")
     }
 
     // ── Rate limiting middleware ──────────────────────────────────
@@ -315,8 +302,19 @@ pub mod web {
 
     pub fn build_router(state: SharedState) -> Router {
         Router::new()
-            // Dashboard
+            .route("/", get(root_handler))
+            .route("/sign-in", get(sign_in_handler))
             .route("/dashboard", get(dashboard_handler))
+            .route("/zyvor-premium-login.css", get(premium_login_css_handler))
+            // Auth
+            .route("/api/v1/auth/login", post(auth_login))
+            .route("/api/v1/auth/me", get(auth_me))
+            .route("/api/v1/auth/providers", get(auth_providers))
+            .route("/api/v1/auth/totp/setup", post(auth_totp_setup))
+            .route("/api/v1/auth/totp/verify", post(auth_totp_verify))
+            .route("/api/v1/auth/totp/disable", post(auth_totp_disable))
+            .route("/api/v1/auth/oidc/callback", get(auth_oidc_callback))
+            .route("/api/v1/auth/oidc/:id", get(auth_oidc_login))
             // VM endpoints
             .route("/api/v1/vms", get(list_vms_handler))
             .route("/api/v1/vms/:ns/:name", get(get_vm_handler))
@@ -339,12 +337,10 @@ pub mod web {
             // Health
             .route("/api/v1/health", get(health_handler))
             .with_state(state.clone())
-            // Layers applied in reverse order (outermost = last .layer() call)
             .layer(middleware::from_fn(security_headers_middleware))
             .layer(middleware::from_fn_with_state(state.clone(), rate_limit_middleware))
             .layer(middleware::from_fn_with_state(state, auth_middleware))
             .layer(build_cors_layer())
-            // Request timeout: 30 seconds
             .layer(TimeoutLayer::with_status_code(
                 StatusCode::REQUEST_TIMEOUT,
                 std::time::Duration::from_secs(30),
@@ -393,8 +389,86 @@ pub mod web {
         Ok(())
     }
 
+    async fn root_handler() -> axum::response::Redirect {
+        axum::response::Redirect::temporary("/sign-in")
+    }
+
+    async fn sign_in_handler() -> Html<&'static str> {
+        Html(include_str!("web/sign-in.html"))
+    }
+
     async fn dashboard_handler() -> Html<&'static str> {
         Html(include_str!("web/dashboard.html"))
+    }
+
+    async fn premium_login_css_handler() -> impl IntoResponse {
+        (
+            [(header::CONTENT_TYPE, "text/css; charset=utf-8")],
+            include_str!("web/zyvor-premium-login.css"),
+        )
+    }
+
+    async fn auth_shared(state: &SharedState) -> crate::api::auth::SharedAuth {
+        state.read().await.auth.clone()
+    }
+
+    async fn auth_login(
+        State(state): State<SharedState>,
+        Json(body): Json<crate::api::auth::handlers::LoginRequest>,
+    ) -> impl IntoResponse {
+        let auth = auth_shared(&state).await;
+        crate::api::auth::login_handler(axum::extract::State(auth), Json(body)).await
+    }
+
+    async fn auth_me(State(state): State<SharedState>, headers: HeaderMap) -> impl IntoResponse {
+        let auth = auth_shared(&state).await;
+        crate::api::auth::me_handler(axum::extract::State(auth), headers).await
+    }
+
+    async fn auth_providers(State(state): State<SharedState>) -> impl IntoResponse {
+        let auth = auth_shared(&state).await;
+        crate::api::auth::providers_handler(axum::extract::State(auth)).await
+    }
+
+    async fn auth_totp_setup(
+        State(state): State<SharedState>,
+        headers: HeaderMap,
+    ) -> impl IntoResponse {
+        let auth = auth_shared(&state).await;
+        crate::api::auth::totp_setup_handler(axum::extract::State(auth), headers).await
+    }
+
+    async fn auth_totp_verify(
+        State(state): State<SharedState>,
+        headers: HeaderMap,
+        Json(body): Json<crate::api::auth::handlers::TotpVerifyRequest>,
+    ) -> impl IntoResponse {
+        let auth = auth_shared(&state).await;
+        crate::api::auth::totp_verify_handler(axum::extract::State(auth), headers, Json(body)).await
+    }
+
+    async fn auth_totp_disable(
+        State(state): State<SharedState>,
+        headers: HeaderMap,
+    ) -> impl IntoResponse {
+        let auth = auth_shared(&state).await;
+        crate::api::auth::totp_disable_handler(axum::extract::State(auth), headers).await
+    }
+
+    async fn auth_oidc_login(
+        State(state): State<SharedState>,
+        Path(id): Path<String>,
+    ) -> impl IntoResponse {
+        let auth = auth_shared(&state).await;
+        crate::api::auth::oidc_login_handler(axum::extract::State(auth), Path(id)).await
+    }
+
+    async fn auth_oidc_callback(
+        State(state): State<SharedState>,
+        Query(q): Query<crate::api::auth::handlers::OidcCallbackQuery>,
+    ) -> impl IntoResponse {
+        let auth = auth_shared(&state).await;
+        crate::api::auth::oidc_callback_handler(axum::extract::State(auth), Query(q)).await
     }
 
     fn req_ctx(method: HttpMethod, path: &str) -> RequestContext {

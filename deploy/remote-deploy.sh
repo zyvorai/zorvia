@@ -236,22 +236,13 @@ _ssh "
     if command -v docker >/dev/null 2>&1 && [ -x target/release/zorvia ]; then
         mkdir -p /tmp/zorvia-img
         cp -f target/release/zorvia /tmp/zorvia-img/zorvia
-        cat > /tmp/zorvia-img/Dockerfile << 'DF'
-FROM ubuntu:24.04
-RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates \
-    && rm -rf /var/lib/apt/lists/* \
-    && useradd -u 10001 -m zorvia
-COPY zorvia /usr/local/bin/zorvia
-RUN chmod 755 /usr/local/bin/zorvia
-USER zorvia
-ENTRYPOINT ["zorvia"]
-CMD ["api-serve"]
-DF
+        cp -f deploy/Dockerfile.local /tmp/zorvia-img/Dockerfile
         $SUDO docker build -t zorvia:local /tmp/zorvia-img
         $SUDO docker save zorvia:local | $SUDO k3s ctr images import - 2>/dev/null \
           || $SUDO docker save zorvia:local | $SUDO ctr -n k8s.io images import - 2>/dev/null \
           || true
         echo 'image: zorvia:local built/imported'
+        $SUDO kubectl -n zorvia-system rollout restart deployment/zorvia-api 2>/dev/null || true
     else
         echo 'docker/binary missing; using existing zorvia:local if present'
     fi
