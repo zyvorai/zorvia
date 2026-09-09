@@ -190,9 +190,11 @@ fn test_validate_vm_config_with_invalid_name() {
 ### User Documentation
 
 Update relevant documentation files:
-- `README.md` - Overview and quick start
-- `ADVANCED_FEATURES.md` - Advanced features guide
-- `DEVELOPMENT.md` - Development roadmap
+- `README.md` — Overview and quick start
+- `docs/WEB_CONSOLE.md` — Web UI / HTTP / WebSocket surface
+- `docs/` — Feature guides (templates, snapshots, TUI, …)
+- `DEVELOPMENT.md` — Architecture and status
+- `CHANGELOG.md` — User-visible changes
 
 ## 🔍 Code Review Process
 

@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>Competitive Comparison — Zorvia + v9s vs Alternatives</title>
+<title>Competitive Comparison — Zorvia vs Alternatives</title>
 <style>
   @page { size: A4; margin: 0; }
   * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -45,7 +45,7 @@
 
 <div class="cover">
   <h1>Competitive <span>Analysis</span></h1>
-  <h2>Zorvia + v9s vs KubeVirt Management Alternatives</h2>
+  <h2>Zorvia vs KubeVirt Management Alternatives</h2>
   <p class="tagline">How our integrated CLI + Web platform compares to Cockpit, OpenShift Console, kubectl, virtctl, and other KubeVirt management tools.</p>
   <div class="badge">Feature-by-Feature Comparison</div>
 </div>
@@ -56,7 +56,7 @@
   <p class="sub">Red Hat's web console for libvirt/KubeVirt VM management.</p>
 
   <table>
-    <tr><th>Feature</th><th>Cockpit Machines</th><th>Zorvia + v9s</th></tr>
+    <tr><th>Feature</th><th>Cockpit Machines</th><th>Zorvia</th></tr>
     <tr><td>KubeVirt native</td><td class="cross">No (libvirt focused)</td><td class="check">Yes (K8s API native)</td></tr>
     <tr><td>VNC Console</td><td class="check">Yes</td><td class="check">Yes + Sendkey toolbar</td></tr>
     <tr><td>Serial Console</td><td class="partial">Limited</td><td class="check">Full xterm.js</td></tr>
@@ -80,7 +80,7 @@
   <p class="sub">Red Hat OpenShift Virtualization console.</p>
 
   <table>
-    <tr><th>Feature</th><th>OCP Console</th><th>Zorvia + v9s</th></tr>
+    <tr><th>Feature</th><th>OCP Console</th><th>Zorvia</th></tr>
     <tr><td>Prerequisite</td><td class="cross">Full OpenShift cluster ($$$)</td><td class="check">Any K8s + KubeVirt</td></tr>
     <tr><td>License cost</td><td class="cross">$50K-200K/year</td><td class="check">Proprietary (competitive)</td></tr>
     <tr><td>VNC Console</td><td class="check">Yes</td><td class="check">Yes + Sendkey</td></tr>
@@ -90,7 +90,7 @@
     <tr><td>Standalone deployment</td><td class="cross">No (OCP only)</td><td class="check">Single binary + static files</td></tr>
     <tr><td>Edge/K3s support</td><td class="cross">No</td><td class="check">Yes (K3s, K8s, any distro)</td></tr>
     <tr><td>Blueprints/Templates</td><td class="partial">Templates only</td><td class="check">44 templates + multi-VM blueprints</td></tr>
-    <tr><td>Binary size</td><td class="cross">Full OCP platform</td><td class="check">49MB (v9s) + 11MB (zorvia)</td></tr>
+    <tr><td>Binary size</td><td class="cross">Full OCP platform</td><td class="check">Single zorvia binary + embedded SPA</td></tr>
   </table>
 </div>
 
@@ -142,12 +142,12 @@
       <p>60+ commands, 44 templates, 8 profiles, multi-VM blueprints, TUI dashboard, health checks, RBAC, webhooks, API server. No YAML needed.</p>
     </div>
     <div class="card">
-      <h4>Web Ease (v9s)</h4>
+      <h4>Web Ease (console)</h4>
       <p>VNC/Serial/SSH console, real-time metrics, snapshots, ISO mount, network management, host hardware, services. No kubectl needed.</p>
     </div>
     <div class="card">
       <h4>Lightweight</h4>
-      <p>60MB total (Zorvia 11MB + v9s 49MB). Runs on K3s at the edge. No OpenShift, no Prometheus, no external dependencies.</p>
+      <p>Single <code>zorvia</code> image with embedded SPA. Runs on K3s at the edge. No OpenShift, no Prometheus, no external dependencies.</p>
     </div>
     <div class="card">
       <h4>Migration Ready</h4>
@@ -157,8 +157,8 @@
 
   <div class="cta-box">
     <h3>The complete KubeVirt management platform</h3>
-    <p>No OpenShift license. No broken Cockpit dialogs. No raw YAML.<br>Just Zorvia + v9s. CLI + Web. Done.</p>
+    <p>No OpenShift license. No broken Cockpit dialogs. No raw YAML.<br>Just Zorvia. CLI + Web. Done.</p>
   </div>
-  <div class="footer"><p>Zorvia + v9s Competitive Analysis &mdash; Apache License 2.0 &mdash; ZyvorAI Labs Private Limited</p></div>
+  <div class="footer"><p>Zorvia Competitive Analysis &mdash; Apache License 2.0 &mdash; ZyvorAI Labs Private Limited</p></div>
 </div>
 </body></html>

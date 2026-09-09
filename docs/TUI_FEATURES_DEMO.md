@@ -483,7 +483,7 @@ context_menu = "m"
 - [ ] Mouse support (click buttons, scroll lists)
 - [ ] Custom themes (user-defined colors)
 - [ ] Saved filters and searches
-- [ ] VM console integration
+- [x] VM console — use the web console (serial + VNC); see `docs/WEB_CONSOLE.md`
 - [ ] Log viewer in details view
 - [ ] Resource graphs (CPU, memory over time)
 - [ ] Export operations (CSV, JSON)
@@ -498,10 +498,10 @@ context_menu = "m"
 
 ## 📚 Related Documentation
 
-- [User Guide](./USER_GUIDE.md) - Complete CLI reference
 - [Interactive TUI Guide](./INTERACTIVE_TUI.md) - Detailed keyboard shortcuts
-- [Configuration](./CONFIGURATION.md) - Config file options
-- [Troubleshooting](./TROUBLESHOOTING.md) - Common issues
+- [Web console & API](./WEB_CONSOLE.md) - Browser UI, HTTP, WebSockets
+- [Theme](./THEME.md) - Theme system
+- [README](../README.md) - Project overview
 
 ## 🎬 Video Demo (Coming Soon)
 

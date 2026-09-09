@@ -44,7 +44,7 @@ zorvia profiles --details
 # View specific profile
 zorvia profile database
 
-# Create VM with profile (coming soon)
+# Create VM with profile
 zorvia create mydb --template ubuntu --profile database
 ```
 
@@ -431,23 +431,22 @@ health::tests::test_workload_match ... ok
 
 ## 🔮 Future Enhancements
 
-Coming soon:
-- [ ] Custom profile creation
-- [ ] Custom blueprint definitions
 - [ ] Profile auto-selection based on template
-- [ ] Resource usage tracking
-- [ ] Performance analytics
-- [ ] Cost estimation
+- [ ] Remote/pluggable template registry
+- [ ] Deeper performance analytics in the CLI
 - [ ] Auto-scaling recommendations
 - [ ] ML-based optimization
+
+Custom profile/blueprint CRUD and cost tooling already ship in the CLI (`zorvia profile-*`, `zorvia blueprint-*`, cost commands).
 
 ---
 
 ## 📚 Documentation
 
-- `INNOVATIVE_FEATURES.md` - This file
-- `OS_TEMPLATES.md` - Complete OS template catalog
-- `THEME_DESIGN.md` - Theme system documentation
+- `docs/INNOVATIVE_FEATURES.md` - This file
+- `docs/OS_TEMPLATES.md` - Complete OS template catalog
+- `docs/THEME.md` - Theme system documentation
+- `docs/WEB_CONSOLE.md` - Web UI and HTTP/WS API
 - `README.md` - Project overview
 
 ---

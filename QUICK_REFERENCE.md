@@ -55,6 +55,27 @@ zorvia status myvm               # Detailed status
 zorvia clone source target       # Clone VM
 ```
 
+### Web console & API
+```bash
+# Lab (HTTPS NodePort 30152)
+open https://HOST:30152/app/create
+open https://HOST:30152/app/vms/myvm/console
+
+# Auth + list
+curl -sk -X POST https://HOST:30152/api/v1/auth/login \
+  -H 'Content-Type: application/json' \
+  -d '{"username":"admin","password":"Admin@321"}'
+curl -sk -H "Authorization: Bearer $TOKEN" https://HOST:30152/api/vms
+
+# Power
+curl -sk -X POST -H "Authorization: Bearer $TOKEN" \
+  https://HOST:30152/api/vms/myvm/start
+```
+
+Serial console: `wss://HOST:30152/ws/console/myvm?token=$TOKEN`  
+VNC: `wss://HOST:30152/ws/vnc/myvm?token=$TOKEN`  
+Expose: port-forwards API → NodePort (`ZORVIA_EXPOSE_HOST`). See `docs/WEB_CONSOLE.md`.
+
 ### Templates
 ```bash
 zorvia templates                 # List all templates
@@ -67,6 +88,7 @@ zorvia wizard                    # Interactive wizard
 zorvia batch config.yaml         # Batch operations
 zorvia export myvm               # Export config
 zorvia validate config.yaml      # Validate config
+zorvia api-serve --tls --port 5151
 ```
 
 ---
@@ -186,7 +208,10 @@ export KUBECONFIG=~/.kube/config
 
 ## 📚 More Info
 
-- `INNOVATIVE_FEATURES.md` - Complete feature guide
-- `OS_TEMPLATES.md` - All OS templates
-- `THEME_DESIGN.md` - Theme documentation
+- `docs/WEB_CONSOLE.md` - Web UI, Fabric API, console/VNC, expose
+- `docs/INNOVATIVE_FEATURES.md` - Complete feature guide
+- `docs/OS_TEMPLATES.md` - All OS templates
+- `docs/THEME.md` - Theme documentation
+- `docs/SNAPSHOTS.md` - Snapshot management
 - `README.md` - Main documentation
+- `CHANGELOG.md` - Release notes

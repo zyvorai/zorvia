@@ -392,7 +392,7 @@ progress_bar.render(f);
 ### Medium Priority
 - [ ] Customizable themes (user colors)
 - [ ] Saved searches and filters
-- [ ] VM console integration
+- [x] VM console — available in the web UI (`/app/vms/:name/console`); TUI attach optional
 - [ ] Resource graphs (CPU/memory)
 - [ ] Export operations (CSV/JSON)
 

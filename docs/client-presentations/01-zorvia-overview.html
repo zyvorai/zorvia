@@ -253,10 +253,10 @@ $ zorvia health-check
 
   <h3>REST API Server</h3>
   <pre>
-$ zorvia api-serve --port 8080
-$ curl http://localhost:8080/api/v1/vms
-$ zorvia api-routes    # List all endpoints
-$ zorvia api-spec      # Generate OpenAPI spec</pre>
+$ zorvia api-serve --tls --port 5151
+$ curl -sk https://HOST:30152/api/v1/health
+$ curl -sk -H "Authorization: Bearer $TOKEN" https://HOST:30152/api/vms
+# Web: https://HOST:30152/app  ·  Console WS: /ws/console/:name</pre>
 </div>
 
 <!-- PAGE 6: TUI + RBAC -->
@@ -339,7 +339,7 @@ $ zorvia api-spec      # Generate OpenAPI spec</pre>
     <div class="flow-arrow">&rarr;</div>
     <div class="flow-step">Zorvia (CLI manage)</div>
     <div class="flow-arrow">&rarr;</div>
-    <div class="flow-step">v9s (web manage)</div>
+    <div class="flow-step">Zorvia web console</div>
   </div>
 
   <div class="cta-box">

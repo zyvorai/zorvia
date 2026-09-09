@@ -3,35 +3,90 @@
 
 import { Link } from 'react-router'
 import MarketingLayout from '../../components/MarketingLayout'
+import {
+  ConsoleStage,
+  ExposeStage,
+  MktBand,
+  MktChapter,
+  MktHero,
+  TerminalStage,
+  VncStage,
+} from '../../components/marketing/MktSections'
+
+const SUBNAV = [
+  { label: 'Overview', href: '#overview' },
+  { label: 'VMs', href: '#vms' },
+  { label: 'Console', href: '#console' },
+  { label: 'Expose', href: '#expose' },
+  { label: 'Snapshots', href: '#snapshots' },
+]
 
 export default function Product() {
   return (
-    <MarketingLayout>
-      <section className="mkt-hero !min-h-0 !pb-16 !pt-24">
-        <h1 className="mkt-reveal">The control plane<br />for your private cloud.</h1>
-        <p className="lede mkt-reveal-delay">
-          Zorvia wraps a pluggable VM driver — FluxVM — in production ops: RBAC, HA, network security, storage, and automation.
-        </p>
-      </section>
-      <section className="mkt-section !pt-0 space-y-16">
-        <div>
-          <h2>Virtual machines</h2>
-          <p>Lifecycle, templates, warm pools, console and VNC, cloud-init, snapshots, and bulk operations — one model across interfaces.</p>
-        </div>
-        <div>
-          <h2>Network fabric</h2>
-          <p>Bridges, VLANs, bonds, floating IPs, and Cilium-style network security: policies, firewall, QoS, DNS, VPN, NAT, and monitoring.</p>
-        </div>
-        <div>
-          <h2>Storage &amp; resilience</h2>
-          <p>Pools and volumes, Ceph, backups, replication, fault tolerance, and site recovery — without assembling an OpenStack.</p>
-        </div>
-        <div className="pt-4">
-          <Link to="/sign-in" className="zf-btn zf-btn-primary">
-            Sign in to console
+    <MarketingLayout subnav={SUBNAV}>
+      <div id="overview">
+        <MktHero
+          compact
+          kicker="Zorvia"
+          title={
+            <>
+              The control plane
+              <br />
+              for your private cloud.
+            </>
+          }
+          punch="Built for day-2."
+          lede="Create and operate KubeVirt VMs with cloud-init, serial console, VNC, NodePort expose, clone, and snapshots — from one product."
+          cta={
+            <Link to="/sign-in" className="zf-btn zf-btn-primary">
+              Sign in to console
+            </Link>
+          }
+        />
+      </div>
+
+      <MktChapter
+        id="vms"
+        title="Virtual machines."
+        lede="Lifecycle, templates, cloud-init, and bulk power actions — one model across web, CLI, and API."
+      >
+        <ConsoleStage eyebrow="VMs" headline="Create. Start. Stop. Clone." />
+      </MktChapter>
+
+      <MktChapter
+        id="console"
+        title="Serial and VNC."
+        lede="Open a live console when the guest is Running — terminal for serial, graphical VNC when you need the screen."
+        inverse
+      >
+        <TerminalStage />
+      </MktChapter>
+
+      <MktChapter
+        id="expose"
+        title="Expose SSH, VNC, RDP."
+        lede="Publish guest ports as Kubernetes NodePort Services. Operators get a host and port — no Fabric host NAT required."
+      >
+        <ExposeStage />
+      </MktChapter>
+
+      <MktChapter
+        id="snapshots"
+        title="Snapshots and resilience."
+        lede="Capture point-in-time state, restore in place, and keep day-2 recovery in the same console as create and power."
+      >
+        <VncStage />
+      </MktChapter>
+
+      <MktBand
+        title="Ready when you are."
+        lede="Sign in and open the console — create a VM, attach a console, expose SSH."
+        cta={
+          <Link to="/sign-in" className="zf-btn mkt-band-cta">
+            Sign in
           </Link>
-        </div>
-      </section>
+        }
+      />
     </MarketingLayout>
   )
 }

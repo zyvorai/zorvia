@@ -200,8 +200,8 @@ zorvia template alpine --output yaml
 # Simple list
 zorvia templates
 
-# Grouped by family (coming soon)
-# zorvia templates --by-family
+# Detailed / JSON output available on `zorvia template <name>`
+zorvia template ubuntu --output json
 ```
 
 ## 📋 Template Specifications

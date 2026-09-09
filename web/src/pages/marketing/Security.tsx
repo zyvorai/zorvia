@@ -3,33 +3,66 @@
 
 import { Link } from 'react-router'
 import MarketingLayout from '../../components/MarketingLayout'
+import {
+  ConsoleStage,
+  ExposeStage,
+  MktBand,
+  MktChapter,
+  MktHero,
+  TerminalStage,
+} from '../../components/marketing/MktSections'
 
 export default function SecurityPage() {
   return (
     <MarketingLayout>
-      <section className="mkt-hero !min-h-0 !pb-16 !pt-24">
-        <h1 className="mkt-reveal">Security that<br />stays out of the way.</h1>
-        <p className="lede mkt-reveal-delay">
-          JWT roles, audit export, encryption, certificates, and a full network-security stack — built into the control plane.
-        </p>
-      </section>
-      <section className="mkt-section !pt-0 space-y-14">
-        <div>
-          <h2>Access</h2>
-          <p>Admin, User, and Viewer roles. API keys for automation. Optional LDAP and OIDC.</p>
-        </div>
-        <div>
-          <h2>Network security</h2>
-          <p>Policies, firewall, services, QoS, DNS, VPN mesh, packet mirror, NAT, and live monitoring — from the console or CLI.</p>
-        </div>
-        <div>
-          <h2>Compliance</h2>
-          <p>Audit logs, encryption at rest for sensitive state, and certificate management for TLS operations.</p>
-        </div>
-        <Link to="/sign-in" className="zf-btn zf-btn-primary">
-          Sign in
-        </Link>
-      </section>
+      <MktHero
+        compact
+        kicker="Zorvia"
+        title={
+          <>
+            Security that
+            <br />
+            stays out of the way.
+          </>
+        }
+        punch="Built in."
+        lede="JWT roles, audit trails, and network controls in the control plane — not bolted on later."
+      />
+
+      <MktChapter
+        id="access"
+        title="Access."
+        lede="Sign-in with JWT. Roles for operators. API keys for automation. Optional TOTP and OIDC when you need them."
+      >
+        <ConsoleStage eyebrow="Auth" headline="Sign in · roles · API keys" />
+      </MktChapter>
+
+      <MktChapter
+        id="network"
+        title="Network security."
+        lede="Expose only what you intend — NodePort SSH, VNC, and RDP are explicit Services, labeled per VM."
+        inverse
+      >
+        <ExposeStage />
+      </MktChapter>
+
+      <MktChapter
+        id="compliance"
+        title="Compliance posture."
+        lede="Audit-friendly APIs, sanitized errors, TLS for the console, and cluster RBAC for console and VNC subresources."
+      >
+        <TerminalStage />
+      </MktChapter>
+
+      <MktBand
+        title="Operate with confidence."
+        lede="Open the console when you are ready."
+        cta={
+          <Link to="/sign-in" className="zf-btn mkt-band-cta">
+            Sign in
+          </Link>
+        }
+      />
     </MarketingLayout>
   )
 }

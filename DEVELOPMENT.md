@@ -32,7 +32,7 @@ src/
 │   └── api.rs          (REST API, webhooks, TUI)
 ├── cli/                (command-line parsing with clap)
 ├── config/             (VM configuration types, builder, validator)
-├── kube/               (Kubernetes client, CRD types, converter)
+├── kube/               (Kubernetes client, CRD types, converter, expose)
 ├── templates/          (44 OS templates)
 ├── tui/                (terminal UI with ratatui)
 ├── profiles/           (resource profile system)
@@ -47,7 +47,7 @@ src/
 ├── automation/         (rules, workflows, schedules)
 ├── observability/      (logs, metrics, alerts, insights)
 ├── multitenancy/       (tenants, RBAC, quotas)
-├── api/                (REST API, OpenAPI, webhooks)
+├── api/                (REST API, OpenAPI, webhooks, http_server + SPA)
 ├── devexp/             (completions, config templates, diff, init)
 └── [12 more modules]   (networking, finops, edge, secrets, etc.)
 ```
@@ -137,7 +137,12 @@ src/
 
 ### API & Interface
 - [x] REST API server with OpenAPI spec
-- [x] API key management
+- [x] API key + JWT login (TOTP/OIDC/PAM hooks)
+- [x] Fabric-compatible `/api/vms` create, power, port-forwards, cloud-init, clone, snapshots
+- [x] Web SPA (`web/`) — Dashboard, VMs, Create VM, Console (serial+VNC), Snapshots
+- [x] Authenticated `/ws/console/:name` and `/ws/vnc/:name` KubeVirt proxies
+- [x] NodePort expose helpers (`src/kube/expose.rs`) for SSH/VNC/RDP
+- [x] In-cluster HTTPS NodePort 30152 (`deploy/k8s.yaml`)
 - [x] Webhook management with event filtering
 - [x] Interactive TUI with ratatui
 - [x] TUI VM creation and snapshot creation
@@ -158,7 +163,7 @@ src/
 
 ```bash
 # Build
-cargo build
+cargo build --features web
 
 # Run all tests
 cargo test
@@ -186,7 +191,15 @@ cargo run -- blueprints
 
 # Launch TUI
 cargo run -- tui --interactive
+
+# Serve API + SPA (local)
+cargo run --features web -- api-serve --host 127.0.0.1 --port 5151
+
+# Lab deploy
+./deploy/remote-deploy.sh <host> sus --quick
 ```
+
+See [docs/WEB_CONSOLE.md](docs/WEB_CONSOLE.md) for the HTTP/WS surface.
 
 ## Design Decisions
 

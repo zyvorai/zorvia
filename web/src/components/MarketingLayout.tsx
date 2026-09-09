@@ -13,25 +13,34 @@ const LINKS = [
   { label: 'Security', to: '/security' },
 ]
 
-export default function MarketingLayout({ children }: { children: ReactNode }) {
+export default function MarketingLayout({
+  children,
+  subnav,
+}: {
+  children: ReactNode
+  /** Optional local chapter links (e.g. Product overview anchors). */
+  subnav?: { label: string; href: string }[]
+}) {
   const { isAuthenticated } = useAuth()
 
   return (
     <div className="min-h-screen bg-[var(--zf-canvas)] text-[var(--zf-ink)]">
       <header className="mkt-nav">
         <div className="mkt-nav-inner">
-          <nav className="flex items-center gap-7">
-            <Link to="/" className="mkt-brand" aria-label="Zorvia">
+          <nav className="flex items-center gap-8 min-w-0">
+            <Link to="/" className="mkt-brand" aria-label="Zorvia home">
               <ZyvorLockup markClassName="w-6 h-6" />
-              <span className="text-[var(--zf-muted)] font-medium">Zorvia</span>
+              <span>Zorvia</span>
             </Link>
-            {LINKS.map((l) => (
-              <Link key={l.to} to={l.to} className="hidden sm:inline">
-                {l.label}
-              </Link>
-            ))}
+            <div className="mkt-nav-links">
+              {LINKS.map((l) => (
+                <Link key={l.to} to={l.to}>
+                  {l.label}
+                </Link>
+              ))}
+            </div>
           </nav>
-          <div className="flex items-center gap-5">
+          <div className="flex items-center gap-5 shrink-0">
             <ThemeToggle />
             {isAuthenticated ? (
               <Link to="/app" className="font-medium">
@@ -45,6 +54,17 @@ export default function MarketingLayout({ children }: { children: ReactNode }) {
           </div>
         </div>
       </header>
+      {subnav && subnav.length > 0 ? (
+        <nav className="mkt-subnav" aria-label="On this page">
+          <div className="mkt-subnav-inner">
+            {subnav.map((item) => (
+              <a key={item.href} href={item.href}>
+                {item.label}
+              </a>
+            ))}
+          </div>
+        </nav>
+      ) : null}
       {children}
       <footer className="mkt-footer">
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">

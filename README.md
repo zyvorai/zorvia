@@ -2,307 +2,187 @@
 
 [![CI](https://github.com/zyvorai/zorvia/workflows/CI/badge.svg)](https://github.com/zyvorai/zorvia/actions)
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](LICENSE)
-[![Rust](https://img.shields.io/badge/rust-1.70%2B-orange.svg)](https://www.rust-lang.org/)
+[![Rust](https://img.shields.io/badge/rust-1.76%2B-orange.svg)](https://www.rust-lang.org/)
+[![KubeVirt](https://img.shields.io/badge/KubeVirt-native-6d28d9.svg)](https://kubevirt.io/)
 
-> Craft VMs for KubeVirt with Rust power!
+**Craft VMs. One control plane.**
 
-A powerful, ergonomic, and extensible Rust CLI and library to declaratively build, validate, visualize, and apply KubeVirt VMs.
+Zorvia is the KubeVirt operator’s toolkit — a fast Rust CLI, an interactive TUI, and a signed-in web console — for creating, running, and day-2 managing virtual machines on Kubernetes.
 
-**License:** Apache License 2.0 only (no MIT dual-license).
-
-## ✨ Features
-
-### 🚀 Innovative Features (Unique to Zorvia!)
-- 📸 **VM Snapshots & Backup** - Production-grade snapshot management for disaster recovery
-- 📊 **8 VM Resource Profiles** - Pre-configured profiles (dev, prod, database, web, etc.)
-- 🏗️ **Multi-VM Blueprints** - Deploy complete stacks (LAMP, Kubernetes, 3-tier, CI/CD)
-- 🏥 **Automated Health Checks** - Diagnostics with scoring and recommendations
-- 💡 **Smart Recommendations** - AI-like resource suggestions based on workload
-- 🔄 **Dependency Management** - Automatic VM deployment ordering
-- 🎨 **Beautiful Themed CLI** - Purple Kubernetes-inspired colors with status symbols
-
-### 🎯 Core Features
-- 🐧 **44 OS Templates** - Ubuntu, Fedora, CentOS, Debian, RHEL, AlmaLinux, Rocky, Alpine, Arch, Windows, and more!
-- 🛠️ **Flexible configuration** - YAML/JSON configuration files or CLI arguments
-- ✅ **Built-in validation** - Validate VM configs before deployment
-- 📦 **Cloud-init support** - Easy VM customization with cloud-init
-- 🔧 **CLI & Library** - Use as a command-line tool or Rust library
-- 📈 **Full VM lifecycle** - Create, start, stop, restart, clone, export, delete
-
-## 📦 Installation
-
-```bash
-cargo install --path .
+```text
+  template + profile  →  VirtualMachine  →  Running
+       CLI / TUI / Web console                 │
+                                               ├─ serial console + VNC
+                                               ├─ expose SSH · VNC · RDP
+                                               └─ snapshot · clone · power
 ```
 
-Or build from source:
+Apache License 2.0 only · [zyvorai/zorvia](https://github.com/zyvorai/zorvia) · [zyvor.dev](https://zyvor.dev)
+
+---
+
+## Why Zorvia
+
+| You need | Zorvia gives you |
+|----------|------------------|
+| Ship a VM without writing a CRD by hand | **44 OS templates** + **8 resource profiles** |
+| Stand up a whole stack | **Blueprints** (LAMP, 3-tier, k8s-cluster, CI/CD, …) |
+| Operate from a browser | **Web console** — create, power, console, expose, snapshots |
+| Stay close to the metal | **CLI + TUI** on the same cluster APIs |
+| Trust the supply chain | **Safe Rust**, validated configs, sanitized API errors |
+
+No OpenShift tax. No raw YAML required. Same VMs whether you use the terminal or `https://host:30152/app`.
+
+---
+
+## Quick start
+
+### Install
 
 ```bash
 git clone https://github.com/zyvorai/zorvia.git
 cd zorvia
-cargo build --release
+cargo build --release --features web
+# binary: target/release/zorvia
 ```
 
-### Kubernetes HTTPS (Veyron-style)
+Or from a checkout: `cargo install --path . --features web`
 
-In-cluster TLS (rustls) with an openssl init container and NodePort **30152** (30151 is reserved for Veyron on shared labs):
+### Create a VM (CLI)
+
+```bash
+zorvia recommend database
+zorvia create prod-db --template ubuntu-22.04 --profile database
+zorvia start prod-db
+zorvia status prod-db --watch
+```
+
+### Deploy a stack
+
+```bash
+zorvia blueprints
+zorvia deploy lamp --prefix myapp --start
+zorvia list
+```
+
+### Open the web console
+
+In-cluster HTTPS on NodePort **30152** (self-signed in lab — use `curl -sk`):
 
 ```bash
 kubectl apply -f deploy/k8s.yaml
-# Lab UI:   https://<HOST>:30152/
-# Health:   https://<HOST>:30152/api/v1/health   (self-signed; use curl -sk)
+# or ship a lab: ./deploy/remote-deploy.sh <host> sus --quick
+
+open https://<HOST>:30152/app
 ```
 
-Remote lab ship: `./deploy/remote-deploy.sh <host> sus --quick` (builds `zorvia:local`, applies manifests, disables host systemd `zorvia-web`).
+| Path | What |
+|------|------|
+| `/app` | Dashboard |
+| `/app/create` | Create VM (Linux cloud-init / Windows) |
+| `/app/vms/:name` | Details, power, port-forwards, snapshots |
+| `/app/vms/:name/console` | Serial terminal + VNC |
+| `/app/snapshots` | Snapshot browser |
 
-## 🚀 Quick Start
+Serial and VNC proxy through authenticated WebSockets to KubeVirt:
 
-### 🎯 Smart VM Creation with Profiles
-
-```bash
-# Get recommendations for your workload
-zorvia recommend database
-
-# Create an optimized database VM
-zorvia create prod-db --template ubuntu-22.04 --profile database
-
-# Or create a development VM
-zorvia create dev-vm --template ubuntu --profile dev
+```text
+wss://<HOST>:30152/ws/console/<vm>?token=<jwt>
+wss://<HOST>:30152/ws/vnc/<vm>?token=<jwt>
 ```
 
-### 🏗️ Deploy Complete Application Stacks
+Expose guest **SSH / VNC / RDP** as NodePort Services (`ZORVIA_EXPOSE_HOST` sets the host shown in the UI). Full map: [docs/WEB_CONSOLE.md](docs/WEB_CONSOLE.md).
+
+---
+
+## What you can do
+
+**Lifecycle** — create, start, stop, restart, clone, export, delete  
+**Day-2** — serial console, VNC, NodePort expose, snapshots, cloud-init  
+**Scale-out** — profiles, blueprints, health scores, workload recommendations  
+**Surfaces** — CLI · TUI · web SPA · Fabric-compatible HTTP API · Rust library
 
 ```bash
-# List available blueprints
-zorvia blueprints
-
-# Deploy a complete LAMP stack
-zorvia deploy lamp --prefix myapp --start
-
-# Deploy a Kubernetes cluster (1 control plane + 2 workers)
-zorvia deploy k8s-cluster --prefix prod
-```
-
-### 🐧 Create VMs from Templates (44 templates available!)
-
-```bash
-# Create an Ubuntu VM
-zorvia create my-ubuntu --template ubuntu-22.04 --cpus 4 --memory 8Gi
-
-# Create an AlmaLinux VM
-zorvia create my-alma --template almalinux-9
-
-# Create with custom resources
-zorvia create my-vm --template fedora-40 --cpus 8 --memory 16Gi --disk-size 100Gi
-```
-
-### 🏥 Check VM Health
-
-```bash
-# Run health check on VM
-zorvia health my-vm
-
-# Get detailed diagnostics
-zorvia health my-vm --detailed
-```
-
-### List and use profiles
-
-```bash
-# List all resource profiles
-zorvia profiles
-zorvia profiles --details
-
-# View specific profile
-zorvia profile database
-
-# Get workload recommendations
-zorvia recommend database
-zorvia recommend web
-```
-
-### Work with blueprints
-
-```bash
-# List all blueprints
-zorvia blueprints
-zorvia blueprints --tag web
-
-# View blueprint details
-zorvia blueprint lamp
-
-# Deploy blueprint (dry run)
-zorvia deploy lamp --dry-run
-
-# Deploy with custom prefix
-zorvia deploy lamp --prefix myapp --start
-```
-
-### List and use templates
-
-```bash
-# List all templates
-zorvia templates
-
-# View template details
-zorvia template ubuntu-22.04
-zorvia template almalinux-9 --output json
-```
-
-### Generate a VM manifest
-
-```bash
-# Generate VMConfig format
-zorvia generate my-vm --template ubuntu --output vm.yaml
-
-# Generate KubeVirt VirtualMachine CRD (ready to kubectl apply)
-zorvia generate web-server \
-  --template ubuntu \
-  --cpus 8 \
-  --memory 16Gi \
-  --disk-size 100Gi \
-  --kubevirt \
-  --output webserver.yaml
-
-# Apply to cluster
-kubectl apply -f webserver.yaml
-```
-
-### Create from configuration file
-
-```bash
-zorvia create my-custom-vm --from-file examples/basic-vm.yaml
-```
-
-### Validate a configuration
-
-```bash
-zorvia validate examples/ubuntu-cloud-init.yaml
-```
-
-### Manage VMs on Kubernetes
-
-```bash
-# Create VM on cluster with profile
-zorvia create production-db --template ubuntu-22.04 --profile database
-
-# List VMs
 zorvia list
-zorvia list --all-namespaces
-
-# Get VM details and status
-zorvia get production-db
-zorvia status production-db
-zorvia status production-db --watch  # Watch mode
-
-# Health check
-zorvia health production-db
-zorvia health production-db --detailed
-
-# Start/Stop/Restart VMs
-zorvia start production-db
-zorvia stop production-db
-zorvia restart production-db
-
-# Clone VM
-zorvia clone production-db staging-db --start
-
-# Export VM config
-zorvia export production-db --output prod-db.yaml
-
-# Delete VM
-zorvia delete production-db
-zorvia delete production-db --yes  # Skip confirmation
+zorvia get prod-db
+zorvia clone prod-db staging-db --start
+zorvia snapshot-create prod-db --name before-upgrade
+zorvia health prod-db --detailed
+zorvia tui --interactive
+zorvia api-serve --tls --port 5151
 ```
 
-## 📊 VM Resource Profiles
+---
 
-Zorvia includes **8 pre-configured profiles** optimized for different workloads:
+## Profiles
 
-| Profile | CPU | Memory | Disk | Best For |
+Eight built-in shapes — pick a workload, not a spreadsheet:
+
+| Profile | CPU | Memory | Disk | Best for |
 |---------|-----|--------|------|----------|
-| **minimal** | 1 | 512Mi | 5Gi | DNS, jump hosts, monitoring agents |
-| **dev** | 1 | 2Gi | 10Gi | Development, testing, learning |
-| **test** | 2 | 4Gi | 20Gi | CI/CD pipelines, integration testing |
-| **web** | 4 | 8Gi | 40Gi | Nginx, Apache, static sites |
-| **prod** | 4 | 8Gi | 40Gi | Production workloads, web apps |
-| **database** | 6 | 16Gi | 200Gi | PostgreSQL, MySQL, MongoDB |
-| **microservice** | 2 | 4Gi | 20Gi | Container runtime, K8s nodes |
-| **high-perf** | 8 | 16Gi | 100Gi | ML, data processing, high traffic |
+| minimal | 1 | 512Mi | 5Gi | Agents, jump hosts |
+| dev | 1 | 2Gi | 10Gi | Local / learning |
+| test | 2 | 4Gi | 20Gi | CI pipelines |
+| web | 4 | 8Gi | 40Gi | Nginx, static sites |
+| prod | 4 | 8Gi | 40Gi | Production apps |
+| database | 6 | 16Gi | 200Gi | Postgres, MySQL, Mongo |
+| microservice | 2 | 4Gi | 20Gi | Container / node roles |
+| high-perf | 8 | 16Gi | 100Gi | ML, heavy I/O |
 
 ```bash
-zorvia profiles              # List all profiles
-zorvia profile database      # View specific profile
+zorvia profiles
+zorvia profile database
+zorvia create api --template fedora-40 --profile web
 ```
 
-## 🏗️ Multi-VM Blueprints
+---
 
-Deploy complete application stacks with **5 ready-to-use blueprints**:
+## Blueprints
 
-| Blueprint | VMs | Description |
-|-----------|-----|-------------|
-| **lamp** | 2 | MySQL database + Apache web server |
-| **k8s-cluster** | 3 | 1 control plane + 2 worker nodes |
-| **3tier** | 3 | PostgreSQL + App Server + Nginx |
-| **cicd** | 3 | GitLab + Jenkins + Artifact Registry |
-| **dev-stack** | 3 | Database + Redis Cache + Workspace |
+| Blueprint | VMs | Stack |
+|-----------|-----|--------|
+| lamp | 2 | MySQL + Apache |
+| k8s-cluster | 3 | Control plane + workers |
+| 3tier | 3 | DB + app + Nginx |
+| cicd | 3 | GitLab + Jenkins + registry |
+| dev-stack | 3 | DB + Redis + workspace |
 
 ```bash
-zorvia blueprints            # List all blueprints
-zorvia blueprint lamp        # View blueprint details
-zorvia deploy lamp --start   # Deploy and start
+zorvia blueprint lamp
+zorvia deploy lamp --prefix demo --dry-run
+zorvia deploy lamp --prefix demo --start
 ```
 
-## 🐧 OS Templates (44 Available!)
+---
 
-### Linux Distributions
-- **Ubuntu**: 18.04, 20.04, 22.04, 24.04, latest
-- **Fedora**: 38, 39, 40, latest
-- **CentOS**: stream9, 7, latest
-- **Debian**: 11, 12, latest
-- **RHEL**: 8, 9, latest
-- **AlmaLinux**: 8, 9, latest
-- **Rocky Linux**: 8, 9, latest
-- **OpenSUSE**: leap, tumbleweed, latest
-- **Alpine**: 3.18, latest
-- **Arch**: latest
-- **Oracle Linux**: 8, 9, latest
+## Templates
 
-### BSD & Container-Optimized
-- **FreeBSD**: 13, 14, latest
-- **Flatcar**: stable
-- **Talos**: latest
-
-### Windows
-- **Windows**: 2k19, 2k22, 10, 11, latest
+**44 OS templates** across Ubuntu, Fedora, CentOS Stream, Debian, RHEL, Alma, Rocky, OpenSUSE, Alpine, Arch, Oracle, FreeBSD, Flatcar, Talos, and Windows.
 
 ```bash
-zorvia templates             # List all templates
-zorvia template ubuntu-22.04 # View template details
+zorvia templates
+zorvia template ubuntu-22.04
+zorvia create web1 --template almalinux-9 --cpus 4 --memory 8Gi
 ```
 
-See [OS_TEMPLATES.md](OS_TEMPLATES.md) for complete catalog.
+Catalog: [docs/OS_TEMPLATES.md](docs/OS_TEMPLATES.md)
 
-## 🔧 Configuration File Format
+---
 
-Create a YAML or JSON file with your VM configuration:
+## Config & library
+
+**Declarative VM** (`examples/ubuntu-cloud-init.yaml` style):
 
 ```yaml
 name: my-vm
 namespace: default
-cpu:
-  cores: 4
-  sockets: 1
-  threads: 1
-memory:
-  size: 8Gi
+cpu: { cores: 4, sockets: 1, threads: 1 }
+memory: { size: 8Gi }
 disks:
   - name: rootdisk
     size: 40Gi
     boot_order: 1
-    storage_class: standard
-    source:
-      type: Blank
+    source: { type: Blank }
 interfaces:
   - name: default
     network: default
@@ -311,66 +191,35 @@ interfaces:
 cloud_init:
   user_data: |
     #cloud-config
-    user: zorvia
-    password: zorvia
-    chpasswd: { expire: False }
-labels:
-  app: my-app
+    users:
+      - name: zorvia
+        sudo: ALL=(ALL) NOPASSWD:ALL
+        ssh_authorized_keys:
+          - ssh-ed25519 AAAA…
 ```
-
-## ⚙️ Application Configuration
-
-Zorvia supports a layered configuration file for setting defaults:
 
 ```bash
-# Create default config file
+zorvia validate examples/ubuntu-cloud-init.yaml
+zorvia create my-vm --from-file examples/basic-vm.yaml
+zorvia generate web --template ubuntu --kubevirt -o web.yaml
+```
+
+**App defaults** (CLI wins over files):
+
+```bash
 zorvia config-init
-
-# View current configuration
 zorvia config-show
+# ~/.config/zorvia/config.toml  ·  /etc/zorvia/config.toml
 ```
 
-**Config file locations** (higher priority wins):
-1. CLI arguments (always win)
-2. `~/.config/zorvia/config.toml` (user)
-3. `/etc/zorvia/config.toml` (system-wide)
-4. Built-in defaults
-
-```toml
-# ~/.config/zorvia/config.toml
-namespace = "production"
-kubeconfig = "/home/user/.kube/production"
-
-[logging]
-level = "info"           # error, warn, info, debug, trace
-format = "text"          # text, json
-
-[api]
-port = 8080
-host = "0.0.0.0"
-tls = false
-auth = "none"            # none, api-key, bearer, basic, oauth2, mtls
-rate_limit = 60          # requests per minute
-
-[output]
-format = "table"         # table, yaml, json
-color = true
-
-[tui]
-refresh_interval = 5     # seconds
-interactive = false
-```
-
-## 📚 Library Usage
-
-Use zorvia as a library in your Rust projects:
+**As a crate:**
 
 ```rust
 use zorvia::config::VMConfigBuilder;
-use zorvia::output::{to_yaml, OutputFormat};
+use zorvia::output::to_yaml;
 
 fn main() -> anyhow::Result<()> {
-    let config = VMConfigBuilder::new("my-vm")
+    let cfg = VMConfigBuilder::new("my-vm")
         .namespace("production")
         .cpu(4, 1, 1)
         .memory("8Gi")
@@ -378,188 +227,74 @@ fn main() -> anyhow::Result<()> {
         .add_pod_network("default")
         .label("app", "webserver")
         .build();
-
-    let yaml = to_yaml(&config)?;
-    println!("{}", yaml);
-
+    println!("{}", to_yaml(&cfg)?);
     Ok(())
 }
 ```
 
-## 🎯 Roadmap
+---
 
-### Current Status (v0.2.0) ✅
-
-#### Innovative Features ✅
-- ✅ 8 VM resource profiles (minimal, dev, test, web, prod, database, microservice, high-perf)
-- ✅ 5 multi-VM blueprints (LAMP, k8s-cluster, 3tier, cicd, dev-stack)
-- ✅ Automated health checks with scoring (0-100)
-- ✅ Smart resource recommendations based on workload
-- ✅ Dependency-aware VM deployment
-- ✅ Beautiful themed CLI with purple Kubernetes palette
-- ✅ VM status symbols and colored output
-
-#### OS Templates ✅
-- ✅ 44 OS templates across 15 families
-- ✅ Ubuntu (5), Fedora (4), CentOS (3), Debian (3), RHEL (3)
-- ✅ AlmaLinux (3), Rocky (3), OpenSUSE (3), Alpine (2)
-- ✅ Oracle (3), FreeBSD (3), Arch (1), Flatcar (1), Talos (1)
-- ✅ Windows (5 versions)
-
-#### Core Features ✅
-- ✅ Core type definitions
-- ✅ Configuration validation (46 tests passing)
-- ✅ YAML/JSON output
-- ✅ CLI with 25+ commands
-
-#### Kubernetes Integration ✅
-- ✅ Full Kubernetes CRUD operations
-- ✅ VM lifecycle management (create, start, stop, restart, delete, clone)
-- ✅ KubeVirt CRD types and conversion
-- ✅ VM status monitoring and health checks
-- ✅ Multi-namespace support
-- ✅ PVC creation support
-- ✅ Batch operations
-
-#### Manifest Generation ✅
-- ✅ KubeVirt VirtualMachine CRD output
-- ✅ Cloud-init volume generation
-- ✅ All disk types (Blank, PVC, ContainerDisk, DataVolume)
-- ✅ All network types (Pod, Bridge, Multus)
-
-### Future Enhancements
-
-- [ ] Custom profile creation
-- [ ] Custom blueprint definitions
-- [ ] Profile auto-selection based on template
-- [ ] Resource usage tracking and analytics
-- [ ] Cost estimation
-- [ ] Auto-scaling recommendations
-- [ ] ML-based optimization
-- [ ] 🔌 Pluggable template registry (local/remote)
-- [ ] 📸 VM snapshots and backups
-- [ ] 🔄 Live migration support
-- [ ] 🎨 Full interactive TUI
-- [ ] 🔧 Terraform provider
-- [ ] 🌐 Advanced networking (SR-IOV, OVN)
-- [ ] 💾 DataVolume CRD management (CDI)
-- [ ] 📊 Resource quota management
-- [ ] 🔐 RBAC and security policies
-
-## 🧪 Development
-
-A `Makefile` is provided for common tasks:
+## Develop
 
 ```bash
-make help       # Show all commands
-make test       # Run all tests
-make clippy     # Run linter
-make lint       # Format check + clippy
-make ci         # Full CI pipeline locally
-make release    # Build optimized binary (11MB)
-make install    # Install to ~/.cargo/bin
-make tui        # Launch interactive TUI
-```
-
-### Run with debug logging
-
-```bash
-zorvia --verbose create my-vm --template ubuntu
-```
-
-### Build documentation
-
-```bash
-cargo doc --open
-```
-
-### Browse all 148 commands
-
-```bash
+make help      # tasks
+make test      # suite
+make ci        # format + clippy + test
+make release   # optimized binary
+make tui       # interactive TUI
 zorvia commands
 ```
 
-## 💡 Usage Examples
+Lab ship (build image, apply `deploy/k8s.yaml`, NodePort 30152):
 
-### Create Development Environment
 ```bash
-zorvia recommend development
-zorvia create dev-vm --template ubuntu --profile dev
-zorvia start dev-vm
+./deploy/remote-deploy.sh <host> sus --quick
 ```
 
-### Create Production Database
-```bash
-zorvia recommend database
-zorvia create prod-db --template almalinux-9 --profile database
-zorvia health prod-db
-zorvia start prod-db
-```
+---
 
-### Deploy Complete LAMP Stack
-```bash
-zorvia blueprint lamp
-zorvia deploy lamp --prefix myapp --start
-zorvia list
-```
+## Docs
 
-### Deploy Kubernetes Cluster
-```bash
-zorvia blueprint k8s-cluster
-zorvia deploy k8s-cluster --prefix prod --namespace kube-system
-```
+| Doc | Topic |
+|-----|--------|
+| [docs/WEB_CONSOLE.md](docs/WEB_CONSOLE.md) | SPA, HTTP API, WebSockets, expose |
+| [docs/INNOVATIVE_FEATURES.md](docs/INNOVATIVE_FEATURES.md) | Profiles, blueprints, health |
+| [docs/OS_TEMPLATES.md](docs/OS_TEMPLATES.md) | Template catalog |
+| [docs/SNAPSHOTS.md](docs/SNAPSHOTS.md) | Snapshots |
+| [docs/INTERACTIVE_TUI.md](docs/INTERACTIVE_TUI.md) | TUI |
+| [QUICK_REFERENCE.md](QUICK_REFERENCE.md) | Command card |
+| [DEVELOPMENT.md](DEVELOPMENT.md) | Architecture |
+| [CHANGELOG.md](CHANGELOG.md) | What’s new |
+| [docs/README.md](docs/README.md) | Full index |
 
-## 📖 Documentation
+---
 
-- **[INNOVATIVE_FEATURES.md](INNOVATIVE_FEATURES.md)** - Complete guide to innovative features
-- **[OS_TEMPLATES.md](OS_TEMPLATES.md)** - Full OS template catalog
-- **[THEME_DESIGN.md](THEME_DESIGN.md)** - Theme system documentation
-- **[QUICK_REFERENCE.md](QUICK_REFERENCE.md)** - Quick reference card
-- **[IMPLEMENTATION_COMPLETE.md](IMPLEMENTATION_COMPLETE.md)** - Implementation summary
+## Security
 
-### Configuration Examples
+Secure-by-default defaults: no `unsafe`, CORS off unless configured, TLS verification enforced, path traversal guards on profile/blueprint storage, sanitized HTTP errors, bounded auth inputs. Report issues privately via [GitHub Security Advisories](https://github.com/zyvorai/zorvia/security/advisories) or `info@zyvor.dev` — see [SECURITY.md](SECURITY.md).
 
-See the `examples/` directory for more configuration examples:
+---
 
-- `basic-vm.yaml` - Simple VM configuration
-- `ubuntu-cloud-init.yaml` - Ubuntu VM with cloud-init
-- `demo_theme.rs` - Theme demonstration
+## Roadmap (near-term)
 
-## 🔒 Security
+- In-browser SSH to the guest  
+- Pause / resume API  
+- Deep PVC / CDI-aware clone  
+- Cloud image download + golden images in the SPA  
+- Terraform provider  
 
-Zorvia follows secure-by-default principles:
+---
 
-- **No `unsafe` code** - The entire codebase is safe Rust
-- **CORS disabled by default** - API server requires explicit origin configuration
-- **TLS certificate validation enforced** - Cannot be bypassed via configuration
-- **Path traversal protection** - Profile/blueprint names are sanitized before filesystem access
-- **Error sanitization** - Internal error details are never leaked to API clients
-- **Input validation** - PAM usernames, cron expressions, and API parameters are validated at boundaries
-- **Arithmetic safety** - Saturating/checked arithmetic prevents integer overflow throughout
-- **No panics in production paths** - All `.unwrap()` / `.expect()` calls verified safe or replaced with error handling
-- **Connection pooling** - HTTP API reuses Kubernetes client connections instead of per-request allocation
+## Contributing
 
-## 🤝 Contributing
-
-Contributions are welcome! Please feel free to submit a Pull Request.
+PRs welcome. See [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ## License
 
-Copyright 2026 ZyvorAI Labs Private Limited
+Copyright 2026 ZyvorAI Labs Private Limited.
 
-Licensed under the Apache License, Version 2.0 (the "License"); you may not use
-this project except in compliance with the License. You may obtain a copy of the
-License at <http://www.apache.org/licenses/LICENSE-2.0> or in [LICENSE](LICENSE).
-See also [NOTICE](NOTICE).
+Licensed under the [Apache License, Version 2.0](http://www.apache.org/licenses/LICENSE-2.0) — see [LICENSE](LICENSE) and [NOTICE](NOTICE). **Apache-2.0 only** (no MIT dual-license).
 
-Unless required by applicable law or agreed to in writing, software distributed
-under the License is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR
-CONDITIONS OF ANY KIND, either express or implied. See the License for the
-specific language governing permissions and limitations under the License.
+## Acknowledgments
 
-This repository is **Apache-2.0 only** — there is no MIT license option.
-
-## 🙏 Acknowledgments
-
-- [KubeVirt](https://kubevirt.io/) - Kubernetes Virtualization API
-- [kube-rs](https://github.com/kube-rs/kube) - Kubernetes client for Rust
+[KubeVirt](https://kubevirt.io/) · [kube-rs](https://github.com/kube-rs/kube)

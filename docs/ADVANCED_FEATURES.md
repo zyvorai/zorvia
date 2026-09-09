@@ -479,4 +479,4 @@ Future enhancements planned:
 
 ---
 
-See the main [README.md](README.md) for basic usage and [DEVELOPMENT.md](DEVELOPMENT.md) for development details.
+See the main [README.md](../README.md) for basic usage, [WEB_CONSOLE.md](WEB_CONSOLE.md) for the web API, and [DEVELOPMENT.md](../DEVELOPMENT.md) for development details.

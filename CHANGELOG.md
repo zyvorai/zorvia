@@ -7,9 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **Web console VM ops** — Create VM (Linux cloud-init / Windows), serial console + VNC WebSocket proxies to KubeVirt, NodePort expose (SSH/VNC/RDP), clone, snapshot create/delete/revert; SPA routes under `/app/create` and `/app/vms/:name/console`
+- **Fabric-compatible HTTP** — `POST /api/vms`, `/api/images`, port-forwards, cloud-init annotate, clone, snapshots; soft stubs for metrics/logs; pause/resume return 501
+- **Kube expose helpers** — managed NodePort Services labeled `zorvia.io/vm`; `ZORVIA_EXPOSE_HOST` for UI connection hints
+- **Docs** — [docs/WEB_CONSOLE.md](docs/WEB_CONSOLE.md) for UI/API/WebSocket/RBAC
+
 ### Changed
 
 - **Kubernetes HTTPS (Veyron-style)** — in-pod rustls TLS via openssl init container; Service NodePort **30152** (`https://HOST:30152`). Host systemd `zorvia-web` is no longer the lab front door.
+- **SPA Core nav** — Dashboard, VMs, Create VM, Favorites, Snapshots; product branding **Zorvia**
 - **Renamed project to Zorvia** — crate, binary, config paths, deploy manifests, and docs now use `zorvia` / `Zorvia` (repository: [zyvorai/zorvia](https://github.com/zyvorai/zorvia))
 - **Apache License 2.0 only** — removed the MIT dual-license; `LICENSE` is Apache-2.0 exclusively
 
@@ -21,6 +29,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Error message sanitization** - HTTP API responses no longer leak internal Kubernetes error details to clients
 - **Request ID uniqueness** - API request IDs now include random suffix to prevent collisions under concurrency
 - **PAM username length** - Username validation tightened from 256 to 32 characters (PAM LOGIN_NAME_MAX)
+- **Console WS auth** — in-cluster proxy uses SA `token_file` + cluster CA when dialing KubeVirt subresources
 
 ### Fixed
 

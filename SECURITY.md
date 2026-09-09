@@ -6,7 +6,8 @@ We release patches for security vulnerabilities for the following versions:
 
 | Version | Supported          |
 | ------- | ------------------ |
-| 0.1.x   | :white_check_mark: |
+| 0.2.x   | :white_check_mark: |
+| 0.1.x   | :x:                |
 
 ## Reporting a Vulnerability
 
@@ -24,7 +25,7 @@ Instead, please report them via one of the following methods:
    - Fill in the details
 
 2. **Email**
-   - Send an email to: [your-email@example.com]
+   - Send an email to: info@zyvor.dev
    - Include as much information as possible (see below)
 
 ### 📝 What to Include
@@ -97,6 +98,13 @@ When using zorvia:
 - Cloud-init user-data can execute arbitrary code in VMs
 - Review cloud-init scripts before deployment
 - Avoid hardcoded credentials in cloud-init
+
+#### Web console & API
+- Protect JWT secrets and bootstrap admin credentials (`ZORVIA_JWT_SECRET`, auth secret)
+- Prefer short-lived tokens; WebSocket URLs carry `?token=` — treat logs and browser history carefully
+- ClusterRole must include console/VNC subresources and `services` only where intended (see `deploy/k8s.yaml`)
+- Lab NodePort TLS is self-signed; use real certificates in production
+- NodePort expose publishes guest ports on the node — firewall accordingly (`ZORVIA_EXPOSE_HOST`)
 
 ### 📚 Security Resources
 
