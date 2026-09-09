@@ -43,6 +43,18 @@ cd zorvia
 cargo build --release
 ```
 
+### Kubernetes HTTPS (Veyron-style)
+
+In-cluster TLS (rustls) with an openssl init container and NodePort **30152** (30151 is reserved for Veyron on shared labs):
+
+```bash
+kubectl apply -f deploy/k8s.yaml
+# Lab UI:   https://<HOST>:30152/
+# Health:   https://<HOST>:30152/api/v1/health   (self-signed; use curl -sk)
+```
+
+Remote lab ship: `./deploy/remote-deploy.sh <host> sus --quick` (builds `zorvia:local`, applies manifests, disables host systemd `zorvia-web`).
+
 ## 🚀 Quick Start
 
 ### 🎯 Smart VM Creation with Profiles

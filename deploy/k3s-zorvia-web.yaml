@@ -1,38 +1,130 @@
+# Zorvia k3s auto-manifest (same Veyron-style HTTPS as deploy/k8s.yaml)
+# Copied to /var/lib/rancher/k3s/server/manifests/ by remote-deploy.sh
+#
+# Lab URL: https://<HOST>:30152/  (30151 is Veyron on shared labs)
+---
 apiVersion: v1
 kind: Namespace
 metadata:
+  name: zorvia-system
+  labels:
+    app.kubernetes.io/name: zorvia
+    app.kubernetes.io/part-of: zorvia
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
   name: zorvia
+  namespace: zorvia-system
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: zorvia
+rules:
+  - apiGroups: ["kubevirt.io"]
+    resources: ["virtualmachines", "virtualmachineinstances", "virtualmachineinstancemigrations"]
+    verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+  - apiGroups: ["snapshot.kubevirt.io"]
+    resources: ["virtualmachinesnapshots", "virtualmachinesnapshotcontents", "virtualmachinerestores"]
+    verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+  - apiGroups: [""]
+    resources: ["namespaces", "persistentvolumeclaims", "pods", "events"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: ["storage.k8s.io"]
+    resources: ["storageclasses"]
+    verbs: ["get", "list", "watch"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: zorvia
+subjects:
+  - kind: ServiceAccount
+    name: zorvia
+    namespace: zorvia-system
+roleRef:
+  kind: ClusterRole
+  name: zorvia
+  apiGroup: rbac.authorization.k8s.io
 ---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: zorvia-web
-  namespace: zorvia
+  name: zorvia-api
+  namespace: zorvia-system
   labels:
-    app: zorvia-web
+    app.kubernetes.io/name: zorvia
+    app.kubernetes.io/component: api
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app: zorvia-web
+      app.kubernetes.io/name: zorvia
+      app.kubernetes.io/component: api
   template:
     metadata:
       labels:
-        app: zorvia-web
+        app.kubernetes.io/name: zorvia
+        app.kubernetes.io/component: api
     spec:
-      serviceAccountName: zorvia-web
+      serviceAccountName: zorvia
+      initContainers:
+        - name: gen-cert
+          image: alpine/openssl:3.3.2
+          command: ["/bin/sh", "-c"]
+          args:
+            - |
+              openssl req -x509 -nodes -days 3650 \
+                -newkey ec -pkeyopt ec_paramgen_curve:prime256v1 \
+                -keyout /certs/tls.key -out /certs/tls.crt \
+                -subj "/CN=zorvia/O=ZyvorAI Labs Private Limited" \
+                -addext "subjectAltName=DNS:zorvia-api,DNS:zorvia-api.zorvia-system.svc,DNS:localhost,IP:127.0.0.1"
+              chown 10001:10001 /certs/tls.key /certs/tls.crt
+              chmod 600 /certs/tls.key && chmod 644 /certs/tls.crt
+          securityContext:
+            runAsUser: 0
+            runAsNonRoot: false
+          volumeMounts:
+            - name: tls-certs
+              mountPath: /certs
       containers:
-        - name: zorvia-web
+        - name: zorvia
           image: zorvia:local
+          imagePullPolicy: Never
           command: ["/usr/local/bin/zorvia"]
-          args: ["api-serve", "--port", "5151", "--host", "0.0.0.0"]
+          args:
+            - api-serve
+            - --port
+            - "5151"
+            - --host
+            - "0.0.0.0"
+            - --tls
+            - --tls-cert
+            - /certs/tls.crt
+            - --tls-key
+            - /certs/tls.key
           ports:
             - containerPort: 5151
-              name: http
+              name: https
+              protocol: TCP
+          livenessProbe:
+            httpGet:
+              path: /api/v1/health
+              port: https
+              scheme: HTTPS
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          readinessProbe:
+            httpGet:
+              path: /api/v1/health
+              port: https
+              scheme: HTTPS
+            initialDelaySeconds: 3
+            periodSeconds: 5
           securityContext:
             runAsNonRoot: true
-            runAsUser: 65534
-            readOnlyRootFilesystem: true
+            runAsUser: 10001
             allowPrivilegeEscalation: false
             seccompProfile:
               type: RuntimeDefault
@@ -46,64 +138,30 @@ spec:
             limits:
               cpu: 500m
               memory: 256Mi
-          livenessProbe:
-            httpGet:
-              path: /api/v1/health
-              port: 5151
-            initialDelaySeconds: 5
-            periodSeconds: 30
-          readinessProbe:
-            httpGet:
-              path: /api/v1/health
-              port: 5151
-            initialDelaySeconds: 3
-            periodSeconds: 10
----
-apiVersion: v1
-kind: ServiceAccount
-metadata:
-  name: zorvia-web
-  namespace: zorvia
----
-apiVersion: rbac.authorization.k8s.io/v1
-kind: ClusterRole
-metadata:
-  name: zorvia-web
-rules:
-  - apiGroups: ["kubevirt.io"]
-    resources: ["virtualmachines", "virtualmachineinstances"]
-    verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
-  - apiGroups: ["snapshot.kubevirt.io"]
-    resources: ["virtualmachinesnapshots", "virtualmachinerestores"]
-    verbs: ["get", "list", "watch", "create", "delete"]
-  - apiGroups: [""]
-    resources: ["pods", "services", "persistentvolumeclaims"]
-    verbs: ["get", "list", "watch"]
----
-apiVersion: rbac.authorization.k8s.io/v1
-kind: ClusterRoleBinding
-metadata:
-  name: zorvia-web
-roleRef:
-  apiGroup: rbac.authorization.k8s.io
-  kind: ClusterRole
-  name: zorvia-web
-subjects:
-  - kind: ServiceAccount
-    name: zorvia-web
-    namespace: zorvia
+          volumeMounts:
+            - name: tls-certs
+              mountPath: /certs
+              readOnly: true
+      volumes:
+        - name: tls-certs
+          emptyDir: {}
 ---
 apiVersion: v1
 kind: Service
 metadata:
-  name: zorvia-web
-  namespace: zorvia
+  name: zorvia-api
+  namespace: zorvia-system
+  labels:
+    app.kubernetes.io/name: zorvia
+    app.kubernetes.io/component: api
 spec:
   type: NodePort
   selector:
-    app: zorvia-web
+    app.kubernetes.io/name: zorvia
+    app.kubernetes.io/component: api
   ports:
-    - port: 5151
-      targetPort: 5151
-      nodePort: 30080
-      name: http
+    - port: 443
+      targetPort: https
+      protocol: TCP
+      name: https
+      nodePort: 30152

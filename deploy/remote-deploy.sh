@@ -204,40 +204,77 @@ step "Step ${INSTALL_STEP}/${TOTAL_STEPS}: Installing binary and service"
 _ssh "
     cd $REMOTE_DIR
 
-    # Stop service before replacing binary (avoids 'Text file busy')
-    $SUDO systemctl stop zorvia-web.service 2>/dev/null || true
+    # Stop host systemd front door — K8s NodePort HTTPS is primary (Veyron-style)
+    $SUDO systemctl disable --now zorvia-web.service 2>/dev/null || true
 
-    # Install binary
+    # Install binary (CLI / optional bare-metal)
     $SUDO cp target/release/zorvia /usr/local/bin/zorvia
     $SUDO chmod 755 /usr/local/bin/zorvia
-
-    # Install systemd service
     $SUDO cp deploy/zorvia-web.service /etc/systemd/system/zorvia-web.service
     $SUDO systemctl daemon-reload
 
-    # Generate and install API key if not already present
+    # Scoped kubeconfig for local CLI use
     $SUDO mkdir -p /etc/zorvia
+    if [ -f /etc/rancher/k3s/k3s.yaml ]; then
+        $SUDO cp /etc/rancher/k3s/k3s.yaml /etc/zorvia/kubeconfig
+        $SUDO chown root:${USER} /etc/zorvia/kubeconfig
+        $SUDO chmod 640 /etc/zorvia/kubeconfig
+        echo 'kubeconfig: installed at /etc/zorvia/kubeconfig'
+    fi
+
     if [ ! -f /etc/zorvia/env ]; then
         API_KEY=\$(openssl rand -hex 32)
         echo \"ZORVIA_API_KEY=\${API_KEY}\" | $SUDO tee /etc/zorvia/env > /dev/null
         $SUDO chmod 600 /etc/zorvia/env
         echo \"API key generated: \${API_KEY}\"
-        echo \"Save this key — it is required for API access.\"
     else
         echo 'API key: already configured (kept existing)'
     fi
 
-    # Install k3s manifest if k3s is running
-    if [ -d /var/lib/rancher/k3s/server/manifests ]; then
-        $SUDO cp deploy/k3s-zorvia-web.yaml /var/lib/rancher/k3s/server/manifests/zorvia-web.yaml
-        echo 'k3s manifest: installed'
+    # Build/import local image for k3s (zorvia:local) when container tooling exists.
+    # Use ubuntu:24.04 so host-built binaries (glibc 2.39+) run.
+    if command -v docker >/dev/null 2>&1 && [ -x target/release/zorvia ]; then
+        mkdir -p /tmp/zorvia-img
+        cp -f target/release/zorvia /tmp/zorvia-img/zorvia
+        cat > /tmp/zorvia-img/Dockerfile << 'DF'
+FROM ubuntu:24.04
+RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates \
+    && rm -rf /var/lib/apt/lists/* \
+    && useradd -u 10001 -m zorvia
+COPY zorvia /usr/local/bin/zorvia
+RUN chmod 755 /usr/local/bin/zorvia
+USER zorvia
+ENTRYPOINT ["zorvia"]
+CMD ["api-serve"]
+DF
+        $SUDO docker build -t zorvia:local /tmp/zorvia-img
+        $SUDO docker save zorvia:local | $SUDO k3s ctr images import - 2>/dev/null \
+          || $SUDO docker save zorvia:local | $SUDO ctr -n k8s.io images import - 2>/dev/null \
+          || true
+        echo 'image: zorvia:local built/imported'
+    else
+        echo 'docker/binary missing; using existing zorvia:local if present'
     fi
 
-    # Restart service
-    $SUDO systemctl enable zorvia-web.service 2>/dev/null || true
-    $SUDO systemctl restart zorvia-web.service
+    # Apply Kubernetes HTTPS manifests (in-pod TLS + NodePort 30152)
+    export KUBECONFIG=/etc/rancher/k3s/k3s.yaml
+    if command -v kubectl >/dev/null 2>&1 || [ -x /usr/local/bin/kubectl ]; then
+        $SUDO kubectl apply -f deploy/k8s.yaml
+        # Clean up legacy namespace/manifest names from earlier HTTP NodePort deploys
+        $SUDO kubectl delete namespace zorvia --ignore-not-found 2>/dev/null || true
+        if [ -d /var/lib/rancher/k3s/server/manifests ]; then
+            $SUDO cp deploy/k3s-zorvia-web.yaml /var/lib/rancher/k3s/server/manifests/zorvia-web.yaml \
+              || $SUDO cp deploy/k3s-zorvia-web.yaml /var/lib/rancher/k3s/server/manifests/zorvia-api.yaml \
+              || true
+            echo 'k3s auto-manifest: installed'
+        fi
+        $SUDO kubectl -n zorvia-system rollout status deployment/zorvia-api --timeout=180s || true
+        echo 'k8s: zorvia-api applied (HTTPS NodePort 30152)'
+    else
+        echo 'kubectl not found; skipped Kubernetes apply'
+    fi
 " 2>&1
-info "Binary and service installed"
+info "Binary and Kubernetes manifests installed"
 
 # ── Verify ──
 if $QUICK_MODE; then
@@ -247,24 +284,19 @@ else
 fi
 step "Step ${VERIFY_STEP}/${TOTAL_STEPS}: Verifying deployment"
 
-sleep 2
+sleep 3
 _ssh "
     echo \"Binary:  \$(which zorvia 2>/dev/null || echo NOT_FOUND)\"
     echo \"Version: \$(zorvia --version 2>/dev/null || echo FAILED)\"
-    echo \"Service: \$(systemctl is-active zorvia-web 2>/dev/null || echo not-running)\"
+    echo \"Host systemd zorvia-web: \$(systemctl is-active zorvia-web 2>/dev/null || echo inactive)\"
     echo \"\"
-
-    # Show service status
-    systemctl status zorvia-web --no-pager -l 2>/dev/null | head -10 || true
-
-    # Check port
+    $SUDO kubectl -n zorvia-system get deploy,svc,pods 2>/dev/null || true
     echo \"\"
-    if ss -tlnp 2>/dev/null | grep -q ':5151'; then
-        echo 'Port 5151: listening'
+    if curl -sk -o /dev/null -w 'NodePort health: HTTP %{http_code}\n' --max-time 10 https://127.0.0.1:30152/api/v1/health; then
+        :
     else
-        echo 'Port 5151: not yet listening'
-        echo 'Recent logs:'
-        $SUDO journalctl -u zorvia-web --no-pager -n 5 2>/dev/null || true
+        echo 'NodePort 30152: not ready yet'
+        $SUDO kubectl -n zorvia-system describe pods -l app.kubernetes.io/component=api 2>/dev/null | tail -40 || true
     fi
 " 2>&1
 
@@ -276,10 +308,11 @@ echo ""
 echo "  Connect:"
 echo "    ssh ${USER}@${HOST}"
 echo ""
-echo "  Web Dashboard:"
-echo "    http://${HOST}:5151"
+echo "  Web Dashboard (Kubernetes HTTPS, Veyron-style NodePort):"
+echo "    https://${HOST}:30152"
+echo "    https://${HOST}:30152/api/v1/health"
 echo ""
 echo "  Service management:"
-echo "    sudo systemctl status zorvia-web"
-echo "    sudo journalctl -u zorvia-web -f"
+echo "    sudo kubectl -n zorvia-system get pods,svc"
+echo "    sudo kubectl -n zorvia-system logs -l app.kubernetes.io/component=api -f"
 echo ""

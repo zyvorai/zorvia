@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **Kubernetes HTTPS (Veyron-style)** — in-pod rustls TLS via openssl init container; Service NodePort **30152** (`https://HOST:30152`). Host systemd `zorvia-web` is no longer the lab front door.
 - **Renamed project to Zorvia** — crate, binary, config paths, deploy manifests, and docs now use `zorvia` / `Zorvia` (repository: [zyvorai/zorvia](https://github.com/zyvorai/zorvia))
 - **Apache License 2.0 only** — removed the MIT dual-license; `LICENSE` is Apache-2.0 exclusively
 

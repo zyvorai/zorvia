@@ -6,13 +6,13 @@ Wants=network-online.target
 
 [Service]
 Type=simple
-ExecStart=/usr/local/bin/zorvia api-serve --port 5151 --host 0.0.0.0
+User=sus
+Group=sus
+ExecStart=/usr/local/bin/zorvia api-serve --port 5151 --host 0.0.0.0 --tls --tls-cert /etc/zorvia/tls/server.crt --tls-key /etc/zorvia/tls/server.key
 Restart=on-failure
 RestartSec=5
-# NOTE: For production, use a scoped service account kubeconfig instead of k3s admin credentials
-Environment=KUBECONFIG=/etc/rancher/k3s/k3s.yaml
+Environment=KUBECONFIG=/etc/zorvia/kubeconfig
 EnvironmentFile=-/etc/zorvia/env
-DynamicUser=yes
 NoNewPrivileges=yes
 ProtectSystem=strict
 ProtectHome=yes
@@ -24,6 +24,11 @@ ProtectControlGroups=yes
 RestrictSUIDSGID=yes
 RestrictNamespaces=yes
 MemoryDenyWriteExecute=yes
+LockPersonality=yes
+RestrictRealtime=yes
+SystemCallArchitectures=native
+# Allow reading kubeconfig / TLS / env under /etc/zorvia
+ReadOnlyPaths=/etc/zorvia
 
 [Install]
 WantedBy=multi-user.target
