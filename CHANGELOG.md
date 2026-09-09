@@ -14,6 +14,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Kube expose helpers** — managed NodePort Services labeled `zorvia.io/vm`; `ZORVIA_EXPOSE_HOST` for UI connection hints
 - **Docs** — [docs/WEB_CONSOLE.md](docs/WEB_CONSOLE.md) for UI/API/WebSocket/RBAC
 - **Drift Guard** — semantic desired-vs-live VM drift detection with Kubernetes-noise normalization, named-list canonicalization, operational risk scoring, JSON-pointer ignores, CI severity gates, and table/JSON/YAML output
+- **Change Planner** — `zorvia plan` turns Drift Guard findings into conservative online/restart/recreate/manual-review execution plans with downtime gates
+- **Guest Insight** — `zorvia guest-insight` summarizes QEMU Guest Agent state, guest OS/kernel, interfaces, and readiness score
+- **CDI Golden Images** — `zorvia image-bundle` generates versioned DataVolumes plus stable DataSource aliases
 
 ### Changed
 

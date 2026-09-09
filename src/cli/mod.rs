@@ -1926,6 +1926,93 @@ pub enum Commands {
         output: String,
     },
 
+    /// Translate semantic VM drift into a conservative operational change plan
+    Plan {
+        /// Desired VM manifest (KubeVirt VirtualMachine or Zorvia VMConfig)
+        desired: String,
+
+        /// Compare against another manifest instead of the live cluster
+        #[arg(long, conflicts_with = "vm")]
+        actual: Option<String>,
+
+        /// VM name override for live comparison (defaults to metadata.name)
+        #[arg(long)]
+        vm: Option<String>,
+
+        /// Ignore an RFC 6901 JSON pointer; repeat for multiple paths.
+        /// A pointer ending in /* ignores the entire subtree.
+        #[arg(long)]
+        ignore: Vec<String>,
+
+        /// Include controller-owned status in the comparison
+        #[arg(long)]
+        include_status: bool,
+
+        /// Fail when the plan requires planned downtime
+        #[arg(long)]
+        fail_on_downtime: bool,
+
+        /// Fail when the plan requires VM/VMI recreation
+        #[arg(long)]
+        fail_on_recreate: bool,
+
+        /// Output format (table, yaml, json)
+        #[arg(short, long, default_value = "table")]
+        output: String,
+    },
+
+    /// Inspect QEMU Guest Agent and guest OS/network visibility for a VM
+    GuestInsight {
+        /// VM name
+        vm: String,
+
+        /// Output format (table, yaml, json)
+        #[arg(short, long, default_value = "table")]
+        output: String,
+
+        /// Return non-zero when QEMU Guest Agent is not detected
+        #[arg(long)]
+        strict: bool,
+    },
+
+    /// Generate a versioned CDI DataVolume plus stable DataSource golden-image bundle
+    ImageBundle {
+        /// Stable image name / DataSource alias
+        name: String,
+
+        /// Immutable image version (for example 24.04-r2)
+        #[arg(long)]
+        version: String,
+
+        /// CDI source URL (http[s]://... or docker://...)
+        #[arg(long)]
+        source: String,
+
+        /// Source type (http or registry)
+        #[arg(long, default_value = "http")]
+        source_type: String,
+
+        /// Requested PVC size
+        #[arg(long)]
+        size: String,
+
+        /// StorageClass for the imported DataVolume
+        #[arg(long)]
+        storage_class: Option<String>,
+
+        /// Optional source checksum annotation
+        #[arg(long)]
+        checksum: Option<String>,
+
+        /// Output file (defaults to stdout)
+        #[arg(short, long)]
+        output: Option<String>,
+
+        /// Output format (yaml or json)
+        #[arg(long, default_value = "yaml")]
+        format: String,
+    },
+
     /// Initialize a new zorvia project
     Init {
         /// Project name

@@ -4,6 +4,9 @@
 |-----|--------|
 | [WEB_CONSOLE.md](WEB_CONSOLE.md) | SPA, Fabric HTTP API, console/VNC WebSockets, NodePort expose |
 | [DRIFT_GUARD.md](DRIFT_GUARD.md) | Semantic KubeVirt desired-vs-live drift (`zorvia drift`) |
+| [CHANGE_PLANNER.md](CHANGE_PLANNER.md) | Operational change plan from drift (`zorvia plan`) |
+| [GUEST_INSIGHT.md](GUEST_INSIGHT.md) | QEMU Guest Agent readiness (`zorvia guest-insight`) |
+| [GOLDEN_IMAGES.md](GOLDEN_IMAGES.md) | CDI golden image bundles (`zorvia image-bundle`) |
 | [INNOVATIVE_FEATURES.md](INNOVATIVE_FEATURES.md) | Profiles, blueprints, health, recommendations |
 | [OS_TEMPLATES.md](OS_TEMPLATES.md) | 44 OS templates |
 | [SNAPSHOTS.md](SNAPSHOTS.md) | Snapshot create/restore/retention |

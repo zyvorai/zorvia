@@ -46,6 +46,7 @@ pub mod automation;
 pub mod backup;
 pub mod blueprints;
 pub mod capacity;
+pub mod change_plan;
 pub mod compliance;
 pub mod cost;
 pub mod devexp;
@@ -54,6 +55,8 @@ pub mod dr;
 pub mod edge;
 pub mod finops;
 pub mod gitops;
+pub mod golden_images;
+pub mod guest_insight;
 pub mod handlers;
 pub mod health;
 pub mod migration;
@@ -1069,6 +1072,65 @@ pub async fn run(mut cli: Cli) -> Result<()> {
             )
             .await?
         }
+
+        Commands::Plan {
+            desired,
+            actual,
+            vm,
+            ignore,
+            include_status,
+            fail_on_downtime,
+            fail_on_recreate,
+            output,
+        } => {
+            handlers::gitops::handle_change_plan(
+                desired,
+                actual,
+                vm,
+                ignore,
+                include_status,
+                fail_on_downtime,
+                fail_on_recreate,
+                output,
+                &cli.namespace,
+                cli.kubeconfig.as_deref(),
+            )
+            .await?
+        }
+
+        Commands::GuestInsight { vm, output, strict } => {
+            handlers::guest::handle_guest_insight(
+                vm,
+                output,
+                strict,
+                &cli.namespace,
+                cli.kubeconfig.as_deref(),
+            )
+            .await?
+        }
+
+        Commands::ImageBundle {
+            name,
+            version,
+            source,
+            source_type,
+            size,
+            storage_class,
+            checksum,
+            output,
+            format,
+        } => handlers::images::handle_image_bundle(
+            name,
+            version,
+            source,
+            source_type,
+            size,
+            storage_class,
+            checksum,
+            output,
+            format,
+            &cli.namespace,
+        )?,
 
         Commands::Init {
             name,

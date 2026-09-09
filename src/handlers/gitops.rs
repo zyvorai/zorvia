@@ -257,3 +257,157 @@ mod tests {
         assert_eq!(truncate("αβγδε", 4), "αβγ…");
     }
 }
+/// Build an operational execution plan from the same semantic comparison used by Drift Guard.
+#[allow(clippy::too_many_arguments)]
+pub async fn handle_change_plan(
+    desired: String,
+    actual: Option<String>,
+    vm: Option<String>,
+    ignore: Vec<String>,
+    include_status: bool,
+    fail_on_downtime: bool,
+    fail_on_recreate: bool,
+    output: String,
+    cli_namespace: &str,
+    kubeconfig: Option<&str>,
+) -> Result<()> {
+    use crate::change_plan::{ChangeDisposition, ChangePlanner};
+
+    let desired_value = load_vm_manifest(Path::new(&desired))?;
+
+    let (actual_value, source_label) = if let Some(actual_path) = actual {
+        (load_vm_manifest(Path::new(&actual_path))?, actual_path)
+    } else {
+        let name = vm
+            .or_else(|| manifest_name(&desired_value))
+            .ok_or_else(|| {
+                anyhow!(
+                    "unable to determine VM name; set metadata.name in the manifest or pass --vm"
+                )
+            })?;
+        let namespace = manifest_namespace(&desired_value)
+            .filter(|ns| !ns.trim().is_empty())
+            .unwrap_or_else(|| cli_namespace.to_string());
+
+        let client = match kubeconfig {
+            Some(path) => KubeClient::with_kubeconfig(path)
+                .await
+                .with_context(|| format!("failed to load kubeconfig '{}'", path))?,
+            None => KubeClient::new()
+                .await
+                .context("failed to create Kubernetes client")?,
+        };
+        let live = client
+            .get_vm(&namespace, &name)
+            .await
+            .with_context(|| format!("failed to get VirtualMachine {}/{}", namespace, name))?;
+        (
+            serde_json::to_value(live).context("failed to serialize live VirtualMachine")?,
+            format!("cluster:{}/{}", namespace, name),
+        )
+    };
+
+    let report = DriftEngine::new(DriftOptions {
+        ignore_paths: ignore,
+        include_status,
+        normalize_kubernetes_metadata: true,
+    })
+    .compare(&desired_value, &actual_value);
+    let plan = ChangePlanner::plan(&report);
+
+    render_change_plan(&plan, &desired, &source_label, &output)?;
+
+    if fail_on_recreate && plan.requires_recreation {
+        return Err(anyhow!(
+            "change-plan gate failed: reconciliation requires VM/VMI recreation"
+        ));
+    }
+    if fail_on_downtime && plan.requires_downtime {
+        return Err(anyhow!(
+            "change-plan gate failed: reconciliation requires planned downtime"
+        ));
+    }
+
+    // Manual review is deliberately visible but is not an automatic failure:
+    // callers can use JSON/YAML output to implement organization-specific policy.
+    if plan.overall_disposition == ChangeDisposition::ManualReview {
+        log::warn!("change plan contains operations that require manual review");
+    }
+
+    Ok(())
+}
+
+fn render_change_plan(
+    plan: &crate::change_plan::ChangePlan,
+    desired_source: &str,
+    actual_source: &str,
+    output: &str,
+) -> Result<()> {
+    match output.to_ascii_lowercase().as_str() {
+        "json" => println!("{}", serde_json::to_string_pretty(plan)?),
+        "yaml" | "yml" => println!("{}", serde_yaml::to_string(plan)?),
+        "table" | "text" => render_change_plan_table(plan, desired_source, actual_source),
+        other => {
+            return Err(anyhow!(
+                "unsupported change-plan output '{}'; expected table, json, or yaml",
+                other
+            ))
+        }
+    }
+    Ok(())
+}
+
+fn render_change_plan_table(
+    plan: &crate::change_plan::ChangePlan,
+    desired_source: &str,
+    actual_source: &str,
+) {
+    println!("{}", color::header("Zorvia Change Planner"));
+    println!();
+    println!("  Resource:     {}", color::value(&plan.resource));
+    println!("  Desired:      {}", desired_source);
+    println!("  Actual:       {}", actual_source);
+    println!("  Risk score:   {}/100", plan.risk_score);
+    println!("  Disposition:  {}", plan.overall_disposition);
+    println!(
+        "  Downtime:     {}",
+        if plan.requires_downtime { "required" } else { "not expected" }
+    );
+    println!(
+        "  Recreation:   {}",
+        if plan.requires_recreation { "required" } else { "no" }
+    );
+    println!();
+
+    if plan.is_noop() {
+        println!("{}", color::success("✓ No change required"));
+        return;
+    }
+
+    println!("  {:<18} {:<10} {:<50} ACTION", "IMPACT", "SEVERITY", "PATH");
+    println!("  {}", "-".repeat(110));
+    for change in &plan.changes {
+        println!(
+            "  {:<18} {:<10} {:<50} {}",
+            change.disposition,
+            change.severity,
+            truncate(&change.path, 50),
+            change.action
+        );
+    }
+
+    print_plan_section("Preflight", &plan.preflight_checks);
+    print_plan_section("Execution", &plan.execution_steps);
+    print_plan_section("Postflight", &plan.postflight_checks);
+}
+
+fn print_plan_section(title: &str, items: &[String]) {
+    if items.is_empty() {
+        return;
+    }
+    println!();
+    println!("{}", color::label(&format!("{}:", title)));
+    for item in items {
+        println!("  - {}", item);
+    }
+}

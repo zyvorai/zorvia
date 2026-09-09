@@ -7,6 +7,8 @@ pub mod backup;
 pub mod cost;
 pub mod devexp;
 pub mod gitops;
+pub mod guest;
+pub mod images;
 pub mod infra;
 pub mod multitenancy;
 pub mod observability;
