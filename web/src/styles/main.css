@@ -1,0 +1,1056 @@
+/* Copyright 2026 Zyvor AI Labs · https://zyvor.dev
+ * SPDX-License-Identifier: Apache-2.0 */
+@import "tailwindcss";
+
+:root {
+  /* Apple AirPods palette — ink / secondary / muted are clearly legible on #f5f5f7 */
+  --zf-ink: #1d1d1f;
+  --zf-secondary: #333336;
+  --zf-muted: #6e6e73;
+  --zf-canvas: #f5f5f7;
+  --zf-canvas-alt: #e8e8ed;
+  --zf-surface: #ffffff;
+  --zf-hairline: #d2d2d7;
+  --zf-link: #0066cc;
+  --zf-link-hover: #0077ed;
+  --zf-accent: #1d1d1f;
+  --zf-success: #34c759;
+  --zf-danger: #ff3b30;
+  --zf-warning: #ff9f0a;
+  --zf-radius: 12px;
+  --zf-radius-sm: 8px;
+  --layout-max-width: 61.25rem;
+  --console-sidebar: 15.5rem;
+  /* Subtle press/hover/focus tints — swap polarity per theme (darken on light, lighten on dark) */
+  --zf-hover-tint: rgba(0, 0, 0, 0.04);
+  --zf-active-tint: rgba(0, 0, 0, 0.06);
+  --zf-focus-tint: rgba(0, 0, 0, 0.06);
+  --zf-nav-surface: rgba(251, 251, 253, 0.72);
+  --zf-nav-border: rgba(0, 0, 0, 0.08);
+  color-scheme: light;
+}
+
+/* Apple-style dark theme — mirrors apple.com/ipad-pro's near-black canvas,
+   elevated dark cards, and #2997ff dark-mode link/accent blue. Applied via
+   [data-theme="dark"] on <html> (see index.html's early-set inline script
+   and ThemeContext), not prefers-color-scheme directly, so an explicit user
+   choice always wins over the system default. */
+:root[data-theme='dark'] {
+  --zf-ink: #f5f5f7;
+  --zf-secondary: #d2d2d7;
+  --zf-muted: #98989d;
+  --zf-canvas: #000000;
+  --zf-canvas-alt: #1c1c1e;
+  --zf-surface: #1c1c1e;
+  --zf-hairline: #38383a;
+  --zf-link: #2997ff;
+  --zf-link-hover: #6cb6ff;
+  --zf-accent: #f5f5f7;
+  --zf-success: #32d74b;
+  --zf-danger: #ff453a;
+  --zf-warning: #ff9f0a;
+  --zf-hover-tint: rgba(255, 255, 255, 0.06);
+  --zf-active-tint: rgba(255, 255, 255, 0.09);
+  --zf-focus-tint: rgba(255, 255, 255, 0.14);
+  --zf-nav-surface: rgba(0, 0, 0, 0.72);
+  --zf-nav-border: rgba(255, 255, 255, 0.1);
+  color-scheme: dark;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html {
+  scroll-behavior: smooth;
+  scroll-padding-top: 64px;
+}
+
+body {
+  margin: 0;
+  /* Same stack as apple.com/airpods — SF Pro on Apple platforms */
+  font-family: 'SF Pro Text', 'SF Pro Display', -apple-system, BlinkMacSystemFont, 'Helvetica Neue',
+    Helvetica, Arial, sans-serif;
+  font-size: 17px;
+  line-height: 1.47059;
+  font-weight: 400;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  background: var(--zf-canvas);
+  color: var(--zf-ink);
+  letter-spacing: -0.022em;
+}
+
+code,
+pre,
+.font-mono {
+  font-family: 'JetBrains Mono', ui-monospace, Menlo, Monaco, Consolas, monospace;
+}
+
+a {
+  color: var(--zf-link);
+  text-decoration: none;
+}
+a:hover {
+  color: var(--zf-link-hover);
+}
+
+/* —— Marketing —— */
+.mkt-nav {
+  position: sticky;
+  top: 0;
+  z-index: 40;
+  backdrop-filter: saturate(180%) blur(20px);
+  background: var(--zf-nav-surface);
+  border-bottom: 1px solid var(--zf-nav-border);
+  /* Avoid Safari compositing a huge system focus glow under the sticky bar */
+  -webkit-tap-highlight-color: transparent;
+}
+.mkt-nav-inner {
+  max-width: 980px;
+  margin: 0 auto;
+  height: 48px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 22px;
+  font-size: 12px;
+}
+.mkt-nav a {
+  color: var(--zf-ink);
+  opacity: 0.8;
+  font-weight: 500;
+  border-radius: 6px;
+}
+.mkt-nav a:hover {
+  opacity: 1;
+  color: var(--zf-ink);
+}
+.mkt-nav a:focus,
+.mkt-nav button:focus {
+  outline: none;
+}
+.mkt-nav a:focus-visible,
+.mkt-nav button:focus-visible {
+  outline: 2px solid var(--zf-link);
+  outline-offset: 3px;
+  opacity: 1;
+}
+.mkt-brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 17px;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  opacity: 1 !important;
+}
+.mkt-hero {
+  min-height: calc(100vh - 48px);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 72px 24px 96px;
+  background:
+    radial-gradient(ellipse 80% 50% at 50% 0%, var(--zf-hover-tint), transparent 60%),
+    var(--zf-canvas);
+}
+.mkt-hero h1 {
+  font-size: clamp(2.75rem, 8vw, 5.5rem);
+  font-weight: 600;
+  letter-spacing: -0.045em;
+  line-height: 1.05;
+  margin: 0 0 18px;
+  color: var(--zf-ink);
+}
+.mkt-hero .lede {
+  font-size: clamp(1.125rem, 2.4vw, 1.75rem);
+  color: var(--zf-secondary);
+  max-width: 36rem;
+  margin: 0 auto 36px;
+  line-height: 1.35;
+  font-weight: 400;
+  letter-spacing: -0.02em;
+}
+.mkt-cta-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14px;
+  justify-content: center;
+}
+.mkt-section {
+  padding: 96px 24px;
+  max-width: 980px;
+  margin: 0 auto;
+  /* Keep sticky .mkt-nav from covering section headings while scrolling */
+  scroll-margin-top: 64px;
+}
+.mkt-section h2 {
+  font-size: clamp(2rem, 4.5vw, 3rem);
+  font-weight: 600;
+  letter-spacing: -0.035em;
+  margin: 0 0 16px;
+  line-height: 1.1;
+  color: var(--zf-ink);
+}
+.mkt-section p {
+  font-size: 1.25rem;
+  color: var(--zf-muted);
+  line-height: 1.45;
+  letter-spacing: -0.015em;
+  max-width: 40rem;
+}
+/* Inverse band: dark on light theme, light on dark theme — never reuse --zf-ink
+   as the band fill (in dark mode ink is already light, which washed out the CTA). */
+.mkt-band {
+  --mkt-band-bg: #1d1d1f;
+  --mkt-band-fg: #f5f5f7;
+  --mkt-band-muted: #a1a1a6;
+  --mkt-band-cta-bg: #ffffff;
+  --mkt-band-cta-fg: #1d1d1f;
+  background: var(--mkt-band-bg);
+  color: var(--mkt-band-fg);
+  padding: 120px 24px;
+  text-align: center;
+}
+:root[data-theme='dark'] .mkt-band {
+  --mkt-band-bg: #f5f5f7;
+  --mkt-band-fg: #1d1d1f;
+  --mkt-band-muted: #6e6e73;
+  --mkt-band-cta-bg: #1d1d1f;
+  --mkt-band-cta-fg: #f5f5f7;
+}
+.mkt-band h2 {
+  color: var(--mkt-band-fg);
+  font-size: clamp(2rem, 5vw, 3.5rem);
+  letter-spacing: -0.04em;
+  margin: 0 0 16px;
+}
+.mkt-band p {
+  color: var(--mkt-band-muted);
+  font-size: 1.25rem;
+  max-width: 32rem;
+  margin: 0 auto 32px;
+}
+.mkt-band-cta,
+.mkt-band .mkt-band-cta {
+  background: var(--mkt-band-cta-bg) !important;
+  color: var(--mkt-band-cta-fg) !important;
+}
+.mkt-band-cta:hover:not(:disabled),
+.mkt-band .mkt-band-cta:hover:not(:disabled) {
+  opacity: 0.92;
+  color: var(--mkt-band-cta-fg) !important;
+}
+.mkt-footer {
+  border-top: 1px solid var(--zf-hairline);
+  padding: 40px 24px 64px;
+  max-width: 980px;
+  margin: 0 auto;
+  color: var(--zf-muted);
+  font-size: 12px;
+}
+.mkt-reveal {
+  animation: mkt-fade-up 0.8s ease-out both;
+}
+.mkt-reveal-delay {
+  animation: mkt-fade-up 0.9s ease-out 0.12s both;
+}
+.mkt-reveal-delay-2 {
+  animation: mkt-fade-up 1s ease-out 0.22s both;
+}
+@keyframes mkt-fade-up {
+  from { opacity: 0; transform: translateY(18px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .mkt-reveal,
+  .mkt-reveal-delay,
+  .mkt-reveal-delay-2 {
+    animation: none;
+  }
+}
+
+/* —— Buttons —— */
+.zf-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  border-radius: 980px;
+  font-weight: 500;
+  font-size: 14px;
+  padding: 0.7rem 1.35rem;
+  border: none;
+  cursor: pointer;
+  transition: opacity 0.15s ease, background 0.15s ease, color 0.15s ease;
+  letter-spacing: -0.01em;
+}
+.zf-btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+.zf-btn-primary {
+  background: var(--zf-link);
+  color: #fff;
+}
+.zf-btn-primary:hover:not(:disabled) {
+  background: var(--zf-link-hover);
+  color: #fff;
+}
+.zf-btn-secondary {
+  background: transparent;
+  color: var(--zf-link);
+  padding-left: 0.5rem;
+  padding-right: 0.5rem;
+}
+.zf-btn-secondary:hover:not(:disabled) {
+  text-decoration: underline;
+}
+.zf-btn-ghost {
+  background: transparent;
+  color: var(--zf-ink);
+  border: 1px solid var(--zf-hairline);
+}
+.zf-btn-ghost:hover:not(:disabled) {
+  background: var(--zf-hover-tint);
+}
+.zf-btn-danger {
+  background: var(--zf-danger);
+  color: #fff;
+}
+.zf-btn-sm {
+  font-size: 13px;
+  padding: 0.45rem 0.95rem;
+}
+
+/* —— Console shell —— */
+.console-shell {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  background: var(--zf-canvas);
+  color: var(--zf-ink);
+}
+.console-topbar {
+  position: sticky;
+  top: 0;
+  z-index: 30;
+  height: 52px;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 0 20px;
+  background: var(--zf-nav-surface);
+  backdrop-filter: saturate(180%) blur(16px);
+  border-bottom: 1px solid var(--zf-hairline);
+}
+.console-brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-weight: 600;
+  font-size: 17px;
+  letter-spacing: -0.022em;
+  color: var(--zf-ink);
+  text-decoration: none;
+}
+.console-brand:hover {
+  color: var(--zf-ink);
+}
+.console-body {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+}
+.console-sidebar {
+  width: var(--console-sidebar);
+  flex-shrink: 0;
+  border-right: 1px solid var(--zf-hairline);
+  background: var(--zf-surface);
+  padding: 20px 12px 40px;
+  overflow-y: auto;
+  position: sticky;
+  top: 52px;
+  height: calc(100vh - 52px);
+  transition: width 0.15s ease;
+}
+.console-sidebar.collapsed {
+  width: 3.75rem;
+  padding-left: 8px;
+  padding-right: 8px;
+}
+.console-sidebar-collapse-btn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 8px 10px;
+  margin-bottom: 14px;
+  border-radius: var(--zf-radius-sm);
+  border: none;
+  background: transparent;
+  color: var(--zf-muted);
+  font-size: 13px;
+  cursor: pointer;
+}
+.console-sidebar-collapse-btn:hover {
+  background: var(--zf-hover-tint);
+  color: var(--zf-ink);
+}
+.console-sidebar.collapsed .console-sidebar-collapse-btn {
+  justify-content: center;
+}
+.console-sidebar-group {
+  margin-bottom: 22px;
+}
+.console-sidebar-label {
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--zf-muted);
+  padding: 0 10px 8px;
+}
+.console-nav-link {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px;
+  border-radius: var(--zf-radius-sm);
+  color: var(--zf-ink);
+  font-size: 14px;
+  font-weight: 400;
+  letter-spacing: -0.016em;
+  text-decoration: none;
+}
+.console-sidebar.collapsed .console-nav-link {
+  justify-content: center;
+  padding: 10px;
+}
+.console-nav-link:hover {
+  background: var(--zf-hover-tint);
+  color: var(--zf-ink);
+}
+.console-nav-link.active {
+  background: var(--zf-active-tint);
+  color: var(--zf-ink);
+  font-weight: 600;
+}
+.console-main {
+  flex: 1;
+  min-width: 0;
+  padding: 28px 28px 64px;
+  max-width: 1200px;
+  font-size: 14px;
+  line-height: 1.42859;
+  letter-spacing: -0.016em;
+  color: var(--zf-ink);
+}
+.console-main h1,
+.console-main h2,
+.console-main h3 {
+  color: var(--zf-ink);
+  font-weight: 600;
+  letter-spacing: -0.022em;
+}
+/* Table data must stay ink — Apple body, not caption gray */
+.console-main td {
+  color: var(--zf-ink);
+}
+.console-main th {
+  color: var(--zf-muted);
+  font-weight: 600;
+}
+.console-shell .text-\[\#6e6e73\],
+.console-main .text-muted {
+  color: var(--zf-muted);
+}
+@media (max-width: 900px) {
+  .console-sidebar {
+    display: none;
+  }
+  .console-main {
+    padding: 20px 16px 48px;
+  }
+}
+
+.app-shell {
+  max-width: none;
+  margin: 0;
+  padding: 0;
+}
+
+/* —— Surfaces —— */
+.zf-panel,
+.glass-card,
+.stat-card,
+.stat-card-blue,
+.stat-card-green,
+.stat-card-purple,
+.stat-card-orange,
+.stat-card-cyan,
+.stat-card-red {
+  background: var(--zf-surface) !important;
+  border: 1px solid var(--zf-hairline) !important;
+  border-radius: var(--zf-radius) !important;
+  box-shadow: none !important;
+  backdrop-filter: none !important;
+  color: var(--zf-ink) !important;
+}
+
+.icon-tile {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 10px;
+  background: var(--zf-hover-tint);
+  color: var(--zf-ink);
+}
+.icon-tile-sm { width: 28px; height: 28px; }
+.icon-tile-md { width: 40px; height: 40px; }
+.icon-tile-lg { width: 56px; height: 56px; }
+.icon-tile-blue,
+.icon-tile-green,
+.icon-tile-purple,
+.icon-tile-orange,
+.icon-tile-red,
+.icon-tile-cyan {
+  background: var(--zf-hover-tint);
+  color: var(--zf-ink);
+}
+
+/* Terminal.app chrome — always near-black, both themes.
+   Light-theme remaps match Tailwind substrings like selection:bg-[#0a…] and
+   would otherwise paint these panes white with light text. */
+.zf-terminal {
+  background: #1c1c1e !important;
+  border: 1px solid rgba(0, 0, 0, 0.4) !important;
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.22) !important;
+  color: #f5f5f7 !important;
+  color-scheme: dark;
+}
+.zf-terminal-titlebar {
+  background: #2c2c2e !important;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1) !important;
+  color: #f5f5f7 !important;
+}
+.zf-terminal-title {
+  color: rgba(255, 255, 255, 0.5) !important;
+}
+.zf-terminal-live {
+  color: #28c840 !important;
+}
+.zf-terminal-body,
+.zf-terminal-input,
+textarea.zf-terminal-input {
+  background: #1c1c1e !important;
+  color: #f5f5f7 !important;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+}
+.zf-terminal .text-white,
+.zf-terminal .text-\[\#f5f5f7\],
+.zf-terminal [class*="text-white/"] {
+  color: #f5f5f7 !important;
+}
+.zf-terminal-body ::selection {
+  background: rgba(10, 132, 255, 0.4);
+}
+.zf-terminal-empty {
+  color: rgba(255, 255, 255, 0.4) !important;
+}
+.zf-terminal-input,
+textarea.zf-terminal-input {
+  caret-color: #f5f5f7;
+  border: 0 !important;
+  box-shadow: none !important;
+}
+.zf-terminal-input::placeholder,
+textarea.zf-terminal-input::placeholder {
+  color: rgba(255, 255, 255, 0.3) !important;
+}
+.zf-terminal-input::selection,
+textarea.zf-terminal-input::selection {
+  background: rgba(10, 132, 255, 0.4);
+}
+/* Keep title-bar trailing controls readable on black chrome */
+.zf-terminal-titlebar button,
+.zf-terminal-titlebar label {
+  color: rgba(255, 255, 255, 0.55) !important;
+}
+.zf-terminal-titlebar button:hover {
+  color: #fff !important;
+  background: rgba(255, 255, 255, 0.1) !important;
+}
+
+.input-field,
+input.input-field,
+select.input-field,
+textarea.input-field {
+  width: 100%;
+  border: 1px solid var(--zf-hairline);
+  background: var(--zf-surface);
+  color: var(--zf-ink);
+  border-radius: var(--zf-radius-sm);
+  padding: 0.65rem 0.85rem;
+  font: inherit;
+  outline: none;
+}
+.input-field:focus {
+  border-color: var(--zf-ink);
+  box-shadow: 0 0 0 3px var(--zf-focus-tint);
+}
+
+.modal-backdrop,
+.glass-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  background: rgba(0, 0, 0, 0.32);
+  backdrop-filter: blur(8px);
+}
+.modal-card,
+.glass-modal-card {
+  background: var(--zf-surface);
+  border: 1px solid var(--zf-hairline);
+  border-radius: 18px;
+  padding: 24px;
+  box-shadow: 0 24px 80px rgba(0, 0, 0, 0.18);
+  max-height: calc(100vh - 48px);
+  overflow: auto;
+}
+
+.skeleton {
+  background: linear-gradient(90deg, #ebebed 25%, #f5f5f7 50%, #ebebed 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.4s ease-in-out infinite;
+  border-radius: 8px;
+}
+
+@keyframes shimmer {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+@keyframes fade-in {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+@keyframes slide-in {
+  from { transform: translateX(100%); opacity: 0; }
+  to { transform: translateX(0); opacity: 1; }
+}
+@keyframes pulse-dot {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.4; }
+}
+.animate-fade-in { animation: fade-in 0.35s ease-out; }
+.animate-slide-in { animation: slide-in 0.3s ease-out; }
+.animate-pulse-dot { animation: pulse-dot 2s ease-in-out infinite; }
+
+.recharts-tooltip-wrapper,
+.recharts-cursor {
+  z-index: 20 !important;
+}
+
+/* Sign-in */
+.signin-page {
+  position: relative;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 32px 20px;
+  background: var(--zf-canvas);
+  overflow: hidden;
+}
+.signin-theme-toggle {
+  position: absolute;
+  top: 20px;
+  right: 20px;
+  z-index: 2;
+}
+.signin-glow {
+  position: absolute;
+  top: -26%;
+  left: 50%;
+  width: 900px;
+  height: 900px;
+  transform: translateX(-50%);
+  background: radial-gradient(
+    circle,
+    rgba(255, 90, 21, 0.14) 0%,
+    rgba(255, 90, 21, 0.05) 38%,
+    rgba(255, 90, 21, 0) 68%
+  );
+  pointer-events: none;
+}
+.signin-logo {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 32px;
+  position: relative;
+  z-index: 1;
+  text-decoration: none;
+}
+.signin-logo:hover .signin-logo-word {
+  color: var(--zf-ink);
+}
+.signin-logo-mark {
+  width: 46px;
+  height: 46px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 14px;
+  background: var(--zf-surface);
+  box-shadow:
+    inset 0 0 0 1px var(--zf-hairline),
+    0 1px 2px rgba(0, 0, 0, 0.04),
+    0 10px 24px rgba(0, 0, 0, 0.06);
+}
+.signin-logo-word {
+  font-size: 14px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  color: var(--zf-muted);
+}
+.signin-card {
+  width: 100%;
+  max-width: 400px;
+  background: var(--zf-surface);
+  border: 1px solid var(--zf-hairline);
+  border-radius: 22px;
+  padding: 44px 36px 36px;
+  position: relative;
+  z-index: 1;
+  box-shadow:
+    0 1px 1px rgba(0, 0, 0, 0.02),
+    0 4px 12px rgba(0, 0, 0, 0.04),
+    0 32px 64px -16px rgba(0, 0, 0, 0.12);
+}
+.signin-card h1 {
+  font-size: 30px;
+  font-weight: 600;
+  letter-spacing: -0.03em;
+  margin: 0 0 8px;
+  text-align: center;
+  color: var(--zf-ink);
+}
+.signin-card .sub {
+  text-align: center;
+  color: var(--zf-muted);
+  margin: 0 0 30px;
+  font-size: 15px;
+  line-height: 1.4;
+}
+.signin-label {
+  display: block;
+  font-size: 12.5px;
+  font-weight: 500;
+  color: var(--zf-muted);
+  margin-bottom: 6px;
+}
+.signin-input-wrap {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+.signin-field-icon {
+  position: absolute;
+  left: 14px;
+  display: flex;
+  color: #a1a1a6;
+  pointer-events: none;
+}
+.signin-input {
+  width: 100%;
+  height: 48px;
+  padding: 0 16px 0 42px;
+  border: 1px solid var(--zf-hairline);
+  background: var(--zf-canvas);
+  color: var(--zf-ink);
+  border-radius: 12px;
+  font-size: 16px;
+  transition:
+    border-color 0.15s ease,
+    box-shadow 0.15s ease,
+    background-color 0.15s ease;
+}
+.signin-input::placeholder {
+  color: #a1a1a6;
+}
+.signin-input:focus {
+  outline: none;
+  border-color: var(--zf-link);
+  background: var(--zf-surface);
+  box-shadow: 0 0 0 4px rgba(0, 102, 204, 0.12);
+}
+.signin-submit {
+  width: 100%;
+  height: 48px;
+  border-radius: 12px;
+  background: var(--zf-link);
+  color: #fff;
+  font-size: 16px;
+  font-weight: 600;
+  border: none;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  transition:
+    background-color 0.15s ease,
+    transform 0.1s ease;
+}
+.signin-submit:hover:not(:disabled) {
+  background: var(--zf-link-hover);
+}
+.signin-submit:active:not(:disabled) {
+  transform: scale(0.98);
+}
+.signin-submit:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+.signin-error {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  background: rgba(255, 59, 48, 0.08);
+  border: 1px solid rgba(255, 59, 48, 0.22);
+  color: #d70015;
+  border-radius: 10px;
+  padding: 10px 12px;
+  font-size: 13.5px;
+  line-height: 1.4;
+}
+.signin-footer {
+  position: relative;
+  z-index: 1;
+  text-align: center;
+  margin-top: 28px;
+  font-size: 12.5px;
+  color: var(--zf-muted);
+}
+
+/* Compatibility: dark Tailwind leftovers → light Apple console
+   Attribute selectors catch opacity variants (bg-slate-800/40, etc.) that
+   exact-class remaps miss — those were causing black-on-black text.
+
+   Scoped to `html:not([data-theme="dark"])` (i.e. light theme only): this
+   whole block exists to force originally dark-authored Tailwind markup
+   (bg-slate-900 + text-white pairs, mostly in older capability/detail
+   panels) to render correctly in the light-only console redesign. In dark
+   theme that original dark-authored markup is already correct as written,
+   so these overrides must NOT apply there — leaving them un-scoped would
+   force those specific elements light even while everything around them
+   is dark. */
+html:not([data-theme='dark']) {
+  [class*="bg-slate-95"]:not(.zf-terminal):not(.zf-terminal *),
+  [class*="bg-slate-9"]:not(.zf-terminal):not(.zf-terminal *),
+  [class*="bg-slate-8"]:not(.zf-terminal):not(.zf-terminal *),
+  [class*="bg-slate-7"]:not(.zf-terminal):not(.zf-terminal *),
+  [class*="bg-[#0a"]:not(.zf-terminal):not(.zf-terminal *),
+  [class*="bg-[#0b"]:not(.zf-terminal):not(.zf-terminal *),
+  [class*="bg-[#0e"]:not(.zf-terminal):not(.zf-terminal *),
+  [class*="bg-[#0f"]:not(.zf-terminal):not(.zf-terminal *) {
+    background-color: var(--zf-surface) !important;
+    background-image: none !important;
+  }
+
+  /* Soft canvas panels (capability-style cards) */
+  [class*="bg-slate-800\/"],
+  [class*="bg-slate-900\/"],
+  [class*="bg-slate-950\/"] {
+    background-color: var(--zf-canvas) !important;
+  }
+
+  .text-white,
+  .text-slate-50,
+  .text-slate-100,
+  .text-slate-200,
+  .text-\[\#e7ecf3\],
+  .text-\[\#d7dde5\],
+  .text-\[\#e8e4f8\],
+  .text-\[\#e2e8f0\] {
+    color: var(--zf-ink) !important;
+  }
+
+  /* Keep white text on solid primary / danger / success buttons & icon tiles.
+     Avoid matching opacity tints like bg-[#0066cc]/10 (substring would catch those). */
+  .zf-btn-primary,
+  .zf-btn-danger,
+  [class*="bg-blue-5"].text-white,
+  [class*="bg-blue-6"].text-white,
+  [class*="bg-blue-7"].text-white,
+  [class*="bg-red-5"].text-white,
+  [class*="bg-red-6"].text-white,
+  [class*="bg-green-5"].text-white,
+  [class*="bg-emerald-5"].text-white,
+  [class*="bg-emerald-6"].text-white,
+  [class*="bg-amber-5"].text-white,
+  [class*="bg-amber-6"].text-white,
+  /* CSS-variable form of the same solid-fill backgrounds (e.g. `bg-[var(--zf-ink)]
+     text-white`) — the literal-hex/Tailwind-color selectors above don't match this
+     syntax, so without these the text silently becomes invisible-on-dark via the
+     blanket `.text-white { color: var(--zf-ink) !important }` rule above. Found
+     live: an empty-looking active tab pill on the Certificates page. */
+  [class*="bg-[var(--zf-ink)]"].text-white,
+  [class*="bg-[var(--zf-link)]"].text-white,
+  [class*="bg-[var(--zf-danger)]"].text-white,
+  [class*="bg-[var(--zf-success)]"].text-white,
+  [class*="bg-[var(--zf-warning)]"].text-white,
+  .bg-\[\#0066cc\],
+  .bg-\[\#1d1d1f\],
+  .bg-black {
+    color: #fff !important;
+  }
+  [class*="from-blue-"] > .text-white,
+  [class*="from-green-"] > .text-white,
+  [class*="from-emerald-"] > .text-white,
+  [class*="from-red-"] > .text-white,
+  [class*="from-purple-"] > .text-white,
+  [class*="from-cyan-"] > .text-white,
+  [class*="from-orange-"] > .text-white,
+  [class*="bg-gradient-to"] > svg,
+  [class*="bg-gradient-to"] .text-white {
+    color: #fff !important;
+  }
+  .zf-btn-primary,
+  .zf-btn-danger {
+    color: #fff !important;
+  }
+
+  .text-slate-300 {
+    color: var(--zf-secondary) !important;
+  }
+  .text-slate-400,
+  .text-slate-500,
+  .text-slate-600 {
+    color: var(--zf-muted) !important;
+  }
+
+  /* Hardcoded faint gray leftovers from the dark→light pass */
+  .text-\[\#6e6e73\] {
+    color: var(--zf-muted) !important;
+  }
+
+  [class*="border-slate-6"],
+  [class*="border-slate-7"],
+  [class*="border-slate-8"],
+  [class*="border-slate-9"] {
+    border-color: var(--zf-hairline) !important;
+  }
+
+  [class*="hover:bg-slate-"]:hover,
+  [class*="hover:bg-slate-7"]:hover,
+  [class*="hover:bg-slate-8"]:hover,
+  [class*="hover:bg-slate-9"]:hover {
+    background-color: rgba(0, 0, 0, 0.04) !important;
+  }
+
+  [class*="divide-slate-"] > :not([hidden]) ~ :not([hidden]) {
+    border-color: var(--zf-hairline) !important;
+  }
+
+  /* Soften dark gradient icon wells that survive remaps */
+  [class*="shadow-blue-"],
+  [class*="shadow-green-"],
+  [class*="shadow-purple-"],
+  [class*="shadow-red-"],
+  [class*="shadow-emerald-"] {
+    box-shadow: none !important;
+  }
+
+  /* Tables / lists often used dark zebra rows */
+  [class*="even:bg-slate-"],
+  [class*="odd:bg-slate-"] {
+    background-color: transparent !important;
+  }
+
+  .hover\:bg-slate-800\/40:hover,
+  .hover\:bg-slate-800\/30:hover,
+  .hover\:bg-slate-700\/30:hover,
+  .hover\:bg-slate-700\/40:hover {
+    background-color: rgba(0, 102, 204, 0.06) !important;
+  }
+
+  /* Tabs / selected chips */
+  [class*="bg-blue-500\/10"],
+  [class*="bg-blue-600\/10"],
+  [class*="bg-blue-500\/20"] {
+    background-color: rgba(0, 102, 204, 0.08) !important;
+    color: var(--zf-link) !important;
+  }
+
+  .zyvor-footer,
+  .zyvor-brand-line {
+    background: transparent !important;
+    border: none !important;
+    box-shadow: none !important;
+  }
+}
+
+/* Explicit light panel utility for pages — theme-aware via CSS vars already,
+   applies in both themes. */
+.zf-panel-muted {
+  background: var(--zf-canvas) !important;
+  border: 1px solid var(--zf-hairline) !important;
+  border-radius: var(--zf-radius) !important;
+  color: var(--zf-ink) !important;
+}
+
+/* Dark theme: the console's design-token classes (var(--zf-*)) already
+   adapt automatically. These are the ~450 spots across the app that wrote
+   the light palette's literal hex value directly (e.g. `text-[#1d1d1f]`)
+   or `bg-white` instead of the token — redirect those to the dark palette
+   too so nothing is left rendering hardcoded light colors on a dark page. */
+html[data-theme='dark'] {
+  /* `~=` matches a single space-separated class token exactly — unlike the
+     `*=` substring selectors above, this deliberately does NOT also catch
+     Tailwind opacity variants like `bg-[#0066cc]/20` or `bg-white/10`,
+     which are separate token strings and should keep their own (already
+     theme-agnostic, translucent) styling untouched. */
+  [class~="text-[#1d1d1f]"] {
+    color: var(--zf-ink) !important;
+  }
+  [class~="text-[#6e6e73]"] {
+    color: var(--zf-muted) !important;
+  }
+  [class~="border-[#d2d2d7]"] {
+    border-color: var(--zf-hairline) !important;
+  }
+  [class~="bg-[#0066cc]"] {
+    background-color: var(--zf-link) !important;
+  }
+  [class~="text-[#0066cc]"] {
+    color: var(--zf-link) !important;
+  }
+  [class~="bg-[#0077ed]"] {
+    background-color: var(--zf-link-hover) !important;
+  }
+  [class~="bg-[#f5f5f7]"] {
+    background-color: var(--zf-canvas) !important;
+  }
+  [class~="bg-[#e8e8ed]"] {
+    background-color: var(--zf-canvas-alt) !important;
+  }
+  [class~="bg-[#d2d2d7]"] {
+    background-color: var(--zf-hairline) !important;
+  }
+  [class~="bg-white"] {
+    background-color: var(--zf-surface) !important;
+  }
+}

@@ -11,7 +11,7 @@ pub mod web {
         extract::{DefaultBodyLimit, Path, Query, State},
         http::{header, HeaderMap, StatusCode},
         middleware,
-        response::{Html, IntoResponse, Json},
+        response::{IntoResponse, Json},
         routing::{delete, get, post},
         Router,
     };
@@ -20,6 +20,7 @@ pub mod web {
     use std::sync::atomic::{AtomicU64, Ordering};
     use tokio::sync::RwLock;
     use tower_http::cors::{AllowOrigin, CorsLayer};
+    use tower_http::services::{ServeDir, ServeFile};
     use tower_http::timeout::TimeoutLayer;
 
     /// Simple sliding-window rate limiter state.
@@ -210,17 +211,19 @@ pub mod web {
     }
 
     fn is_public_path(path: &str) -> bool {
+        // SPA assets and client routes are public; only /api/* is gated (except auth/health/instance).
+        if !path.starts_with("/api/") {
+            return true;
+        }
         matches!(
             path,
             "/api/v1/health"
+                | "/api/health"
                 | "/api/v1/auth/login"
                 | "/api/v1/auth/providers"
-                | "/dashboard"
-                | "/sign-in"
-                | "/"
-                | "/zyvor-premium-login.css"
+                | "/api/v1/instance"
+                | "/api/instance"
         ) || path.starts_with("/api/v1/auth/oidc/")
-            || path.starts_with("/assets/")
     }
 
     // ── Rate limiting middleware ──────────────────────────────────
@@ -289,6 +292,8 @@ pub mod web {
             .allow_methods([
                 axum::http::Method::GET,
                 axum::http::Method::POST,
+                axum::http::Method::PUT,
+                axum::http::Method::PATCH,
                 axum::http::Method::DELETE,
             ])
             .allow_headers([
@@ -300,43 +305,77 @@ pub mod web {
 
     // ── Router ──────────────────────────────────────────────────
 
+    fn resolve_web_dir() -> std::path::PathBuf {
+        if let Ok(dir) = std::env::var("ZORVIA_WEB_DIR") {
+            return std::path::PathBuf::from(dir);
+        }
+        let candidates = [
+            std::path::PathBuf::from("/usr/share/zorvia/web"),
+            std::path::PathBuf::from("web/dist"),
+            std::path::PathBuf::from("./web/dist"),
+        ];
+        for c in candidates {
+            if c.join("index.html").exists() {
+                return c;
+            }
+        }
+        std::path::PathBuf::from("/usr/share/zorvia/web")
+    }
+
     pub fn build_router(state: SharedState) -> Router {
-        Router::new()
-            .route("/", get(root_handler))
-            .route("/sign-in", get(sign_in_handler))
-            .route("/dashboard", get(dashboard_handler))
-            .route("/zyvor-premium-login.css", get(premium_login_css_handler))
-            // Auth
-            .route("/api/v1/auth/login", post(auth_login))
-            .route("/api/v1/auth/me", get(auth_me))
-            .route("/api/v1/auth/providers", get(auth_providers))
-            .route("/api/v1/auth/totp/setup", post(auth_totp_setup))
-            .route("/api/v1/auth/totp/verify", post(auth_totp_verify))
-            .route("/api/v1/auth/totp/disable", post(auth_totp_disable))
-            .route("/api/v1/auth/oidc/callback", get(auth_oidc_callback))
-            .route("/api/v1/auth/oidc/:id", get(auth_oidc_login))
-            // VM endpoints
-            .route("/api/v1/vms", get(list_vms_handler))
-            .route("/api/v1/vms/:ns/:name", get(get_vm_handler))
-            .route("/api/v1/vms/:ns/:name", delete(delete_vm_handler))
-            .route("/api/v1/vms/:ns/:name/start", post(start_vm_handler))
-            .route("/api/v1/vms/:ns/:name/stop", post(stop_vm_handler))
-            .route("/api/v1/vms/:ns/:name/restart", post(restart_vm_handler))
-            // Snapshots
-            .route("/api/v1/snapshots", get(list_snapshots_handler))
-            .route("/api/v1/snapshots/:ns/:vm", get(list_vm_snapshots_handler))
+        let web_dir = resolve_web_dir();
+        log::info!("Serving SPA from {}", web_dir.display());
+        let index = web_dir.join("index.html");
+        let spa = ServeDir::new(web_dir).fallback(ServeFile::new(index));
+
+        let api = Router::new()
+            // Auth (Zorvia)
+            .route("/v1/auth/login", post(auth_login))
+            .route("/v1/auth/me", get(auth_me))
+            .route("/v1/auth/providers", get(auth_providers))
+            .route("/v1/auth/totp/setup", post(auth_totp_setup))
+            .route("/v1/auth/totp/verify", post(auth_totp_verify))
+            .route("/v1/auth/totp/disable", post(auth_totp_disable))
+            .route("/v1/auth/oidc/callback", get(auth_oidc_callback))
+            .route("/v1/auth/oidc/:id", get(auth_oidc_login))
+            .route("/v1/instance", get(instance_handler))
+            .route("/instance", get(instance_handler))
+            // Fabric-compat VM API (unwrapped JSON)
+            .route("/vms", get(fabric_list_vms))
+            .route("/vms/:name", get(fabric_get_vm))
+            .route("/vms/:name", delete(fabric_delete_vm))
+            .route("/vms/:name/start", post(fabric_start_vm))
+            .route("/vms/:name/stop", post(fabric_stop_vm))
+            .route("/vms/:name/restart", post(fabric_restart_vm))
+            .route("/vms/:name/snapshots", get(fabric_list_vm_snapshots))
+            .route("/snapshots", get(fabric_list_snapshots))
+            .route("/events", get(fabric_list_events))
+            .route("/health", get(fabric_health))
+            .route("/dashboard/overview", get(fabric_overview))
+            // Native Zorvia v1 API
+            .route("/v1/vms", get(list_vms_handler))
+            .route("/v1/vms/:ns/:name", get(get_vm_handler))
+            .route("/v1/vms/:ns/:name", delete(delete_vm_handler))
+            .route("/v1/vms/:ns/:name/start", post(start_vm_handler))
+            .route("/v1/vms/:ns/:name/stop", post(stop_vm_handler))
+            .route("/v1/vms/:ns/:name/restart", post(restart_vm_handler))
+            .route("/v1/snapshots", get(list_snapshots_handler))
+            .route("/v1/snapshots/:ns/:vm", get(list_vm_snapshots_handler))
             .route(
-                "/api/v1/snapshots/:ns/:name/delete",
+                "/v1/snapshots/:ns/:name/delete",
                 post(delete_snapshot_handler),
             )
-            // Events
-            .route("/api/v1/events", get(list_events_handler))
-            .route("/api/v1/events/recent", get(recent_events_handler))
-            // Dashboard overview
-            .route("/api/v1/dashboard/overview", get(dashboard_overview_handler))
-            // Health
-            .route("/api/v1/health", get(health_handler))
-            .with_state(state.clone())
+            .route("/v1/events", get(list_events_handler))
+            .route("/v1/events/recent", get(recent_events_handler))
+            .route("/v1/dashboard/overview", get(dashboard_overview_handler))
+            .route("/v1/health", get(health_handler))
+            .fallback(fabric_not_implemented)
+            .with_state(state.clone());
+
+        Router::new()
+            .route("/dashboard", get(|| async { axum::response::Redirect::temporary("/app") }))
+            .nest("/api", api)
+            .fallback_service(spa)
             .layer(middleware::from_fn(security_headers_middleware))
             .layer(middleware::from_fn_with_state(state.clone(), rate_limit_middleware))
             .layer(middleware::from_fn_with_state(state, auth_middleware))
@@ -345,7 +384,7 @@ pub mod web {
                 StatusCode::REQUEST_TIMEOUT,
                 std::time::Duration::from_secs(30),
             ))
-            .layer(DefaultBodyLimit::max(10 * 1024 * 1024)) // 10 MiB
+            .layer(DefaultBodyLimit::max(10 * 1024 * 1024))
     }
 
     pub async fn start_server(
@@ -387,25 +426,6 @@ pub mod web {
         }
 
         Ok(())
-    }
-
-    async fn root_handler() -> axum::response::Redirect {
-        axum::response::Redirect::temporary("/sign-in")
-    }
-
-    async fn sign_in_handler() -> Html<&'static str> {
-        Html(include_str!("web/sign-in.html"))
-    }
-
-    async fn dashboard_handler() -> Html<&'static str> {
-        Html(include_str!("web/dashboard.html"))
-    }
-
-    async fn premium_login_css_handler() -> impl IntoResponse {
-        (
-            [(header::CONTENT_TYPE, "text/css; charset=utf-8")],
-            include_str!("web/zyvor-premium-login.css"),
-        )
     }
 
     async fn auth_shared(state: &SharedState) -> crate::api::auth::SharedAuth {
@@ -471,9 +491,342 @@ pub mod web {
         crate::api::auth::oidc_callback_handler(axum::extract::State(auth), Query(q)).await
     }
 
+    async fn instance_handler() -> impl IntoResponse {
+        let hostname = std::env::var("HOSTNAME")
+            .or_else(|_| std::env::var("HOST"))
+            .unwrap_or_else(|_| "zorvia".into());
+        Json(serde_json::json!({
+            "product": "Zorvia",
+            "product_id": "zorvia",
+            "version": env!("CARGO_PKG_VERSION"),
+            "hostname": hostname,
+            "deploy_mode": "kubernetes",
+            "deploy_label": "Kubernetes · NodePort 30152",
+            "kubernetes": true,
+            "kubernetes_namespace": "zorvia-system",
+            "listen": ":30152",
+        }))
+    }
+
+    async fn fabric_health() -> impl IntoResponse {
+        Json(serde_json::json!({
+            "status": "healthy",
+            "service": "zorvia-api",
+            "version": env!("CARGO_PKG_VERSION"),
+        }))
+    }
+
+    async fn fabric_not_implemented() -> impl IntoResponse {
+        (
+            StatusCode::NOT_IMPLEMENTED,
+            Json(serde_json::json!({
+                "success": false,
+                "status": 501,
+                "error": {
+                    "code": "NOT_IMPLEMENTED",
+                    "message": "This Fabric API is not available on Zorvia yet"
+                },
+                "data": null
+            })),
+        )
+    }
+
+    fn fabric_map_state(status: &str) -> &'static str {
+        match status.to_lowercase().as_str() {
+            s if s.contains("run") => "running",
+            s if s.contains("stop") => "stopped",
+            s if s.contains("paus") => "paused",
+            s if s.contains("start") || s.contains("provision") || s.contains("wait") => "starting",
+            s if s.contains("fail") || s.contains("error") => "failed",
+            _ => "unknown",
+        }
+    }
+
+    fn fabric_vm_json(info: &VmInfo) -> serde_json::Value {
+        let cpus = info
+            .cpu
+            .split_whitespace()
+            .next()
+            .and_then(|s| s.parse::<u32>().ok())
+            .unwrap_or(1);
+        let mem_s = info.memory.trim().to_lowercase();
+        let memory = if let Some(n) = mem_s.strip_suffix("gi") {
+            (n.trim().parse::<f64>().unwrap_or(1.0) * 1024.0) as u64
+        } else if let Some(n) = mem_s.strip_suffix('g') {
+            (n.trim().parse::<f64>().unwrap_or(1.0) * 1024.0) as u64
+        } else if let Some(n) = mem_s.strip_suffix("mi") {
+            n.trim().parse().unwrap_or(1024)
+        } else {
+            1024
+        };
+        let ip = if info.ip.is_empty() || info.ip == "N/A" {
+            serde_json::Value::Null
+        } else {
+            serde_json::json!(info.ip)
+        };
+        serde_json::json!({
+            "name": info.name,
+            "state": fabric_map_state(&info.status),
+            "cpus": cpus,
+            "memory": memory,
+            "image": info.disk,
+            "ip": ip,
+        })
+    }
+
+    async fn fabric_list_vms(State(state): State<SharedState>) -> impl IntoResponse {
+        let s = state.read().await;
+        let namespace = s.namespace.clone();
+        let client = s.client();
+        match client.list_vms(&namespace).await {
+            Ok(vms) => {
+                let mut out = Vec::new();
+                for vm in &vms {
+                    let name = vm.metadata.name.clone().unwrap_or_default();
+                    let ip = client.get_vm_ip(&namespace, &name).await.unwrap_or(None);
+                    out.push(fabric_vm_json(&VmInfo::from_vm_with_ip(vm, ip)));
+                }
+                Json(out).into_response()
+            }
+            Err(e) => {
+                let (st, j) = err_json(500, "LIST_FAILED", &sanitize_error(&e));
+                (st, j).into_response()
+            }
+        }
+    }
+
+    async fn fabric_get_vm(
+        State(state): State<SharedState>,
+        Path(name): Path<String>,
+    ) -> impl IntoResponse {
+        let s = state.read().await;
+        let namespace = s.namespace.clone();
+        let client = s.client();
+        match client.get_vm(&namespace, &name).await {
+            Ok(vm) => {
+                let ip = client.get_vm_ip(&namespace, &name).await.unwrap_or(None);
+                Json(fabric_vm_json(&VmInfo::from_vm_with_ip(&vm, ip))).into_response()
+            }
+            Err(e) => {
+                let (st, j) = err_json(404, "NOT_FOUND", &sanitize_error(&e));
+                (st, j).into_response()
+            }
+        }
+    }
+
+    async fn fabric_start_vm(
+        State(state): State<SharedState>,
+        Path(name): Path<String>,
+    ) -> impl IntoResponse {
+        let s = state.read().await;
+        let namespace = s.namespace.clone();
+        let client = s.client();
+        match client.start_vm(&namespace, &name).await {
+            Ok(_) => StatusCode::NO_CONTENT.into_response(),
+            Err(e) => {
+                let (st, j) = err_json(500, "START_FAILED", &sanitize_error(&e));
+                (st, j).into_response()
+            }
+        }
+    }
+
+    async fn fabric_stop_vm(
+        State(state): State<SharedState>,
+        Path(name): Path<String>,
+    ) -> impl IntoResponse {
+        let s = state.read().await;
+        let namespace = s.namespace.clone();
+        let client = s.client();
+        match client.stop_vm(&namespace, &name).await {
+            Ok(_) => StatusCode::NO_CONTENT.into_response(),
+            Err(e) => {
+                let (st, j) = err_json(500, "STOP_FAILED", &sanitize_error(&e));
+                (st, j).into_response()
+            }
+        }
+    }
+
+    async fn fabric_restart_vm(
+        State(state): State<SharedState>,
+        Path(name): Path<String>,
+    ) -> impl IntoResponse {
+        let s = state.read().await;
+        let namespace = s.namespace.clone();
+        let client = s.client();
+        match client.restart_vm(&namespace, &name).await {
+            Ok(_) => StatusCode::NO_CONTENT.into_response(),
+            Err(e) => {
+                let (st, j) = err_json(500, "RESTART_FAILED", &sanitize_error(&e));
+                (st, j).into_response()
+            }
+        }
+    }
+
+    async fn fabric_delete_vm(
+        State(state): State<SharedState>,
+        Path(name): Path<String>,
+    ) -> impl IntoResponse {
+        let s = state.read().await;
+        let namespace = s.namespace.clone();
+        let client = s.client();
+        match client.delete_vm(&namespace, &name).await {
+            Ok(_) => StatusCode::NO_CONTENT.into_response(),
+            Err(e) => {
+                let (st, j) = err_json(500, "DELETE_FAILED", &sanitize_error(&e));
+                (st, j).into_response()
+            }
+        }
+    }
+
+    async fn fabric_list_snapshots(State(state): State<SharedState>) -> impl IntoResponse {
+        let s = state.read().await;
+        let namespace = s.namespace.clone();
+        drop(s);
+        match crate::snapshots::SnapshotManager::new(&namespace).await {
+            Ok(manager) => match manager.list_all_snapshots().await {
+                Ok(snapshots) => {
+                    let items: Vec<_> = snapshots
+                        .into_iter()
+                        .map(|s| {
+                            serde_json::json!({
+                                "id": s.name,
+                                "vm_name": s.vm_name,
+                                "name": s.name,
+                                "description": null,
+                                "snapshot_type": "Disk",
+                                "parent_id": null,
+                                "size_bytes": 0,
+                                "created": "",
+                            })
+                        })
+                        .collect();
+                    Json(items).into_response()
+                }
+                Err(e) => {
+                    let (st, j) = err_json(500, "LIST_FAILED", &sanitize_error(&e));
+                    (st, j).into_response()
+                }
+            },
+            Err(e) => {
+                let (st, j) = err_json(503, "SERVICE_UNAVAILABLE", &sanitize_error(&e));
+                (st, j).into_response()
+            }
+        }
+    }
+
+    async fn fabric_list_vm_snapshots(
+        State(state): State<SharedState>,
+        Path(vm): Path<String>,
+    ) -> impl IntoResponse {
+        let s = state.read().await;
+        let namespace = s.namespace.clone();
+        drop(s);
+        match crate::snapshots::SnapshotManager::new(&namespace).await {
+            Ok(manager) => match manager.list_snapshots_for_vm(&vm).await {
+                Ok(snapshots) => {
+                    let items: Vec<_> = snapshots
+                        .into_iter()
+                        .map(|s| {
+                            serde_json::json!({
+                                "id": s.name,
+                                "vm_name": vm,
+                                "name": s.name,
+                                "description": null,
+                                "snapshot_type": "Disk",
+                                "parent_id": null,
+                                "size_bytes": 0,
+                                "created": "",
+                            })
+                        })
+                        .collect();
+                    Json(items).into_response()
+                }
+                Err(e) => {
+                    let (st, j) = err_json(500, "LIST_FAILED", &sanitize_error(&e));
+                    (st, j).into_response()
+                }
+            },
+            Err(e) => {
+                let (st, j) = err_json(503, "SERVICE_UNAVAILABLE", &sanitize_error(&e));
+                (st, j).into_response()
+            }
+        }
+    }
+
+    async fn fabric_list_events(State(state): State<SharedState>) -> impl IntoResponse {
+        let s = state.read().await;
+        let namespace = s.namespace.clone();
+        let client = s.client();
+        use k8s_openapi::api::core::v1::Event;
+        use kube::Api;
+        let events_api: Api<Event> = Api::namespaced(client.client(), &namespace);
+        let lp = kube::api::ListParams::default().limit(100);
+        match events_api.list(&lp).await {
+            Ok(event_list) => {
+                let items: Vec<_> = event_list
+                    .items
+                    .into_iter()
+                    .map(|e| {
+                        serde_json::json!({
+                            "type": e.type_.unwrap_or_else(|| "Normal".into()),
+                            "reason": e.reason.unwrap_or_default(),
+                            "message": e.message.unwrap_or_default(),
+                            "object": e.involved_object.name.unwrap_or_default(),
+                            "timestamp": e.last_timestamp
+                                .map(|t| t.0.to_rfc3339())
+                                .or_else(|| e.metadata.creation_timestamp.map(|t| t.0.to_rfc3339()))
+                                .unwrap_or_default(),
+                        })
+                    })
+                    .collect();
+                Json(items).into_response()
+            }
+            Err(e) => {
+                let (st, j) = err_json(500, "LIST_FAILED", &sanitize_error(&e));
+                (st, j).into_response()
+            }
+        }
+    }
+
+    async fn fabric_overview(State(state): State<SharedState>) -> impl IntoResponse {
+        let s = state.read().await;
+        let namespace = s.namespace.clone();
+        let client = s.client();
+        match client.list_vms(&namespace).await {
+            Ok(vms) => {
+                let mut running = 0u32;
+                let mut stopped = 0u32;
+                let mut failed = 0u32;
+                let total = vms.len() as u32;
+                for vm in &vms {
+                    let status = vm
+                        .status
+                        .as_ref()
+                        .and_then(|st| st.printable_status.as_deref())
+                        .unwrap_or("Unknown");
+                    match fabric_map_state(status) {
+                        "running" => running += 1,
+                        "failed" => failed += 1,
+                        _ => stopped += 1,
+                    }
+                }
+                Json(serde_json::json!({
+                    "vms": { "total": total, "running": running, "stopped": stopped, "failed": failed },
+                    "namespace": namespace,
+                }))
+                .into_response()
+            }
+            Err(e) => {
+                let (st, j) = err_json(500, "LIST_FAILED", &sanitize_error(&e));
+                (st, j).into_response()
+            }
+        }
+    }
+
     fn req_ctx(method: HttpMethod, path: &str) -> RequestContext {
         RequestContext::new(method, path)
     }
+
 
     /// Sanitize internal error details before sending to clients.
     ///

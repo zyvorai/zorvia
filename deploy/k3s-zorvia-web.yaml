@@ -139,6 +139,8 @@ spec:
               cpu: 500m
               memory: 256Mi
           env:
+            - name: ZORVIA_WEB_DIR
+              value: /usr/share/zorvia/web
             - name: ZORVIA_AUTH_DB
               value: /data/auth.db
             - name: ZORVIA_ADMIN_USER

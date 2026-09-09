@@ -17,3 +17,8 @@ Thumbs.db
 # Local configs
 *.local.yaml
 *.local.json
+
+# Frontend
+web/node_modules/
+web/dist/
+web/coverage/

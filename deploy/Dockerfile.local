@@ -2,9 +2,13 @@
 FROM ubuntu:24.04
 RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates \
     && rm -rf /var/lib/apt/lists/* \
-    && useradd -u 10001 -m zorvia
+    && useradd -u 10001 -m zorvia \
+    && mkdir -p /usr/share/zorvia/web \
+    && chown -R zorvia:zorvia /usr/share/zorvia
 COPY zorvia /usr/local/bin/zorvia
+COPY web/ /usr/share/zorvia/web/
 RUN chmod 755 /usr/local/bin/zorvia
+ENV ZORVIA_WEB_DIR=/usr/share/zorvia/web
 USER zorvia
 ENTRYPOINT ["/usr/local/bin/zorvia"]
 CMD ["api-serve"]

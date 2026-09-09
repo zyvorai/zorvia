@@ -95,6 +95,8 @@ _rsync() {
     SSHPASS="$PASS" rsync -avz \
         --exclude='target/' \
         --exclude='.git' \
+        --exclude='web/node_modules/' \
+        --exclude='web/coverage/' \
         --exclude='*.qcow2' --exclude='*.vmdk' --exclude='*.raw' \
         --exclude='*.iso' --exclude='*.img' \
         -e "$ssh_cmd" \
@@ -148,6 +150,17 @@ echo ""
 
 # ── Step 1: Rsync repo ──
 step "Step 1/${TOTAL_STEPS}: Syncing repository to ${HOST}"
+
+if [ -f "$REPO_DIR/web/package.json" ]; then
+    if [ ! -f "$REPO_DIR/web/dist/index.html" ]; then
+        echo "  Building web UI (npm run build)…"
+        (cd "$REPO_DIR/web" && npm ci --legacy-peer-deps >/dev/null 2>&1 || npm install --legacy-peer-deps >/dev/null 2>&1) \
+          && (cd "$REPO_DIR/web" && npm run build) \
+          || warn "web build failed; deploy may serve placeholder UI"
+    else
+        echo "  web/dist present — skipping local npm build"
+    fi
+fi
 
 _rsync "$REPO_DIR/" "${USER}@${HOST}:${REMOTE_DIR}/" 2>&1 | tail -3
 info "Synced to ${HOST}:${REMOTE_DIR}"
@@ -234,9 +247,18 @@ _ssh "
     # Build/import local image for k3s (zorvia:local) when container tooling exists.
     # Use ubuntu:24.04 so host-built binaries (glibc 2.39+) run.
     if command -v docker >/dev/null 2>&1 && [ -x target/release/zorvia ]; then
-        mkdir -p /tmp/zorvia-img
+        mkdir -p /tmp/zorvia-img/web
         cp -f target/release/zorvia /tmp/zorvia-img/zorvia
         cp -f deploy/Dockerfile.local /tmp/zorvia-img/Dockerfile
+        if [ -d web/dist ] && [ -f web/dist/index.html ]; then
+            rm -rf /tmp/zorvia-img/web
+            cp -a web/dist /tmp/zorvia-img/web
+            echo 'web UI: bundled from web/dist'
+        else
+            echo '<!DOCTYPE html><html><body><p>Zorvia UI not built. Run npm run build in web/.</p></body></html>' \
+              > /tmp/zorvia-img/web/index.html
+            echo 'web UI: placeholder (web/dist missing)'
+        fi
         $SUDO docker build -t zorvia:local /tmp/zorvia-img
         $SUDO docker save zorvia:local | $SUDO k3s ctr images import - 2>/dev/null \
           || $SUDO docker save zorvia:local | $SUDO ctr -n k8s.io images import - 2>/dev/null \
