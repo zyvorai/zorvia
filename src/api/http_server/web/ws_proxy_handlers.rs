@@ -31,6 +31,8 @@ fn to_kube_close(frame: Option<axum::extract::ws::CloseFrame<'_>>) -> Option<TCl
 #[derive(Debug, Deserialize)]
 pub struct WsAuthQuery {
     pub token: Option<String>,
+    pub user: Option<String>,
+    pub port: Option<u16>,
 }
 
 fn authorize(state: &WebState, token: Option<&str>) -> bool {
@@ -229,4 +231,166 @@ pub async fn ws_vnc(
     ws.protocols(["binary.kubevirt.io"])
         .on_upgrade(move |socket| proxy_kube_ws(socket, namespace, name, "vnc"))
         .into_response()
+}
+
+pub async fn ws_ssh(
+    ws: WebSocketUpgrade,
+    State(state): State<SharedState>,
+    Path(name): Path<String>,
+    Query(q): Query<WsAuthQuery>,
+) -> impl IntoResponse {
+    let s = state.read().await;
+    if !authorize(&s, q.token.as_deref()) {
+        let (st, j) = err_json(401, "UNAUTHORIZED", "Missing or invalid token");
+        return (st, j).into_response();
+    }
+    let namespace = s.namespace.clone();
+    let client = s.client();
+    drop(s);
+    let user = q.user.clone().unwrap_or_else(|| "zorvia".into());
+    let port = q.port.unwrap_or(22);
+    if let Err(e) = crate::kube::ssh::validate_ssh_user(&user) {
+        let (st, j) = err_json(400, "INVALID", &e.to_string());
+        return (st, j).into_response();
+    }
+    ws.on_upgrade(move |socket| proxy_ssh(socket, client, namespace, name, user, port))
+        .into_response()
+}
+
+async fn proxy_ssh(
+    mut client_ws: WebSocket,
+    kube: crate::kube::KubeClient,
+    namespace: String,
+    name: String,
+    user: String,
+    port: u16,
+) {
+    let argv = match kube.get_vm_ip(&namespace, &name).await {
+        Ok(Some(ip)) => match crate::kube::ssh::ssh_argv(&user, &ip, port) {
+            Ok(v) => v,
+            Err(e) => {
+                let _ = client_ws
+                    .send(Message::Text(format!("error: {e}")))
+                    .await;
+                let _ = client_ws.close().await;
+                return;
+            }
+        },
+        _ => match crate::kube::ssh::virtctl_ssh_argv(&user, &name, &namespace) {
+            Ok(v) => v,
+            Err(e) => {
+                let _ = client_ws
+                    .send(Message::Text(format!("error: {e}")))
+                    .await;
+                let _ = client_ws.close().await;
+                return;
+            }
+        },
+    };
+
+    let _ = client_ws
+        .send(Message::Text(format!(
+            "Connecting via {} …\r\n",
+            argv.first().cloned().unwrap_or_else(|| "ssh".into())
+        )))
+        .await;
+
+    let mut cmd = tokio::process::Command::new(&argv[0]);
+    cmd.args(&argv[1..])
+        .stdin(std::process::Stdio::piped())
+        .stdout(std::process::Stdio::piped())
+        .stderr(std::process::Stdio::piped())
+        .env("TERM", "xterm-256color");
+
+    let mut child = match cmd.spawn() {
+        Ok(c) => c,
+        Err(e) => {
+            let _ = client_ws
+                .send(Message::Text(format!(
+                    "error: failed to spawn {}: {e} (install openssh-client or virtctl)\r\n",
+                    argv[0]
+                )))
+                .await;
+            let _ = client_ws.close().await;
+            return;
+        }
+    };
+
+    let mut stdin = child.stdin.take();
+    let mut stdout = child.stdout.take();
+    let mut stderr = child.stderr.take();
+    let (sink, mut stream) = client_ws.split();
+    let sink = std::sync::Arc::new(tokio::sync::Mutex::new(sink));
+    let sink_out = sink.clone();
+    let sink_err = sink.clone();
+
+    let to_proc = async {
+        use tokio::io::AsyncWriteExt;
+        while let Some(Ok(msg)) = stream.next().await {
+            let bytes = match msg {
+                Message::Text(t) => t.into_bytes(),
+                Message::Binary(b) => b,
+                Message::Close(_) => break,
+                _ => continue,
+            };
+            if let Some(ref mut stdin) = stdin {
+                if stdin.write_all(&bytes).await.is_err() {
+                    break;
+                }
+            }
+        }
+    };
+
+    let from_out = async {
+        use tokio::io::AsyncReadExt;
+        let mut buf = [0u8; 4096];
+        if let Some(ref mut out) = stdout {
+            loop {
+                match out.read(&mut buf).await {
+                    Ok(0) | Err(_) => break,
+                    Ok(n) => {
+                        if sink_out
+                            .lock()
+                            .await
+                            .send(Message::Binary(buf[..n].to_vec()))
+                            .await
+                            .is_err()
+                        {
+                            break;
+                        }
+                    }
+                }
+            }
+        }
+    };
+
+    let from_err = async {
+        use tokio::io::AsyncReadExt;
+        let mut buf = [0u8; 1024];
+        if let Some(ref mut err) = stderr {
+            loop {
+                match err.read(&mut buf).await {
+                    Ok(0) | Err(_) => break,
+                    Ok(n) => {
+                        if sink_err
+                            .lock()
+                            .await
+                            .send(Message::Binary(buf[..n].to_vec()))
+                            .await
+                            .is_err()
+                        {
+                            break;
+                        }
+                    }
+                }
+            }
+        }
+    };
+
+    tokio::select! {
+        _ = to_proc => {}
+        _ = from_out => {}
+        _ = from_err => {}
+    }
+    let _ = child.kill().await;
 }

@@ -52,6 +52,7 @@ zorvia start myvm                # Start VM
 zorvia stop myvm                 # Stop VM
 zorvia pause myvm                # Pause running VMI
 zorvia resume myvm               # Resume paused VMI
+zorvia terraform-scaffold --output ./terraform/zorvia-vm
 zorvia delete myvm               # Delete VM
 zorvia status myvm               # Detailed status
 zorvia clone source target       # Clone VM
@@ -80,6 +81,7 @@ curl -sk -X POST -H "Authorization: Bearer $TOKEN" \
 
 Serial console: `wss://HOST:30152/ws/console/myvm?token=$TOKEN`  
 VNC: `wss://HOST:30152/ws/vnc/myvm?token=$TOKEN`  
+SSH: `wss://HOST:30152/ws/ssh/myvm?token=$TOKEN&user=ubuntu`  
 Expose: port-forwards API → NodePort (`ZORVIA_EXPOSE_HOST`). See `docs/WEB_CONSOLE.md`.
 
 ### Templates

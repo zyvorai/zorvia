@@ -4,6 +4,8 @@
 //! VMs can reference the stable DataSource while image promotion moves the alias
 //! to a new immutable PVC/DataVolume revision.
 
+pub mod jobs;
+
 use crate::storage::parse_size_to_bytes;
 use anyhow::{anyhow, Result};
 use serde::{Deserialize, Serialize};

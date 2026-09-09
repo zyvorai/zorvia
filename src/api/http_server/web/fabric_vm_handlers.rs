@@ -85,6 +85,15 @@ pub struct CloneBody {
     pub include_snapshots: Option<bool>,
     #[serde(default)]
     pub linked_clone: Option<bool>,
+    /// `cdi` (default) creates a CDI DataVolume from the source PVC.
+    /// `empty` allocates a blank same-size PVC.
+    #[serde(default)]
+    pub clone_mode: Option<String>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct CloudDownloadBody {
+    pub name: String,
 }
 
 #[derive(Debug, Deserialize)]
@@ -268,10 +277,24 @@ pub async fn fabric_list_cloud_images() -> impl IntoResponse {
 }
 
 pub async fn fabric_list_downloads() -> impl IntoResponse {
-    Json(json!({
-        "items": [],
-        "message": "Direct cloud-image download is scheduled by golden-image jobs; use GET /api/images or /api/images/cloud for ready containerdisks."
-    }))
+    let jobs = crate::golden_images::jobs::DownloadRegistry::global().list();
+    Json(json!(jobs))
+}
+
+pub async fn fabric_start_download(
+    State(state): State<SharedState>,
+    AxumJson(body): AxumJson<CloudDownloadBody>,
+) -> impl IntoResponse {
+    let s = state.read().await;
+    let namespace = s.namespace.clone();
+    drop(s);
+    match crate::golden_images::jobs::DownloadRegistry::global().start(&body.name, &namespace) {
+        Ok(job) => (StatusCode::ACCEPTED, Json(json!(job))).into_response(),
+        Err(e) => {
+            let (st, j) = err_json(404, "NOT_FOUND", &e.to_string());
+            (st, j).into_response()
+        }
+    }
 }
 
 pub async fn fabric_create_vm(
@@ -609,7 +632,7 @@ pub async fn fabric_clone_vm(
                 builder = builder.add_container_disk(&vol.name, &cd.image, order);
                 added_disk = true;
             } else if let Some(pvc) = &vol.persistent_volume_claim {
-                let clone_name = format!("{}-{}", body.target_name, vol.name);
+                let clone_name = crate::kube::cdi::clone_dv_name(&body.target_name, &vol.name);
                 let size = match client.get_pvc(&namespace, &pvc.claim_name).await {
                     Ok(src_pvc) => src_pvc
                         .spec
@@ -621,25 +644,82 @@ pub async fn fabric_clone_vm(
                         .unwrap_or_else(|| "20Gi".into()),
                     Err(_) => "20Gi".into(),
                 };
-                match client
+                let mode = body
+                    .clone_mode
+                    .as_deref()
+                    .unwrap_or("cdi")
+                    .to_ascii_lowercase();
+                if mode == "cdi" {
+                    let spec = crate::kube::cdi::CdiPvcCloneSpec {
+                        source_namespace: namespace.clone(),
+                        source_pvc: pvc.claim_name.clone(),
+                        target_namespace: namespace.clone(),
+                        target_name: clone_name.clone(),
+                        size: size.clone(),
+                        storage_class: None,
+                    };
+                    match crate::kube::cdi::data_volume_clone_manifest(&spec) {
+                        Ok(manifest) => match client.apply_data_volume(&namespace, &manifest).await
+                        {
+                            Ok(_) => {
+                                builder = builder.add_pvc_disk(&vol.name, &clone_name, &size, order);
+                                added_disk = true;
+                                pvc_notes.push(format!(
+                                    "CDI DataVolume {clone_name} cloning PVC {}",
+                                    pvc.claim_name
+                                ));
+                            }
+                            Err(e) => {
+                                log::warn!("CDI clone {} failed, empty PVC fallback: {e}", pvc.claim_name);
+                                if client
+                                    .create_pvc(&namespace, &clone_name, &size, None)
+                                    .await
+                                    .is_ok()
+                                {
+                                    builder =
+                                        builder.add_pvc_disk(&vol.name, &clone_name, &size, order);
+                                    added_disk = true;
+                                }
+                                pvc_notes.push(format!(
+                                    "CDI unavailable for {}: {}; allocated empty PVC",
+                                    pvc.claim_name,
+                                    sanitize_error(&e)
+                                ));
+                            }
+                        },
+                        Err(e) => pvc_notes.push(format!("invalid CDI spec: {e}")),
+                    }
+                } else if client
                     .create_pvc(&namespace, &clone_name, &size, None)
                     .await
+                    .is_ok()
                 {
-                    Ok(_) => {
-                        builder = builder.add_pvc_disk(&vol.name, &clone_name, &size, order);
-                        added_disk = true;
-                        pvc_notes.push(format!(
-                            "allocated empty PVC {clone_name} ({size}) from {src}",
-                            src = pvc.claim_name
-                        ));
-                    }
-                    Err(e) => {
-                        log::warn!("clone PVC {} failed: {e}", pvc.claim_name);
-                        pvc_notes.push(format!(
-                            "could not clone PVC {}: {}",
-                            pvc.claim_name,
+                    builder = builder.add_pvc_disk(&vol.name, &clone_name, &size, order);
+                    added_disk = true;
+                    pvc_notes.push(format!("allocated empty PVC {clone_name} ({size})"));
+                }
+            } else if let Some(dv) = &vol.data_volume {
+                let clone_name = crate::kube::cdi::clone_dv_name(&body.target_name, &vol.name);
+                let spec = crate::kube::cdi::CdiPvcCloneSpec {
+                    source_namespace: namespace.clone(),
+                    source_pvc: dv.name.clone(),
+                    target_namespace: namespace.clone(),
+                    target_name: clone_name.clone(),
+                    size: "20Gi".into(),
+                    storage_class: None,
+                };
+                if let Ok(manifest) = crate::kube::cdi::data_volume_clone_manifest(&spec) {
+                    match client.apply_data_volume(&namespace, &manifest).await {
+                        Ok(_) => {
+                            builder = builder.add_pvc_disk(&vol.name, &clone_name, "20Gi", order);
+                            added_disk = true;
+                            pvc_notes.push(format!("CDI cloned DataVolume {}", dv.name));
+                        }
+                        Err(e) => pvc_notes.push(format!(
+                            "could not clone DataVolume {}: {}",
+                            dv.name,
                             sanitize_error(&e)
-                        ));
+                        )),
                     }
                 }
             }
@@ -657,8 +737,9 @@ pub async fn fabric_clone_vm(
                 "name": body.target_name,
                 "source": source,
                 "pvc_notes": pvc_notes,
-                "data_copied": false,
-                "message": "VM cloned. PVC-backed disks received empty same-size claims; use snapshots or CDI for a data-preserving clone."
+                "data_copied": pvc_notes.iter().any(|n| n.starts_with("CDI")),
+                "clone_mode": body.clone_mode.clone().unwrap_or_else(|| "cdi".into()),
+                "message": "VM cloned. PVC/DataVolume disks use CDI when available; otherwise an empty PVC is allocated."
             }))
             .into_response()
         }

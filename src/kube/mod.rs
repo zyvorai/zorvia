@@ -1,7 +1,9 @@
 pub mod catalog;
+pub mod cdi;
 pub mod converter;
 pub mod expose;
 pub mod lifecycle;
+pub mod ssh;
 pub mod status;
 pub mod types;
 
@@ -373,6 +375,24 @@ impl KubeClient {
             }
             Err(e) => Err(e.into()),
         }
+    }
+
+    /// Apply a CDI DataVolume JSON manifest.
+    pub async fn apply_data_volume(
+        &self,
+        namespace: &str,
+        manifest: &serde_json::Value,
+    ) -> Result<serde_json::Value> {
+        lifecycle::validate_k8s_name("namespace", namespace)?;
+        let path = format!("/apis/cdi.kubevirt.io/v1beta1/namespaces/{namespace}/datavolumes");
+        let body = serde_json::to_vec(manifest)?;
+        let req = http::Request::builder()
+            .method(http::Method::POST)
+            .uri(&path)
+            .header(http::header::CONTENT_TYPE, "application/json")
+            .body(body)
+            .map_err(|e| anyhow::anyhow!("failed to build DataVolume request: {e}"))?;
+        Ok(self.client.request::<serde_json::Value>(req).await?)
     }
 }
 

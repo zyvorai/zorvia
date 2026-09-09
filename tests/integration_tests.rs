@@ -1484,3 +1484,53 @@ fn test_vnc_and_pause_paths() {
     assert_eq!(code, 404);
     assert_eq!(kind, "NOT_FOUND");
 }
+
+#[test]
+fn test_cdi_clone_and_ssh_helpers() {
+    use zorvia::kube::cdi::{data_volume_clone_manifest, CdiPvcCloneSpec};
+    use zorvia::kube::ssh::{ssh_argv, virtctl_ssh_argv, zorvia_ssh_ws_path};
+
+    let dv = data_volume_clone_manifest(&CdiPvcCloneSpec {
+        source_namespace: "default".into(),
+        source_pvc: "src-root".into(),
+        target_namespace: "default".into(),
+        target_name: "dst-root".into(),
+        size: "20Gi".into(),
+        storage_class: None,
+    })
+    .unwrap();
+    assert_eq!(dv["kind"], "DataVolume");
+    assert_eq!(dv["spec"]["source"]["pvc"]["name"], "src-root");
+
+    assert!(ssh_argv("ubuntu", "10.1.2.3", 22).unwrap().contains(&"ubuntu@10.1.2.3".to_string()));
+    assert_eq!(
+        virtctl_ssh_argv("root", "web-01", "default").unwrap()[0],
+        "virtctl"
+    );
+    assert_eq!(
+        zorvia_ssh_ws_path("web-01", "ubuntu").unwrap(),
+        "/ws/ssh/web-01?user=ubuntu"
+    );
+}
+
+#[test]
+fn test_download_job_and_terraform_scaffold() {
+    use zorvia::golden_images::jobs::DownloadRegistry;
+    use zorvia::kube::catalog::cloud_images_from_templates;
+
+    let img = cloud_images_from_templates()
+        .into_iter()
+        .find(|i| i.path.contains("ubuntu"))
+        .unwrap();
+    assert!(!img.url.is_empty());
+    assert!(!img.distro.is_empty());
+
+    let job = DownloadRegistry::global()
+        .start(&img.path, "default")
+        .expect("download job");
+    assert!(job.output_path.unwrap().starts_with("dv:"));
+
+    let tf = zorvia::terraform::example_main_tf("https://lab:30152");
+    assert!(tf.contains("POST"));
+    assert!(tf.contains("/api/vms"));
+}

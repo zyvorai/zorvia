@@ -9,6 +9,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **In-browser SSH** — `/ws/ssh/:vm?user=` proxies `ssh` or `virtctl ssh` into an xterm tab
+- **CDI clone** — `POST /api/vms/:name/clone` with `clone_mode=cdi` creates a DataVolume from the source PVC
+- **Cloud download jobs** — `POST /api/images/cloud/download` + `GET /api/images/downloads` (SPA-compatible)
+- **Terraform scaffold** — `zorvia terraform-scaffold` writes example TF that drives the Fabric API
 - **Pause / resume** — CLI (`zorvia pause|resume`), Fabric `POST /api/vms/:name/pause|resume`, and console buttons call KubeVirt VMI `pause` / `unpause` instead of returning 501
 - **Template-backed cloud catalog** — `GET /api/images/cloud` lists unique containerdisks from the OS template library
 - **Linux expose_vnc** — create-time VNC NodePort is no longer Windows-only

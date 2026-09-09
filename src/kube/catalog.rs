@@ -8,8 +8,12 @@ use std::collections::BTreeSet;
 #[derive(Debug, Clone, Serialize, PartialEq, Eq)]
 pub struct CloudImage {
     pub name: String,
-    pub path: String,
+    pub distro: String,
+    pub version: String,
+    pub url: String,
     pub format: String,
+    pub arch: String,
+    pub path: String,
     pub template: String,
     pub size_bytes: u64,
 }
@@ -25,10 +29,15 @@ pub fn cloud_images_from_templates() -> Vec<CloudImage> {
         for disk in &cfg.disks {
             if let DiskSource::ContainerDisk { image } = &disk.source {
                 if seen.insert(image.clone()) {
+                    let (distro, version) = split_image(image);
                     out.push(CloudImage {
-                        name: format!("{} (template {template_name})", image),
-                        path: image.clone(),
+                        name: format!("{distro} {version}"),
+                        distro,
+                        version,
+                        url: image.clone(),
                         format: "containerdisk".into(),
+                        arch: "amd64".into(),
+                        path: image.clone(),
                         template: template_name.clone(),
                         size_bytes: 0,
                     });
@@ -37,6 +46,14 @@ pub fn cloud_images_from_templates() -> Vec<CloudImage> {
         }
     }
     out
+}
+
+fn split_image(image: &str) -> (String, String) {
+    let rest = image.rsplit('/').next().unwrap_or(image);
+    match rest.split_once(':') {
+        Some((distro, version)) => (distro.to_string(), version.to_string()),
+        None => (rest.to_string(), "latest".into()),
+    }
 }
 
 #[cfg(test)]
@@ -57,6 +74,7 @@ mod tests {
         paths.dedup();
         assert_eq!(before, paths.len(), "duplicate image paths in catalog");
         assert!(images.iter().any(|i| i.path.contains("ubuntu")));
-        assert!(images.iter().any(|i| i.path.contains("fedora")));
+        assert!(images.iter().any(|i| i.distro.contains("ubuntu") || i.path.contains("ubuntu")));
+        assert!(images.iter().any(|i| !i.url.is_empty()));
     }
 }

@@ -38,6 +38,7 @@ pub mod network;
 pub mod output;
 pub mod storage;
 pub mod templates;
+pub mod terraform;
 pub mod tui;
 pub mod utils;
 
@@ -1157,6 +1158,14 @@ pub async fn run(mut cli: Cli) -> Result<()> {
             format,
             &cli.namespace,
         )?,
+
+        Commands::TerraformScaffold { output, url } => {
+            let written = crate::terraform::write_scaffold(std::path::Path::new(&output), &url)?;
+            println!("Wrote Terraform scaffold:");
+            for f in written {
+                println!("  {f}");
+            }
+        }
 
         Commands::Init {
             name,

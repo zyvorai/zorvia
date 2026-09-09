@@ -2052,6 +2052,17 @@ pub enum Commands {
         format: String,
     },
 
+    /// Write a Terraform scaffold that drives the Zorvia HTTP API
+    TerraformScaffold {
+        /// Output directory
+        #[arg(short, long, default_value = "./terraform/zorvia-vm")]
+        output: String,
+
+        /// Zorvia API base URL embedded in the example
+        #[arg(long, default_value = "https://127.0.0.1:30152")]
+        url: String,
+    },
+
     /// Initialize a new zorvia project
     Init {
         /// Project name
@@ -2564,6 +2575,26 @@ mod tests {
         match *cli.command {
             Commands::Tui { interactive, .. } => assert!(interactive),
             _ => panic!("Expected Tui command"),
+        }
+    }
+
+    #[test]
+    fn test_terraform_scaffold_command() {
+        let cli = parse(&[
+            "zorvia",
+            "terraform-scaffold",
+            "--output",
+            "/tmp/tf",
+            "--url",
+            "https://lab:30152",
+        ])
+        .unwrap();
+        match *cli.command {
+            Commands::TerraformScaffold { output, url } => {
+                assert_eq!(output, "/tmp/tf");
+                assert_eq!(url, "https://lab:30152");
+            }
+            _ => panic!("Expected TerraformScaffold"),
         }
     }
 

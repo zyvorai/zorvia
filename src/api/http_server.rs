@@ -33,7 +33,7 @@ pub mod web {
 
     #[path = "ws_proxy_handlers.rs"]
     mod ws_proxy_handlers;
-    use ws_proxy_handlers::{ws_console, ws_vnc};
+    use ws_proxy_handlers::{ws_console, ws_ssh, ws_vnc};
 
     /// Simple sliding-window rate limiter state.
     struct RateLimiterState {
@@ -366,6 +366,7 @@ pub mod web {
             .route("/images", get(fabric_list_images))
             .route("/images/cloud", get(fabric_list_cloud_images))
             .route("/images/downloads", get(fabric_list_downloads))
+            .route("/images/cloud/download", post(fabric_start_download))
             // Fabric-compat VM API (unwrapped JSON)
             .route("/vms", get(fabric_list_vms).post(fabric_create_vm))
             .route("/vms/:name", get(fabric_get_vm).delete(fabric_delete_vm))
@@ -443,6 +444,7 @@ pub mod web {
             .route("/dashboard", get(|| async { axum::response::Redirect::temporary("/app") }))
             .route("/ws/console/:name", get(ws_console))
             .route("/ws/vnc/:name", get(ws_vnc))
+            .route("/ws/ssh/:name", get(ws_ssh))
             .nest("/api", api)
             .fallback_service(spa)
             .layer(middleware::from_fn(security_headers_middleware))

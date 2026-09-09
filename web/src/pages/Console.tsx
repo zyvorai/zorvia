@@ -3,9 +3,10 @@
 
 import { useEffect, useState } from 'react'
 import { useParams, useNavigate, useSearchParams } from 'react-router'
-import { ArrowLeft, Terminal as TerminalIcon, Monitor } from 'lucide-react'
+import { ArrowLeft, Terminal as TerminalIcon, Monitor, KeyRound } from 'lucide-react'
 import Terminal from '../components/Terminal'
 import VNCViewer from '../components/VNCViewer'
+import SshTerminal from '../components/SshTerminal'
 import { getVM } from '../api/vm'
 import ErrorBanner from '../components/ErrorBanner'
 import { formatUserError } from '../utils/apiError'
@@ -17,7 +18,12 @@ export default function Console() {
   const navigate = useNavigate()
   const toast = useToastContext()
   const [searchParams] = useSearchParams()
-  const [mode, setMode] = useState<'terminal' | 'vnc'>(searchParams.get('mode') === 'vnc' ? 'vnc' : 'terminal')
+  const initialMode = (searchParams.get('mode') === 'vnc'
+    ? 'vnc'
+    : searchParams.get('mode') === 'ssh'
+      ? 'ssh'
+      : 'terminal') as 'terminal' | 'vnc' | 'ssh'
+  const [mode, setMode] = useState<'terminal' | 'vnc' | 'ssh'>(initialMode)
   const [loadError, setLoadError] = useState<string | null>(null)
 
   useEffect(() => {
@@ -56,7 +62,7 @@ export default function Console() {
       <div className="flex items-center justify-between gap-4 mb-6">
         <div className="flex items-center gap-3 min-w-0">
           <div className="icon-tile icon-tile-md icon-tile-blue">
-            {mode === 'terminal' ? <TerminalIcon className="w-5 h-5" /> : <Monitor className="w-5 h-5" />}
+            {mode === 'vnc' ? <Monitor className="w-5 h-5" /> : mode === 'ssh' ? <KeyRound className="w-5 h-5" /> : <TerminalIcon className="w-5 h-5" />}
           </div>
           <div className="min-w-0">
             <h1 className="text-2xl font-bold text-[var(--zf-ink)] truncate">Console: {name}</h1>
@@ -86,10 +92,27 @@ export default function Console() {
             <Monitor className="w-4 h-4" />
             VNC
           </button>
+          <button
+            onClick={() => setMode('ssh')}
+            className={`flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-sm font-medium transition-colors ${
+              mode === 'ssh'
+                ? 'bg-[var(--zf-link)] text-white'
+                : 'text-[var(--zf-muted)] hover:text-[var(--zf-ink)]'
+            }`}
+          >
+            <KeyRound className="w-4 h-4" />
+            SSH
+          </button>
         </div>
       </div>
 
-      {mode === 'terminal' ? <Terminal vmName={name} /> : <VNCViewer vmName={name} />}
+      {mode === 'terminal' ? (
+        <Terminal vmName={name} />
+      ) : mode === 'vnc' ? (
+        <VNCViewer vmName={name} />
+      ) : (
+        <SshTerminal vmName={name} />
+      )}
     </div>
   )
 }

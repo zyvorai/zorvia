@@ -88,6 +88,9 @@ Pause / resume call KubeVirt `virtualmachineinstances/pause` and `…/unpause`. 
 | GET | `/images` | Image catalog |
 | GET | `/vms/:name/metrics\|logs` | Phase/paused/node + virt-launcher log tail |
 | POST | `/vms/:name/pause\|resume` | KubeVirt VMI pause / unpause (204) |
+| GET | `/images/cloud` | Template-backed cloud images (`name`, `distro`, `url`, …) |
+| POST | `/images/cloud/download` | Start a CDI import job |
+| GET | `/images/downloads` | Download job list |
 
 Native v1 routes remain under `/api/v1/…` (auth, health, namespaced VM power, snapshots, events).
 
@@ -96,6 +99,7 @@ Native v1 routes remain under `/api/v1/…` (auth, health, namespaced VM power, 
 ```text
 wss://<HOST>:30152/ws/console/<vm>?token=<jwt>
 wss://<HOST>:30152/ws/vnc/<vm>?token=<jwt>
+wss://<HOST>:30152/ws/ssh/<vm>?token=<jwt>&user=ubuntu
 ```
 
 Server proxies to the apiserver using the in-cluster service account (trusts cluster CA; reads `token_file`). Clients should offer subprotocols `plain.kubevirt.io` (console) and `binary.kubevirt.io` (VNC). VMI must be **Running**.
@@ -113,6 +117,7 @@ ClusterRole `zorvia` includes:
 
 - Blank-disk VMs have no guest OS — console may connect with little/no serial output; use a containerdisk image for real SSH/VNC guest tests.
 - Linux create-time `expose_vnc` now creates a NodePort on guest 5900 (same as Windows).
-- Clone allocates empty same-size PVCs for PVC-backed disks; it does not bit-copy guest data (use snapshots or CDI for that).
+- Clone prefers a CDI DataVolume from the source PVC (`clone_mode=cdi`); falls back to an empty PVC if CDI is missing.
+- In-browser SSH needs `ssh` or `virtctl` on the API pod and a running guest with an IP or virtctl access.
 - Metrics include KubeVirt phase / paused / node. Guest CPU counters still require virt-launcher metrics.
 - Logs pull recent virt-launcher pod lines when the launcher pod is labeled `kubevirt.io/vm=<name>`.

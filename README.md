@@ -277,10 +277,9 @@ Secure-by-default defaults: no `unsafe`, CORS off unless configured, TLS verific
 
 ## Roadmap (near-term)
 
-- In-browser SSH to the guest  
-- Deep CDI DataVolume clone (empty PVC clone is implemented)  
-- Scheduled cloud-image download jobs in the SPA  
-- Terraform provider  
+- Guest-agent live CPU/memory scrape  
+- Official HashiCorp Terraform *provider* plugin (scaffold is shipped: `zorvia terraform-scaffold`)  
+- CDI DataVolume wait-until-Succeeded before start  
 
 ---
 
