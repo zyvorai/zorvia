@@ -13,6 +13,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Fabric-compatible HTTP** — `POST /api/vms`, `/api/images`, port-forwards, cloud-init annotate, clone, snapshots; soft stubs for metrics/logs; pause/resume return 501
 - **Kube expose helpers** — managed NodePort Services labeled `zorvia.io/vm`; `ZORVIA_EXPOSE_HOST` for UI connection hints
 - **Docs** — [docs/WEB_CONSOLE.md](docs/WEB_CONSOLE.md) for UI/API/WebSocket/RBAC
+- **Drift Guard** — semantic desired-vs-live VM drift detection with Kubernetes-noise normalization, named-list canonicalization, operational risk scoring, JSON-pointer ignores, CI severity gates, and table/JSON/YAML output
 
 ### Changed
 

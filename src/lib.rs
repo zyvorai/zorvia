@@ -107,7 +107,10 @@ pub async fn run(mut cli: Cli) -> Result<()> {
         match AppConfig::load_from(std::path::PathBuf::from(config_path)) {
             Ok(c) => c,
             Err(e) => {
-                eprintln!("Warning: Failed to load config file '{}': {}", config_path, e);
+                eprintln!(
+                    "Warning: Failed to load config file '{}': {}",
+                    config_path, e
+                );
                 AppConfig::default()
             }
         }
@@ -560,7 +563,8 @@ pub async fn run(mut cli: Cli) -> Result<()> {
             migration_type,
             plan,
         } => {
-            handlers::backup::handle_migrate(vm, target_node, migration_type, plan, &cli.namespace).await?;
+            handlers::backup::handle_migrate(vm, target_node, migration_type, plan, &cli.namespace)
+                .await?;
         }
 
         Commands::MigrationStatus {
@@ -587,7 +591,15 @@ pub async fn run(mut cli: Cli) -> Result<()> {
             priority,
             eviction_strategy,
         } => {
-            handlers::backup::handle_ha_config(vm, enable, disable, priority, eviction_strategy, &cli.namespace).await?;
+            handlers::backup::handle_ha_config(
+                vm,
+                enable,
+                disable,
+                priority,
+                eviction_strategy,
+                &cli.namespace,
+            )
+            .await?;
         }
 
         Commands::HAStatus { vm, output } => {
@@ -686,7 +698,13 @@ pub async fn run(mut cli: Cli) -> Result<()> {
             containers,
             output,
         } => {
-            handlers::security::handle_security_scan(vm, scan_type, containers, output, &cli.namespace)?;
+            handlers::security::handle_security_scan(
+                vm,
+                scan_type,
+                containers,
+                output,
+                &cli.namespace,
+            )?;
         }
 
         Commands::SecurityAssess { vm, output } => {
@@ -710,7 +728,8 @@ pub async fn run(mut cli: Cli) -> Result<()> {
             framework,
             output,
         } => {
-            handlers::security::handle_compliance_check(vm, framework, output, &cli.namespace).await?;
+            handlers::security::handle_compliance_check(vm, framework, output, &cli.namespace)
+                .await?;
         }
 
         Commands::ComplianceReport {
@@ -718,7 +737,8 @@ pub async fn run(mut cli: Cli) -> Result<()> {
             report_id,
             output,
         } => {
-            handlers::security::handle_compliance_report(vm, report_id, output, &cli.namespace).await?;
+            handlers::security::handle_compliance_report(vm, report_id, output, &cli.namespace)
+                .await?;
         }
 
         Commands::AuditList {
@@ -728,7 +748,14 @@ pub async fn run(mut cli: Cli) -> Result<()> {
             security_only,
             output,
         } => {
-            handlers::security::handle_audit_list(vm, event_type, severity, security_only, output, &cli.namespace)?;
+            handlers::security::handle_audit_list(
+                vm,
+                event_type,
+                severity,
+                security_only,
+                output,
+                &cli.namespace,
+            )?;
         }
 
         Commands::AuditGet { log_id, output } => {
@@ -847,7 +874,9 @@ pub async fn run(mut cli: Cli) -> Result<()> {
         Commands::LogsPatterns { min_count } => {
             handlers::observability::handle_logs_patterns(min_count)?
         }
-        Commands::MetricsCollect { vm } => handlers::observability::handle_metrics_collect(vm).await?,
+        Commands::MetricsCollect { vm } => {
+            handlers::observability::handle_metrics_collect(vm).await?
+        }
         Commands::MetricsQuery {
             name,
             start,
@@ -1018,6 +1047,29 @@ pub async fn run(mut cli: Cli) -> Result<()> {
             output,
         } => handlers::devexp::handle_diff(source, target, show_unchanged, output)?,
 
+        Commands::Drift {
+            desired,
+            actual,
+            vm,
+            ignore,
+            include_status,
+            fail_on,
+            output,
+        } => {
+            handlers::gitops::handle_drift(
+                desired,
+                actual,
+                vm,
+                ignore,
+                include_status,
+                fail_on,
+                output,
+                &cli.namespace,
+                cli.kubeconfig.as_deref(),
+            )
+            .await?
+        }
+
         Commands::Init {
             name,
             project_type,
@@ -1058,7 +1110,17 @@ pub async fn run(mut cli: Cli) -> Result<()> {
             let tls_key = tls_key.or(app_config.api.tls_key.clone());
             let auth = auth.unwrap_or_else(|| app_config.api.auth.clone());
             let rate_limit = rate_limit.unwrap_or(app_config.api.rate_limit);
-            handlers::api::handle_api_serve(port, host, cli.namespace.clone(), tls, tls_cert, tls_key, auth, rate_limit).await?;
+            handlers::api::handle_api_serve(
+                port,
+                host,
+                cli.namespace.clone(),
+                tls,
+                tls_cert,
+                tls_key,
+                auth,
+                rate_limit,
+            )
+            .await?;
         }
         Commands::ApiStatus { output } => handlers::api::handle_api_status(output)?,
         Commands::ApiRoutes { method, output } => handlers::api::handle_api_routes(method, output)?,
@@ -1096,7 +1158,9 @@ pub async fn run(mut cli: Cli) -> Result<()> {
             no_splash,
             theme,
             interactive,
-        } => handlers::api::handle_tui(cli.namespace.clone(), theme, interactive, no_splash).await?,
+        } => {
+            handlers::api::handle_tui(cli.namespace.clone(), theme, interactive, no_splash).await?
+        }
 
         // ========== CONFIGURATION ==========
         Commands::ConfigShow { path } => {

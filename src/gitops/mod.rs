@@ -4,6 +4,7 @@ use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
+pub mod drift;
 pub mod manifests;
 pub mod reconciliation;
 pub mod repository;

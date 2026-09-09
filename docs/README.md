@@ -3,6 +3,7 @@
 | Doc | Topic |
 |-----|--------|
 | [WEB_CONSOLE.md](WEB_CONSOLE.md) | SPA, Fabric HTTP API, console/VNC WebSockets, NodePort expose |
+| [DRIFT_GUARD.md](DRIFT_GUARD.md) | Semantic KubeVirt desired-vs-live drift (`zorvia drift`) |
 | [INNOVATIVE_FEATURES.md](INNOVATIVE_FEATURES.md) | Profiles, blueprints, health, recommendations |
 | [OS_TEMPLATES.md](OS_TEMPLATES.md) | 44 OS templates |
 | [SNAPSHOTS.md](SNAPSHOTS.md) | Snapshot create/restore/retention |

@@ -1894,6 +1894,38 @@ pub enum Commands {
         output: String,
     },
 
+    /// Detect semantic drift between a desired VM and live or captured state
+    Drift {
+        /// Desired VM manifest (KubeVirt VirtualMachine or Zorvia VMConfig)
+        desired: String,
+
+        /// Compare against another manifest instead of the live cluster
+        #[arg(long, conflicts_with = "vm")]
+        actual: Option<String>,
+
+        /// VM name override for live comparison (defaults to metadata.name)
+        #[arg(long)]
+        vm: Option<String>,
+
+        /// Ignore an RFC 6901 JSON pointer; repeat for multiple paths.
+        /// A pointer ending in /* ignores the entire subtree.
+        #[arg(long)]
+        ignore: Vec<String>,
+
+        /// Include controller-owned status in the comparison
+        #[arg(long)]
+        include_status: bool,
+
+        /// Fail when drift reaches this severity
+        /// (none, info, low, medium, high, critical)
+        #[arg(long, default_value = "high")]
+        fail_on: String,
+
+        /// Output format (table, yaml, json)
+        #[arg(short, long, default_value = "table")]
+        output: String,
+    },
+
     /// Initialize a new zorvia project
     Init {
         /// Project name
