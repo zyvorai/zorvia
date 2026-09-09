@@ -5,18 +5,18 @@ import MarketingLayout from '../../components/MarketingLayout'
 
 const SURFACES = [
   { name: 'Web', detail: 'Apple-minimal console for day-2 operations.' },
-  { name: 'CLI', detail: 'zyvorctl — scriptable table, JSON, and YAML output.' },
-  { name: 'Operator', detail: 'Kubernetes VirtualMachine CRDs reconciled to Fabric.' },
-  { name: 'Terraform', detail: 'Declare VMs with the zyvor-fabricd provider.' },
+  { name: 'CLI', detail: 'zorviactl — scriptable table, JSON, and YAML output.' },
+  { name: 'Operator', detail: 'Kubernetes VirtualMachine CRDs reconciled by Zorvia.' },
+  { name: 'API', detail: 'REST control plane for automation and integrations.' },
 ]
 
 export default function Platform() {
   return (
     <MarketingLayout>
       <section className="mkt-hero !min-h-0 !pb-16 !pt-24">
-        <h1 className="mkt-reveal">Four ways in.<br />One daemon.</h1>
+        <h1 className="mkt-reveal">Four ways in.<br />One control plane.</h1>
         <p className="lede mkt-reveal-delay">
-          Every interface talks to zyvor-fabricd over the same REST and WebSocket APIs.
+          Every interface talks to Zorvia over the same REST APIs.
         </p>
       </section>
       <section className="mkt-section !pt-0">

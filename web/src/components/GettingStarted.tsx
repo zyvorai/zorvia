@@ -7,27 +7,21 @@ import { ArrowRight } from 'lucide-react'
 const STEPS = [
   {
     title: 'Create your first VM',
-    description: 'Pick an image, size it, and boot — usually under a minute.',
+    description: 'Linux with cloud-init or Windows with VNC/RDP expose.',
     to: '/app/create',
     cta: 'Create VM',
   },
   {
-    title: 'Start from a template',
-    description: 'Skip blank-VM setup with a preconfigured starting point.',
-    to: '/app/templates',
-    cta: 'View templates',
+    title: 'Browse virtual machines',
+    description: 'List and power-manage VMs registered with Zorvia.',
+    to: '/app/vms',
+    cta: 'Open VMs',
   },
   {
-    title: 'Explore the API',
-    description: 'Fire live requests at every endpoint without writing a client.',
-    to: '/app/playground',
-    cta: 'Open playground',
-  },
-  {
-    title: 'Invite your team',
-    description: 'Set up access control before handing out the console.',
-    to: '/app/access-control',
-    cta: 'Configure access',
+    title: 'Review snapshots',
+    description: 'Create and list snapshots for a VM.',
+    to: '/app/snapshots',
+    cta: 'Open snapshots',
   },
 ]
 
@@ -39,7 +33,7 @@ export function GettingStarted() {
         Get started
       </h2>
       <p className="text-[15px] text-[var(--zf-muted)] mb-10 max-w-xl">
-        Your private cloud is ready. Create a VM or explore the surfaces below.
+        Your private cloud console is ready. Create a VM or explore the surfaces Zorvia supports today.
       </p>
       <div className="grid sm:grid-cols-2 gap-6">
         {STEPS.map((step) => (

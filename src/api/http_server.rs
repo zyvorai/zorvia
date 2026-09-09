@@ -23,6 +23,14 @@ pub mod web {
     use tower_http::services::{ServeDir, ServeFile};
     use tower_http::timeout::TimeoutLayer;
 
+    #[path = "fabric_vm_handlers.rs"]
+    mod fabric_vm_handlers;
+    use fabric_vm_handlers::*;
+
+    #[path = "ws_proxy_handlers.rs"]
+    mod ws_proxy_handlers;
+    use ws_proxy_handlers::{ws_console, ws_vnc};
+
     /// Simple sliding-window rate limiter state.
     struct RateLimiterState {
         /// Number of requests in the current window
@@ -122,8 +130,8 @@ pub mod web {
             })
         }
 
-        pub fn client(&self) -> &KubeClient {
-            &self.kube_client
+        pub fn client(&self) -> KubeClient {
+            self.kube_client.clone()
         }
     }
 
@@ -234,8 +242,12 @@ pub mod web {
         request: axum::extract::Request,
         next: middleware::Next,
     ) -> impl IntoResponse {
-        // Allow health endpoint without rate limiting
-        if request.uri().path() == "/api/v1/health" {
+        let path = request.uri().path().to_string();
+        // Never rate-limit SPA assets or public health; only gate API traffic.
+        if !path.starts_with("/api/")
+            || path == "/api/v1/health"
+            || path == "/api/health"
+        {
             return next.run(request).await.into_response();
         }
 
@@ -340,14 +352,39 @@ pub mod web {
             .route("/v1/auth/oidc/:id", get(auth_oidc_login))
             .route("/v1/instance", get(instance_handler))
             .route("/instance", get(instance_handler))
+            // Images (create wizard)
+            .route("/images", get(fabric_list_images))
+            .route("/images/cloud", get(fabric_list_cloud_images))
+            .route("/images/downloads", get(fabric_list_downloads))
             // Fabric-compat VM API (unwrapped JSON)
-            .route("/vms", get(fabric_list_vms))
-            .route("/vms/:name", get(fabric_get_vm))
-            .route("/vms/:name", delete(fabric_delete_vm))
+            .route("/vms", get(fabric_list_vms).post(fabric_create_vm))
+            .route("/vms/:name", get(fabric_get_vm).delete(fabric_delete_vm))
             .route("/vms/:name/start", post(fabric_start_vm))
             .route("/vms/:name/stop", post(fabric_stop_vm))
             .route("/vms/:name/restart", post(fabric_restart_vm))
-            .route("/vms/:name/snapshots", get(fabric_list_vm_snapshots))
+            .route("/vms/:name/pause", post(fabric_pause_stub))
+            .route("/vms/:name/resume", post(fabric_resume_stub))
+            .route("/vms/:name/metrics", get(fabric_vm_metrics))
+            .route("/vms/:name/logs", get(fabric_vm_logs))
+            .route("/vms/:name/port-forwards", post(fabric_add_port_forward))
+            .route(
+                "/vms/:name/port-forwards/:host_port",
+                delete(fabric_remove_port_forward),
+            )
+            .route("/vms/:name/cloud-init", post(fabric_cloud_init))
+            .route("/vms/:name/clone", post(fabric_clone_vm))
+            .route(
+                "/vms/:name/snapshots",
+                get(fabric_list_vm_snapshots).post(fabric_create_snapshot),
+            )
+            .route(
+                "/vms/:name/snapshots/:id",
+                delete(fabric_delete_snapshot),
+            )
+            .route(
+                "/vms/:name/snapshots/:id/revert",
+                post(fabric_revert_snapshot),
+            )
             .route("/snapshots", get(fabric_list_snapshots))
             .route("/events", get(fabric_list_events))
             .route("/health", get(fabric_health))
@@ -370,21 +407,24 @@ pub mod web {
             .route("/v1/dashboard/overview", get(dashboard_overview_handler))
             .route("/v1/health", get(health_handler))
             .fallback(fabric_not_implemented)
-            .with_state(state.clone());
-
-        Router::new()
-            .route("/dashboard", get(|| async { axum::response::Redirect::temporary("/app") }))
-            .nest("/api", api)
-            .fallback_service(spa)
-            .layer(middleware::from_fn(security_headers_middleware))
-            .layer(middleware::from_fn_with_state(state.clone(), rate_limit_middleware))
-            .layer(middleware::from_fn_with_state(state, auth_middleware))
-            .layer(build_cors_layer())
             .layer(TimeoutLayer::with_status_code(
                 StatusCode::REQUEST_TIMEOUT,
                 std::time::Duration::from_secs(30),
             ))
+            .with_state(state.clone());
+
+        Router::new()
+            .route("/dashboard", get(|| async { axum::response::Redirect::temporary("/app") }))
+            .route("/ws/console/:name", get(ws_console))
+            .route("/ws/vnc/:name", get(ws_vnc))
+            .nest("/api", api)
+            .fallback_service(spa)
+            .layer(middleware::from_fn(security_headers_middleware))
+            .layer(middleware::from_fn_with_state(state.clone(), rate_limit_middleware))
+            .layer(middleware::from_fn_with_state(state.clone(), auth_middleware))
+            .layer(build_cors_layer())
             .layer(DefaultBodyLimit::max(10 * 1024 * 1024))
+            .with_state(state)
     }
 
     pub async fn start_server(
@@ -524,7 +564,7 @@ pub mod web {
                 "status": 501,
                 "error": {
                     "code": "NOT_IMPLEMENTED",
-                    "message": "This Fabric API is not available on Zorvia yet"
+                    "message": "This API is not available on Zorvia yet"
                 },
                 "data": null
             })),
@@ -605,7 +645,23 @@ pub mod web {
         match client.get_vm(&namespace, &name).await {
             Ok(vm) => {
                 let ip = client.get_vm_ip(&namespace, &name).await.unwrap_or(None);
-                Json(fabric_vm_json(&VmInfo::from_vm_with_ip(&vm, ip))).into_response()
+                let mut body = fabric_vm_json(&VmInfo::from_vm_with_ip(&vm, ip));
+                if let Ok(pfs) = client.list_port_forwards(&namespace, &name).await {
+                    if let Some(obj) = body.as_object_mut() {
+                        obj.insert(
+                            "port_forwards".into(),
+                            serde_json::json!(pfs
+                                .iter()
+                                .map(|p| serde_json::json!({
+                                    "host_port": p.host_port,
+                                    "guest_port": p.guest_port,
+                                    "protocol": p.protocol,
+                                }))
+                                .collect::<Vec<_>>()),
+                        );
+                    }
+                }
+                Json(body).into_response()
             }
             Err(e) => {
                 let (st, j) = err_json(404, "NOT_FOUND", &sanitize_error(&e));
@@ -669,6 +725,7 @@ pub mod web {
         let s = state.read().await;
         let namespace = s.namespace.clone();
         let client = s.client();
+        let _ = client.delete_vm_port_forwards(&namespace, &name).await;
         match client.delete_vm(&namespace, &name).await {
             Ok(_) => StatusCode::NO_CONTENT.into_response(),
             Err(e) => {
@@ -1363,7 +1420,7 @@ pub mod web {
         (status_code, Json(value))
     }
 
-    fn err_json(
+    pub(crate) fn err_json(
         status: u16,
         code: &str,
         message: &str,

@@ -27,12 +27,18 @@ rules:
   - apiGroups: ["kubevirt.io"]
     resources: ["virtualmachines", "virtualmachineinstances", "virtualmachineinstancemigrations"]
     verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+  - apiGroups: ["subresources.kubevirt.io"]
+    resources: ["virtualmachineinstances/console", "virtualmachineinstances/vnc"]
+    verbs: ["get"]
   - apiGroups: ["snapshot.kubevirt.io"]
     resources: ["virtualmachinesnapshots", "virtualmachinesnapshotcontents", "virtualmachinerestores"]
     verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
   - apiGroups: [""]
     resources: ["namespaces", "persistentvolumeclaims", "pods", "events"]
     verbs: ["get", "list", "watch"]
+  - apiGroups: [""]
+    resources: ["services"]
+    verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
   - apiGroups: ["storage.k8s.io"]
     resources: ["storageclasses"]
     verbs: ["get", "list", "watch"]
@@ -166,6 +172,10 @@ spec:
                   name: zorvia-auth
                   key: api-key
                   optional: true
+            - name: ZORVIA_EXPOSE_HOST
+              value: "212.8.248.187"
+            - name: HOST
+              value: "212.8.248.187"
           volumeMounts:
             - name: tls-certs
               mountPath: /certs

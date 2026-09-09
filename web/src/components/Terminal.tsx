@@ -60,7 +60,7 @@ export default function Terminal({ vmName }: TerminalProps) {
     const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
     const token = getToken()
     const wsUrl = `${protocol}//${window.location.host}/ws/console/${vmName}${token ? `?token=${encodeURIComponent(token)}` : ''}`
-    const ws = new WebSocket(wsUrl)
+    const ws = new WebSocket(wsUrl, 'plain.kubevirt.io')
     ws.binaryType = 'arraybuffer'
 
     ws.onopen = () => {

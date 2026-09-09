@@ -31,7 +31,9 @@ export default function VNCViewer({ vmName }: VNCViewerProps) {
     setStatus('connecting')
     setErrorMsg(null)
 
-    const rfb = new RFB(containerRef.current, wsUrl)
+    const rfb = new RFB(containerRef.current, wsUrl, {
+      wsProtocols: ['binary.kubevirt.io'],
+    })
     rfb.scaleViewport = true
     rfb.clipViewport = false
     rfb.resizeSession = false

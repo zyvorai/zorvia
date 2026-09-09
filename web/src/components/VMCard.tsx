@@ -3,13 +3,12 @@
 
 import { useState, useRef, useEffect, type MouseEvent as ReactMouseEvent } from 'react'
 import { Link, useNavigate } from 'react-router'
-import { Play, Square, Pause, Trash2, Terminal, Cpu, HardDrive, Copy, Tag, MoreVertical, ExternalLink, AlertTriangle } from 'lucide-react'
+import { Play, Square, Trash2, Terminal, Cpu, HardDrive, Tag, MoreVertical, ExternalLink, AlertTriangle } from 'lucide-react'
 import { VM } from '../api/vm'
 import { useVMActions } from '../hooks/useVMActions'
 import { usePermissions } from '../hooks/usePermissions'
 import { getTagColor } from './TagEditor'
 import { StatusBadge } from './ui'
-import CloneVMDialog from './CloneVMDialog'
 import ConfirmDialog from './ConfirmDialog'
 import TagEditor from './TagEditor'
 
@@ -19,18 +18,14 @@ interface VMCardProps {
 }
 
 export default function VMCard({ vm, onUpdate }: VMCardProps) {
-  const [showCloneDialog, setShowCloneDialog] = useState(false)
   const [showTagEditor, setShowTagEditor] = useState(false)
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
   const [showMenu, setShowMenu] = useState(false)
   const menuRef = useRef<HTMLDivElement>(null)
   const { canWrite } = usePermissions()
-  const { handleStart, handleStop, handlePause, handleResume, handleDelete } = useVMActions(vm.name, onUpdate)
+  const { handleStart, handleStop, handleDelete } = useVMActions(vm.name, onUpdate)
   const navigate = useNavigate()
 
-  // Double-clicking anywhere on the card that isn't itself a button/link jumps
-  // straight to the console (terminal + VNC tabs) -- someone new to the
-  // product has no reason to know "click the name, then find the console tab."
   const handleCardDoubleClick = (e: ReactMouseEvent) => {
     if ((e.target as HTMLElement).closest('a, button')) return
     navigate(`/app/vms/${vm.name}/console`)
@@ -106,13 +101,6 @@ export default function VMCard({ vm, onUpdate }: VMCardProps) {
                     {canWrite && (
                       <>
                     <button
-                      onClick={() => { setShowMenu(false); setShowCloneDialog(true) }}
-                      className="w-full flex items-center gap-2 px-3 py-2 text-sm text-[#1d1d1f] hover:bg-black/[0.04] hover:text-[#1d1d1f] transition-colors"
-                    >
-                      <Copy className="w-3.5 h-3.5" />
-                      Clone VM
-                    </button>
-                    <button
                       onClick={() => { setShowMenu(false); setShowTagEditor(true) }}
                       className="w-full flex items-center gap-2 px-3 py-2 text-sm text-[#1d1d1f] hover:bg-black/[0.04] hover:text-[#1d1d1f] transition-colors"
                     >
@@ -184,31 +172,14 @@ export default function VMCard({ vm, onUpdate }: VMCardProps) {
                   <Play className="w-3.5 h-3.5" />
                   Start
                 </button>
-              ) : vm.state === 'paused' ? (
-                <button
-                  onClick={handleResume}
-                  className="flex items-center gap-1.5 px-3 py-1.5 bg-green-600/15 text-emerald-600 hover:bg-green-600/25 rounded-md transition-colors text-sm font-medium"
-                >
-                  <Play className="w-3.5 h-3.5" />
-                  Resume
-                </button>
               ) : (
-                <>
-                  <button
-                    onClick={handleStop}
-                    className="flex items-center gap-1.5 px-3 py-1.5 bg-red-600/15 text-red-600 hover:bg-red-600/25 rounded-md transition-colors text-sm font-medium"
-                  >
-                    <Square className="w-3.5 h-3.5" />
-                    Stop
-                  </button>
-                  <button
-                    onClick={handlePause}
-                    className="flex items-center gap-1.5 px-3 py-1.5 bg-yellow-600/15 text-amber-600 hover:bg-yellow-600/25 rounded-md transition-colors text-sm font-medium"
-                  >
-                    <Pause className="w-3.5 h-3.5" />
-                    Pause
-                  </button>
-                </>
+                <button
+                  onClick={handleStop}
+                  className="flex items-center gap-1.5 px-3 py-1.5 bg-red-600/15 text-red-600 hover:bg-red-600/25 rounded-md transition-colors text-sm font-medium"
+                >
+                  <Square className="w-3.5 h-3.5" />
+                  Stop
+                </button>
               )}
             </>
           )}
@@ -222,13 +193,6 @@ export default function VMCard({ vm, onUpdate }: VMCardProps) {
         </div>
       </div>
 
-      {showCloneDialog && (
-        <CloneVMDialog
-          vmName={vm.name}
-          onClose={() => setShowCloneDialog(false)}
-          onSuccess={onUpdate}
-        />
-      )}
       {showTagEditor && (
         <TagEditor
           vmName={vm.name}

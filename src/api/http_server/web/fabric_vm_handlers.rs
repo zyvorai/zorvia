@@ -1,0 +1,662 @@
+//! Fabric-compat VM create / images / port-forwards / cloud-init / clone / metrics.
+
+use super::*;
+use crate::config::{validate_vm_config, VMConfigBuilder};
+use crate::snapshots::{SnapshotConfig, SnapshotManager};
+use axum::extract::Json as AxumJson;
+use serde_json::json;
+
+#[derive(Debug, Deserialize)]
+pub struct FabricCreateVmRequest {
+    pub name: String,
+    pub image: String,
+    pub cpus: u32,
+    pub memory: u64,
+    #[serde(default)]
+    pub disk: Option<u64>,
+    #[serde(default)]
+    pub port_forwards: Option<Vec<FabricPortForward>>,
+    #[serde(default)]
+    pub network_tap: Option<bool>,
+    #[serde(default)]
+    pub network_static_ip: Option<bool>,
+    #[serde(default)]
+    pub tenant: Option<String>,
+    #[serde(default)]
+    pub labels: Option<std::collections::HashMap<String, String>>,
+    #[serde(default)]
+    pub guest_os: Option<String>,
+    #[serde(default)]
+    pub cloud_init: Option<FabricCloudInit>,
+    #[serde(default)]
+    pub expose_ssh: Option<bool>,
+    #[serde(default)]
+    pub expose_vnc: Option<bool>,
+    #[serde(default)]
+    pub expose_rdp: Option<bool>,
+    #[serde(default)]
+    pub start: Option<bool>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct FabricCloudInit {
+    #[serde(default)]
+    pub user_data: Option<String>,
+    #[serde(default)]
+    pub hostname: Option<String>,
+    #[serde(default)]
+    pub username: Option<String>,
+    #[serde(default)]
+    pub ssh_authorized_keys: Option<Vec<String>>,
+    #[serde(default)]
+    pub password: Option<String>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct FabricPortForward {
+    pub host_port: i32,
+    pub guest_port: i32,
+    #[serde(default = "default_tcp")]
+    pub protocol: String,
+}
+
+fn default_tcp() -> String {
+    "tcp".into()
+}
+
+#[derive(Debug, Deserialize)]
+pub struct CloudInitPostBody {
+    #[serde(default)]
+    pub instance_id: Option<String>,
+    #[serde(default)]
+    pub hostname: Option<String>,
+    #[serde(default)]
+    pub user_data: Option<String>,
+    #[serde(default)]
+    pub meta_data: Option<serde_json::Value>,
+    #[serde(default)]
+    pub network_config: Option<serde_json::Value>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct CloneBody {
+    pub target_name: String,
+    #[serde(default)]
+    pub include_snapshots: Option<bool>,
+    #[serde(default)]
+    pub linked_clone: Option<bool>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct CreateSnapshotBody {
+    pub name: String,
+    #[serde(default)]
+    pub description: Option<String>,
+    #[serde(default)]
+    pub snapshot_type: Option<String>,
+}
+
+fn build_cloud_init_yaml(ci: &FabricCloudInit, hostname_fallback: &str) -> String {
+    if let Some(ud) = ci.user_data.as_ref().filter(|s| !s.trim().is_empty()) {
+        return ud.clone();
+    }
+    let hostname = ci
+        .hostname
+        .clone()
+        .unwrap_or_else(|| hostname_fallback.to_string());
+    let username = ci
+        .username
+        .clone()
+        .unwrap_or_else(|| "zorvia".to_string());
+    let mut lines = vec![
+        "#cloud-config".to_string(),
+        format!("hostname: {hostname}"),
+        "manage_etc_hosts: true".to_string(),
+        "users:".to_string(),
+        format!("  - name: {username}"),
+        "    sudo: ALL=(ALL) NOPASSWD:ALL".to_string(),
+        "    shell: /bin/bash".to_string(),
+        "    groups: sudo".to_string(),
+    ];
+    if let Some(keys) = &ci.ssh_authorized_keys {
+        if !keys.is_empty() {
+            lines.push("    ssh_authorized_keys:".into());
+            for k in keys {
+                lines.push(format!("      - {k}"));
+            }
+        }
+    }
+    if let Some(pw) = &ci.password {
+        if !pw.is_empty() {
+            lines.push("chpasswd:".into());
+            lines.push("  list: |".into());
+            lines.push(format!("    {username}:{pw}"));
+            lines.push("  expire: false".into());
+            lines.push("ssh_pwauth: true".into());
+        }
+    }
+    lines.push("package_update: false".into());
+    lines.join("\n")
+}
+
+fn memory_to_kube(mib: u64) -> String {
+    if mib >= 1024 && mib % 1024 == 0 {
+        format!("{}Gi", mib / 1024)
+    } else {
+        format!("{}Mi", mib)
+    }
+}
+
+pub async fn fabric_list_images() -> impl IntoResponse {
+    Json(json!([
+        {
+            "name": "Blank disk (20 Gi)",
+            "path": "blank:20Gi",
+            "format": "blank",
+            "size_bytes": 21474836480u64
+        },
+        {
+            "name": "Blank disk (40 Gi)",
+            "path": "blank:40Gi",
+            "format": "blank",
+            "size_bytes": 42949672960u64
+        },
+        {
+            "name": "Fedora 40 (containerdisk)",
+            "path": "quay.io/containerdisks/fedora:40",
+            "format": "containerdisk",
+            "size_bytes": 0
+        },
+        {
+            "name": "Ubuntu 24.04 (containerdisk)",
+            "path": "quay.io/containerdisks/ubuntu:24.04",
+            "format": "containerdisk",
+            "size_bytes": 0
+        },
+        {
+            "name": "CentOS Stream 9 (containerdisk)",
+            "path": "quay.io/containerdisks/centos-stream:9",
+            "format": "containerdisk",
+            "size_bytes": 0
+        }
+    ]))
+}
+
+pub async fn fabric_list_cloud_images() -> impl IntoResponse {
+    Json(json!([]))
+}
+
+pub async fn fabric_list_downloads() -> impl IntoResponse {
+    Json(json!([]))
+}
+
+pub async fn fabric_create_vm(
+    State(state): State<SharedState>,
+    AxumJson(req): AxumJson<FabricCreateVmRequest>,
+) -> impl IntoResponse {
+    let s = state.read().await;
+    let namespace = s.namespace.clone();
+    let client = s.client();
+    drop(s);
+
+    if req.name.is_empty() {
+        let (st, j) = err_json(400, "INVALID", "VM name is required");
+        return (st, j).into_response();
+    }
+
+    let guest_os = req
+        .guest_os
+        .as_deref()
+        .unwrap_or("linux")
+        .to_ascii_lowercase();
+    let disk_gb = req.disk.unwrap_or(20).max(1);
+    let disk_size = format!("{disk_gb}Gi");
+    let mem = memory_to_kube(req.memory.max(256));
+    let cpus = req.cpus.max(1);
+
+    let mut builder = VMConfigBuilder::new(&req.name)
+        .namespace(&namespace)
+        .cpu(cpus, 1, 1)
+        .memory(&mem);
+
+    let image = req.image.trim();
+    if image.is_empty() || image.starts_with("blank:") {
+        let size = image
+            .strip_prefix("blank:")
+            .unwrap_or(&disk_size)
+            .to_string();
+        builder = builder.add_blank_disk("rootdisk", size, 1);
+    } else if let Some(pvc) = image.strip_prefix("pvc:") {
+        builder = builder.add_pvc_disk("rootdisk", pvc, &disk_size, 1);
+    } else if image.contains('/') || image.contains(':') {
+        // OCI containerdisk reference
+        builder = builder.add_container_disk("rootdisk", image, 1);
+    } else {
+        builder = builder.add_blank_disk("rootdisk", &disk_size, 1);
+    }
+
+    if req.network_tap.unwrap_or(false) {
+        builder = builder.add_bridge_network("default");
+    } else {
+        builder = builder.add_pod_network("default");
+    }
+
+    if guest_os != "windows" {
+        if let Some(ci) = &req.cloud_init {
+            let ud = build_cloud_init_yaml(ci, &req.name);
+            builder = builder.cloud_init(ud);
+        } else {
+            // Minimal Linux cloud-init so images that expect a datasource still boot.
+            let ud = format!(
+                "#cloud-config\nhostname: {}\nmanage_etc_hosts: true\nusers:\n  - name: zorvia\n    sudo: ALL=(ALL) NOPASSWD:ALL\n    shell: /bin/bash\n",
+                req.name
+            );
+            builder = builder.cloud_init(ud);
+        }
+    }
+
+    if let Some(labels) = &req.labels {
+        for (k, v) in labels {
+            builder = builder.label(k, v);
+        }
+    }
+    if let Some(tenant) = &req.tenant {
+        builder = builder.label("tenant", tenant);
+    }
+    builder = builder.label("zorvia.io/guest-os", &guest_os);
+
+    let config = builder.build();
+    if let Err(e) = validate_vm_config(&config) {
+        let (st, j) = err_json(400, "INVALID_CONFIG", &e.to_string());
+        return (st, j).into_response();
+    }
+
+    match client.create_vm(&config).await {
+        Ok(_vm) => {
+            let start = req.start.unwrap_or(true);
+            if start {
+                let _ = client.start_vm(&namespace, &req.name).await;
+            }
+
+            // Port forwards + convenience expose flags
+            let mut forwards = req.port_forwards.unwrap_or_default();
+            if req.expose_ssh.unwrap_or(false) {
+                forwards.push(FabricPortForward {
+                    host_port: 0,
+                    guest_port: 22,
+                    protocol: "tcp".into(),
+                });
+            }
+            if req.expose_vnc.unwrap_or(guest_os == "windows") && guest_os == "windows" {
+                forwards.push(FabricPortForward {
+                    host_port: 0,
+                    guest_port: 5900,
+                    protocol: "tcp".into(),
+                });
+            }
+            if req.expose_rdp.unwrap_or(false) {
+                forwards.push(FabricPortForward {
+                    host_port: 0,
+                    guest_port: 3389,
+                    protocol: "tcp".into(),
+                });
+            }
+
+            let mut pf_infos = Vec::new();
+            for f in &forwards {
+                let preferred = if f.host_port >= 30000 { Some(f.host_port) } else { None };
+                match client
+                    .add_port_forward(
+                        &namespace,
+                        &req.name,
+                        f.guest_port,
+                        &f.protocol,
+                        preferred,
+                    )
+                    .await
+                {
+                    Ok(info) => pf_infos.push(info),
+                    Err(e) => log::warn!("port-forward {}:{} failed: {e}", f.guest_port, f.protocol),
+                }
+            }
+
+            match client.get_vm(&namespace, &req.name).await {
+                Ok(vm) => {
+                    let ip = client.get_vm_ip(&namespace, &req.name).await.unwrap_or(None);
+                    let mut body = fabric_vm_json(&VmInfo::from_vm_with_ip(&vm, ip));
+                    if let Some(obj) = body.as_object_mut() {
+                        obj.insert(
+                            "port_forwards".into(),
+                            json!(pf_infos
+                                .iter()
+                                .map(|p| json!({
+                                    "host_port": p.host_port,
+                                    "guest_port": p.guest_port,
+                                    "protocol": p.protocol,
+                                    "node_port": p.node_port,
+                                    "expose_host": p.expose_host,
+                                }))
+                                .collect::<Vec<_>>()),
+                        );
+                    }
+                    (StatusCode::CREATED, Json(body)).into_response()
+                }
+                Err(e) => {
+                    let (st, j) = err_json(500, "CREATE_FAILED", &sanitize_error(&e));
+                    (st, j).into_response()
+                }
+            }
+        }
+        Err(e) => {
+            let msg = sanitize_error(&e);
+            let code = if msg.contains("already exists") || msg.contains("Exists") {
+                409
+            } else {
+                500
+            };
+            let (st, j) = err_json(code, "CREATE_FAILED", &msg);
+            (st, j).into_response()
+        }
+    }
+}
+
+pub async fn fabric_add_port_forward(
+    State(state): State<SharedState>,
+    Path(name): Path<String>,
+    AxumJson(body): AxumJson<FabricPortForward>,
+) -> impl IntoResponse {
+    let s = state.read().await;
+    let namespace = s.namespace.clone();
+    let client = s.client();
+    drop(s);
+    let preferred = if body.host_port >= 30000 {
+        Some(body.host_port)
+    } else {
+        None
+    };
+    match client
+        .add_port_forward(
+            &namespace,
+            &name,
+            body.guest_port,
+            &body.protocol,
+            preferred,
+        )
+        .await
+    {
+        Ok(_) => match client.get_vm(&namespace, &name).await {
+            Ok(vm) => {
+                let ip = client.get_vm_ip(&namespace, &name).await.unwrap_or(None);
+                let mut body = fabric_vm_json(&VmInfo::from_vm_with_ip(&vm, ip));
+                if let Ok(pfs) = client.list_port_forwards(&namespace, &name).await {
+                    if let Some(obj) = body.as_object_mut() {
+                        obj.insert(
+                            "port_forwards".into(),
+                            json!(pfs
+                                .iter()
+                                .map(|p| json!({
+                                    "host_port": p.host_port,
+                                    "guest_port": p.guest_port,
+                                    "protocol": p.protocol,
+                                }))
+                                .collect::<Vec<_>>()),
+                        );
+                    }
+                }
+                Json(body).into_response()
+            }
+            Err(e) => {
+                let (st, j) = err_json(404, "NOT_FOUND", &sanitize_error(&e));
+                (st, j).into_response()
+            }
+        },
+        Err(e) => {
+            let (st, j) = err_json(500, "PORT_FORWARD_FAILED", &sanitize_error(&e));
+            (st, j).into_response()
+        }
+    }
+}
+
+pub async fn fabric_remove_port_forward(
+    State(state): State<SharedState>,
+    Path((name, host_port)): Path<(String, i32)>,
+) -> impl IntoResponse {
+    let s = state.read().await;
+    let namespace = s.namespace.clone();
+    let client = s.client();
+    drop(s);
+    match client
+        .remove_port_forward(&namespace, &name, host_port)
+        .await
+    {
+        Ok(()) => StatusCode::NO_CONTENT.into_response(),
+        Err(e) => {
+            let (st, j) = err_json(404, "NOT_FOUND", &sanitize_error(&e));
+            (st, j).into_response()
+        }
+    }
+}
+
+pub async fn fabric_cloud_init(
+    State(state): State<SharedState>,
+    Path(name): Path<String>,
+    AxumJson(body): AxumJson<CloudInitPostBody>,
+) -> impl IntoResponse {
+    let s = state.read().await;
+    let namespace = s.namespace.clone();
+    let client = s.client();
+    drop(s);
+
+    let user_data = body.user_data.unwrap_or_else(|| {
+        let host = body.hostname.unwrap_or_else(|| name.clone());
+        format!("#cloud-config\nhostname: {host}\nmanage_etc_hosts: true\n")
+    });
+
+    // Annotate VM with desired cloud-init for operators; full volume rewrite requires stop/recreate.
+    let patch = json!({
+        "metadata": {
+            "annotations": {
+                "zorvia.io/cloud-init-user-data": user_data,
+                "zorvia.io/cloud-init-instance-id": body.instance_id.unwrap_or_else(|| name.clone()),
+            }
+        }
+    });
+
+    let vms: kube::Api<crate::kube::types::VirtualMachine> =
+        kube::Api::namespaced(client.client(), &namespace);
+    match vms
+        .patch(
+            &name,
+            &kube::api::PatchParams::default(),
+            &kube::api::Patch::Merge(&patch),
+        )
+        .await
+    {
+        Ok(_) => StatusCode::NO_CONTENT.into_response(),
+        Err(e) => {
+            let (st, j) = err_json(500, "CLOUD_INIT_FAILED", &format!("{e}"));
+            (st, j).into_response()
+        }
+    }
+}
+
+pub async fn fabric_clone_vm(
+    State(state): State<SharedState>,
+    Path(source): Path<String>,
+    AxumJson(body): AxumJson<CloneBody>,
+) -> impl IntoResponse {
+    let s = state.read().await;
+    let namespace = s.namespace.clone();
+    let client = s.client();
+    drop(s);
+
+    let src = match client.get_vm(&namespace, &source).await {
+        Ok(vm) => vm,
+        Err(e) => {
+            let (st, j) = err_json(404, "NOT_FOUND", &sanitize_error(&e));
+            return (st, j).into_response();
+        }
+    };
+
+    let spec = &src.spec.template.spec;
+    let domain = &spec.domain;
+    let cpu_cores = domain.cpu.as_ref().and_then(|c| c.cores).unwrap_or(1);
+    let memory = domain
+        .memory
+        .as_ref()
+        .and_then(|m| m.guest.clone())
+        .unwrap_or_else(|| "2Gi".into());
+
+    let mut builder = VMConfigBuilder::new(&body.target_name)
+        .namespace(&namespace)
+        .cpu(cpu_cores, 1, 1)
+        .memory(&memory)
+        .add_pod_network("default");
+
+    let mut added_disk = false;
+    if let Some(volumes) = &spec.volumes {
+        for (i, vol) in volumes.iter().enumerate() {
+            let order = (i as u32).saturating_add(1);
+            if let Some(empty) = &vol.empty_disk {
+                builder = builder.add_blank_disk(&vol.name, &empty.capacity, order);
+                added_disk = true;
+            } else if let Some(cd) = &vol.container_disk {
+                builder = builder.add_container_disk(&vol.name, &cd.image, order);
+                added_disk = true;
+            }
+        }
+    }
+    if !added_disk {
+        builder = builder.add_blank_disk("rootdisk", "20Gi", 1);
+    }
+
+    let config = builder.build();
+    match client.create_vm(&config).await {
+        Ok(_) => {
+            let _ = client.start_vm(&namespace, &body.target_name).await;
+            StatusCode::NO_CONTENT.into_response()
+        }
+        Err(e) => {
+            let (st, j) = err_json(500, "CLONE_FAILED", &sanitize_error(&e));
+            (st, j).into_response()
+        }
+    }
+}
+
+pub async fn fabric_create_snapshot(
+    State(state): State<SharedState>,
+    Path(vm): Path<String>,
+    AxumJson(body): AxumJson<CreateSnapshotBody>,
+) -> impl IntoResponse {
+    let s = state.read().await;
+    let namespace = s.namespace.clone();
+    let kube = s.kube_client.client();
+    drop(s);
+
+    let snap_name = if body.name.starts_with(&vm) {
+        body.name.clone()
+    } else {
+        format!("{}-{}", vm, body.name)
+    };
+    let mut cfg = SnapshotConfig::new(&vm, &snap_name);
+    if let Some(d) = body.description {
+        cfg = cfg.with_description(d);
+    }
+    let manager = SnapshotManager::from_client(kube, namespace);
+    match manager.create_snapshot(&cfg).await {
+        Ok(info) => (
+            StatusCode::CREATED,
+            Json(json!({
+                "id": info.name,
+                "vm_name": info.vm_name,
+                "name": info.name,
+                "description": info.description,
+                "snapshot_type": body.snapshot_type.unwrap_or_else(|| "Disk".into()),
+                "parent_id": null,
+                "size_bytes": 0,
+                "created": info.created_at.map(|t| t.to_rfc3339()).unwrap_or_default(),
+            })),
+        )
+            .into_response(),
+        Err(e) => {
+            let (st, j) = err_json(500, "SNAPSHOT_FAILED", &sanitize_error(&e));
+            (st, j).into_response()
+        }
+    }
+}
+
+pub async fn fabric_delete_snapshot(
+    State(state): State<SharedState>,
+    Path((vm, id)): Path<(String, String)>,
+) -> impl IntoResponse {
+    let _ = vm;
+    let s = state.read().await;
+    let namespace = s.namespace.clone();
+    let kube = s.kube_client.client();
+    drop(s);
+    let manager = SnapshotManager::from_client(kube, namespace);
+    match manager.delete_snapshot(&id).await {
+        Ok(()) => StatusCode::NO_CONTENT.into_response(),
+        Err(e) => {
+            let (st, j) = err_json(500, "SNAPSHOT_DELETE_FAILED", &sanitize_error(&e));
+            (st, j).into_response()
+        }
+    }
+}
+
+pub async fn fabric_revert_snapshot(
+    State(state): State<SharedState>,
+    Path((vm, id)): Path<(String, String)>,
+) -> impl IntoResponse {
+    let s = state.read().await;
+    let namespace = s.namespace.clone();
+    drop(s);
+    match crate::snapshots::RestoreManager::new(&namespace).await {
+            Ok(rm) => match rm.restore_in_place(&vm, &id).await {
+            Ok(_) => StatusCode::NO_CONTENT.into_response(),
+            Err(e) => {
+                let (st, j) = err_json(500, "REVERT_FAILED", &sanitize_error(&e));
+                (st, j).into_response()
+            }
+        },
+        Err(e) => {
+            let (st, j) = err_json(500, "REVERT_FAILED", &sanitize_error(&e));
+            (st, j).into_response()
+        }
+    }
+}
+
+pub async fn fabric_vm_metrics(Path(_name): Path<String>) -> impl IntoResponse {
+    Json(json!({
+        "cpu_usage": 0.0,
+        "memory_usage": 0,
+        "disk_usage": 0,
+        "network_rx": 0,
+        "network_tx": 0,
+    }))
+}
+
+pub async fn fabric_vm_logs(Path(_name): Path<String>) -> impl IntoResponse {
+    Json(json!({
+        "entries": [],
+        "count": 0,
+    }))
+}
+
+pub async fn fabric_pause_stub(Path(_name): Path<String>) -> impl IntoResponse {
+    let (st, j) = err_json(
+        501,
+        "NOT_IMPLEMENTED",
+        "Pause is not supported on Zorvia yet",
+    );
+    (st, j).into_response()
+}
+
+pub async fn fabric_resume_stub(Path(_name): Path<String>) -> impl IntoResponse {
+    let (st, j) = err_json(
+        501,
+        "NOT_IMPLEMENTED",
+        "Resume is not supported on Zorvia yet",
+    );
+    (st, j).into_response()
+}

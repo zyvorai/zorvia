@@ -34,13 +34,9 @@ function ConsoleShortcuts({
     () => [
       { sequence: ['g', 'd'] as [string, string], handler: () => navigate('/app') },
       { sequence: ['g', 'v'] as [string, string], handler: () => navigate('/app/vms') },
-      { sequence: ['g', 'n'] as [string, string], handler: () => navigate('/app/network') },
-      { sequence: ['g', 's'] as [string, string], handler: () => navigate('/app/storage') },
       { sequence: ['g', 'c'] as [string, string], handler: () => navigate('/app/create') },
-      { sequence: ['g', 'l'] as [string, string], handler: () => navigate('/app/logs') },
-      { sequence: ['g', 'b'] as [string, string], handler: () => navigate('/app/backups') },
-      { sequence: ['g', 'i'] as [string, string], handler: () => navigate('/app/disk-images') },
-      { sequence: ['g', 'e'] as [string, string], handler: () => navigate('/app/live-metrics') },
+      { sequence: ['g', 'f'] as [string, string], handler: () => navigate('/app/favorites') },
+      { sequence: ['g', 's'] as [string, string], handler: () => navigate('/app/snapshots') },
     ],
     [navigate],
   )
@@ -92,7 +88,7 @@ export default function ConsoleLayout({ children }: { children: ReactNode }) {
 
   const onLogout = () => {
     logout()
-    navigate('/')
+    navigate('/sign-in', { replace: true })
   }
 
   return (

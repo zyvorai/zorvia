@@ -56,7 +56,7 @@ export function formatHttpErrorBody(status: number, statusText: string, text: st
   if (/<!DOCTYPE\s+html/i.test(raw) || /^<\s*html/i.test(raw)) {
     return (
       `Request failed (${statusLabel}): the server returned an HTML error page instead of JSON. ` +
-      'Check that Zyvor Fabric (zyvor-fabricd) is running and reachable on this host.'
+      'Check that Zorvia (zorvia) is running and reachable on this host.'
     )
   }
 

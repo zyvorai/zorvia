@@ -68,6 +68,15 @@ export default function CreateVM() {
   const [staticIp, setStaticIp] = useState(false)
   const [tenant, setTenant] = useState('')
   const [portForwards, setPortForwards] = useState<{ hostPort: string; guestPort: string; protocol: 'tcp' | 'udp' }[]>([])
+  const [guestOs, setGuestOs] = useState<'linux' | 'windows'>('linux')
+  const [ciHostname, setCiHostname] = useState('')
+  const [ciUsername, setCiUsername] = useState('zorvia')
+  const [ciPassword, setCiPassword] = useState('')
+  const [ciSshKeys, setCiSshKeys] = useState('')
+  const [ciUserData, setCiUserData] = useState('')
+  const [exposeSsh, setExposeSsh] = useState(true)
+  const [exposeVnc, setExposeVnc] = useState(false)
+  const [exposeRdp, setExposeRdp] = useState(false)
 
   const addPortForwardRow = (guestPort = '', hostPort = '') => {
     setPortForwards((rows) => [...rows, { hostPort, guestPort, protocol: 'tcp' }])
@@ -128,16 +137,19 @@ export default function CreateVM() {
       for (const row of networkMode === 'nat' ? portForwards : []) {
         const h = parseInt(row.hostPort)
         const g = parseInt(row.guestPort)
-        if (!row.hostPort || !Number.isInteger(h) || h < 1 || h > 65535) {
-          return 'Each port forward needs a host port between 1 and 65535'
+        // host 0 = auto NodePort on Zorvia
+        if (row.hostPort !== '0' && (!row.hostPort || !Number.isInteger(h) || h < 1 || h > 65535)) {
+          return 'Each port forward needs a host port between 1 and 65535 (or 0 for auto)'
         }
         if (!row.guestPort || !Number.isInteger(g) || g < 1 || g > 65535) {
           return 'Each port forward needs a guest port between 1 and 65535'
         }
-        if (hostPorts.has(row.hostPort)) {
-          return `Host port ${row.hostPort} is used by more than one port forward`
+        if (row.hostPort !== '0') {
+          if (hostPorts.has(row.hostPort)) {
+            return `Host port ${row.hostPort} is used by more than one port forward`
+          }
+          hostPorts.add(row.hostPort)
         }
-        hostPorts.add(row.hostPort)
       }
     }
     return null
@@ -173,17 +185,40 @@ export default function CreateVM() {
     try {
       const port_forwards: PortForwardSpec[] = networkMode === 'nat'
         ? portForwards.map((row) => ({
-            host_port: parseInt(row.hostPort),
+            host_port: parseInt(row.hostPort) || 0,
             guest_port: parseInt(row.guestPort),
             protocol: row.protocol,
           }))
         : []
+      const sshKeys = ciSshKeys
+        .split('\n')
+        .map((l) => l.trim())
+        .filter(Boolean)
       await createVM({
-        name, image, cpus, memory, disk: diskGb,
+        name,
+        image,
+        cpus,
+        memory,
+        disk: diskGb,
+        guest_os: guestOs,
         network_tap: networkMode === 'bridged',
         network_static_ip: networkMode === 'bridged' && staticIp,
+        expose_ssh: guestOs === 'linux' && exposeSsh,
+        expose_vnc: guestOs === 'windows' ? exposeVnc || true : exposeVnc,
+        expose_rdp: guestOs === 'windows' && exposeRdp,
         ...(tenant.trim() ? { tenant: tenant.trim() } : {}),
         ...(port_forwards.length ? { port_forwards } : {}),
+        ...(guestOs === 'linux'
+          ? {
+              cloud_init: {
+                hostname: ciHostname.trim() || name,
+                username: ciUsername.trim() || 'zorvia',
+                ...(ciPassword ? { password: ciPassword } : {}),
+                ...(sshKeys.length ? { ssh_authorized_keys: sshKeys } : {}),
+                ...(ciUserData.trim() ? { user_data: ciUserData } : {}),
+              },
+            }
+          : {}),
       })
       if (showAdvanced) {
         try {
@@ -278,6 +313,110 @@ export default function CreateVM() {
                   required
                   autoFocus
                 />
+              </div>
+
+              <div>
+                <span className="block text-sm font-medium text-[var(--zf-ink)] mb-1.5">Guest OS</span>
+                <div className="flex gap-2">
+                  {(['linux', 'windows'] as const).map((os) => (
+                    <button
+                      key={os}
+                      type="button"
+                      onClick={() => {
+                        setGuestOs(os)
+                        if (os === 'windows') {
+                          setExposeSsh(false)
+                          setExposeVnc(true)
+                        } else {
+                          setExposeSsh(true)
+                          setExposeVnc(false)
+                          setExposeRdp(false)
+                        }
+                      }}
+                      className={`px-4 py-2 rounded-lg text-sm font-medium border transition-colors ${
+                        guestOs === os
+                          ? 'bg-[var(--zf-ink)] text-white border-[var(--zf-ink)]'
+                          : 'bg-white text-[var(--zf-ink)] border-[var(--zf-hairline)]'
+                      }`}
+                    >
+                      {os === 'linux' ? 'Linux' : 'Windows'}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {guestOs === 'linux' && (
+                <div className="rounded-lg border border-[var(--zf-hairline)] p-4 space-y-3 bg-white">
+                  <h3 className="text-sm font-semibold text-[var(--zf-ink)]">Cloud-init</h3>
+                  <div className="grid sm:grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-xs text-[var(--zf-muted)] mb-1">Hostname</label>
+                      <input
+                        value={ciHostname}
+                        onChange={(e) => setCiHostname(e.target.value)}
+                        placeholder={name || 'hostname'}
+                        className="w-full px-3 py-2 border border-[var(--zf-hairline)] rounded-lg text-sm"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs text-[var(--zf-muted)] mb-1">Username</label>
+                      <input
+                        value={ciUsername}
+                        onChange={(e) => setCiUsername(e.target.value)}
+                        className="w-full px-3 py-2 border border-[var(--zf-hairline)] rounded-lg text-sm"
+                      />
+                    </div>
+                  </div>
+                  <div>
+                    <label className="block text-xs text-[var(--zf-muted)] mb-1">Password (optional)</label>
+                    <input
+                      type="password"
+                      value={ciPassword}
+                      onChange={(e) => setCiPassword(e.target.value)}
+                      className="w-full px-3 py-2 border border-[var(--zf-hairline)] rounded-lg text-sm"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs text-[var(--zf-muted)] mb-1">SSH authorized keys (one per line)</label>
+                    <textarea
+                      value={ciSshKeys}
+                      onChange={(e) => setCiSshKeys(e.target.value)}
+                      rows={3}
+                      className="w-full px-3 py-2 border border-[var(--zf-hairline)] rounded-lg text-sm font-mono"
+                      placeholder="ssh-ed25519 AAAA…"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs text-[var(--zf-muted)] mb-1">Custom user-data YAML (optional)</label>
+                    <textarea
+                      value={ciUserData}
+                      onChange={(e) => setCiUserData(e.target.value)}
+                      rows={4}
+                      className="w-full px-3 py-2 border border-[var(--zf-hairline)] rounded-lg text-sm font-mono"
+                      placeholder="#cloud-config"
+                    />
+                  </div>
+                </div>
+              )}
+
+              <div className="rounded-lg border border-[var(--zf-hairline)] p-4 space-y-2 bg-white">
+                <h3 className="text-sm font-semibold text-[var(--zf-ink)]">Expose</h3>
+                {guestOs === 'linux' && (
+                  <label className="flex items-center gap-2 text-sm">
+                    <input type="checkbox" checked={exposeSsh} onChange={(e) => setExposeSsh(e.target.checked)} />
+                    Expose SSH (guest 22 → NodePort)
+                  </label>
+                )}
+                <label className="flex items-center gap-2 text-sm">
+                  <input type="checkbox" checked={exposeVnc} onChange={(e) => setExposeVnc(e.target.checked)} />
+                  Expose VNC (guest 5900 → NodePort)
+                </label>
+                {guestOs === 'windows' && (
+                  <label className="flex items-center gap-2 text-sm">
+                    <input type="checkbox" checked={exposeRdp} onChange={(e) => setExposeRdp(e.target.checked)} />
+                    Expose RDP (guest 3389 → NodePort)
+                  </label>
+                )}
               </div>
 
               <div>

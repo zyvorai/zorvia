@@ -24,13 +24,19 @@ export type ProductHelpMeta = {
   productUrl: string
 }
 
-/** Primary product identity — Zyvor Fabric control plane. */
-export const ZYVOR_FABRIC_HELP: ProductHelpMeta = {
-  name: 'Zyvor Fabric',
-  tagline: 'Systemd-native private cloud control plane',
-  version: '0.1.0',
+/** Primary product identity — Zorvia control plane. */
+export const ZORVIA_HELP: ProductHelpMeta = {
+  name: 'Zorvia',
+  tagline: 'KubeVirt VMs for private cloud — one control plane',
+  version: '0.2.0',
   productUrl: 'https://zyvor.dev',
 }
 
-/** Technical daemon name (systemd unit, API host). */
-export const ZYVOR_FABRIC_DAEMON = 'zyvor-fabricd'
+/** Technical daemon / service name. */
+export const ZORVIA_DAEMON = 'zorvia'
+
+/** @deprecated Use ZORVIA_HELP — kept so existing imports keep working. */
+export const ZYVOR_FABRIC_HELP = ZORVIA_HELP
+
+/** @deprecated Use ZORVIA_DAEMON — kept so existing imports keep working. */
+export const ZYVOR_FABRIC_DAEMON = ZORVIA_DAEMON

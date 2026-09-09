@@ -1,4 +1,5 @@
 pub mod converter;
+pub mod expose;
 pub mod status;
 pub mod types;
 
@@ -17,6 +18,7 @@ pub use status::{ResourceSummary, VMStatus};
 pub use types::*;
 
 /// Kubernetes client for managing KubeVirt VMs
+#[derive(Clone)]
 pub struct KubeClient {
     client: Client,
 }

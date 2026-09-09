@@ -24,20 +24,18 @@ import CopyButton from '../components/CopyButton'
 type ViewMode = 'grid' | 'table'
 
 function VMTableRow({ vm, onUpdate, selected, onSelect, canWrite }: { vm: VM; onUpdate: () => void; selected: boolean; onSelect: (name: string) => void; canWrite: boolean }) {
-  const { handleStart, handleStop, handlePause, handleResume, handleBackup } = useVMActions(vm.name, onUpdate)
+  const { handleStart, handleStop } = useVMActions(vm.name, onUpdate)
   const navigate = useNavigate()
 
-  // Double-clicking a row jumps straight to the console -- matches the grid
-  // card's same behavior, so it doesn't matter which view someone's in.
   const handleRowDoubleClick = (e: MouseEvent) => {
     if ((e.target as HTMLElement).closest('a, button, input')) return
-    navigate(`/app/vms/${vm.name}/console`)
+    navigate(`/app/vms/${vm.name}`)
   }
 
   return (
     <tr
       onDoubleClick={handleRowDoubleClick}
-      title="Double-click to open console"
+      title="Double-click to open details"
       className={`border-t border-[var(--zf-hairline)] hover:bg-black/[0.02] transition-colors group ${selected ? 'bg-[var(--zf-link)]/5' : ''}`}
     >
       <td className="py-3 px-4 w-10">
@@ -103,26 +101,11 @@ function VMTableRow({ vm, onUpdate, selected, onSelect, canWrite }: { vm: VM; on
             <button onClick={handleStart} className="p-1.5 rounded-md text-emerald-700 hover:bg-emerald-50 transition-colors" title="Start">
               <Play className="w-3.5 h-3.5" />
             </button>
-          ) : vm.state === 'paused' ? (
-            <button onClick={handleResume} className="p-1.5 rounded-md text-emerald-700 hover:bg-emerald-50 transition-colors" title="Resume">
-              <Play className="w-3.5 h-3.5" />
-            </button>
           ) : (
-            <>
-              <button onClick={handleStop} className="p-1.5 rounded-md text-[var(--zf-danger)] hover:bg-red-50 transition-colors" title="Stop">
-                <Square className="w-3.5 h-3.5" />
-              </button>
-              <button onClick={handlePause} className="p-1.5 rounded-md text-amber-700 hover:bg-amber-50 transition-colors" title="Pause">
-                <Pause className="w-3.5 h-3.5" />
-              </button>
-            </>
+            <button onClick={handleStop} className="p-1.5 rounded-md text-[var(--zf-danger)] hover:bg-red-50 transition-colors" title="Stop">
+              <Square className="w-3.5 h-3.5" />
+            </button>
           )}
-          <button onClick={handleBackup} className="p-1.5 rounded-md text-[var(--zf-link)] hover:bg-[var(--zf-canvas)] transition-colors" title="Backup">
-            <Archive className="w-3.5 h-3.5" />
-          </button>
-          <Link to={`/app/vms/${vm.name}/console`} className="p-1.5 rounded-md text-[var(--zf-muted)] hover:text-[var(--zf-link)] hover:bg-[var(--zf-canvas)] transition-colors" title="Console">
-            <Terminal className="w-3.5 h-3.5" />
-          </Link>
           <Link to={`/app/vms/${vm.name}`} className="p-1.5 rounded-md text-[var(--zf-muted)] hover:text-[var(--zf-ink)] hover:bg-black/[0.04] transition-colors" title="Details">
             <MoreVertical className="w-3.5 h-3.5" />
           </Link>

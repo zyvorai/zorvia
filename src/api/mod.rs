@@ -114,7 +114,8 @@ impl RateLimitConfig {
 
 impl Default for RateLimitConfig {
     fn default() -> Self {
-        Self::new(60)
+        // Fabric-style SPA issues many parallel API calls; 60/min is too low.
+        Self::new(1200)
     }
 }
 

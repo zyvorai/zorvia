@@ -195,17 +195,12 @@ export default function VMDetails() {
             <>
               {vm.state === 'stopped' || vm.state === 'failed' ? (
                 <ActionBtn onClick={handleStart} color="green" icon={Play} label="Start" />
-              ) : vm.state === 'paused' ? (
-                <ActionBtn onClick={handleResume} color="green" icon={Play} label="Resume" />
               ) : (
                 <>
                   <ActionBtn onClick={handleStop} color="red" icon={Square} label="Stop" />
-                  <ActionBtn onClick={handlePause} color="yellow" icon={Pause} label="Pause" />
                   <ActionBtn onClick={handleRestart} color="blue" icon={RotateCw} label="Restart" />
                 </>
               )}
-              <div className="w-px h-6 bg-[var(--zf-hairline)] mx-1" />
-              <ActionBtn onClick={() => setShowCloneDialog(true)} color="purple" icon={Copy} label="Clone" />
             </>
           )}
           <Link

@@ -23,7 +23,7 @@ export default function MarketingLayout({ children }: { children: ReactNode }) {
           <nav className="flex items-center gap-7">
             <Link to="/" className="mkt-brand" aria-label="Zorvia">
               <ZyvorLockup markClassName="w-6 h-6" />
-              <span className="text-[var(--zf-muted)] font-medium">Fabric</span>
+              <span className="text-[var(--zf-muted)] font-medium">Zorvia</span>
             </Link>
             {LINKS.map((l) => (
               <Link key={l.to} to={l.to} className="hidden sm:inline">

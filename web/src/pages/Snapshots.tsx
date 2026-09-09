@@ -45,7 +45,7 @@ export default function Snapshots() {
   }
 
   useEffect(() => {
-    if (vmName) loadSnapshots()
+    if (vmName) void loadSnapshots()
   }, [vmName])
 
   const handleDelete = async (id: string) => {
@@ -79,7 +79,6 @@ export default function Snapshots() {
       )}
       <PageHeader title="VM Snapshots" description="Create and manage VM snapshots" />
 
-      {/* VM selector */}
       <div className="zf-panel p-6 mb-8">
         <div className="flex items-center gap-4">
           <div className="flex-1">
@@ -92,25 +91,16 @@ export default function Snapshots() {
               placeholder="Enter VM name"
             />
           </div>
-          <button
-            onClick={loadSnapshots}
-            disabled={!vmName}
-            className="zf-btn zf-btn-ghost mt-7"
-          >
+          <button type="button" onClick={() => void loadSnapshots()} disabled={!vmName} className="zf-btn zf-btn-ghost mt-7">
             Load Snapshots
           </button>
-          <button
-            onClick={() => setShowCreateDialog(true)}
-            disabled={!vmName}
-            className="zf-btn zf-btn-primary mt-7"
-          >
+          <button type="button" onClick={() => setShowCreateDialog(true)} disabled={!vmName} className="zf-btn zf-btn-primary mt-7">
             <Plus className="w-4 h-4" />
             Create
           </button>
         </div>
       </div>
 
-      {/* Snapshots list */}
       {vmName && (
         <div className="zf-panel overflow-hidden">
           <table className="w-full">
@@ -126,15 +116,11 @@ export default function Snapshots() {
             <tbody>
               {loading ? (
                 <tr>
-                  <td colSpan={5} className="p-8 text-center text-[var(--zf-muted)]">
-                    Loading snapshots...
-                  </td>
+                  <td colSpan={5} className="p-8 text-center text-[var(--zf-muted)]">Loading snapshots...</td>
                 </tr>
               ) : snapshots.length === 0 ? (
                 <tr>
-                  <td colSpan={5} className="p-8 text-center text-[var(--zf-muted)]">
-                    No snapshots found for this VM.
-                  </td>
+                  <td colSpan={5} className="p-8 text-center text-[var(--zf-muted)]">No snapshots found for this VM.</td>
                 </tr>
               ) : (
                 snapshots.map((snap) => (
@@ -152,18 +138,10 @@ export default function Snapshots() {
                     </td>
                     <td className="p-4">
                       <div className="flex items-center gap-2">
-                        <button
-                          onClick={() => handleRevert(snap.id)}
-                          className="p-2 hover:bg-black/[0.04] rounded transition"
-                          title="Revert to snapshot"
-                        >
+                        <button type="button" onClick={() => void handleRevert(snap.id)} className="p-2 hover:bg-black/[0.04] rounded transition" title="Revert to snapshot">
                           <RotateCcw className="w-4 h-4 text-amber-600" />
                         </button>
-                        <button
-                          onClick={() => handleDelete(snap.id)}
-                          className="p-2 hover:bg-black/[0.04] rounded transition"
-                          title="Delete snapshot"
-                        >
+                        <button type="button" onClick={() => void handleDelete(snap.id)} className="p-2 hover:bg-black/[0.04] rounded transition" title="Delete snapshot">
                           <Trash2 className="w-4 h-4 text-red-600" />
                         </button>
                       </div>
@@ -240,7 +218,7 @@ function CreateSnapshotDialog({
     <div className="modal-backdrop">
       <div className="modal-card w-full max-w-md">
         <h2 className="text-2xl font-bold mb-6">Create Snapshot</h2>
-        <form onSubmit={handleSubmit}>
+        <form onSubmit={(e) => void handleSubmit(e)}>
           <div className="mb-4">
             <label className="block text-sm font-medium mb-2">Snapshot Name</label>
             <input
@@ -248,9 +226,7 @@ function CreateSnapshotDialog({
               value={name}
               onChange={(e) => setName(e.target.value)}
               className="w-full bg-white border border-[var(--zf-hairline)] rounded px-4 py-2"
-              placeholder="my-snapshot"
               required
-              disabled={submitting}
             />
           </div>
           <div className="mb-4">
@@ -260,8 +236,6 @@ function CreateSnapshotDialog({
               value={description}
               onChange={(e) => setDescription(e.target.value)}
               className="w-full bg-white border border-[var(--zf-hairline)] rounded px-4 py-2"
-              placeholder="Optional description"
-              disabled={submitting}
             />
           </div>
           <div className="mb-6">
@@ -270,38 +244,14 @@ function CreateSnapshotDialog({
               value={snapshotType}
               onChange={(e) => setSnapshotType(e.target.value as 'Disk' | 'Full')}
               className="w-full bg-white border border-[var(--zf-hairline)] rounded px-4 py-2"
-              disabled={submitting}
             >
-              <option value="Disk">Disk Only</option>
-              <option value="Full">Full (disk + memory — slower)</option>
+              <option value="Disk">Disk</option>
+              <option value="Full">Full</option>
             </select>
-            {snapshotType === 'Full' && (
-              <p className="text-xs text-[var(--zf-muted)] mt-2">
-                Full snapshots can take several minutes under host load. Prefer Disk Only for routine checkpoints.
-              </p>
-            )}
-            {submitting && (
-              <p className="text-xs text-[var(--zf-muted)] mt-2">
-                {snapshotType === 'Full'
-                  ? 'Creating full snapshot — this may take a few minutes…'
-                  : 'Creating snapshot…'}
-              </p>
-            )}
           </div>
-          <div className="flex gap-4">
-            <button
-              type="button"
-              onClick={onClose}
-              disabled={submitting}
-              className="zf-btn zf-btn-ghost flex-1"
-            >
-              Cancel
-            </button>
-            <button
-              type="submit"
-              disabled={submitting || !name.trim()}
-              className="zf-btn zf-btn-primary flex-1"
-            >
+          <div className="flex gap-3 justify-end">
+            <button type="button" onClick={onClose} className="zf-btn zf-btn-ghost">Cancel</button>
+            <button type="submit" disabled={submitting || !name} className="zf-btn zf-btn-primary">
               {submitting ? 'Creating…' : 'Create'}
             </button>
           </div>

@@ -29,7 +29,7 @@ serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 serde_yaml = "0.9"
 tokio = { version = "1.0", features = ["full"] }
-kube = { version = "0.95", features = ["runtime", "derive"] }
+kube = { version = "0.95", features = ["runtime", "derive", "ws"] }
 k8s-openapi = { version = "0.23", features = ["v1_30"] }
 schemars = "0.8"
 thiserror = "1.0"
@@ -53,7 +53,7 @@ dirs = "5.0"
 rustyline = "17.0"
 
 # Web dashboard dependencies
-axum = { version = "0.7", optional = true }
+axum = { version = "0.7", optional = true, features = ["ws"] }
 axum-server = { version = "0.7", features = ["tls-rustls-no-provider"], optional = true }
 rustls = { version = "0.23", default-features = false, features = ["ring", "logging", "std", "tls12"], optional = true }
 tower-http = { version = "0.6", features = ["cors", "timeout", "fs"], optional = true }
@@ -66,6 +66,11 @@ base64 = { version = "0.22", optional = true }
 sha2 = { version = "0.10", optional = true }
 subtle = { version = "2.6", optional = true }
 urlencoding = { version = "2", optional = true }
+futures-util = { version = "0.3", optional = true }
+tokio-tungstenite = { version = "0.24", optional = true, default-features = false, features = ["connect", "native-tls"] }
+native-tls = { version = "0.2", optional = true }
+http = { version = "1", optional = true }
+secrecy = "0.8"
 
 [features]
 default = ["web"]
@@ -73,6 +78,7 @@ web = [
   "axum", "axum-server", "rustls", "tower-http",
   "dep:jsonwebtoken", "dep:bcrypt", "dep:rusqlite", "dep:uuid",
   "dep:totp-rs", "dep:base64", "dep:sha2", "dep:subtle", "dep:urlencoding",
+  "dep:futures-util", "dep:tokio-tungstenite", "dep:native-tls", "dep:http",
 ]
 # PAM host auth (Linux): enable with --features pam and system libpam-dev
 pam = []

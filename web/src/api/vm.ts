@@ -32,29 +32,23 @@ export interface CreateVMRequest {
   memory: number
   /** Disk size in GB (daemon default: 20). */
   disk?: number
-  /**
-   * Host-port -> guest-port forwards for this VM's usermode networking
-   * (e.g. exposing guest port 22 for SSH). Only applied on the VM's next
-   * (re)creation in FluxVM -- usermode/slirp networking has no way to
-   * add a forward to an already-running instance.
-   */
   port_forwards?: PortForwardSpec[]
-  /**
-   * Use bridged (tap + private network namespace + DHCP) networking
-   * instead of the default NAT networking. A bridged VM gets a real,
-   * externally-reachable IP (visible on its Network tab) instead of
-   * needing explicit port_forwards.
-   */
   network_tap?: boolean
-  /**
-   * Only meaningful when network_tap is set: configure the guest's address
-   * statically via cloud-init instead of relying on its own DHCP client
-   * (not every image runs one automatically on boot).
-   */
   network_static_ip?: boolean
-  /** Optional tenant id — stored as `labels.tenant` and passed to FluxVM. */
   tenant?: string
   labels?: Record<string, string>
+  guest_os?: 'linux' | 'windows'
+  cloud_init?: {
+    user_data?: string
+    hostname?: string
+    username?: string
+    ssh_authorized_keys?: string[]
+    password?: string
+  }
+  expose_ssh?: boolean
+  expose_vnc?: boolean
+  expose_rdp?: boolean
+  start?: boolean
 }
 
 export interface VMMetrics {

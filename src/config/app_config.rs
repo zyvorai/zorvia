@@ -275,7 +275,7 @@ impl Default for ApiServerConfig {
             tls_cert: None,
             tls_key: None,
             auth: "none".to_string(),
-            rate_limit: 60,
+            rate_limit: 1200,
             cors: true,
             cors_origins: Vec::new(),
             request_timeout: 30,
@@ -343,7 +343,7 @@ mod tests {
         assert_eq!(config.api.host, "127.0.0.1");
         assert!(!config.api.tls);
         assert_eq!(config.api.auth, "none");
-        assert_eq!(config.api.rate_limit, 60);
+        assert_eq!(config.api.rate_limit, 1200);
         assert_eq!(config.logging.level, "info");
         assert_eq!(config.output.format, "table");
         assert!(config.output.color);
