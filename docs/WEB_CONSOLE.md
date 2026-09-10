@@ -16,7 +16,8 @@ Deploy:
 
 ```bash
 ./deploy/remote-deploy.sh <host> sus --quick
-# or
+# or (fills in ZORVIA_EXPOSE_HOST/HOST for you; applying k8s.yaml directly
+# leaves the __ZORVIA_EXPOSE_HOST__ placeholder -- substitute it first)
 kubectl apply -f deploy/k8s.yaml
 ```
 

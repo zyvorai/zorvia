@@ -52,6 +52,9 @@ zorvia list
 Open the lab web console (HTTPS NodePort **30152**, self-signed — use `curl -sk`):
 
 ```bash
+# remote-deploy.sh fills in ZORVIA_EXPOSE_HOST/HOST automatically; applying
+# k8s.yaml directly leaves the __ZORVIA_EXPOSE_HOST__ placeholder in place --
+# substitute it yourself first, e.g.: sed -i "s/__ZORVIA_EXPOSE_HOST__/<HOST>/g" deploy/k8s.yaml
 kubectl apply -f deploy/k8s.yaml
 # or: ./deploy/remote-deploy.sh <host> sus --quick
 open https://<HOST>:30152/app

@@ -245,10 +245,18 @@ spec:
                   name: zorvia-kryton
                   key: project
                   optional: true
+            # remote-deploy.sh substitutes this at apply time (sed on the
+            # remote copy, never committed) with the actual deploy target so
+            # every host gets its own correct value here. A hardcoded IP
+            # left over from one host silently carried into every later
+            # deploy to a different host, producing wrong NodePort
+            # expose_host values (e.g. in RDP .rdp launcher files) until
+            # caught. If applying this manifest directly (not via
+            # remote-deploy.sh), replace the placeholder yourself first.
             - name: ZORVIA_EXPOSE_HOST
-              value: "212.8.248.187"
+              value: "__ZORVIA_EXPOSE_HOST__"
             - name: HOST
-              value: "212.8.248.187"
+              value: "__ZORVIA_EXPOSE_HOST__"
           volumeMounts:
             - name: tls-certs
               mountPath: /certs

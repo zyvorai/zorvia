@@ -283,6 +283,12 @@ _ssh "
     # Apply Kubernetes HTTPS manifests (in-pod TLS + NodePort 30152)
     export KUBECONFIG=/etc/rancher/k3s/k3s.yaml
     if command -v kubectl >/dev/null 2>&1 || [ -x /usr/local/bin/kubectl ]; then
+        # Fill in this deploy's target host on the remote (freshly-synced,
+        # never-committed) copy -- k8s.yaml ships with a placeholder so a
+        # value hardcoded for one host can't silently carry into a deploy
+        # to a different one (this bit us: ZORVIA_EXPOSE_HOST/HOST left
+        # pointing at an old host after redeploying elsewhere).
+        sed -i "s/__ZORVIA_EXPOSE_HOST__/$HOST/g" deploy/k8s.yaml
         $SUDO env KUBECONFIG=/etc/rancher/k3s/k3s.yaml kubectl apply -f deploy/k8s.yaml
         # Clean up legacy namespace/manifest names from earlier HTTP NodePort deploys
         $SUDO env KUBECONFIG=/etc/rancher/k3s/k3s.yaml kubectl delete namespace zorvia --ignore-not-found 2>/dev/null || true
