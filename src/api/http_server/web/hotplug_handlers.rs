@@ -44,6 +44,14 @@ fn hotplug_error_response(action: &str, e: impl std::fmt::Display) -> axum::resp
     // "Internal server error" before classify_hotplug_error ever sees them.
     let raw = e.to_string();
     let (code, kind, msg) = crate::kube::lifecycle::classify_hotplug_error(action, &raw);
+    // classify_hotplug_error's pattern matching on raw k8s/subresource error
+    // text is inherently heuristic (e.g. a bare 404 with no structured
+    // "NotFound" reason could mean the object is missing, or that the
+    // addinterface/removeinterface subresource route itself doesn't exist
+    // on this KubeVirt version) — log the raw text on every non-2xx outcome
+    // so a misclassification is diagnosable server-side instead of only
+    // showing the client a possibly-misleading classified message.
+    log::debug!("{action} classified as {kind} ({code}) from raw: {raw}");
     let (st, j) = err_json(code, kind, &msg);
     (st, j).into_response()
 }

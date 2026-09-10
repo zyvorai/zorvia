@@ -388,7 +388,25 @@ impl KubeClient {
             Ok(_) => Ok(()),
             Err(kube::Error::SerdeError(_)) => Ok(()),
             Err(kube::Error::Api(ae)) if ae.code == 404 => {
-                Err(ZorviaError::VmNotFound(name.to_string()).into())
+                log::debug!(
+                    "{subresource} 404 for '{name}': reason={:?} message={:?}",
+                    ae.reason, ae.message
+                );
+                // A 404 here is ambiguous: it fires both when the VMI itself
+                // doesn't exist AND when the subresource route isn't
+                // registered on this KubeVirt version (e.g. addinterface/
+                // removeinterface without NIC-hotplug support) — the
+                // apiserver returns the same status code either way. Only
+                // the VMI-missing case actually names the object; a missing
+                // route's ErrorResponse is the generic apiserver "could not
+                // find the requested resource" with no VMI reference.
+                if ae.message.contains(name) || ae.reason.eq_ignore_ascii_case("NotFound") {
+                    Err(ZorviaError::VmNotFound(name.to_string()).into())
+                } else {
+                    Err(anyhow::anyhow!(
+                        "UNSUPPORTED: the '{subresource}' subresource is not available on this cluster's KubeVirt version"
+                    ))
+                }
             }
             Err(e) => Err(e.into()),
         }

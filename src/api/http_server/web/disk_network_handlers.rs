@@ -35,20 +35,29 @@ pub async fn fabric_resize_disk(
             Json(json!({ "disk": disk_name, "size": new_size })).into_response()
         }
         Err(e) => {
-            let raw = sanitize_error(&e);
+            log::error!("resize_disk failed: {e}");
+            // Classify on the raw text, not sanitize_error(&e): our own
+            // anyhow! messages here (SHRINK_NOT_SUPPORTED, "no volumes",
+            // "disk not found", ...) don't start with any of
+            // sanitize_error's allowed prefixes, so running it first
+            // collapsed every one of these to "Internal server error" and
+            // (since the checks below then ran on that already-sanitized
+            // text) every failure — including a plain "disk not found" —
+            // fell through to the generic 500 RESIZE_FAILED branch.
+            let raw = e.to_string();
             let lower = raw.to_ascii_lowercase();
-            let (code, kind) = if lower.contains("volume_not_found") {
-                (404, "VOLUME_NOT_FOUND")
+            let (code, kind, msg) = if lower.contains("volume_not_found") {
+                (404, "VOLUME_NOT_FOUND", raw.clone())
             } else if lower.contains("unsupported") {
-                (501, "UNSUPPORTED")
+                (501, "UNSUPPORTED", raw.clone())
             } else if lower.contains("shrink_not_supported") {
-                (409, "SHRINK_NOT_SUPPORTED")
+                (409, "SHRINK_NOT_SUPPORTED", raw.clone())
             } else if lower.contains("notfound") || lower.contains("not found") {
-                (404, "NOT_FOUND")
+                (404, "NOT_FOUND", raw.clone())
             } else {
-                (500, "RESIZE_FAILED")
+                (500, "RESIZE_FAILED", sanitize_error(&e))
             };
-            let (st, j) = err_json(code, kind, &raw);
+            let (st, j) = err_json(code, kind, &msg);
             (st, j).into_response()
         }
     }

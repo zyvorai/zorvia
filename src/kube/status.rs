@@ -43,6 +43,10 @@ impl VMStatus {
             (false, "Unknown".to_string())
         };
 
+        // Total vCPUs is cores * sockets * threads, not cores alone — CPU
+        // hotplug raises `sockets` (cores/threads are fixed at create time),
+        // so a cores-only count silently reverted to the pre-hotplug vCPU
+        // total here even after a successful hotplug against the cluster.
         let cpu_cores = vm
             .spec
             .template
@@ -50,7 +54,7 @@ impl VMStatus {
             .domain
             .cpu
             .as_ref()
-            .and_then(|c| c.cores)
+            .map(|c| c.cores.unwrap_or(1) * c.sockets.unwrap_or(1) * c.threads.unwrap_or(1))
             .unwrap_or(0);
 
         let memory = vm

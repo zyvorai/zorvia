@@ -94,7 +94,12 @@ impl VmInfo {
 
         let ready = vm.status.as_ref().and_then(|s| s.ready).unwrap_or(false);
 
-        // Extract CPU and memory from spec
+        // Extract CPU and memory from spec. Total vCPUs is cores * sockets *
+        // threads, not cores alone — CPU hotplug raises `sockets` (cores and
+        // threads are fixed at create time and can't be hotplugged), so a
+        // cores-only count silently reverted to the pre-hotplug vCPU total
+        // everywhere this is displayed or returned from the API, even though
+        // the hotplug itself succeeded against the cluster.
         let cpu = vm
             .spec
             .template
@@ -102,7 +107,10 @@ impl VmInfo {
             .domain
             .cpu
             .as_ref()
-            .map(|c| format!("{} cores", c.cores.unwrap_or(1)))
+            .map(|c| {
+                let total = c.cores.unwrap_or(1) * c.sockets.unwrap_or(1) * c.threads.unwrap_or(1);
+                format!("{total} cores")
+            })
             .unwrap_or_else(|| "1 core".to_string());
 
         let memory = vm

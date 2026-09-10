@@ -174,6 +174,21 @@ pub fn classify_hotplug_error(action: &str, raw: &str) -> (u16, &'static str, St
         return (404, "VOLUME_NOT_FOUND", format!("Cannot {action}: {raw}"));
     }
     if lower.contains("notfound") || lower.contains("not found") {
+        // A bare "404: Page Not Found" (no structured k8s ApiError with a
+        // named resource) from an addinterface/removeinterface call almost
+        // always means the subresource route itself doesn't exist on this
+        // KubeVirt version — not that the running VM instance is missing.
+        // Reporting "VM instance not found; start the VM" for that case is
+        // actively misleading when the VM is demonstrably running.
+        let is_nic_action = action.to_ascii_lowercase().contains("nic");
+        let looks_like_missing_route = !lower.contains("apierror") && lower.contains("page not found");
+        if is_nic_action && looks_like_missing_route {
+            return (
+                501,
+                "UNSUPPORTED",
+                format!("{action} is not supported on this cluster (requires the KubeVirt HotplugNICs feature gate + Multus)"),
+            );
+        }
         return (
             404,
             "NOT_FOUND",
@@ -330,6 +345,28 @@ mod tests {
             classify_hotplug_error("hotplug NIC", "the server could not find the requested resource for interface hotplug (not supported)");
         assert_eq!(code, 501);
         assert_eq!(kind, "UNSUPPORTED");
+    }
+
+    #[test]
+    fn classifies_bare_404_from_missing_nic_subresource_as_unsupported() {
+        // Regression: verified live against a real cluster — when the
+        // addinterface/removeinterface subresource route isn't registered
+        // (this KubeVirt version's Multus/NIC-hotplug support), kube-rs
+        // surfaces a bare "404: Page Not Found" with no structured
+        // ApiError/resource detail. This used to be misclassified as
+        // "VM instance not found; start the VM" even though the VM was
+        // demonstrably running.
+        let (code, kind, msg) = classify_hotplug_error("hotplug NIC", "404: Page Not Found");
+        assert_eq!(code, 501);
+        assert_eq!(kind, "UNSUPPORTED");
+        assert!(!msg.to_ascii_lowercase().contains("start the vm"));
+    }
+
+    #[test]
+    fn still_classifies_real_vm_not_found_for_non_nic_actions() {
+        let (code, kind, _) = classify_hotplug_error("hotplug CPU", "404: Page Not Found");
+        assert_eq!(code, 404);
+        assert_eq!(kind, "NOT_FOUND");
     }
 
     #[test]
