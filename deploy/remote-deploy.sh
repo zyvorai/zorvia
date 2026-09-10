@@ -275,7 +275,7 @@ _ssh "
         $SUDO k3s ctr images tag localhost/zorvia:local zorvia:local 2>/dev/null || true
         $SUDO k3s ctr images tag localhost/zorvia:local docker.io/library/zorvia:local 2>/dev/null || true
         echo \"image: zorvia:local built/imported via \$BUILDER\"
-        $SUDO kubectl -n zorvia-system rollout restart deployment/zorvia-api 2>/dev/null || true
+        $SUDO env KUBECONFIG=/etc/rancher/k3s/k3s.yaml kubectl -n zorvia-system rollout restart deployment/zorvia-api 2>/dev/null || true
     else
         echo 'docker/podman/binary missing; using existing zorvia:local if present'
     fi
@@ -283,16 +283,16 @@ _ssh "
     # Apply Kubernetes HTTPS manifests (in-pod TLS + NodePort 30152)
     export KUBECONFIG=/etc/rancher/k3s/k3s.yaml
     if command -v kubectl >/dev/null 2>&1 || [ -x /usr/local/bin/kubectl ]; then
-        $SUDO kubectl apply -f deploy/k8s.yaml
+        $SUDO env KUBECONFIG=/etc/rancher/k3s/k3s.yaml kubectl apply -f deploy/k8s.yaml
         # Clean up legacy namespace/manifest names from earlier HTTP NodePort deploys
-        $SUDO kubectl delete namespace zorvia --ignore-not-found 2>/dev/null || true
+        $SUDO env KUBECONFIG=/etc/rancher/k3s/k3s.yaml kubectl delete namespace zorvia --ignore-not-found 2>/dev/null || true
         if [ -d /var/lib/rancher/k3s/server/manifests ]; then
             $SUDO cp deploy/k3s-zorvia-web.yaml /var/lib/rancher/k3s/server/manifests/zorvia-web.yaml \
               || $SUDO cp deploy/k3s-zorvia-web.yaml /var/lib/rancher/k3s/server/manifests/zorvia-api.yaml \
               || true
             echo 'k3s auto-manifest: installed'
         fi
-        $SUDO kubectl -n zorvia-system rollout status deployment/zorvia-api --timeout=180s || true
+        $SUDO env KUBECONFIG=/etc/rancher/k3s/k3s.yaml kubectl -n zorvia-system rollout status deployment/zorvia-api --timeout=180s || true
         echo 'k8s: zorvia-api applied (HTTPS NodePort 30152)'
     else
         echo 'kubectl not found; skipped Kubernetes apply'
@@ -314,13 +314,13 @@ _ssh "
     echo \"Version: \$(zorvia --version 2>/dev/null || echo FAILED)\"
     echo \"Host systemd zorvia-web: \$(systemctl is-active zorvia-web 2>/dev/null || echo inactive)\"
     echo \"\"
-    $SUDO kubectl -n zorvia-system get deploy,svc,pods 2>/dev/null || true
+    $SUDO env KUBECONFIG=/etc/rancher/k3s/k3s.yaml kubectl -n zorvia-system get deploy,svc,pods 2>/dev/null || true
     echo \"\"
     if curl -sk -o /dev/null -w 'NodePort health: HTTP %{http_code}\n' --max-time 10 https://127.0.0.1:30152/api/v1/health; then
         :
     else
         echo 'NodePort 30152: not ready yet'
-        $SUDO kubectl -n zorvia-system describe pods -l app.kubernetes.io/component=api 2>/dev/null | tail -40 || true
+        $SUDO env KUBECONFIG=/etc/rancher/k3s/k3s.yaml kubectl -n zorvia-system describe pods -l app.kubernetes.io/component=api 2>/dev/null | tail -40 || true
     fi
 " 2>&1
 
