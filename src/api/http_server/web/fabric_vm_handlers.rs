@@ -577,11 +577,21 @@ pub async fn fabric_create_vm(
             }
         }
         Err(e) => {
-            let msg = sanitize_error(&e);
-            let code = if msg.contains("already exists") || msg.contains("Exists") {
-                409
-            } else {
-                500
+            log::error!("create_vm failed: {e}");
+            // ZorviaError's own Display text (e.g. "VM 'x' already exists")
+            // is safe to return as-is — it's our own message, not a raw k8s
+            // error — but it doesn't start with any of sanitize_error's
+            // allowed prefixes, so passing it through sanitize_error first
+            // collapsed it to a generic "Internal server error" and (since
+            // that check ran on the already-sanitized text) always reported
+            // 500 instead of 409 for a name conflict.
+            let (code, msg) = match e.downcast_ref::<crate::utils::ZorviaError>() {
+                Some(crate::utils::ZorviaError::VmExists(_)) => (409, e.to_string()),
+                Some(crate::utils::ZorviaError::VmNotFound(_)) => (404, e.to_string()),
+                Some(crate::utils::ZorviaError::ValidationError(_))
+                | Some(crate::utils::ZorviaError::ConfigError(_)) => (400, e.to_string()),
+                Some(crate::utils::ZorviaError::Timeout(_)) => (504, e.to_string()),
+                _ => (500, sanitize_error(&e)),
             };
             let (st, j) = err_json(code, "CREATE_FAILED", &msg);
             (st, j).into_response()

@@ -1129,11 +1129,18 @@ pub mod web {
             .any(|p| msg.starts_with(p));
 
         if is_known {
-            // Keep the first sentence (up to the first ". " or ": ")
-            let end = msg
-                .find(". ")
-                .or_else(|| msg.find(": "))
-                .unwrap_or(msg.len());
+            // Keep the first sentence, bounded to a safe length. Cutting at
+            // the first ": " (as this used to do) is wrong: kube-rs's
+            // ApiError Display starts "ApiError: <reason>", so the very
+            // first ": " is the one separating the prefix from the actual
+            // reason — truncating there dropped 100% of the useful detail,
+            // leaving clients with just the literal word "ApiError" and no
+            // way to diagnose a failed request. Sentence-end (". ") is a
+            // safe cut point since it only appears after real content.
+            let mut end = msg.find(". ").unwrap_or(msg.len()).min(500);
+            while end > 0 && !msg.is_char_boundary(end) {
+                end -= 1;
+            }
             msg[..end].to_string()
         } else {
             "Internal server error".to_string()
