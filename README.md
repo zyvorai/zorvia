@@ -29,7 +29,7 @@ CLI, interactive TUI, and a signed-in web console on the same Fabric-compatible 
 </p>
 
 <p align="center">
-  <img src="docs/client-presentations/screenshots/03-dashboard.png" alt="Zorvia dashboard" width="880">
+  <img src="docs/screenshots/readme-dashboard.png" alt="Zorvia dashboard" width="880">
 </p>
 
 **Contents:** [Install](#install) · [Quick start](#quick-start) · [Why Zorvia](#why-zorvia) · [Platform surface](#platform-surface) · [Day-2 commands](#day-2-commands) · [Web console & API](#web-console--api) · [Profiles · blueprints · templates](#profiles--blueprints--templates) · [Operator toolkit](#operator-toolkit) · [Config & library](#config--library) · [Develop](#develop) · [Project security](#project-security) · [Contributing · License](#contributing--license)
@@ -207,7 +207,7 @@ zorvia tui --interactive
 ```
 
 <p align="center">
-  <img src="docs/client-presentations/screenshots/04-vms-list.png" alt="Zorvia VM list" width="880">
+  <img src="docs/screenshots/readme-vms-list.png" alt="Zorvia VM list" width="880">
 </p>
 
 ---
@@ -227,7 +227,7 @@ zorvia tui --interactive
 | `/app/access-control` | User & role management (admin-only) |
 
 <p align="center">
-  <img src="docs/client-presentations/screenshots/06-vm-console.png" alt="Zorvia in-browser VM console" width="880">
+  <img src="docs/screenshots/readme-vm-console.png" alt="Zorvia in-browser VM console" width="880">
 </p>
 
 ```text
@@ -249,7 +249,7 @@ curl -sk -H "Authorization: Bearer $TOKEN" https://HOST:30152/api/vms
 Lab bootstrap credentials are for labs only — change them before anything shared.
 
 <p align="center">
-  <img src="docs/client-presentations/screenshots/07-vm-metrics.png" alt="Zorvia VM metrics with Prometheus overlay" width="880">
+  <img src="docs/screenshots/readme-vm-metrics.png" alt="Zorvia VM metrics" width="880">
 </p>
 
 ---
@@ -299,7 +299,7 @@ zorvia template ubuntu-24.04
 ```
 
 <p align="center">
-  <img src="docs/client-presentations/screenshots/20-templates-page.png" alt="Zorvia template catalog" width="880">
+  <img src="docs/screenshots/readme-templates.png" alt="Zorvia template catalog" width="880">
 </p>
 
 Catalog: [docs/OS_TEMPLATES.md](docs/OS_TEMPLATES.md)
