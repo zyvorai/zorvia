@@ -51,6 +51,10 @@ pub mod web {
     mod disk_network_handlers;
     use disk_network_handlers::*;
 
+    #[path = "drift_handlers.rs"]
+    mod drift_handlers;
+    use drift_handlers::*;
+
     /// Simple sliding-window rate limiter state.
     struct RateLimiterState {
         /// Number of requests in the current window
@@ -407,6 +411,8 @@ pub mod web {
                 "/vms/:name/hotplug/nic/:device_id",
                 delete(fabric_hotunplug_nic),
             )
+            .route("/vms/:name/drift", post(fabric_vm_drift))
+            .route("/vms/:name/plan", post(fabric_vm_change_plan))
             .route("/vms/:name/disks", get(fabric_list_disks))
             .route("/vms/:name/disks/:disk_name/resize", post(fabric_resize_disk))
             .route("/vms/:name/interfaces", get(fabric_list_interfaces))
