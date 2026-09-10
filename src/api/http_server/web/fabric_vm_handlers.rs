@@ -338,8 +338,12 @@ pub async fn fabric_start_download(
 ) -> impl IntoResponse {
     let s = state.read().await;
     let namespace = s.namespace.clone();
+    let client = s.client();
     drop(s);
-    match crate::golden_images::jobs::DownloadRegistry::global().start(&body.name, &namespace) {
+    match crate::golden_images::jobs::DownloadRegistry::global()
+        .start(&body.name, &namespace, &client)
+        .await
+    {
         Ok(job) => (StatusCode::ACCEPTED, Json(json!(job))).into_response(),
         Err(e) => {
             let (st, j) = err_json(404, "NOT_FOUND", &e.to_string());
@@ -424,6 +428,10 @@ pub async fn fabric_create_vm(
             builder = builder.add_blank_disk("rootdisk", size, 1);
         } else if let Some(pvc) = image.strip_prefix("pvc:") {
             builder = builder.add_pvc_disk("rootdisk", pvc, &disk_size, 1);
+        } else if let Some(dv) = image.strip_prefix("datavolume:") {
+            // A golden image imported via the cloud-image download flow
+            // (DownloadJob.output_path) — an already-created CDI DataVolume.
+            builder = builder.add_data_volume_disk("rootdisk", dv, &disk_size, 1);
         } else if image.contains('/') || image.contains(':') {
             // OCI containerdisk reference
             builder = builder.add_container_disk("rootdisk", image, 1);

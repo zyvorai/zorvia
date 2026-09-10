@@ -167,6 +167,31 @@ impl VMConfigBuilder {
         self
     }
 
+    /// Add a disk backed by an existing CDI DataVolume (e.g. a golden image
+    /// imported via `image-bundle`/the cloud-image download flow).
+    pub fn add_data_volume_disk(
+        mut self,
+        name: impl Into<String>,
+        data_volume_name: impl Into<String>,
+        size: impl Into<String>,
+        boot_order: u32,
+    ) -> Self {
+        self.config.disks.push(DiskConfig {
+            name: name.into(),
+            size: size.into(),
+            storage_class: None,
+            boot_order,
+            source: DiskSource::DataVolume {
+                name: data_volume_name.into(),
+            },
+            device_type: DiskDeviceType::default(),
+            bus: None,
+            cache: None,
+            io: None,
+        });
+        self
+    }
+
     /// Add a pre-configured network interface.
     pub fn add_interface(mut self, interface: InterfaceConfig) -> Self {
         self.config.interfaces.push(interface);

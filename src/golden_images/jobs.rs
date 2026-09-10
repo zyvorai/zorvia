@@ -68,8 +68,19 @@ impl DownloadRegistry {
             .insert(job.id.clone(), job);
     }
 
-    /// Start a download job from a catalog image name, path, or URL.
-    pub fn start(&self, requested: &str, namespace: &str) -> Result<DownloadJob> {
+    /// Start a download job from a catalog image name, path, or URL: builds
+    /// the golden-image DataVolume/DataSource manifests and actually applies
+    /// them to the cluster (previously this only built the manifests and
+    /// reported "Completed" without ever creating anything — VMs created
+    /// from a "downloaded" image would fail since neither the DataVolume nor
+    /// the `dv:`-prefixed image reference it returned were ever recognized
+    /// anywhere).
+    pub async fn start(
+        &self,
+        requested: &str,
+        namespace: &str,
+        client: &crate::kube::KubeClient,
+    ) -> Result<DownloadJob> {
         let image = resolve_cloud_image(requested)
             .ok_or_else(|| anyhow!("unknown cloud image '{requested}'"))?;
         let now = Utc::now().to_rfc3339();
@@ -92,18 +103,32 @@ impl DownloadRegistry {
         self.upsert(job.clone());
 
         match build_import_bundle(&image.path, namespace) {
-            Ok(bundle) => {
-                job.state = DownloadState::Completed;
-                job.output_path = Some(format!("dv:{}", bundle.versioned_name));
-                job.data_volume = Some(bundle.data_volume);
-                job.completed = Some(Utc::now().to_rfc3339());
-            }
+            Ok(bundle) => match client.apply_data_volume(namespace, &bundle.data_volume).await {
+                Ok(_) => match client.apply_data_source(namespace, &bundle.data_source).await {
+                    Ok(_) => {
+                        job.state = DownloadState::Completed;
+                        // "datavolume:" tells fabric_create_vm's image parser
+                        // to attach this disk via add_data_volume_disk rather
+                        // than treating it as an OCI containerdisk reference.
+                        job.output_path = Some(format!("datavolume:{}", bundle.versioned_name));
+                        job.data_volume = Some(bundle.data_volume);
+                    }
+                    Err(e) => {
+                        job.state = DownloadState::Failed;
+                        job.error = Some(format!("failed to create DataSource: {e}"));
+                    }
+                },
+                Err(e) => {
+                    job.state = DownloadState::Failed;
+                    job.error = Some(format!("failed to create DataVolume: {e}"));
+                }
+            },
             Err(e) => {
                 job.state = DownloadState::Failed;
                 job.error = Some(e.to_string());
-                job.completed = Some(Utc::now().to_rfc3339());
             }
         }
+        job.completed = Some(Utc::now().to_rfc3339());
         self.upsert(job.clone());
         Ok(job)
     }
@@ -154,27 +179,37 @@ fn build_import_bundle(path: &str, namespace: &str) -> Result<GoldenImageBundle>
 mod tests {
     use super::*;
 
+    // `DownloadRegistry::start` now actually applies manifests to the
+    // cluster, so it needs a real KubeClient and isn't unit-testable here
+    // (same as create_vm/hotplug_cpu/etc.) — these tests cover the pure
+    // manifest-building and image-resolution logic it depends on instead.
+
     #[test]
-    fn starts_job_for_ubuntu_catalog_entry() {
+    fn resolves_ubuntu_catalog_entry() {
         let images = cloud_images_from_templates();
         let ubuntu = images
             .iter()
             .find(|i| i.path.contains("ubuntu"))
             .expect("ubuntu image");
-        let reg = DownloadRegistry {
-            inner: Mutex::new(HashMap::new()),
-        };
-        let job = reg.start(&ubuntu.path, "default").unwrap();
-        assert_eq!(job.state, DownloadState::Completed);
-        assert!(job.output_path.unwrap().starts_with("dv:"));
-        assert!(job.data_volume.is_some());
+        let resolved = resolve_cloud_image(&ubuntu.path).expect("resolves");
+        assert_eq!(resolved.path, ubuntu.path);
     }
 
     #[test]
-    fn unknown_image_fails() {
-        let reg = DownloadRegistry {
-            inner: Mutex::new(HashMap::new()),
-        };
-        assert!(reg.start("not-a-real-image", "default").is_err());
+    fn unknown_image_does_not_resolve() {
+        assert!(resolve_cloud_image("not-a-real-image").is_none());
+    }
+
+    #[test]
+    fn builds_a_versioned_data_volume_and_data_source() {
+        let images = cloud_images_from_templates();
+        let ubuntu = images
+            .iter()
+            .find(|i| i.path.contains("ubuntu"))
+            .expect("ubuntu image");
+        let bundle = build_import_bundle(&ubuntu.path, "default").unwrap();
+        assert_eq!(bundle.data_volume["kind"], "DataVolume");
+        assert_eq!(bundle.data_volume["metadata"]["name"], bundle.versioned_name);
+        assert_eq!(bundle.data_source["kind"], "DataSource");
     }
 }

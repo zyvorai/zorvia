@@ -683,6 +683,45 @@ impl KubeClient {
         Ok(self.client.request::<serde_json::Value>(req).await?)
     }
 
+    /// Create-or-update a CDI DataSource — the stable alias a golden-image
+    /// bundle points at its current versioned DataVolume. Unlike DataVolumes
+    /// (each version immutable/uniquely named), the same DataSource name is
+    /// re-applied on every re-import, so this upserts (create, then merge
+    /// patch on 409) rather than failing on conflict.
+    pub async fn apply_data_source(
+        &self,
+        namespace: &str,
+        manifest: &serde_json::Value,
+    ) -> Result<serde_json::Value> {
+        lifecycle::validate_k8s_name("namespace", namespace)?;
+        let name = manifest["metadata"]["name"]
+            .as_str()
+            .ok_or_else(|| anyhow::anyhow!("DataSource manifest missing metadata.name"))?;
+        let collection = format!("/apis/cdi.kubevirt.io/v1beta1/namespaces/{namespace}/datasources");
+        let body = serde_json::to_vec(manifest)?;
+        let req = http::Request::builder()
+            .method(http::Method::POST)
+            .uri(&collection)
+            .header(http::header::CONTENT_TYPE, "application/json")
+            .body(body)
+            .map_err(|e| anyhow::anyhow!("failed to build DataSource request: {e}"))?;
+        match self.client.request::<serde_json::Value>(req).await {
+            Ok(v) => Ok(v),
+            Err(kube::Error::Api(ae)) if ae.code == 409 => {
+                let object_path = format!("{collection}/{name}");
+                let patch_body = serde_json::to_vec(manifest)?;
+                let patch_req = http::Request::builder()
+                    .method(http::Method::PATCH)
+                    .uri(&object_path)
+                    .header(http::header::CONTENT_TYPE, "application/merge-patch+json")
+                    .body(patch_body)
+                    .map_err(|e| anyhow::anyhow!("failed to build DataSource patch request: {e}"))?;
+                Ok(self.client.request::<serde_json::Value>(patch_req).await?)
+            }
+            Err(e) => Err(e.into()),
+        }
+    }
+
     pub async fn get_data_volume(
         &self,
         namespace: &str,
