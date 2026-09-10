@@ -3,6 +3,7 @@
 
 import React from 'react'
 import { AlertTriangle } from 'lucide-react'
+import { isChunkLoadError, reloadOnceForChunkError } from '../utils/chunkReload'
 
 interface ErrorBoundaryProps {
   children: React.ReactNode
@@ -26,6 +27,10 @@ export class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoun
 
   componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
     console.error('ErrorBoundary caught an error:', error, errorInfo)
+
+    if (isChunkLoadError(error)) {
+      reloadOnceForChunkError()
+    }
   }
 
   render() {

@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- **Stale-chunk error after redeploy** — a tab left open across a deploy still held the old `index.html`, whose content-hashed chunk filenames no longer exist once the new build lands; navigating to any not-yet-loaded route threw `Failed to fetch dynamically imported module` and landed on the "Section error" fallback until the user manually reloaded. `ErrorBoundary` now recognizes this error shape and reloads once per tab session (`web/src/utils/chunkReload.ts`), and `main.tsx` adds Vite's `vite:preloadError` listener for the same failure outside a render boundary.
+
 ## [0.3.0] - 2026-09-11
 
 ### Added
