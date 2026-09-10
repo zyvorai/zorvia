@@ -1,16 +1,38 @@
 # Zorvia
 
-[![CI](https://github.com/zyvorai/zorvia/workflows/CI/badge.svg)](https://github.com/zyvorai/zorvia/actions)
-[![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](LICENSE)
-[![Rust](https://img.shields.io/badge/rust-1.76%2B-orange.svg)](https://www.rust-lang.org/)
-[![KubeVirt](https://img.shields.io/badge/KubeVirt-native-6d28d9.svg)](https://kubevirt.io/)
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="web/public/zyvor-logo-on-dark.png">
+    <img src="web/public/zyvor-logo.png" alt="Zorvia" width="220">
+  </picture>
+</p>
 
-**KubeVirt VMs without the YAML tax.**
+<p align="center">
+  <a href="https://github.com/zyvorai/zorvia/actions"><img src="https://github.com/zyvorai/zorvia/workflows/CI/badge.svg" alt="CI"></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/License-Apache%202.0-blue.svg" alt="License"></a>
+  <a href="https://www.rust-lang.org/"><img src="https://img.shields.io/badge/rust-1.76%2B-orange.svg" alt="Rust"></a>
+  <a href="https://kubevirt.io/"><img src="https://img.shields.io/badge/KubeVirt-native-6d28d9.svg" alt="KubeVirt"></a>
+</p>
 
-Zorvia is a Rust toolkit for crafting and day-2 managing virtual machines on Kubernetes:
+<p align="center"><b>KubeVirt VMs without the YAML tax.</b></p>
+
+<p align="center">
+Zorvia is a Rust toolkit for crafting and day-2 managing virtual machines on Kubernetes:<br>
 CLI, interactive TUI, and a signed-in web console on the same Fabric-compatible API.
+</p>
 
-[Repository](https://github.com/zyvorai/zorvia) · [zyvor.dev](https://zyvor.dev) · Apache-2.0 only · [Changelog](CHANGELOG.md)
+<p align="center">
+  <a href="https://github.com/zyvorai/zorvia">Repository</a> ·
+  <a href="https://zyvor.dev">zyvor.dev</a> ·
+  Apache-2.0 only ·
+  <a href="CHANGELOG.md">Changelog</a>
+</p>
+
+<p align="center">
+  <img src="docs/client-presentations/screenshots/03-dashboard.png" alt="Zorvia dashboard" width="880">
+</p>
+
+**Contents:** [Install](#install) · [Quick start](#quick-start) · [Why Zorvia](#why-zorvia) · [Platform surface](#platform-surface) · [Day-2 commands](#day-2-commands) · [Web console & API](#web-console--api) · [Profiles · blueprints · templates](#profiles--blueprints--templates) · [Operator toolkit](#operator-toolkit) · [Config & library](#config--library) · [Develop](#develop) · [Project security](#project-security) · [Contributing · License](#contributing--license)
 
 ---
 
@@ -99,6 +121,77 @@ No OpenShift tax. Same VirtualMachines from terminal or browser.
 
 ---
 
+## Platform surface
+
+The quickstart above covers the everyday VM lifecycle. Zorvia's CLI also carries ~178 subcommands across
+operator-grade surfaces beyond core VM craft. Per [DEVELOPMENT.md](DEVELOPMENT.md)'s own scope note: these are
+**advanced surfaces, not every-cluster guarantees** — the always-supported path is create/day-2/snapshots/drift/plan/golden-images/Terraform;
+treat the rest as available, real, and worth exploring, not a promise that every module fits every deployment.
+
+**Security & compliance**
+
+```bash
+zorvia security-scan prod-db --scan-type deep
+zorvia security-harden prod-db --profile cis
+zorvia compliance-check prod-db --framework soc2
+zorvia audit-list --security-only
+```
+
+**Cost & FinOps**
+
+```bash
+zorvia cost-analyze prod-db --period 30d
+zorvia cost-optimize --high-priority-only
+zorvia cost-waste --waste-type idle
+zorvia budget-create platform --amount 5000 --period monthly --alert-threshold 80
+```
+
+**Multi-tenancy & access**
+
+```bash
+zorvia tenants-create platform-team --owner alice --email alice@example.com
+zorvia users-create bob --email bob@example.com --role operator
+zorvia users-assign-role bob db-admin --scope namespace:staging
+zorvia quotas-create platform-quota --namespace platform --preset large
+```
+
+**Backup & disaster recovery**
+
+```bash
+zorvia backup-create prod-db --backup-type incremental
+zorvia backup-schedule-create nightly --schedule daily --vm prod-db
+zorvia backup-restore prod-db-full-20260901 --target prod-db-restore --start
+zorvia recovery-plan primary-site-failover
+```
+
+**High availability**
+
+```bash
+zorvia ha-config prod-db --enable --priority critical --eviction-strategy live-migrate
+zorvia ha-status prod-db
+zorvia evacuate-node worker-3 --max-parallel 4 --plan
+```
+
+**Automation & workflows**
+
+```bash
+zorvia automation-create nightly-snapshot --trigger schedule --enable
+zorvia workflow-create dr-failover --template disaster-recovery
+zorvia workflow-run dr-failover --watch
+zorvia schedule-create weekly-backup --rule nightly-snapshot --schedule weekly --enable
+```
+
+**Observability & insights**
+
+```bash
+zorvia metrics-query cpu_usage --aggregation p95
+zorvia alerts-active --severity critical
+zorvia insights-generate prod-db --insight-type performance
+zorvia trends-analyze cpu_usage --window 24
+```
+
+---
+
 ## Day-2 commands
 
 ```bash
@@ -112,6 +205,10 @@ zorvia drift desired.yaml
 zorvia plan desired.yaml --vm prod-db
 zorvia tui --interactive
 ```
+
+<p align="center">
+  <img src="docs/client-presentations/screenshots/04-vms-list.png" alt="Zorvia VM list" width="880">
+</p>
 
 ---
 
@@ -128,6 +225,10 @@ zorvia tui --interactive
 | `/app/storage` | Rook-Ceph storage management |
 | `/app/windows` | Kryton Windows inventory (optional) |
 | `/app/access-control` | User & role management (admin-only) |
+
+<p align="center">
+  <img src="docs/client-presentations/screenshots/06-vm-console.png" alt="Zorvia in-browser VM console" width="880">
+</p>
 
 ```text
 wss://<HOST>:30152/ws/console/<vm>?token=<jwt>
@@ -146,6 +247,10 @@ curl -sk -H "Authorization: Bearer $TOKEN" https://HOST:30152/api/vms
 ```
 
 Lab bootstrap credentials are for labs only — change them before anything shared.
+
+<p align="center">
+  <img src="docs/client-presentations/screenshots/07-vm-metrics.png" alt="Zorvia VM metrics with Prometheus overlay" width="880">
+</p>
 
 ---
 
@@ -192,6 +297,10 @@ zorvia deploy lamp --prefix demo --start
 zorvia templates
 zorvia template ubuntu-24.04
 ```
+
+<p align="center">
+  <img src="docs/client-presentations/screenshots/20-templates-page.png" alt="Zorvia template catalog" width="880">
+</p>
 
 Catalog: [docs/OS_TEMPLATES.md](docs/OS_TEMPLATES.md)
 
@@ -295,7 +404,7 @@ Architecture notes: [DEVELOPMENT.md](DEVELOPMENT.md).
 
 ---
 
-## Security
+## Project security
 
 No `unsafe` on the product path. CORS off unless configured. TLS verification enforced.
 Profile/blueprint storage blocks path traversal. API errors are sanitized; auth inputs bounded.
