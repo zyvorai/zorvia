@@ -7,8 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-09-11
+
 ### Added
 
+- **User & role management** — `admin`/`user`/`viewer` accounts backed by a real backend: `GET/POST /api/v1/users`, `DELETE /api/v1/users/:id`, `PUT /api/v1/users/:id/role`, `PUT /api/v1/users/:id/enabled`, all admin-only via a dedicated `route_layer` middleware (`require_admin_middleware` in `src/api/http_server.rs`) rather than per-handler checks. Guards against dropping the last enabled admin (409 on delete/demote/disable). Disabled accounts are rejected at login (403). New `/app/access-control` page, admin-gated in both the nav (hidden for non-admins) and the route itself (`AdminRoute` in `web/src/App.tsx`). Replaces a previous Access Control page that called `/api/users` endpoints that never existed on the server.
+- **Multi-disk / multi-NIC Create VM wizard** — the wizard previously created VMs with exactly one disk and one NIC even though the backend (`POST /api/vms`'s `disks`/`interfaces` arrays) already accepted more; the wizard now has collapsible "Additional disks" and "Additional NICs" sections to add more of either at create time.
+- **RDP `.rdp` connect launcher** — VM Details and the Kryton Windows page offer a one-click download of a ready-to-open `.rdp` file (host, port, and username for Kryton machines) instead of requiring the user to copy connection details into their own RDP client by hand.
 - **VM hotplug** — CPU (`POST /api/vms/:name/hotplug/cpu`), memory (`…/hotplug/memory`), disk attach/detach (`…/hotplug/disk[/:id]`), NIC attach/detach (`…/hotplug/nic[/:id]`); web console Hotplug tab. Fabric `POST /api/vms` now sets `cpu.maxSockets`/`memory.maxGuest` headroom by default (4x sockets / 2x memory) so VMs created through the wizard are hotplug-capable without extra steps.
 - **Disk resize** — `POST /api/vms/:name/disks/:disk_name/resize` grows a PVC-backed disk in place; `GET /api/vms/:name/disks` lists disks with bus/source/resizable
 - **Live migration, for real** — `POST /api/vms/:name/migrate` creates a `VirtualMachineInstanceMigration`; `GET /api/vms/:name/migrations`, `GET/POST /api/migrations/:id[/cancel]`; `/app/migrations` rewritten around KubeVirt's actual migration phases (Pending → Scheduling → PreparingTarget → TargetReady → Running → Succeeded/Failed) — previously real at the kube-client layer but CLI-only, with a UI mockup that never routed
@@ -42,10 +47,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **Console top nav** — dropped the "zyvor" wordmark next to the Zorvia logo mark; only the product name shows there now.
 - **Kubernetes HTTPS (Veyron-style)** — in-pod rustls TLS via openssl init container; Service NodePort **30152** (`https://HOST:30152`). Host systemd `zorvia-web` is no longer the lab front door.
 - **SPA Core nav** — Dashboard, VMs, Create VM, Favorites, Snapshots; product branding **Zorvia**
 - **Renamed project to Zorvia** — crate, binary, config paths, deploy manifests, and docs now use `zorvia` / `Zorvia` (repository: [zyvorai/zorvia](https://github.com/zyvorai/zorvia))
 - **Apache License 2.0 only** — removed the MIT dual-license; `LICENSE` is Apache-2.0 exclusively
+
+### Removed
+
+- **~37,000 lines of dead code** — an entire backend handler tree (`src/api/handlers/`, 44 files) that was never mounted on the live router (merged into an `all_routes()` function nothing called), and ~125 orphaned frontend pages/sub-components/API clients in `web/src/` that only that dead backend tree (or each other) referenced, and were unreachable from any real route or nav item. `src/api/routes.rs` — a different, live module backing the `zorvia api-routes` CLI command — was explicitly kept.
 
 ### Security
 
@@ -58,6 +68,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Console WS auth** — in-cluster proxy uses SA `token_file` + cluster CA when dialing KubeVirt subresources
 
 ### Fixed
+
+- **`expose_rdp` did nothing for Linux VMs** — the "Expose RDP" checkbox in the Create VM wizard was gated on `guestOs === 'windows'` and the Linux submit path hardcoded `expose_rdp: false`, so choosing Linux silently dropped the option no matter what the user picked. Checkbox now gates on Linux (RDP is a Linux/xrdp scenario in this wizard; Windows exposure goes through Kryton) and the value is actually sent.
+- **In-browser SSH couldn't authenticate with a password** — the SSH tab spawned `ssh -tt user@host` with plain `Stdio::piped()` stdin/stdout/stderr, i.e. no controlling terminal. OpenSSH's password prompt reads from `/dev/tty`, not stdin; with no tty available, that open fails and `ssh` silently submits 3 empty passwords and gives up — instantly, with no chance for the user to type anything, regardless of whether the password was correct. `proxy_ssh` (`src/api/http_server/web/ws_proxy_handlers.rs`) now allocates a real pty via `pty-process` for the spawned process, which also merges stdout+stderr into one stream like an actual terminal (the separate stderr pipe/reader is gone). Also fixes a prerequisite found while diagnosing this: the deployed container image had no `ssh` client binary at all (`deploy/Dockerfile.local` now installs `openssh-client`).
+- **User database didn't survive a restart** — `deploy/k8s.yaml`'s `auth-data` volume was an `emptyDir`; every pod restart or redeploy silently reset all users back to just the bootstrap admin. Now backed by a `PersistentVolumeClaim` (`zorvia-auth-data`, `storageClassName` intentionally left unset so it binds to whatever the cluster's default class is, rather than hardcoding one that might not exist on another host).
+- **Deploy manifest hardcoded a stale host's IP** — `ZORVIA_EXPOSE_HOST`/`HOST` in `deploy/k8s.yaml` had a literal IP address left over from an earlier deploy target, silently carried into every later deploy to a different host and producing wrong NodePort connection hints (e.g. in RDP `.rdp` files). `remote-deploy.sh` now substitutes the real target host into a `__ZORVIA_EXPOSE_HOST__` placeholder at apply time.
 
 #### Error Messages Hidden Behind Generic 500s
 Found while browser-testing VM creation and day-2 ops end-to-end against a real cluster: several handlers ran the generic `sanitize_error()` *before* their own classification logic, which collapsed Zorvia's own safe, structured error messages (e.g. `ZorviaError::VmExists`, `"VOLUME_NOT_FOUND: …"`, `"SHRINK_NOT_SUPPORTED: …"` — none start with `sanitize_error`'s allowed prefixes) down to a bare "Internal server error" before the classification checks ever saw the real text — so the classification always fell through to a generic 500.

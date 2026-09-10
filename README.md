@@ -76,7 +76,8 @@ open https://<HOST>:30152/app
 | Size by workload | **8** resource profiles (apply via `--cpus` / `--memory` / `--disk-size`, or blueprints) |
 | Ship a stack | **5** blueprints (LAMP, 3-tier, k8s-cluster, CI/CD, dev-stack) |
 | Browser ops | Web console — create, power, console, expose, snapshots |
-| Reach the guest | Serial, VNC, in-browser SSH (authenticated WebSockets) |
+| Reach the guest | Serial, VNC, in-browser SSH — real pty, password auth works (authenticated WebSockets) |
+| Who can do what | Admin/user/viewer accounts (`/app/access-control`), admin-only user management, last-admin-lockout protection |
 | Day-2 without downtime | Hotplug CPU/memory/disk/NIC, live migration, disk resize — CLI and web console |
 | Catch drift | `zorvia drift` + `zorvia plan` |
 | Golden library | quay.io containerdisks + CDI `image-bundle`; web console download now applies real DataVolumes |
@@ -126,6 +127,7 @@ zorvia tui --interactive
 | `/app/migrations` | Live migration |
 | `/app/storage` | Rook-Ceph storage management |
 | `/app/windows` | Kryton Windows inventory (optional) |
+| `/app/access-control` | User & role management (admin-only) |
 
 ```text
 wss://<HOST>:30152/ws/console/<vm>?token=<jwt>

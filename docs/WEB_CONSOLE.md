@@ -10,7 +10,7 @@ Sign-in: https://<HOST>:30152/sign-in
 Health:  https://<HOST>:30152/api/v1/health
 ```
 
-Default lab bootstrap user (change for non-lab): `admin` / `Admin@321`.
+Default lab bootstrap user (change for non-lab): `admin` / `Admin@321`. The user database (`ZORVIA_AUTH_DB`, sqlite) lives on a `PersistentVolumeClaim` (`zorvia-auth-data` in `deploy/k8s.yaml`), so accounts created after this bootstrap survive pod restarts and redeploys.
 
 Deploy:
 
@@ -29,6 +29,7 @@ Useful env on the API pod:
 | `ZORVIA_WEB_DIR` | SPA static root (default `/usr/share/zorvia/web`) |
 | `ZORVIA_JWT_SECRET` | JWT signing secret |
 | `ZORVIA_ADMIN_USER` / `ZORVIA_ADMIN_PASSWORD` | Bootstrap admin |
+| `ZORVIA_AUTH_DB` | Path to the sqlite user database (default `/data/auth.db` in the deploy manifest, backed by a PVC) |
 
 ## SPA routes (Core)
 
@@ -44,6 +45,7 @@ Useful env on the API pod:
 | `/app/migrations` | Live migration: start, list, cancel |
 | `/app/storage` | Rook-Ceph: cluster status, pools, filesystems, object stores, StorageClass/VolumeSnapshotClass creation |
 | `/app/windows` | Kryton Windows machine inventory (when `KRYTON_URL` is set) |
+| `/app/access-control` | User & role management (admin-only — see below) |
 
 Auth is JWT (login) or API key. WebSockets pass `?token=` because browsers cannot set `Authorization` on upgrades.
 
@@ -55,7 +57,8 @@ Wizard supports:
 - **Linux cloud-init**: hostname, username, password, SSH authorized keys, optional `#cloud-config` YAML
 - **Windows**: routed entirely through Kryton — picks a golden image from the live Kryton catalog and calls `POST /api/v1/kryton/machines` instead of `/api/vms`; no cloud-init, no KubeVirt-specific fields apply. Requires `KRYTON_URL` (see [KRYTON_INTEGRATION.md](KRYTON_INTEGRATION.md)).
 - **Images**: blank disks, PVC name (`pvc:…`), containerdisk refs (`quay.io/…`), or a downloaded golden image (`datavolume:…`, see below)
-- **Advanced options** (Linux, optional/collapsible): firmware (BIOS/UEFI/secure boot), CPU model + dedicated placement + isolate-emulator-thread, memory hugepages, machine type, TPM/RNG devices, HyperV/ACPI/APIC feature toggles, multiple disks and NICs
+- **Advanced options** (Linux, optional/collapsible): firmware (BIOS/UEFI/secure boot), CPU model + dedicated placement + isolate-emulator-thread, memory hugepages, machine type, TPM/RNG devices, HyperV/ACPI/APIC feature toggles
+- **Additional disks / NICs** (Linux, optional): the primary disk (from the Image field) and primary NIC (from the network mode toggle) cover the common case with zero extra steps; "Additional disks" (after the Root disk field) and "Additional NICs" (inside Advanced Options) let you add more of either — each extra disk picks a source type (blank / PVC / containerdisk / dataVolume), each extra NIC picks a network type (pod / bridge / multus / sriov). Sent as `POST /api/vms`'s `disks[]`/`interfaces[]` arrays, with the primary disk/NIC synthesized as the first array entry so it isn't silently dropped
 - **Expose**: SSH (22), VNC (5900, Windows create path), RDP (3389) as Kubernetes **NodePort** Services
 - **Auto-start** after create (default)
 
@@ -68,7 +71,7 @@ Catalog (`GET /api/images`) returns blank sizes plus major Linux containerdisks.
 | Start / stop / restart / delete | VM details, list, API |
 | Serial console | `/app/vms/:name/console` → Terminal → `GET /ws/console/:name` → KubeVirt `vmis/console` |
 | VNC | Console page VNC tab → `GET /ws/vnc/:name` → KubeVirt `vmis/vnc` |
-| In-browser SSH | Console page SSH tab → `GET /ws/ssh/:name?user=` → proxies `ssh` or `virtctl ssh` |
+| In-browser SSH | Console page SSH tab → `GET /ws/ssh/:name?user=` → proxies `ssh` or `virtctl ssh`, attached to a real pty (password auth works — an earlier plain-pipe version of this proxy couldn't complete OpenSSH's `/dev/tty` password prompt) |
 | Expose SSH/VNC/RDP | Port-forwards section or create-time flags → NodePort Service labeled `zorvia.io/vm=<name>` |
 | Cloud-init update | `POST /api/vms/:name/cloud-init` (annotates VM; volume rewrite requires recreate) |
 | Clone | `POST /api/vms/:name/clone` |
@@ -82,6 +85,26 @@ Catalog (`GET /api/images`) returns blank sizes plus major Linux containerdisks.
 CPU/memory hotplug requires the VM to have been created with `cpu.maxSockets` / `memory.maxGuest` headroom (Fabric create auto-defaults these to 4x sockets / 2x memory unless overridden) **and** the cluster's KubeVirt CR needs `VMLiveUpdateFeatures` in `featureGates` plus `workloadUpdateStrategy.workloadUpdateMethods: ["LiveMigrate"]` and `configuration.liveUpdateConfiguration` set — otherwise KubeVirt accepts the patch but only marks the VM `RestartRequired` instead of live-applying it. Disk hotplug requires KubeVirt's `HotplugVolumes` feature gate; disks must use the `scsi` bus (KubeVirt's admission webhook rejects any other bus for a hotplugged disk — Zorvia defaults to `scsi` when unset). NIC hotplug requires `HotplugNICs` + Multus and reports `501 UNSUPPORTED` when unavailable.
 
 Pause / resume call KubeVirt `virtualmachineinstances/pause` and `…/unpause`. The VMI must be Running. Linux create-time `expose_vnc` opens guest TCP 5900 the same way as Windows.
+
+## User & role management
+
+Application-level accounts and roles — distinct from the `zorvia` ServiceAccount's Kubernetes RBAC (see [RBAC](#rbac) below), which governs what the API pod itself can do against the cluster, not who can sign in to it.
+
+Three roles: `admin`, `user`, `viewer`. `user` can read/write VMs; `viewer` is read-only; only `admin` can manage other accounts. Roles are carried in the JWT (`Claims.role`) issued at login.
+
+| Route | Purpose |
+|-------|---------|
+| `GET /api/v1/users` | List all accounts (id, username, role, enabled, created, last_login) |
+| `POST /api/v1/users` | Create an account (`username`, `password` — min 8 chars, `role`) |
+| `DELETE /api/v1/users/:id` | Delete an account |
+| `PUT /api/v1/users/:id/role` | Change an account's role |
+| `PUT /api/v1/users/:id/enabled` | Enable / disable an account |
+
+All five are admin-only, enforced by a dedicated `route_layer` middleware (`require_admin_middleware` in `src/api/http_server.rs`) wrapping just this route group — a 401 if the bearer token is missing/invalid, 403 if it's valid but not an admin. A disabled account is rejected at `POST /v1/auth/login` (403 "This account has been disabled") even with the correct password. Deleting, demoting, or disabling the **last enabled admin** is rejected with `409` — there's always at least one way back in.
+
+Web UI: `/app/access-control`, admin-gated both in the sidebar (hidden entirely for non-admins) and in the route itself (a non-admin hitting the URL directly sees a plain "Admins only" message; the 403 from the API is the actual enforcement, this is just UX).
+
+The user database is a local sqlite file (`ZORVIA_AUTH_DB`, see env table above), backed by a `PersistentVolumeClaim` so it survives pod restarts and redeploys — see [Lab access](#lab-access) above.
 
 ## Fabric-compatible HTTP (under `/api`)
 
@@ -126,7 +149,7 @@ Pause / resume call KubeVirt `virtualmachineinstances/pause` and `…/unpause`. 
 | POST | `/storage/rook/storage-classes` | Provision an RBD or CephFS StorageClass |
 | POST | `/storage/rook/volume-snapshot-classes` | Provision a VolumeSnapshotClass |
 
-Native v1 routes remain under `/api/v1/…` (auth, health, namespaced VM power, snapshots, events).
+Native v1 routes remain under `/api/v1/…` (auth, health, namespaced VM power, snapshots, events, user & role management — see [User & role management](#user--role-management) above).
 
 ## WebSockets
 
@@ -156,7 +179,7 @@ The Rook-bootstrap grants above are intentionally broad — installing an operat
 - Blank-disk VMs have no guest OS — console may connect with little/no serial output; use a containerdisk image for real SSH/VNC guest tests.
 - Linux create-time `expose_vnc` now creates a NodePort on guest 5900 (same as Windows).
 - Clone prefers a CDI DataVolume from the source PVC (`clone_mode=cdi`); falls back to an empty PVC if CDI is missing.
-- In-browser SSH needs `ssh` or `virtctl` on the API pod and a running guest with an IP or virtctl access.
+- In-browser SSH needs `ssh` or `virtctl` on the API pod (the default `deploy/Dockerfile.local` image installs `openssh-client`) and a running guest with an IP or virtctl access.
 - Metrics include KubeVirt phase / paused / node. Guest CPU counters still require virt-launcher metrics.
 - Logs pull recent virt-launcher pod lines when the launcher pod is labeled `kubevirt.io/vm=<name>`.
 - CPU/memory hotplug depends on KubeVirt version + cluster configuration (see the note under Day-2 operations) — Zorvia's API and RBAC are cluster-agnostic, but without the matching KubeVirt CR settings the request succeeds (spec patched, limits enforced) while KubeVirt itself only marks the VM `RestartRequired` rather than live-applying it. Verify on your cluster before relying on it.
