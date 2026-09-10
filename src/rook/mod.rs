@@ -14,6 +14,4 @@ pub mod manifests;
 
 pub use client::{BootstrapOptions, BootstrapReport, RookClient};
 pub use health::{CephHealthState, CephHealthSummary};
-pub use manifests::{
-    CephBlockPoolSpec, CephClusterSpec, CephFilesystemSpec, CephObjectStoreSpec,
-};
+pub use manifests::{CephBlockPoolSpec, CephClusterSpec, CephFilesystemSpec, CephObjectStoreSpec};

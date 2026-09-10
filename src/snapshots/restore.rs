@@ -55,18 +55,12 @@ impl RestoreManager {
 
         // Build labels
         let mut labels = BTreeMap::new();
-        labels.insert(
-            "zorvia.io/snapshot".to_string(),
-            snapshot_name.to_string(),
-        );
+        labels.insert("zorvia.io/snapshot".to_string(), snapshot_name.to_string());
         labels.insert(
             "zorvia.io/target-vm".to_string(),
             target_vm_name.to_string(),
         );
-        labels.insert(
-            "zorvia.io/created-by".to_string(),
-            "zorvia".to_string(),
-        );
+        labels.insert("zorvia.io/created-by".to_string(), "zorvia".to_string());
 
         // Create the restore CRD
         let restore = VirtualMachineRestore {
@@ -134,7 +128,8 @@ impl RestoreManager {
             Err(e) => {
                 return Err(anyhow::anyhow!(
                     "Cannot verify VM '{}' running state: {}. Aborting restore for safety.",
-                    vm_name, e
+                    vm_name,
+                    e
                 ));
             }
             Ok(false) => {} // VM is stopped, safe to proceed
@@ -146,7 +141,10 @@ impl RestoreManager {
             vm_name,
             Utc::now().format("%Y%m%d%H%M%S")
         );
-        log::info!("Creating pre-restore safety snapshot: {}", safety_snapshot_name);
+        log::info!(
+            "Creating pre-restore safety snapshot: {}",
+            safety_snapshot_name
+        );
         let snapshot_manager = SnapshotManager::from_client(self.client.clone(), &self.namespace);
         let safety_config = SnapshotConfig::new(vm_name, &safety_snapshot_name)
             .with_description(format!(

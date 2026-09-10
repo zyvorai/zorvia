@@ -141,7 +141,9 @@ impl InteractiveApp {
         match self.current_view {
             View::Dashboard => ui::dashboard::render(f, &self.state, &self.config),
             View::VmList => ui::vm_list::render(f, &mut self.state, &self.config),
-            View::VmDetails => ui::vm_details::render(f, &self.state, &self.config, self.detail_tab),
+            View::VmDetails => {
+                ui::vm_details::render(f, &self.state, &self.config, self.detail_tab)
+            }
             View::Snapshots => ui::snapshots::render(f, &self.state, &self.config),
             View::Profiles => ui::profiles::render(f, &self.state, &self.config),
             View::Blueprints => ui::blueprints::render(f, &self.state, &self.config),
@@ -222,8 +224,12 @@ impl InteractiveApp {
             KeyCode::Esc => {
                 match self.current_view {
                     // In sub-views, go back instead of quitting
-                    View::VmDetails | View::Snapshots | View::Profiles
-                    | View::Blueprints | View::ActivityLog | View::Help => {
+                    View::VmDetails
+                    | View::Snapshots
+                    | View::Profiles
+                    | View::Blueprints
+                    | View::ActivityLog
+                    | View::Help => {
                         self.current_view = View::VmList;
                     }
                     // In main views, quit
@@ -432,13 +438,8 @@ impl InteractiveApp {
             KeyCode::Char('f') => {
                 // Cycle status filter
                 self.state.cycle_status_filter();
-                let filter_name = self
-                    .state
-                    .status_filter
-                    .as_deref()
-                    .unwrap_or("All");
-                self.notifications
-                    .info(format!("Filter: {}", filter_name));
+                let filter_name = self.state.status_filter.as_deref().unwrap_or("All");
+                self.notifications.info(format!("Filter: {}", filter_name));
             }
             KeyCode::Char('d') => {
                 // Delete VM with confirmation (or skip if disabled in config)
@@ -590,8 +591,9 @@ impl InteractiveApp {
             return false;
         }
         // RFC 1123 DNS subdomain: lowercase alphanumeric and hyphens, start/end with alphanumeric
-        static RE: once_cell::sync::Lazy<regex::Regex> =
-            once_cell::sync::Lazy::new(|| regex::Regex::new(r"^[a-z0-9]([a-z0-9\-]*[a-z0-9])?$").unwrap());
+        static RE: once_cell::sync::Lazy<regex::Regex> = once_cell::sync::Lazy::new(|| {
+            regex::Regex::new(r"^[a-z0-9]([a-z0-9\-]*[a-z0-9])?$").unwrap()
+        });
         RE.is_match(name)
     }
 
@@ -729,8 +731,7 @@ impl InteractiveApp {
         match KubeClient::new().await {
             Ok(client) => match client.start_vm(&self.state.namespace, vm_name).await {
                 Ok(_) => {
-                    self.state
-                        .record_activity("▶ ", vm_name, "start requested");
+                    self.state.record_activity("▶ ", vm_name, "start requested");
                     self.notifications
                         .success(format!("VM '{}' started", vm_name));
                     self.refresh_data().await?;
@@ -758,8 +759,7 @@ impl InteractiveApp {
         match KubeClient::new().await {
             Ok(client) => match client.stop_vm(&self.state.namespace, vm_name).await {
                 Ok(_) => {
-                    self.state
-                        .record_activity("⏹ ", vm_name, "stop requested");
+                    self.state.record_activity("⏹ ", vm_name, "stop requested");
                     self.notifications
                         .success(format!("VM '{}' stopped", vm_name));
                     self.refresh_data().await?;

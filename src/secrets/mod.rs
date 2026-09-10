@@ -66,11 +66,7 @@ impl std::fmt::Debug for Secret {
 }
 
 impl Secret {
-    pub fn new(
-        name: impl Into<String>,
-        secret_type: SecretType,
-        value: impl Into<String>,
-    ) -> Self {
+    pub fn new(name: impl Into<String>, secret_type: SecretType, value: impl Into<String>) -> Self {
         let name_str = name.into();
         let id = format!(
             "secret-{}-{}",

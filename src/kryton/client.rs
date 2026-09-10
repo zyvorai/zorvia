@@ -38,7 +38,9 @@ impl Config {
         Ok(Some(Self {
             base_url,
             token: std::env::var("KRYTON_TOKEN").ok().filter(|v| !v.is_empty()),
-            default_project: std::env::var("KRYTON_PROJECT").ok().filter(|v| !v.is_empty()),
+            default_project: std::env::var("KRYTON_PROJECT")
+                .ok()
+                .filter(|v| !v.is_empty()),
             timeout: Duration::from_secs(timeout_secs),
             allow_invalid_tls,
         }))
@@ -85,12 +87,17 @@ impl Client {
 
     pub fn new(config: Config) -> anyhow::Result<Self> {
         if config.allow_invalid_tls {
-            log::warn!("KRYTON_TLS_INSECURE is enabled; Kryton TLS certificates will not be verified");
+            log::warn!(
+                "KRYTON_TLS_INSECURE is enabled; Kryton TLS certificates will not be verified"
+            );
         }
         let http = reqwest::Client::builder()
             .timeout(config.timeout)
             .danger_accept_invalid_certs(config.allow_invalid_tls)
-            .user_agent(format!("zorvia/{}/kryton-adapter", env!("CARGO_PKG_VERSION")))
+            .user_agent(format!(
+                "zorvia/{}/kryton-adapter",
+                env!("CARGO_PKG_VERSION")
+            ))
             .build()?;
         Ok(Self { config, http })
     }
@@ -122,13 +129,19 @@ impl Client {
         req
     }
 
-    async fn decode<T: DeserializeOwned>(&self, request: reqwest::RequestBuilder) -> Result<T, Error> {
+    async fn decode<T: DeserializeOwned>(
+        &self,
+        request: reqwest::RequestBuilder,
+    ) -> Result<T, Error> {
         let response = request.send().await?;
         let status = response.status();
         if status.is_success() {
             return Ok(response.json::<T>().await?);
         }
-        Err(Self::decode_error(status, response.text().await.unwrap_or_default()))
+        Err(Self::decode_error(
+            status,
+            response.text().await.unwrap_or_default(),
+        ))
     }
 
     async fn empty(&self, request: reqwest::RequestBuilder) -> Result<(), Error> {
@@ -137,11 +150,16 @@ impl Client {
         if status.is_success() {
             return Ok(());
         }
-        Err(Self::decode_error(status, response.text().await.unwrap_or_default()))
+        Err(Self::decode_error(
+            status,
+            response.text().await.unwrap_or_default(),
+        ))
     }
 
     fn decode_error(status: StatusCode, body: String) -> Error {
-        let parsed = serde_json::from_str::<UpstreamEnvelope>(&body).ok().and_then(|v| v.error);
+        let parsed = serde_json::from_str::<UpstreamEnvelope>(&body)
+            .ok()
+            .and_then(|v| v.error);
         let message = parsed
             .as_ref()
             .and_then(|e| e.message.clone())
@@ -149,7 +167,10 @@ impl Client {
             .unwrap_or_else(|| {
                 let trimmed = body.trim();
                 if trimmed.is_empty() {
-                    status.canonical_reason().unwrap_or("upstream error").to_string()
+                    status
+                        .canonical_reason()
+                        .unwrap_or("upstream error")
+                        .to_string()
                 } else {
                     trimmed.chars().take(512).collect()
                 }
@@ -179,15 +200,18 @@ impl Client {
     }
 
     pub async fn capabilities(&self) -> Result<Capabilities, Error> {
-        self.decode(self.request(Method::GET, "/api/v1/capabilities")).await
+        self.decode(self.request(Method::GET, "/api/v1/capabilities"))
+            .await
     }
 
     pub async fn doctor(&self) -> Result<DoctorReport, Error> {
-        self.decode(self.request(Method::GET, "/api/v1/doctor")).await
+        self.decode(self.request(Method::GET, "/api/v1/doctor"))
+            .await
     }
 
     pub async fn images(&self) -> Result<ListResponse<Image>, Error> {
-        self.decode(self.request(Method::GET, "/api/v1/images")).await
+        self.decode(self.request(Method::GET, "/api/v1/images"))
+            .await
     }
 
     pub async fn summary(&self, project: Option<&str>) -> Result<Summary, Error> {
@@ -213,19 +237,28 @@ impl Client {
         if let Some(cursor) = cursor.filter(|v| !v.is_empty()) {
             query.push(("cursor", cursor.to_string()));
         }
-        self.decode(self.request(Method::GET, "/api/v1/machines").query(&query)).await
+        self.decode(self.request(Method::GET, "/api/v1/machines").query(&query))
+            .await
     }
 
     pub async fn machine(&self, id: &str, project: Option<&str>) -> Result<Machine, Error> {
         let project = self.project(project)?;
-        self.decode(self.request(Method::GET, &Self::machine_path(id)).query(&[("project", project)])).await
+        self.decode(
+            self.request(Method::GET, &Self::machine_path(id))
+                .query(&[("project", project)]),
+        )
+        .await
     }
 
     pub async fn create(&self, mut request: CreateMachineRequest) -> Result<Machine, Error> {
         if request.project.trim().is_empty() {
             request.project = self.project(None)?.to_string();
         }
-        self.decode(self.request(Method::POST, "/api/v1/machines").json(&request)).await
+        self.decode(
+            self.request(Method::POST, "/api/v1/machines")
+                .json(&request),
+        )
+        .await
     }
 
     pub async fn start(&self, id: &str, project: Option<&str>) -> Result<Machine, Error> {
@@ -248,7 +281,11 @@ impl Client {
 
     pub async fn delete(&self, id: &str, project: Option<&str>) -> Result<(), Error> {
         let project = self.project(project)?;
-        self.empty(self.request(Method::DELETE, &Self::machine_path(id)).query(&[("project", project)])).await
+        self.empty(
+            self.request(Method::DELETE, &Self::machine_path(id))
+                .query(&[("project", project)]),
+        )
+        .await
     }
 
     pub async fn snapshot(
@@ -260,18 +297,28 @@ impl Client {
         let project = self.project(project)?;
         let body = SnapshotRequest { name };
         self.decode(
-            self.request(Method::POST, &format!("{}/snapshot", Self::machine_path(id)))
-                .query(&[("project", project)])
-                .json(&body),
+            self.request(
+                Method::POST,
+                &format!("{}/snapshot", Self::machine_path(id)),
+            )
+            .query(&[("project", project)])
+            .json(&body),
         )
         .await
     }
 
-    pub async fn snapshots(&self, id: &str, project: Option<&str>) -> Result<ListResponse<Snapshot>, Error> {
+    pub async fn snapshots(
+        &self,
+        id: &str,
+        project: Option<&str>,
+    ) -> Result<ListResponse<Snapshot>, Error> {
         let project = self.project(project)?;
         self.decode(
-            self.request(Method::GET, &format!("{}/snapshots", Self::machine_path(id)))
-                .query(&[("project", project)]),
+            self.request(
+                Method::GET,
+                &format!("{}/snapshots", Self::machine_path(id)),
+            )
+            .query(&[("project", project)]),
         )
         .await
     }
@@ -284,8 +331,11 @@ impl Client {
     ) -> Result<Snapshot, Error> {
         let project = self.project(project)?;
         self.decode(
-            self.request(Method::POST, &format!("{}/restore", Self::snapshot_path(machine_id, snapshot_id)))
-                .query(&[("project", project)]),
+            self.request(
+                Method::POST,
+                &format!("{}/restore", Self::snapshot_path(machine_id, snapshot_id)),
+            )
+            .query(&[("project", project)]),
         )
         .await
     }
@@ -298,8 +348,11 @@ impl Client {
     ) -> Result<(), Error> {
         let project = self.project(project)?;
         self.empty(
-            self.request(Method::DELETE, &Self::snapshot_path(machine_id, snapshot_id))
-                .query(&[("project", project)]),
+            self.request(
+                Method::DELETE,
+                &Self::snapshot_path(machine_id, snapshot_id),
+            )
+            .query(&[("project", project)]),
         )
         .await
     }
@@ -319,7 +372,10 @@ mod tests {
             allow_invalid_tls: false,
         })
         .unwrap();
-        assert_eq!(client.endpoint("/api/v1/machines"), "http://127.0.0.1:8080/api/v1/machines");
+        assert_eq!(
+            client.endpoint("/api/v1/machines"),
+            "http://127.0.0.1:8080/api/v1/machines"
+        );
     }
 
     #[test]
@@ -329,7 +385,12 @@ mod tests {
             r#"{"error":{"code":"CONFLICT","message":"machine exists","hint":"choose another name"}}"#.into(),
         );
         match err {
-            Error::Upstream { status, code, message, hint } => {
+            Error::Upstream {
+                status,
+                code,
+                message,
+                hint,
+            } => {
                 assert_eq!(status, 409);
                 assert_eq!(code.as_deref(), Some("CONFLICT"));
                 assert_eq!(message, "machine exists");

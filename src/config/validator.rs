@@ -63,8 +63,9 @@ fn validate_namespace(namespace: &str) -> Result<()> {
         return Err(anyhow!("Namespace must be 63 characters or less"));
     }
 
-    static RE: once_cell::sync::Lazy<regex::Regex> =
-        once_cell::sync::Lazy::new(|| regex::Regex::new(r"^[a-z0-9]([a-z0-9\-]*[a-z0-9])?$").unwrap());
+    static RE: once_cell::sync::Lazy<regex::Regex> = once_cell::sync::Lazy::new(|| {
+        regex::Regex::new(r"^[a-z0-9]([a-z0-9\-]*[a-z0-9])?$").unwrap()
+    });
     if !RE.is_match(namespace) {
         return Err(anyhow!(
             "Namespace must consist of lowercase alphanumeric characters or '-', and must start and end with an alphanumeric character"
@@ -158,25 +159,41 @@ fn validate_disk(disk: &DiskConfig) -> Result<()> {
     }
 
     // Validate disk name is DNS-compliant (lowercase alphanumeric and hyphens)
-    if !disk.name.chars().all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || c == '-') {
-        return Err(anyhow!("Disk name '{}' must contain only lowercase alphanumeric characters or '-'", disk.name));
+    if !disk
+        .name
+        .chars()
+        .all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || c == '-')
+    {
+        return Err(anyhow!(
+            "Disk name '{}' must contain only lowercase alphanumeric characters or '-'",
+            disk.name
+        ));
     }
 
     if let Some(ref bus) = disk.bus {
         if !["virtio", "sata", "scsi"].contains(&bus.as_str()) {
-            return Err(anyhow!("Invalid disk bus '{}'. Must be one of: virtio, sata, scsi", bus));
+            return Err(anyhow!(
+                "Invalid disk bus '{}'. Must be one of: virtio, sata, scsi",
+                bus
+            ));
         }
     }
 
     if let Some(ref cache) = disk.cache {
         if !["none", "writethrough", "writeback"].contains(&cache.as_str()) {
-            return Err(anyhow!("Invalid disk cache '{}'. Must be one of: none, writethrough, writeback", cache));
+            return Err(anyhow!(
+                "Invalid disk cache '{}'. Must be one of: none, writethrough, writeback",
+                cache
+            ));
         }
     }
 
     if let Some(ref io) = disk.io {
         if !["native", "threads", "default"].contains(&io.as_str()) {
-            return Err(anyhow!("Invalid disk I/O mode '{}'. Must be one of: native, threads, default", io));
+            return Err(anyhow!(
+                "Invalid disk I/O mode '{}'. Must be one of: native, threads, default",
+                io
+            ));
         }
     }
 

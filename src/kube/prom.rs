@@ -87,10 +87,7 @@ pub fn fabric_from_prom(samples: &[PromSample], vm: &str) -> (f64, u64, u64) {
 /// Prometheus HTTP API instant-query URL.
 pub fn prom_query_url(base: &str, query: &str) -> String {
     let base = base.trim_end_matches('/');
-    format!(
-        "{base}/api/v1/query?query={}",
-        urlencoding_query(query)
-    )
+    format!("{base}/api/v1/query?query={}", urlencoding_query(query))
 }
 
 fn urlencoding_query(s: &str) -> String {
@@ -105,10 +102,7 @@ fn urlencoding_query(s: &str) -> String {
 /// Parse Prometheus HTTP API JSON (`data.result[].value[1]`).
 pub fn parse_prom_query_api(body: &serde_json::Value, vm: &str) -> Vec<PromSample> {
     let mut out = Vec::new();
-    let Some(results) = body
-        .pointer("/data/result")
-        .and_then(|v| v.as_array())
-    else {
+    let Some(results) = body.pointer("/data/result").and_then(|v| v.as_array()) else {
         return out;
     };
     for row in results {
@@ -137,7 +131,11 @@ pub fn parse_prom_query_api(body: &serde_json::Value, vm: &str) -> Vec<PromSampl
             .get("value")
             .and_then(|v| v.as_array())
             .and_then(|a| a.get(1))
-            .and_then(|v| v.as_str().and_then(|s| s.parse().ok()).or_else(|| v.as_f64()))
+            .and_then(|v| {
+                v.as_str()
+                    .and_then(|s| s.parse().ok())
+                    .or_else(|| v.as_f64())
+            })
             .unwrap_or(0.0);
         out.push(PromSample {
             name,
@@ -157,7 +155,9 @@ pub struct MetricsPoint {
 }
 
 pub struct MetricsRing {
-    inner: std::sync::Mutex<std::collections::HashMap<String, std::collections::VecDeque<MetricsPoint>>>,
+    inner: std::sync::Mutex<
+        std::collections::HashMap<String, std::collections::VecDeque<MetricsPoint>>,
+    >,
 }
 
 impl MetricsRing {
@@ -249,7 +249,10 @@ ignored_metric 1
 
     #[test]
     fn parses_query_api_and_builds_url() {
-        let url = prom_query_url("http://prom:9090", r#"kubevirt_vmi_vcpu_seconds{name="web-01"}"#);
+        let url = prom_query_url(
+            "http://prom:9090",
+            r#"kubevirt_vmi_vcpu_seconds{name="web-01"}"#,
+        );
         assert!(url.starts_with("http://prom:9090/api/v1/query?query="));
         let body = serde_json::json!({
             "data": {"result": [{

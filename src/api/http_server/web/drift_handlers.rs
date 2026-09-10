@@ -34,8 +34,10 @@ fn resolve_desired_manifest(desired: serde_json::Value) -> Result<serde_json::Va
     let config: VMConfig = serde_json::from_value(desired).map_err(|e| {
         format!("desired manifest is neither a KubeVirt VirtualMachine (missing kind: \"VirtualMachine\") nor a valid Zorvia VMConfig: {e}")
     })?;
-    let vm = vm_config_to_kubevirt(&config).map_err(|e| format!("failed to convert VMConfig to KubeVirt: {e}"))?;
-    serde_json::to_value(vm).map_err(|e| format!("failed to serialize converted VirtualMachine: {e}"))
+    let vm = vm_config_to_kubevirt(&config)
+        .map_err(|e| format!("failed to convert VMConfig to KubeVirt: {e}"))?;
+    serde_json::to_value(vm)
+        .map_err(|e| format!("failed to serialize converted VirtualMachine: {e}"))
 }
 
 /// (status, error code, message) — small and Copy-friendly, unlike returning
@@ -47,8 +49,8 @@ async fn compare_against_live(
     name: &str,
     body: DriftRequestBody,
 ) -> Result<crate::gitops::drift::DriftReport, DriftError> {
-    let desired_value = resolve_desired_manifest(body.desired)
-        .map_err(|e| (400, "INVALID_MANIFEST", e))?;
+    let desired_value =
+        resolve_desired_manifest(body.desired).map_err(|e| (400, "INVALID_MANIFEST", e))?;
 
     let s = state.read().await;
     let namespace = s.namespace.clone();
@@ -59,8 +61,8 @@ async fn compare_against_live(
         .get_vm(&namespace, name)
         .await
         .map_err(|e| (404, "NOT_FOUND", sanitize_error(&e)))?;
-    let actual_value = serde_json::to_value(&actual)
-        .map_err(|e| (500, "SERIALIZE_FAILED", e.to_string()))?;
+    let actual_value =
+        serde_json::to_value(&actual).map_err(|e| (500, "SERIALIZE_FAILED", e.to_string()))?;
 
     let options = DriftOptions {
         ignore_paths: body.ignore,

@@ -72,7 +72,11 @@ pub fn zorvia_console_ws_path(kind: &str, vm: &str) -> Result<String> {
 }
 
 /// True when KubeVirt printable status / phase indicates a paused guest.
-pub fn status_is_paused(printable: Option<&str>, phase: Option<&str>, conditions: &[(&str, &str)]) -> bool {
+pub fn status_is_paused(
+    printable: Option<&str>,
+    phase: Option<&str>,
+    conditions: &[(&str, &str)],
+) -> bool {
     if printable
         .map(|s| s.eq_ignore_ascii_case("paused") || s.to_ascii_lowercase().contains("paus"))
         .unwrap_or(false)
@@ -85,9 +89,9 @@ pub fn status_is_paused(printable: Option<&str>, phase: Option<&str>, conditions
     {
         return true;
     }
-    conditions
-        .iter()
-        .any(|(ty, status)| ty.eq_ignore_ascii_case("Paused") && status.eq_ignore_ascii_case("True"))
+    conditions.iter().any(|(ty, status)| {
+        ty.eq_ignore_ascii_case("Paused") && status.eq_ignore_ascii_case("True")
+    })
 }
 
 /// Map a KubeVirt / HTTP error into a client-safe pause/resume message.
@@ -108,32 +112,45 @@ pub fn classify_lifecycle_error(action: &str, raw: &str) -> (u16, &'static str, 
         );
     }
     if lower.contains("already paused") {
-        return (409, "CONFLICT", format!("Cannot {action}: VM is already paused"));
+        return (
+            409,
+            "CONFLICT",
+            format!("Cannot {action}: VM is already paused"),
+        );
     }
     if lower.contains("not paused") {
-        return (409, "CONFLICT", format!("Cannot {action}: VM is not paused"));
+        return (
+            409,
+            "CONFLICT",
+            format!("Cannot {action}: VM is not paused"),
+        );
     }
     if lower.contains("conflict") {
         // Deliberately templated rather than echoing `raw`: kube-rs's ApiError
         // Display includes the full Rust Debug output of the K8s ErrorResponse
         // struct, which is noisy/unprofessional to surface verbatim in a JSON
         // API response.
-        return (409, "CONFLICT", format!("Cannot {action}: VM is in a conflicting state, try again"));
+        return (
+            409,
+            "CONFLICT",
+            format!("Cannot {action}: VM is in a conflicting state, try again"),
+        );
     }
-    (
-        500,
-        "LIFECYCLE_FAILED",
-        format!("Failed to {action} VM"),
-    )
+    (500, "LIFECYCLE_FAILED", format!("Failed to {action} VM"))
 }
 
 /// Map a KubeVirt / HTTP error into a client-safe migration message.
 pub fn classify_migration_error(action: &str, raw: &str) -> (u16, &'static str, String) {
     let lower = raw.to_ascii_lowercase();
     if lower.contains("already exists") || lower.contains("exists") {
-        return (409, "CONFLICT", format!("Cannot {action}: a migration with this name already exists"));
+        return (
+            409,
+            "CONFLICT",
+            format!("Cannot {action}: a migration with this name already exists"),
+        );
     }
-    if lower.contains("notfound") || lower.contains("not found") || lower.contains("does not exist") {
+    if lower.contains("notfound") || lower.contains("not found") || lower.contains("does not exist")
+    {
         // KubeVirt's migration-create-validator admission webhook rejects a
         // migration for a nonexistent VMI with "...the VMI ... does not
         // exist" — a 200-level apiserver response, not a 404, so it needs
@@ -152,7 +169,11 @@ pub fn classify_migration_error(action: &str, raw: &str) -> (u16, &'static str, 
         );
     }
     if lower.contains("admission webhook") && lower.contains("denied the request") {
-        return (400, "VALIDATION_FAILED", format!("Cannot {action}: rejected by KubeVirt (VM may not be in a migratable state)"));
+        return (
+            400,
+            "VALIDATION_FAILED",
+            format!("Cannot {action}: rejected by KubeVirt (VM may not be in a migratable state)"),
+        );
     }
     (500, "MIGRATION_FAILED", format!("Failed to {action}"))
 }
@@ -168,7 +189,11 @@ pub fn classify_hotplug_error(action: &str, raw: &str) -> (u16, &'static str, St
         );
     }
     if lower.contains("hotplug_limit_exceeded") {
-        return (409, "HOTPLUG_LIMIT_EXCEEDED", format!("Cannot {action}: {raw}"));
+        return (
+            409,
+            "HOTPLUG_LIMIT_EXCEEDED",
+            format!("Cannot {action}: {raw}"),
+        );
     }
     if lower.contains("volume_not_found") {
         return (404, "VOLUME_NOT_FOUND", format!("Cannot {action}: {raw}"));
@@ -181,7 +206,8 @@ pub fn classify_hotplug_error(action: &str, raw: &str) -> (u16, &'static str, St
         // Reporting "VM instance not found; start the VM" for that case is
         // actively misleading when the VM is demonstrably running.
         let is_nic_action = action.to_ascii_lowercase().contains("nic");
-        let looks_like_missing_route = !lower.contains("apierror") && lower.contains("page not found");
+        let looks_like_missing_route =
+            !lower.contains("apierror") && lower.contains("page not found");
         if is_nic_action && looks_like_missing_route {
             return (
                 501,
@@ -204,7 +230,8 @@ pub fn classify_hotplug_error(action: &str, raw: &str) -> (u16, &'static str, St
     }
     if lower.contains("methodnotallowed")
         || lower.contains("method not allowed")
-        || (lower.contains("interface") && (lower.contains("not supported") || lower.contains("unsupported")))
+        || (lower.contains("interface")
+            && (lower.contains("not supported") || lower.contains("unsupported")))
     {
         return (
             501,
@@ -250,9 +277,15 @@ mod tests {
     #[test]
     fn vnc_and_console_protocols() {
         assert_eq!(kubevirt_ws_subprotocol("vnc"), Some("binary.kubevirt.io"));
-        assert_eq!(kubevirt_ws_subprotocol("console"), Some("plain.kubevirt.io"));
+        assert_eq!(
+            kubevirt_ws_subprotocol("console"),
+            Some("plain.kubevirt.io")
+        );
         assert_eq!(kubevirt_ws_subprotocol("pause"), None);
-        assert_eq!(zorvia_console_ws_path("vnc", "win-01").unwrap(), "/ws/vnc/win-01");
+        assert_eq!(
+            zorvia_console_ws_path("vnc", "win-01").unwrap(),
+            "/ws/vnc/win-01"
+        );
         assert_eq!(
             zorvia_console_ws_path("console", "linux-01").unwrap(),
             "/ws/console/linux-01"
@@ -264,8 +297,16 @@ mod tests {
     fn paused_detection() {
         assert!(status_is_paused(Some("Paused"), None, &[]));
         assert!(status_is_paused(None, Some("Paused"), &[]));
-        assert!(status_is_paused(None, Some("Running"), &[("Paused", "True")]));
-        assert!(!status_is_paused(Some("Running"), Some("Running"), &[("Ready", "True")]));
+        assert!(status_is_paused(
+            None,
+            Some("Running"),
+            &[("Paused", "True")]
+        ));
+        assert!(!status_is_paused(
+            Some("Running"),
+            Some("Running"),
+            &[("Ready", "True")]
+        ));
     }
 
     #[test]
@@ -307,7 +348,8 @@ mod tests {
         assert!(addvolume.ends_with("/prod-db/addvolume"));
         let addinterface = vmi_subresource_path("default", "prod-db", "addinterface").unwrap();
         assert!(addinterface.ends_with("/prod-db/addinterface"));
-        let removeinterface = vmi_subresource_path("default", "prod-db", "removeinterface").unwrap();
+        let removeinterface =
+            vmi_subresource_path("default", "prod-db", "removeinterface").unwrap();
         assert!(removeinterface.ends_with("/prod-db/removeinterface"));
     }
 
@@ -371,7 +413,8 @@ mod tests {
 
     #[test]
     fn classifies_migration_not_found() {
-        let (code, kind, _) = classify_migration_error("migrate", "ApiError: NotFound (reason: NotFound)");
+        let (code, kind, _) =
+            classify_migration_error("migrate", "ApiError: NotFound (reason: NotFound)");
         assert_eq!(code, 404);
         assert_eq!(kind, "NOT_FOUND");
     }
@@ -400,14 +443,16 @@ mod tests {
 
     #[test]
     fn classifies_migration_conflict() {
-        let (code, kind, _) = classify_migration_error("migrate", "ApiError: AlreadyExists (reason: AlreadyExists)");
+        let (code, kind, _) =
+            classify_migration_error("migrate", "ApiError: AlreadyExists (reason: AlreadyExists)");
         assert_eq!(code, 409);
         assert_eq!(kind, "CONFLICT");
     }
 
     #[test]
     fn migration_error_message_never_echoes_raw_text() {
-        let (_, _, msg) = classify_migration_error("migrate", "some internal detail that should not leak");
+        let (_, _, msg) =
+            classify_migration_error("migrate", "some internal detail that should not leak");
         assert!(!msg.contains("internal detail"));
     }
 }

@@ -1038,9 +1038,7 @@ fn test_migration_strategy_node_scoring() {
 
 #[test]
 fn test_vm_metrics_collection_and_aggregation() {
-    use zorvia::observability::metrics::{
-        Metric, MetricAggregator, MetricCollector, MetricType,
-    };
+    use zorvia::observability::metrics::{Metric, MetricAggregator, MetricCollector, MetricType};
 
     // Create and record metrics
     let mut collector = MetricCollector::new();
@@ -1476,11 +1474,15 @@ fn test_vnc_and_pause_paths() {
     let vnc = vmi_subresource_path("default", "win-01", "vnc").unwrap();
     assert!(vnc.ends_with("/win-01/vnc"));
     assert_eq!(kubevirt_ws_subprotocol("vnc"), Some("binary.kubevirt.io"));
-    assert_eq!(zorvia_console_ws_path("vnc", "win-01").unwrap(), "/ws/vnc/win-01");
+    assert_eq!(
+        zorvia_console_ws_path("vnc", "win-01").unwrap(),
+        "/ws/vnc/win-01"
+    );
 
     let pause = vmi_subresource_path("prod", "db-1", "pause").unwrap();
     assert!(pause.contains("/pause"));
-    let (code, kind, _) = classify_lifecycle_error("pause", "virtualmachineinstances \"db-1\" not found");
+    let (code, kind, _) =
+        classify_lifecycle_error("pause", "virtualmachineinstances \"db-1\" not found");
     assert_eq!(code, 404);
     assert_eq!(kind, "NOT_FOUND");
 }
@@ -1502,7 +1504,9 @@ fn test_cdi_clone_and_ssh_helpers() {
     assert_eq!(dv["kind"], "DataVolume");
     assert_eq!(dv["spec"]["source"]["pvc"]["name"], "src-root");
 
-    assert!(ssh_argv("ubuntu", "10.1.2.3", 22).unwrap().contains(&"ubuntu@10.1.2.3".to_string()));
+    assert!(ssh_argv("ubuntu", "10.1.2.3", 22)
+        .unwrap()
+        .contains(&"ubuntu@10.1.2.3".to_string()));
     assert_eq!(
         virtctl_ssh_argv("root", "web-01", "default").unwrap()[0],
         "virtctl"

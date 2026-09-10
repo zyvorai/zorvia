@@ -121,13 +121,8 @@ async fn build_kubevirt_ws(
     }
 
     let connector = kube_tls_connector(&config)?;
-    let (ws, _) = tokio_tungstenite::connect_async_tls_with_config(
-        req,
-        None,
-        false,
-        Some(connector),
-    )
-    .await?;
+    let (ws, _) =
+        tokio_tungstenite::connect_async_tls_with_config(req, None, false, Some(connector)).await?;
     Ok(ws)
 }
 
@@ -180,7 +175,9 @@ async fn proxy_kube_ws(
                 TMsg::Ping(p) => Message::Ping(p),
                 TMsg::Pong(p) => Message::Pong(p),
                 TMsg::Close(frame) => {
-                    let _ = client_sink.send(Message::Close(to_client_close(frame))).await;
+                    let _ = client_sink
+                        .send(Message::Close(to_client_close(frame)))
+                        .await;
                     let _ = client_sink.close().await;
                     break;
                 }
@@ -270,9 +267,7 @@ async fn proxy_ssh(
         Ok(Some(ip)) => match crate::kube::ssh::ssh_argv(&user, &ip, port) {
             Ok(v) => v,
             Err(e) => {
-                let _ = client_ws
-                    .send(Message::Text(format!("error: {e}")))
-                    .await;
+                let _ = client_ws.send(Message::Text(format!("error: {e}"))).await;
                 let _ = client_ws.close().await;
                 return;
             }
@@ -280,9 +275,7 @@ async fn proxy_ssh(
         _ => match crate::kube::ssh::virtctl_ssh_argv(&user, &name, &namespace) {
             Ok(v) => v,
             Err(e) => {
-                let _ = client_ws
-                    .send(Message::Text(format!("error: {e}")))
-                    .await;
+                let _ = client_ws.send(Message::Text(format!("error: {e}"))).await;
                 let _ = client_ws.close().await;
                 return;
             }
@@ -307,7 +300,9 @@ async fn proxy_ssh(
         Ok(p) => p,
         Err(e) => {
             let _ = client_ws
-                .send(Message::Text(format!("error: failed to allocate pty: {e}\r\n")))
+                .send(Message::Text(format!(
+                    "error: failed to allocate pty: {e}\r\n"
+                )))
                 .await;
             let _ = client_ws.close().await;
             return;

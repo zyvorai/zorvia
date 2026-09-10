@@ -13,13 +13,14 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::sync::RwLock;
 
-pub static PROFILES: Lazy<RwLock<ProfileManager>> = Lazy::new(|| {
-    match ProfileManager::new() {
-        Ok(manager) => RwLock::new(manager),
-        Err(e) => {
-            log::error!("Failed to initialize ProfileManager: {}. Using empty manager.", e);
-            RwLock::new(ProfileManager::empty())
-        }
+pub static PROFILES: Lazy<RwLock<ProfileManager>> = Lazy::new(|| match ProfileManager::new() {
+    Ok(manager) => RwLock::new(manager),
+    Err(e) => {
+        log::error!(
+            "Failed to initialize ProfileManager: {}. Using empty manager.",
+            e
+        );
+        RwLock::new(ProfileManager::empty())
     }
 });
 
@@ -189,7 +190,10 @@ impl ProfileManager {
 impl Default for ProfileManager {
     fn default() -> Self {
         Self::new().unwrap_or_else(|e| {
-            log::error!("Failed to initialize ProfileManager: {}. Using empty manager.", e);
+            log::error!(
+                "Failed to initialize ProfileManager: {}. Using empty manager.",
+                e
+            );
             Self::empty()
         })
     }

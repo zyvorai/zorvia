@@ -164,10 +164,7 @@ fn build_cloud_init_yaml(ci: &FabricCloudInit, hostname_fallback: &str) -> Strin
         .hostname
         .clone()
         .unwrap_or_else(|| hostname_fallback.to_string());
-    let username = ci
-        .username
-        .clone()
-        .unwrap_or_else(|| "zorvia".to_string());
+    let username = ci.username.clone().unwrap_or_else(|| "zorvia".to_string());
     let mut lines = vec![
         "#cloud-config".to_string(),
         format!("hostname: {hostname}"),
@@ -376,7 +373,10 @@ pub async fn fabric_create_vm(
     let mem = memory_to_kube(req.memory.max(256));
     let cpus = req.cpus.max(1);
 
-    let max_sockets = req.cpu_max_sockets.unwrap_or_else(|| cpus.saturating_mul(4)).max(1);
+    let max_sockets = req
+        .cpu_max_sockets
+        .unwrap_or_else(|| cpus.saturating_mul(4))
+        .max(1);
     let max_guest_mib = req.memory_max_guest_mb.unwrap_or(req.memory.max(256) * 2);
 
     let mut builder = VMConfigBuilder::new(&req.name)
@@ -518,19 +518,19 @@ pub async fn fabric_create_vm(
 
             let mut pf_infos = Vec::new();
             for f in &forwards {
-                let preferred = if f.host_port >= 30000 { Some(f.host_port) } else { None };
+                let preferred = if f.host_port >= 30000 {
+                    Some(f.host_port)
+                } else {
+                    None
+                };
                 match client
-                    .add_port_forward(
-                        &namespace,
-                        &req.name,
-                        f.guest_port,
-                        &f.protocol,
-                        preferred,
-                    )
+                    .add_port_forward(&namespace, &req.name, f.guest_port, &f.protocol, preferred)
                     .await
                 {
                     Ok(info) => pf_infos.push(info),
-                    Err(e) => log::warn!("port-forward {}:{} failed: {e}", f.guest_port, f.protocol),
+                    Err(e) => {
+                        log::warn!("port-forward {}:{} failed: {e}", f.guest_port, f.protocol)
+                    }
                 }
             }
 
@@ -548,7 +548,10 @@ pub async fn fabric_create_vm(
             }
             match get_result {
                 Ok(vm) => {
-                    let ip = client.get_vm_ip(&namespace, &req.name).await.unwrap_or(None);
+                    let ip = client
+                        .get_vm_ip(&namespace, &req.name)
+                        .await
+                        .unwrap_or(None);
                     let mut body = fabric_vm_json(&VmInfo::from_vm_with_ip(&vm, ip));
                     if let Some(obj) = body.as_object_mut() {
                         if let Ok(ready) = client.guest_ready_report(&namespace, &req.name).await {
@@ -796,7 +799,8 @@ pub async fn fabric_clone_vm(
                         Ok(manifest) => match client.apply_data_volume(&namespace, &manifest).await
                         {
                             Ok(_) => {
-                                builder = builder.add_pvc_disk(&vol.name, &clone_name, &size, order);
+                                builder =
+                                    builder.add_pvc_disk(&vol.name, &clone_name, &size, order);
                                 added_disk = true;
                                 pvc_notes.push(format!(
                                     "CDI DataVolume {clone_name} cloning PVC {}",
@@ -805,7 +809,10 @@ pub async fn fabric_clone_vm(
                                 pending_dvs.push(clone_name.clone());
                             }
                             Err(e) => {
-                                log::warn!("CDI clone {} failed, empty PVC fallback: {e}", pvc.claim_name);
+                                log::warn!(
+                                    "CDI clone {} failed, empty PVC fallback: {e}",
+                                    pvc.claim_name
+                                );
                                 if client
                                     .create_pvc(&namespace, &clone_name, &size, None)
                                     .await
@@ -876,7 +883,10 @@ pub async fn fabric_clone_vm(
                 {
                     Ok(crate::kube::cdi::DataVolumeWait::Ready) => ready.push(dv.clone()),
                     Ok(other) => pvc_notes.push(format!("DataVolume {dv} wait={other:?}")),
-                    Err(e) => pvc_notes.push(format!("DataVolume {dv} wait error: {}", sanitize_error(&e))),
+                    Err(e) => pvc_notes.push(format!(
+                        "DataVolume {dv} wait error: {}",
+                        sanitize_error(&e)
+                    )),
                 }
             }
             let skip_wait = std::env::var("ZORVIA_SKIP_DV_WAIT").ok().as_deref() == Some("1");
@@ -972,7 +982,7 @@ pub async fn fabric_revert_snapshot(
     let namespace = s.namespace.clone();
     drop(s);
     match crate::snapshots::RestoreManager::new(&namespace).await {
-            Ok(rm) => match rm.restore_in_place(&vm, &id).await {
+        Ok(rm) => match rm.restore_in_place(&vm, &id).await {
             Ok(_) => StatusCode::NO_CONTENT.into_response(),
             Err(e) => {
                 let (st, j) = err_json(500, "REVERT_FAILED", &sanitize_error(&e));
@@ -1042,10 +1052,8 @@ pub async fn fabric_vm_metrics(
         .get_vmi_subresource_json(&namespace, &name, "filesystemlist")
         .await
         .ok();
-    let gm = crate::kube::guest_metrics::metrics_from_guest_payloads(
-        osinfo.as_ref(),
-        fslist.as_ref(),
-    );
+    let gm =
+        crate::kube::guest_metrics::metrics_from_guest_payloads(osinfo.as_ref(), fslist.as_ref());
     let mut source = if gm.agent {
         "guest-agent"
     } else {
@@ -1105,11 +1113,8 @@ pub async fn fabric_guest_insight(
         .await
         .ok()
         .and_then(|vmi| vmi.status);
-    let report = crate::guest_insight::GuestInsightReport::from_status(
-        name,
-        namespace,
-        status.as_ref(),
-    );
+    let report =
+        crate::guest_insight::GuestInsightReport::from_status(name, namespace, status.as_ref());
     Json(json!(report))
 }
 
@@ -1210,7 +1215,14 @@ pub async fn fabric_vm_logs(
                 };
                 match pods.logs(&pod_name, &params).await {
                     Ok(text) => {
-                        for line in text.lines().rev().take(80).collect::<Vec<_>>().into_iter().rev() {
+                        for line in text
+                            .lines()
+                            .rev()
+                            .take(80)
+                            .collect::<Vec<_>>()
+                            .into_iter()
+                            .rev()
+                        {
                             if !line.is_empty() {
                                 entries.push(json!({
                                     "pod": pod_name,
@@ -1266,7 +1278,8 @@ pub async fn fabric_resume_vm(
         Ok(()) => StatusCode::NO_CONTENT.into_response(),
         Err(e) => {
             let raw = e.to_string();
-            let (code, kind, msg) = crate::kube::lifecycle::classify_lifecycle_error("resume", &raw);
+            let (code, kind, msg) =
+                crate::kube::lifecycle::classify_lifecycle_error("resume", &raw);
             let (st, j) = err_json(code, kind, &msg);
             (st, j).into_response()
         }

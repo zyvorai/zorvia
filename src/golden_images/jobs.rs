@@ -103,8 +103,14 @@ impl DownloadRegistry {
         self.upsert(job.clone());
 
         match build_import_bundle(&image.path, namespace) {
-            Ok(bundle) => match client.apply_data_volume(namespace, &bundle.data_volume).await {
-                Ok(_) => match client.apply_data_source(namespace, &bundle.data_source).await {
+            Ok(bundle) => match client
+                .apply_data_volume(namespace, &bundle.data_volume)
+                .await
+            {
+                Ok(_) => match client
+                    .apply_data_source(namespace, &bundle.data_source)
+                    .await
+                {
                     Ok(_) => {
                         job.state = DownloadState::Completed;
                         // "datavolume:" tells fabric_create_vm's image parser
@@ -209,7 +215,10 @@ mod tests {
             .expect("ubuntu image");
         let bundle = build_import_bundle(&ubuntu.path, "default").unwrap();
         assert_eq!(bundle.data_volume["kind"], "DataVolume");
-        assert_eq!(bundle.data_volume["metadata"]["name"], bundle.versioned_name);
+        assert_eq!(
+            bundle.data_volume["metadata"]["name"],
+            bundle.versioned_name
+        );
         assert_eq!(bundle.data_source["kind"], "DataSource");
     }
 }

@@ -9,7 +9,6 @@ use ratatui::{
     Frame,
 };
 
-
 pub fn render(f: &mut Frame, area: Rect) {
     let chunks = Layout::default()
         .direction(Direction::Vertical)
@@ -23,8 +22,16 @@ pub fn render(f: &mut Frame, area: Rect) {
     // Header
     // Gradient brand header
     let mut header_spans = gradient::brand().text("Zorvia");
-    header_spans.push(Span::styled(" | ", Style::default().fg(Color::Rgb(128, 128, 128))));
-    header_spans.push(Span::styled("VM Instances", Style::default().fg(Color::Rgb(255, 145, 115)).add_modifier(Modifier::BOLD)));
+    header_spans.push(Span::styled(
+        " | ",
+        Style::default().fg(Color::Rgb(128, 128, 128)),
+    ));
+    header_spans.push(Span::styled(
+        "VM Instances",
+        Style::default()
+            .fg(Color::Rgb(255, 145, 115))
+            .add_modifier(Modifier::BOLD),
+    ));
     let header_text = Line::from(header_spans);
     let header = Paragraph::new(header_text)
         .alignment(Alignment::Center)
@@ -49,11 +56,43 @@ pub fn render(f: &mut Frame, area: Rect) {
         .style(Style::default().bg(Color::Rgb(40, 35, 55)))
         .height(1);
 
-    let sample_data = [("web-server-01", "default", "Running", "virt-launcher-web-01-abc12", "10.244.1.5"),
-        ("db-primary", "production", "Running", "virt-launcher-db-pri-def34", "10.244.2.10"),
-        ("worker-node-03", "staging", "Scheduling", "virt-launcher-wrk-03-ghi56", "—"),
-        ("test-vm-alpha", "development", "Succeeded", "virt-launcher-test-a-jkl78", "10.244.3.22"),
-        ("cache-server", "default", "Failed", "virt-launcher-cache-mno90", "10.244.1.8")];
+    let sample_data = [
+        (
+            "web-server-01",
+            "default",
+            "Running",
+            "virt-launcher-web-01-abc12",
+            "10.244.1.5",
+        ),
+        (
+            "db-primary",
+            "production",
+            "Running",
+            "virt-launcher-db-pri-def34",
+            "10.244.2.10",
+        ),
+        (
+            "worker-node-03",
+            "staging",
+            "Scheduling",
+            "virt-launcher-wrk-03-ghi56",
+            "—",
+        ),
+        (
+            "test-vm-alpha",
+            "development",
+            "Succeeded",
+            "virt-launcher-test-a-jkl78",
+            "10.244.3.22",
+        ),
+        (
+            "cache-server",
+            "default",
+            "Failed",
+            "virt-launcher-cache-mno90",
+            "10.244.1.8",
+        ),
+    ];
 
     let rows = sample_data.iter().map(|(name, ns, phase, pod, ips)| {
         let phase_color = match *phase {
@@ -89,7 +128,9 @@ pub fn render(f: &mut Frame, area: Rect) {
                 .border_style(Style::default().fg(Color::Rgb(222, 115, 86)))
                 .title(Span::styled(
                     " VM Instances ",
-                    Style::default().fg(Color::Rgb(222, 115, 86)).add_modifier(Modifier::BOLD),
+                    Style::default()
+                        .fg(Color::Rgb(222, 115, 86))
+                        .add_modifier(Modifier::BOLD),
                 )),
         )
         .column_spacing(1);
@@ -97,11 +138,26 @@ pub fn render(f: &mut Frame, area: Rect) {
 
     // Help
     let help = Paragraph::new(Line::from(vec![
-        Span::styled("↑↓", Style::default().fg(Color::Rgb(222, 115, 86)).add_modifier(Modifier::BOLD)),
+        Span::styled(
+            "↑↓",
+            Style::default()
+                .fg(Color::Rgb(222, 115, 86))
+                .add_modifier(Modifier::BOLD),
+        ),
         Span::styled(": Navigate | ", Style::default().fg(Color::Gray)),
-        Span::styled("Enter", Style::default().fg(Color::Rgb(222, 115, 86)).add_modifier(Modifier::BOLD)),
+        Span::styled(
+            "Enter",
+            Style::default()
+                .fg(Color::Rgb(222, 115, 86))
+                .add_modifier(Modifier::BOLD),
+        ),
         Span::styled(": Details | ", Style::default().fg(Color::Gray)),
-        Span::styled("q", Style::default().fg(Color::Rgb(222, 115, 86)).add_modifier(Modifier::BOLD)),
+        Span::styled(
+            "q",
+            Style::default()
+                .fg(Color::Rgb(222, 115, 86))
+                .add_modifier(Modifier::BOLD),
+        ),
         Span::styled(": Back", Style::default().fg(Color::Gray)),
     ]))
     .alignment(Alignment::Center)

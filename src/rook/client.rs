@@ -88,7 +88,13 @@ impl RookClient {
     /// Create-or-update a namespaced Ceph CRD object: POST to the collection,
     /// falling back to a merge PATCH on the existing object if it already
     /// exists (409 Conflict) — idempotent, safe to call repeatedly.
-    async fn apply_ceph_crd(&self, plural: &str, namespace: &str, name: &str, manifest: &Value) -> Result<Value> {
+    async fn apply_ceph_crd(
+        &self,
+        plural: &str,
+        namespace: &str,
+        name: &str,
+        manifest: &Value,
+    ) -> Result<Value> {
         let collection = Self::ceph_collection_path(plural, namespace)?;
         match self.http_post(&collection, manifest).await {
             Ok(v) => Ok(v),
@@ -105,7 +111,12 @@ impl RookClient {
         Ok(self.http_get(&path).await?)
     }
 
-    async fn get_ceph_crd_opt(&self, plural: &str, namespace: &str, name: &str) -> Result<Option<Value>> {
+    async fn get_ceph_crd_opt(
+        &self,
+        plural: &str,
+        namespace: &str,
+        name: &str,
+    ) -> Result<Option<Value>> {
         let path = Self::ceph_object_path(plural, namespace, name)?;
         match self.http_get(&path).await {
             Ok(v) => Ok(Some(v)),
@@ -146,7 +157,9 @@ impl RookClient {
     }
 
     pub async fn cluster_health(&self, namespace: &str, name: &str) -> Result<CephHealthSummary> {
-        let obj = self.get_ceph_crd_opt("cephclusters", namespace, name).await?;
+        let obj = self
+            .get_ceph_crd_opt("cephclusters", namespace, name)
+            .await?;
         Ok(summarize_ceph_cluster_status(obj.as_ref()))
     }
 
@@ -163,7 +176,8 @@ impl RookClient {
     }
 
     pub async fn delete_block_pool(&self, namespace: &str, name: &str) -> Result<()> {
-        self.delete_ceph_crd("cephblockpools", namespace, name).await
+        self.delete_ceph_crd("cephblockpools", namespace, name)
+            .await
     }
 
     // ── CephFilesystem ──
@@ -179,7 +193,8 @@ impl RookClient {
     }
 
     pub async fn delete_filesystem(&self, namespace: &str, name: &str) -> Result<()> {
-        self.delete_ceph_crd("cephfilesystems", namespace, name).await
+        self.delete_ceph_crd("cephfilesystems", namespace, name)
+            .await
     }
 
     // ── CephObjectStore ──
@@ -195,7 +210,8 @@ impl RookClient {
     }
 
     pub async fn delete_object_store(&self, namespace: &str, name: &str) -> Result<()> {
-        self.delete_ceph_crd("cephobjectstores", namespace, name).await
+        self.delete_ceph_crd("cephobjectstores", namespace, name)
+            .await
     }
 
     // ── Cluster-scoped provisioning objects (StorageClass / VolumeSnapshotClass) ──
@@ -205,10 +221,16 @@ impl RookClient {
             .as_str()
             .ok_or_else(|| anyhow::anyhow!("manifest missing metadata.name"))?;
         validate_k8s_name("StorageClass name", name)?;
-        match self.http_post("/apis/storage.k8s.io/v1/storageclasses", manifest).await {
+        match self
+            .http_post("/apis/storage.k8s.io/v1/storageclasses", manifest)
+            .await
+        {
             Ok(v) => Ok(v),
             Err(kube::Error::Api(ae)) if ae.code == 409 => Ok(self
-                .http_patch_merge(&format!("/apis/storage.k8s.io/v1/storageclasses/{name}"), manifest)
+                .http_patch_merge(
+                    &format!("/apis/storage.k8s.io/v1/storageclasses/{name}"),
+                    manifest,
+                )
                 .await?),
             Err(e) => Err(e.into()),
         }
@@ -234,7 +256,12 @@ impl RookClient {
 /// resource path, covering the object kinds present in Rook's own
 /// `crds.yaml`/`common.yaml`/`operator.yaml`. Unknown kinds are reported
 /// back to the caller rather than silently skipped.
-fn bootstrap_object_path(api_version: &str, kind: &str, namespace: &str, name: &str) -> Option<(String, bool)> {
+fn bootstrap_object_path(
+    api_version: &str,
+    kind: &str,
+    namespace: &str,
+    name: &str,
+) -> Option<(String, bool)> {
     let (group, version) = match api_version.split_once('/') {
         Some((g, v)) => (Some(g), v),
         None => (None, api_version),
@@ -330,13 +357,16 @@ impl RookClient {
             let text = match http.get(&url).send().await {
                 Ok(resp) if resp.status().is_success() => resp.text().await?,
                 Ok(resp) => {
-                    report
-                        .failed
-                        .push((file.to_string(), format!("HTTP {} fetching {url}", resp.status())));
+                    report.failed.push((
+                        file.to_string(),
+                        format!("HTTP {} fetching {url}", resp.status()),
+                    ));
                     continue;
                 }
                 Err(e) => {
-                    report.failed.push((file.to_string(), format!("fetch failed: {e}")));
+                    report
+                        .failed
+                        .push((file.to_string(), format!("fetch failed: {e}")));
                     continue;
                 }
             };
@@ -347,7 +377,12 @@ impl RookClient {
         Ok(report)
     }
 
-    async fn apply_manifest_documents(&self, yaml_text: &str, namespace: &str, report: &mut BootstrapReport) {
+    async fn apply_manifest_documents(
+        &self,
+        yaml_text: &str,
+        namespace: &str,
+        report: &mut BootstrapReport,
+    ) {
         // Parse every document into an owned Value up front: serde_yaml's
         // Deserializer wraps non-Send libyaml state, so it can't be held
         // across an `.await` inside the loop below.
@@ -355,7 +390,9 @@ impl RookClient {
         for document in serde_yaml::Deserializer::from_str(yaml_text) {
             match Value::deserialize(document) {
                 Ok(v) => documents.push(v),
-                Err(e) => report.failed.push(("<document>".into(), format!("YAML parse error: {e}"))),
+                Err(e) => report
+                    .failed
+                    .push(("<document>".into(), format!("YAML parse error: {e}"))),
             }
         }
 
@@ -369,7 +406,11 @@ impl RookClient {
             ) else {
                 continue;
             };
-            let Some(name) = value.get("metadata").and_then(|m| m.get("name")).and_then(|n| n.as_str()) else {
+            let Some(name) = value
+                .get("metadata")
+                .and_then(|m| m.get("name"))
+                .and_then(|n| n.as_str())
+            else {
                 continue;
             };
             let label = format!("{kind}/{name}");
@@ -380,8 +421,13 @@ impl RookClient {
                 .and_then(|n| n.as_str())
                 .unwrap_or(namespace);
 
-            let Some((path, namespaced)) = bootstrap_object_path(api_version, kind, obj_namespace, name) else {
-                report.failed.push((label, format!("unrecognized kind '{kind}' — apply manually")));
+            let Some((path, namespaced)) =
+                bootstrap_object_path(api_version, kind, obj_namespace, name)
+            else {
+                report.failed.push((
+                    label,
+                    format!("unrecognized kind '{kind}' — apply manually"),
+                ));
                 continue;
             };
 
@@ -391,7 +437,8 @@ impl RookClient {
             let mut manifest = value.clone();
             if namespaced {
                 if let Some(meta) = manifest.get_mut("metadata").and_then(|m| m.as_object_mut()) {
-                    meta.entry("namespace").or_insert_with(|| Value::String(obj_namespace.to_string()));
+                    meta.entry("namespace")
+                        .or_insert_with(|| Value::String(obj_namespace.to_string()));
                 }
             }
 
@@ -421,13 +468,18 @@ mod tests {
 
     #[test]
     fn resolves_known_bootstrap_kinds() {
-        let (path, namespaced) = bootstrap_object_path("v1", "Namespace", "rook-ceph", "rook-ceph").unwrap();
+        let (path, namespaced) =
+            bootstrap_object_path("v1", "Namespace", "rook-ceph", "rook-ceph").unwrap();
         assert_eq!(path, "/api/v1/namespaces/rook-ceph");
         assert!(!namespaced);
 
         let (path, namespaced) =
-            bootstrap_object_path("apps/v1", "Deployment", "rook-ceph", "rook-ceph-operator").unwrap();
-        assert_eq!(path, "/apis/apps/v1/namespaces/rook-ceph/deployments/rook-ceph-operator");
+            bootstrap_object_path("apps/v1", "Deployment", "rook-ceph", "rook-ceph-operator")
+                .unwrap();
+        assert_eq!(
+            path,
+            "/apis/apps/v1/namespaces/rook-ceph/deployments/rook-ceph-operator"
+        );
         assert!(namespaced);
 
         let (path, namespaced) = bootstrap_object_path(
@@ -452,8 +504,12 @@ mod tests {
     #[test]
     fn ceph_collection_and_object_paths() {
         let collection = RookClient::ceph_collection_path("cephblockpools", "rook-ceph").unwrap();
-        assert_eq!(collection, "/apis/ceph.rook.io/v1/namespaces/rook-ceph/cephblockpools");
-        let object = RookClient::ceph_object_path("cephblockpools", "rook-ceph", "fast-ssd").unwrap();
+        assert_eq!(
+            collection,
+            "/apis/ceph.rook.io/v1/namespaces/rook-ceph/cephblockpools"
+        );
+        let object =
+            RookClient::ceph_object_path("cephblockpools", "rook-ceph", "fast-ssd").unwrap();
         assert_eq!(
             object,
             "/apis/ceph.rook.io/v1/namespaces/rook-ceph/cephblockpools/fast-ssd"

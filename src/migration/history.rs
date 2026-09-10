@@ -27,7 +27,12 @@ pub struct MigrationRecord {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
-pub enum MigrationOutcome { Succeeded, Failed(String), Cancelled, RolledBack }
+pub enum MigrationOutcome {
+    Succeeded,
+    Failed(String),
+    Cancelled,
+    RolledBack,
+}
 
 impl MigrationHistory {
     /// Default persistence path
@@ -64,7 +69,12 @@ impl MigrationHistory {
         Ok(())
     }
 
-    pub fn new(max: usize) -> Self { Self { records: Vec::new(), max_records: max } }
+    pub fn new(max: usize) -> Self {
+        Self {
+            records: Vec::new(),
+            max_records: max,
+        }
+    }
 
     pub fn record(&mut self, record: MigrationRecord) {
         self.records.insert(0, record);
@@ -74,16 +84,36 @@ impl MigrationHistory {
         }
     }
 
-    pub fn by_vm(&self, vm_name: &str) -> Vec<&MigrationRecord> { self.records.iter().filter(|r| r.vm_name == vm_name).collect() }
-    pub fn recent(&self, limit: usize) -> Vec<&MigrationRecord> { self.records.iter().take(limit).collect() }
-    pub fn failed(&self) -> Vec<&MigrationRecord> { self.records.iter().filter(|r| matches!(r.status, MigrationOutcome::Failed(_))).collect() }
+    pub fn by_vm(&self, vm_name: &str) -> Vec<&MigrationRecord> {
+        self.records
+            .iter()
+            .filter(|r| r.vm_name == vm_name)
+            .collect()
+    }
+    pub fn recent(&self, limit: usize) -> Vec<&MigrationRecord> {
+        self.records.iter().take(limit).collect()
+    }
+    pub fn failed(&self) -> Vec<&MigrationRecord> {
+        self.records
+            .iter()
+            .filter(|r| matches!(r.status, MigrationOutcome::Failed(_)))
+            .collect()
+    }
     pub fn success_rate(&self) -> f64 {
-        if self.records.is_empty() { return 0.0; }
-        let succeeded = self.records.iter().filter(|r| r.status == MigrationOutcome::Succeeded).count();
+        if self.records.is_empty() {
+            return 0.0;
+        }
+        let succeeded = self
+            .records
+            .iter()
+            .filter(|r| r.status == MigrationOutcome::Succeeded)
+            .count();
         succeeded as f64 / self.records.len() as f64 * 100.0
     }
 }
 
 impl Default for MigrationHistory {
-    fn default() -> Self { Self::new(1000) }
+    fn default() -> Self {
+        Self::new(1000)
+    }
 }

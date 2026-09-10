@@ -371,11 +371,19 @@ fn render_change_plan_table(
     println!("  Disposition:  {}", plan.overall_disposition);
     println!(
         "  Downtime:     {}",
-        if plan.requires_downtime { "required" } else { "not expected" }
+        if plan.requires_downtime {
+            "required"
+        } else {
+            "not expected"
+        }
     );
     println!(
         "  Recreation:   {}",
-        if plan.requires_recreation { "required" } else { "no" }
+        if plan.requires_recreation {
+            "required"
+        } else {
+            "no"
+        }
     );
     println!();
 
@@ -384,7 +392,10 @@ fn render_change_plan_table(
         return;
     }
 
-    println!("  {:<18} {:<10} {:<50} ACTION", "IMPACT", "SEVERITY", "PATH");
+    println!(
+        "  {:<18} {:<10} {:<50} ACTION",
+        "IMPACT", "SEVERITY", "PATH"
+    );
     println!("  {}", "-".repeat(110));
     for change in &plan.changes {
         println!(

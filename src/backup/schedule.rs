@@ -73,9 +73,14 @@ pub enum ScheduleType {
 impl ScheduleType {
     pub fn hourly(minute: u32) -> Self {
         if minute > 59 {
-            log::warn!("Hourly schedule minute {} is out of range 0-59, clamping", minute);
+            log::warn!(
+                "Hourly schedule minute {} is out of range 0-59, clamping",
+                minute
+            );
         }
-        ScheduleType::Hourly { minute: minute.min(59) }
+        ScheduleType::Hourly {
+            minute: minute.min(59),
+        }
     }
 
     pub fn daily(hour: u32, minute: u32) -> Self {
@@ -85,8 +90,7 @@ impl ScheduleType {
             None => unreachable!(),
         };
         ScheduleType::Daily {
-            time: NaiveTime::from_hms_opt(hour.min(23), minute.min(59), 0)
-                .unwrap_or(MIDNIGHT),
+            time: NaiveTime::from_hms_opt(hour.min(23), minute.min(59), 0).unwrap_or(MIDNIGHT),
         }
     }
 
@@ -97,8 +101,7 @@ impl ScheduleType {
         };
         ScheduleType::Weekly {
             weekday,
-            time: NaiveTime::from_hms_opt(hour.min(23), minute.min(59), 0)
-                .unwrap_or(MIDNIGHT),
+            time: NaiveTime::from_hms_opt(hour.min(23), minute.min(59), 0).unwrap_or(MIDNIGHT),
         }
     }
 
@@ -108,12 +111,14 @@ impl ScheduleType {
             None => unreachable!(),
         };
         if day == 0 || day > 31 {
-            log::warn!("Monthly schedule day {} is out of range 1-31, clamping", day);
+            log::warn!(
+                "Monthly schedule day {} is out of range 1-31, clamping",
+                day
+            );
         }
         ScheduleType::Monthly {
             day: day.clamp(1, 31),
-            time: NaiveTime::from_hms_opt(hour.min(23), minute.min(59), 0)
-                .unwrap_or(MIDNIGHT),
+            time: NaiveTime::from_hms_opt(hour.min(23), minute.min(59), 0).unwrap_or(MIDNIGHT),
         }
     }
 }

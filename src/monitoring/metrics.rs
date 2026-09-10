@@ -342,7 +342,6 @@ impl MetricsCollector {
             },
         }
     }
-
 }
 
 #[cfg(test)]

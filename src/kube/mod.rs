@@ -325,11 +325,7 @@ impl KubeClient {
     }
 
     /// Fetch a PVC by name.
-    pub async fn get_pvc(
-        &self,
-        namespace: &str,
-        name: &str,
-    ) -> Result<PersistentVolumeClaim> {
+    pub async fn get_pvc(&self, namespace: &str, name: &str) -> Result<PersistentVolumeClaim> {
         let pvcs: Api<PersistentVolumeClaim> = self.pvc_api(namespace);
         Ok(pvcs.get(name).await?)
     }
@@ -390,7 +386,8 @@ impl KubeClient {
             Err(kube::Error::Api(ae)) if ae.code == 404 => {
                 log::debug!(
                     "{subresource} 404 for '{name}': reason={:?} message={:?}",
-                    ae.reason, ae.message
+                    ae.reason,
+                    ae.message
                 );
                 // A 404 here is ambiguous: it fires both when the VMI itself
                 // doesn't exist AND when the subresource route isn't
@@ -480,8 +477,9 @@ impl KubeClient {
         })?;
         let max_bytes = crate::storage::parse_size_to_bytes(&max_guest)
             .ok_or_else(|| anyhow::anyhow!("could not parse maxGuest quantity '{max_guest}'"))?;
-        let target_bytes = crate::storage::parse_size_to_bytes(target_guest)
-            .ok_or_else(|| anyhow::anyhow!("could not parse requested memory quantity '{target_guest}'"))?;
+        let target_bytes = crate::storage::parse_size_to_bytes(target_guest).ok_or_else(|| {
+            anyhow::anyhow!("could not parse requested memory quantity '{target_guest}'")
+        })?;
         if target_bytes > max_bytes {
             anyhow::bail!(
                 "HOTPLUG_LIMIT_EXCEEDED: requested {target_guest} exceeds maxGuest={max_guest} for VM '{name}'"
@@ -528,7 +526,12 @@ impl KubeClient {
     }
 
     /// Detach a previously hotplugged volume by its volume name.
-    pub async fn remove_volume(&self, namespace: &str, name: &str, volume_name: &str) -> Result<()> {
+    pub async fn remove_volume(
+        &self,
+        namespace: &str,
+        name: &str,
+        volume_name: &str,
+    ) -> Result<()> {
         let body = json!({ "name": volume_name });
         self.vmi_subresource_with_body(namespace, name, "removevolume", body)
             .await
@@ -550,7 +553,12 @@ impl KubeClient {
     }
 
     /// Detach a hotplugged interface by its interface name.
-    pub async fn remove_interface(&self, namespace: &str, name: &str, iface_name: &str) -> Result<()> {
+    pub async fn remove_interface(
+        &self,
+        namespace: &str,
+        name: &str,
+        iface_name: &str,
+    ) -> Result<()> {
         let body = json!({ "name": iface_name });
         self.vmi_subresource_with_body(namespace, name, "removeinterface", body)
             .await
@@ -566,7 +574,8 @@ impl KubeClient {
     ) -> Result<VirtualMachineInstanceMigration> {
         lifecycle::validate_k8s_name("namespace", namespace)?;
         lifecycle::validate_k8s_name("name", name)?;
-        let mig_api: Api<VirtualMachineInstanceMigration> = Api::namespaced(self.client.clone(), namespace);
+        let mig_api: Api<VirtualMachineInstanceMigration> =
+            Api::namespaced(self.client.clone(), namespace);
         let mig_name = format!(
             "{name}-migrate-{}",
             chrono::Utc::now().format("%Y%m%d%H%M%S")
@@ -592,7 +601,8 @@ impl KubeClient {
         namespace: &str,
         vm_name: Option<&str>,
     ) -> Result<Vec<VirtualMachineInstanceMigration>> {
-        let mig_api: Api<VirtualMachineInstanceMigration> = Api::namespaced(self.client.clone(), namespace);
+        let mig_api: Api<VirtualMachineInstanceMigration> =
+            Api::namespaced(self.client.clone(), namespace);
         let lp = ListParams::default();
         let list = mig_api.list(&lp).await?;
         Ok(list
@@ -611,14 +621,16 @@ impl KubeClient {
         namespace: &str,
         id: &str,
     ) -> Result<VirtualMachineInstanceMigration> {
-        let mig_api: Api<VirtualMachineInstanceMigration> = Api::namespaced(self.client.clone(), namespace);
+        let mig_api: Api<VirtualMachineInstanceMigration> =
+            Api::namespaced(self.client.clone(), namespace);
         Ok(mig_api.get(id).await?)
     }
 
     /// Cancel a migration. KubeVirt aborts an in-progress migration when its
     /// `VirtualMachineInstanceMigration` object is deleted.
     pub async fn cancel_migration(&self, namespace: &str, id: &str) -> Result<()> {
-        let mig_api: Api<VirtualMachineInstanceMigration> = Api::namespaced(self.client.clone(), namespace);
+        let mig_api: Api<VirtualMachineInstanceMigration> =
+            Api::namespaced(self.client.clone(), namespace);
         let dp = DeleteParams::default();
         mig_api.delete(id, &dp).await?;
         Ok(())
@@ -715,7 +727,8 @@ impl KubeClient {
         let name = manifest["metadata"]["name"]
             .as_str()
             .ok_or_else(|| anyhow::anyhow!("DataSource manifest missing metadata.name"))?;
-        let collection = format!("/apis/cdi.kubevirt.io/v1beta1/namespaces/{namespace}/datasources");
+        let collection =
+            format!("/apis/cdi.kubevirt.io/v1beta1/namespaces/{namespace}/datasources");
         let body = serde_json::to_vec(manifest)?;
         let req = http::Request::builder()
             .method(http::Method::POST)
@@ -733,18 +746,16 @@ impl KubeClient {
                     .uri(&object_path)
                     .header(http::header::CONTENT_TYPE, "application/merge-patch+json")
                     .body(patch_body)
-                    .map_err(|e| anyhow::anyhow!("failed to build DataSource patch request: {e}"))?;
+                    .map_err(|e| {
+                        anyhow::anyhow!("failed to build DataSource patch request: {e}")
+                    })?;
                 Ok(self.client.request::<serde_json::Value>(patch_req).await?)
             }
             Err(e) => Err(e.into()),
         }
     }
 
-    pub async fn get_data_volume(
-        &self,
-        namespace: &str,
-        name: &str,
-    ) -> Result<serde_json::Value> {
+    pub async fn get_data_volume(&self, namespace: &str, name: &str) -> Result<serde_json::Value> {
         lifecycle::validate_k8s_name("namespace", namespace)?;
         lifecycle::validate_k8s_name("name", name)?;
         let path =
@@ -764,15 +775,14 @@ impl KubeClient {
         name: &str,
         timeout_secs: u64,
     ) -> Result<cdi::DataVolumeWait> {
-        let deadline = std::time::Instant::now() + std::time::Duration::from_secs(timeout_secs.max(1));
+        let deadline =
+            std::time::Instant::now() + std::time::Duration::from_secs(timeout_secs.max(1));
         loop {
             match self.get_data_volume(namespace, name).await {
                 Ok(obj) => {
                     let phase = cdi::data_volume_phase_from_object(&obj);
                     match cdi::classify_data_volume_phase(phase.as_deref()) {
-                        cdi::DataVolumeWait::Pending
-                            if std::time::Instant::now() < deadline =>
-                        {
+                        cdi::DataVolumeWait::Pending if std::time::Instant::now() < deadline => {
                             tokio::time::sleep(std::time::Duration::from_secs(2)).await;
                         }
                         other => return Ok(other),
@@ -838,9 +848,12 @@ impl KubeClient {
 /// Find the PVC/DataVolume name backing a VM's named disk. Blank
 /// (`emptyDisk`) and container disks have no PVC and are rejected.
 fn resolve_disk_pvc_name(volumes: &[Volume], vm_name: &str, disk_name: &str) -> Result<String> {
-    let volume = volumes.iter().find(|v| v.name == disk_name).ok_or_else(|| {
-        anyhow::anyhow!("VOLUME_NOT_FOUND: disk '{disk_name}' not found on VM '{vm_name}'")
-    })?;
+    let volume = volumes
+        .iter()
+        .find(|v| v.name == disk_name)
+        .ok_or_else(|| {
+            anyhow::anyhow!("VOLUME_NOT_FOUND: disk '{disk_name}' not found on VM '{vm_name}'")
+        })?;
     volume
         .persistent_volume_claim
         .as_ref()
@@ -896,8 +909,14 @@ mod tests {
         );
 
         let json = serde_json::to_value(&vm).unwrap();
-        assert_eq!(json["spec"]["template"]["spec"]["domain"]["cpu"]["maxSockets"], 4);
-        assert_eq!(json["spec"]["template"]["spec"]["domain"]["memory"]["maxGuest"], "16Gi");
+        assert_eq!(
+            json["spec"]["template"]["spec"]["domain"]["cpu"]["maxSockets"],
+            4
+        );
+        assert_eq!(
+            json["spec"]["template"]["spec"]["domain"]["memory"]["maxGuest"],
+            "16Gi"
+        );
     }
 
     /// CPU hotplug's socket-count math: `new_sockets = ceil(target_vcpus / (cores*threads))`.
@@ -951,7 +970,9 @@ mod tests {
     #[test]
     fn resolves_data_volume_backed_disk() {
         let mut vol = volume("rootdisk");
-        vol.data_volume = Some(DataVolumeSource { name: "my-dv".into() });
+        vol.data_volume = Some(DataVolumeSource {
+            name: "my-dv".into(),
+        });
         let name = resolve_disk_pvc_name(&[vol], "vm1", "rootdisk").unwrap();
         assert_eq!(name, "my-dv");
     }
@@ -965,7 +986,9 @@ mod tests {
     #[test]
     fn rejects_blank_disk() {
         let mut vol = volume("rootdisk");
-        vol.empty_disk = Some(EmptyDiskSource { capacity: "20Gi".into() });
+        vol.empty_disk = Some(EmptyDiskSource {
+            capacity: "20Gi".into(),
+        });
         let err = resolve_disk_pvc_name(&[vol], "vm1", "rootdisk").unwrap_err();
         assert!(err.to_string().contains("UNSUPPORTED"));
     }

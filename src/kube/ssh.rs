@@ -35,7 +35,10 @@ pub fn ssh_argv(user: &str, host: &str, port: u16) -> Result<Vec<String>> {
     if host.is_empty() {
         bail!("SSH host is empty");
     }
-    if host.chars().any(|c| c.is_whitespace() || matches!(c, ';' | '|' | '&' | '`' | '$')) {
+    if host
+        .chars()
+        .any(|c| c.is_whitespace() || matches!(c, ';' | '|' | '&' | '`' | '$'))
+    {
         bail!("SSH host contains unsafe characters");
     }
     Ok(vec![
@@ -69,10 +72,7 @@ pub fn virtctl_ssh_argv(user: &str, vm: &str, namespace: &str) -> Result<Vec<Str
 pub fn zorvia_ssh_ws_path(vm: &str, user: &str) -> Result<String> {
     crate::kube::lifecycle::validate_k8s_name("name", vm)?;
     validate_ssh_user(user)?;
-    Ok(format!(
-        "/ws/ssh/{vm}?user={}",
-        urlencoding_lite(user)
-    ))
+    Ok(format!("/ws/ssh/{vm}?user={}", urlencoding_lite(user)))
 }
 
 fn urlencoding_lite(s: &str) -> String {

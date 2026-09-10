@@ -125,7 +125,10 @@ pub fn handle_tenants_create(
     println!("  Owner:   {}", tenant.owner_id);
     println!("  Email:   {}", tenant.contact_email);
     println!();
-    println!("{}", color::success("✓ Tenant created and persisted successfully"));
+    println!(
+        "{}",
+        color::success("✓ Tenant created and persisted successfully")
+    );
     Ok(())
 }
 
@@ -208,7 +211,10 @@ pub fn handle_users_create(
     println!("  Username: {}", color::value(&user.username));
     println!("  Email:    {}", user.email);
     println!();
-    println!("{}", color::success("✓ User created and persisted successfully"));
+    println!(
+        "{}",
+        color::success("✓ User created and persisted successfully")
+    );
     Ok(())
 }
 
@@ -291,7 +297,10 @@ pub fn handle_roles_create(
     println!("  Name:        {}", color::value(&role.name));
     println!("  Permissions: {}", permissions);
     println!();
-    println!("{}", color::success("✓ Role created and persisted successfully"));
+    println!(
+        "{}",
+        color::success("✓ Role created and persisted successfully")
+    );
     Ok(())
 }
 
@@ -345,7 +354,8 @@ pub async fn handle_quotas_create(name: String, namespace: String, preset: Strin
     };
 
     // Create real K8s ResourceQuota
-    let client = kube::Client::try_default().await
+    let client = kube::Client::try_default()
+        .await
         .map_err(|e| anyhow::anyhow!("Failed to connect to Kubernetes: {}", e))?;
 
     use k8s_openapi::api::core::v1::ResourceQuota;
@@ -370,7 +380,9 @@ pub async fn handle_quotas_create(name: String, namespace: String, preset: Strin
         status: None,
     };
 
-    quotas_api.create(&kube::api::PostParams::default(), &k8s_quota).await
+    quotas_api
+        .create(&kube::api::PostParams::default(), &k8s_quota)
+        .await
         .map_err(|e| anyhow::anyhow!("Failed to create ResourceQuota: {}", e))?;
 
     println!("{}", color::success("✓ Quota created in Kubernetes"));
@@ -434,7 +446,10 @@ pub fn handle_groups_create(
 
     println!("  Name: {}", color::value(&group.name));
     println!();
-    println!("{}", color::success("✓ Group created and persisted successfully"));
+    println!(
+        "{}",
+        color::success("✓ Group created and persisted successfully")
+    );
     Ok(())
 }
 

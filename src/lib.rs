@@ -31,9 +31,9 @@
 
 pub mod cli;
 pub mod config;
-pub mod kube;
 #[cfg(feature = "web")]
 pub mod kryton;
+pub mod kube;
 pub mod network;
 pub mod output;
 pub mod storage;
@@ -91,9 +91,9 @@ pub mod nlp_search;
 pub mod notifications;
 pub mod placement;
 pub mod recommendation;
+pub mod rook;
 pub mod search_history;
 pub mod session_sharing;
-pub mod rook;
 pub mod state_persistence;
 pub mod topology;
 pub mod vcenter_ops;
@@ -1026,21 +1026,187 @@ pub async fn run(mut cli: Cli) -> Result<()> {
             handlers::multitenancy::handle_groups_add_user(group, user)?
         }
 
-        Commands::Inventory { all_namespaces, datacenter, cluster, folder, output } => handlers::vcenter::handle_inventory(all_namespaces, output, datacenter, cluster, folder, &cli.namespace, cli.kubeconfig.as_deref()).await?,
-        Commands::TagSet { vm,key,value } => handlers::vcenter::handle_vm_metadata(vm,&cli.namespace,crate::vcenter_ops::metadata::MetadataKind::Tag,key,Some(value),cli.kubeconfig.as_deref()).await?,
-        Commands::TagRemove { vm,key } => handlers::vcenter::handle_vm_metadata(vm,&cli.namespace,crate::vcenter_ops::metadata::MetadataKind::Tag,key,None,cli.kubeconfig.as_deref()).await?,
-        Commands::AttributeSet { vm,key,value } => handlers::vcenter::handle_vm_metadata(vm,&cli.namespace,crate::vcenter_ops::metadata::MetadataKind::Attribute,key,Some(value),cli.kubeconfig.as_deref()).await?,
-        Commands::AttributeRemove { vm,key } => handlers::vcenter::handle_vm_metadata(vm,&cli.namespace,crate::vcenter_ops::metadata::MetadataKind::Attribute,key,None,cli.kubeconfig.as_deref()).await?,
-        Commands::InventoryDatacenterSet { vm,datacenter } => handlers::vcenter::handle_vm_metadata(vm,&cli.namespace,crate::vcenter_ops::metadata::MetadataKind::Datacenter,"datacenter".into(),Some(datacenter),cli.kubeconfig.as_deref()).await?,
-        Commands::InventoryClusterSet { vm,cluster } => handlers::vcenter::handle_vm_metadata(vm,&cli.namespace,crate::vcenter_ops::metadata::MetadataKind::Cluster,"cluster".into(),Some(cluster),cli.kubeconfig.as_deref()).await?,
-        Commands::InventoryFolderSet { vm,folder } => handlers::vcenter::handle_vm_metadata(vm,&cli.namespace,crate::vcenter_ops::metadata::MetadataKind::Folder,"folder".into(),Some(folder),cli.kubeconfig.as_deref()).await?,
-        Commands::Activity { all_namespaces,target,severity,kind,limit,output } => handlers::vcenter::handle_activity(all_namespaces,target,severity,kind,limit,output,&cli.namespace,cli.kubeconfig.as_deref()).await?,
-        Commands::MaintenancePlan { node,max_parallel,output } => handlers::vcenter::handle_maintenance_plan(node,max_parallel,output,cli.kubeconfig.as_deref()).await?,
-        Commands::MaintenanceEnter { node,max_parallel,dry_run,force } => handlers::vcenter::handle_maintenance_enter(node,max_parallel,dry_run,force,cli.kubeconfig.as_deref()).await?,
-        Commands::MaintenanceStatus { node } => handlers::vcenter::handle_maintenance_status(node,cli.kubeconfig.as_deref()).await?,
-        Commands::MaintenanceExit { node } => handlers::vcenter::handle_maintenance_exit(node,cli.kubeconfig.as_deref()).await?,
-        Commands::PlacementAdvisor { cpu,memory_gib,required_label,avoid_node,preferred_zone,output } => handlers::vcenter::handle_placement_advisor(cpu,memory_gib,required_label,avoid_node,preferred_zone,output,cli.kubeconfig.as_deref()).await?,
-        Commands::PlacementRebalance { threshold,max_migrations,output } => handlers::vcenter::handle_placement_rebalance(threshold,max_migrations,output,cli.kubeconfig.as_deref()).await?,
+        Commands::Inventory {
+            all_namespaces,
+            datacenter,
+            cluster,
+            folder,
+            output,
+        } => {
+            handlers::vcenter::handle_inventory(
+                all_namespaces,
+                output,
+                datacenter,
+                cluster,
+                folder,
+                &cli.namespace,
+                cli.kubeconfig.as_deref(),
+            )
+            .await?
+        }
+        Commands::TagSet { vm, key, value } => {
+            handlers::vcenter::handle_vm_metadata(
+                vm,
+                &cli.namespace,
+                crate::vcenter_ops::metadata::MetadataKind::Tag,
+                key,
+                Some(value),
+                cli.kubeconfig.as_deref(),
+            )
+            .await?
+        }
+        Commands::TagRemove { vm, key } => {
+            handlers::vcenter::handle_vm_metadata(
+                vm,
+                &cli.namespace,
+                crate::vcenter_ops::metadata::MetadataKind::Tag,
+                key,
+                None,
+                cli.kubeconfig.as_deref(),
+            )
+            .await?
+        }
+        Commands::AttributeSet { vm, key, value } => {
+            handlers::vcenter::handle_vm_metadata(
+                vm,
+                &cli.namespace,
+                crate::vcenter_ops::metadata::MetadataKind::Attribute,
+                key,
+                Some(value),
+                cli.kubeconfig.as_deref(),
+            )
+            .await?
+        }
+        Commands::AttributeRemove { vm, key } => {
+            handlers::vcenter::handle_vm_metadata(
+                vm,
+                &cli.namespace,
+                crate::vcenter_ops::metadata::MetadataKind::Attribute,
+                key,
+                None,
+                cli.kubeconfig.as_deref(),
+            )
+            .await?
+        }
+        Commands::InventoryDatacenterSet { vm, datacenter } => {
+            handlers::vcenter::handle_vm_metadata(
+                vm,
+                &cli.namespace,
+                crate::vcenter_ops::metadata::MetadataKind::Datacenter,
+                "datacenter".into(),
+                Some(datacenter),
+                cli.kubeconfig.as_deref(),
+            )
+            .await?
+        }
+        Commands::InventoryClusterSet { vm, cluster } => {
+            handlers::vcenter::handle_vm_metadata(
+                vm,
+                &cli.namespace,
+                crate::vcenter_ops::metadata::MetadataKind::Cluster,
+                "cluster".into(),
+                Some(cluster),
+                cli.kubeconfig.as_deref(),
+            )
+            .await?
+        }
+        Commands::InventoryFolderSet { vm, folder } => {
+            handlers::vcenter::handle_vm_metadata(
+                vm,
+                &cli.namespace,
+                crate::vcenter_ops::metadata::MetadataKind::Folder,
+                "folder".into(),
+                Some(folder),
+                cli.kubeconfig.as_deref(),
+            )
+            .await?
+        }
+        Commands::Activity {
+            all_namespaces,
+            target,
+            severity,
+            kind,
+            limit,
+            output,
+        } => {
+            handlers::vcenter::handle_activity(
+                all_namespaces,
+                target,
+                severity,
+                kind,
+                limit,
+                output,
+                &cli.namespace,
+                cli.kubeconfig.as_deref(),
+            )
+            .await?
+        }
+        Commands::MaintenancePlan {
+            node,
+            max_parallel,
+            output,
+        } => {
+            handlers::vcenter::handle_maintenance_plan(
+                node,
+                max_parallel,
+                output,
+                cli.kubeconfig.as_deref(),
+            )
+            .await?
+        }
+        Commands::MaintenanceEnter {
+            node,
+            max_parallel,
+            dry_run,
+            force,
+        } => {
+            handlers::vcenter::handle_maintenance_enter(
+                node,
+                max_parallel,
+                dry_run,
+                force,
+                cli.kubeconfig.as_deref(),
+            )
+            .await?
+        }
+        Commands::MaintenanceStatus { node } => {
+            handlers::vcenter::handle_maintenance_status(node, cli.kubeconfig.as_deref()).await?
+        }
+        Commands::MaintenanceExit { node } => {
+            handlers::vcenter::handle_maintenance_exit(node, cli.kubeconfig.as_deref()).await?
+        }
+        Commands::PlacementAdvisor {
+            cpu,
+            memory_gib,
+            required_label,
+            avoid_node,
+            preferred_zone,
+            output,
+        } => {
+            handlers::vcenter::handle_placement_advisor(
+                cpu,
+                memory_gib,
+                required_label,
+                avoid_node,
+                preferred_zone,
+                output,
+                cli.kubeconfig.as_deref(),
+            )
+            .await?
+        }
+        Commands::PlacementRebalance {
+            threshold,
+            max_migrations,
+            output,
+        } => {
+            handlers::vcenter::handle_placement_rebalance(
+                threshold,
+                max_migrations,
+                output,
+                cli.kubeconfig.as_deref(),
+            )
+            .await?
+        }
         // ========== DEVELOPER EXPERIENCE & TOOLING ==========
         Commands::Completions {
             shell,

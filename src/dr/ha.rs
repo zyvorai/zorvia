@@ -79,7 +79,11 @@ impl HAConfig {
     pub fn with_replicas(mut self, min: u32, max: u32) -> Self {
         // Ensure min <= max to prevent invalid configurations
         if min > max {
-            log::warn!("HA config: min_replicas ({}) > max_replicas ({}), swapping values", min, max);
+            log::warn!(
+                "HA config: min_replicas ({}) > max_replicas ({}), swapping values",
+                min,
+                max
+            );
             self.min_replicas = max;
             self.max_replicas = min;
         } else {

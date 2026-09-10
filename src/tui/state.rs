@@ -63,7 +63,9 @@ impl ActivityEvent {
 
     /// Format the elapsed time since this event
     pub fn elapsed_display(&self) -> String {
-        let secs = Utc::now().signed_duration_since(self.timestamp).num_seconds();
+        let secs = Utc::now()
+            .signed_duration_since(self.timestamp)
+            .num_seconds();
         format_elapsed(secs)
     }
 }
@@ -502,12 +504,12 @@ impl AppState {
             SortMode::NameDesc => self.vms.sort_by(|a, b| b.name.cmp(&a.name)),
             SortMode::StatusAsc => self.vms.sort_by(|a, b| a.status.cmp(&b.status)),
             SortMode::StatusDesc => self.vms.sort_by(|a, b| b.status.cmp(&a.status)),
-            SortMode::AgeAsc => self.vms.sort_by(|a, b| {
-                parse_age_to_seconds(&a.age).cmp(&parse_age_to_seconds(&b.age))
-            }),
-            SortMode::AgeDesc => self.vms.sort_by(|a, b| {
-                parse_age_to_seconds(&b.age).cmp(&parse_age_to_seconds(&a.age))
-            }),
+            SortMode::AgeAsc => self
+                .vms
+                .sort_by(|a, b| parse_age_to_seconds(&a.age).cmp(&parse_age_to_seconds(&b.age))),
+            SortMode::AgeDesc => self
+                .vms
+                .sort_by(|a, b| parse_age_to_seconds(&b.age).cmp(&parse_age_to_seconds(&a.age))),
         }
     }
 
@@ -553,11 +555,7 @@ impl AppState {
     pub fn filtered_vms(&self) -> Vec<&VmInfo> {
         match &self.status_filter {
             None => self.vms.iter().collect(),
-            Some(filter) => self
-                .vms
-                .iter()
-                .filter(|vm| vm.status == *filter)
-                .collect(),
+            Some(filter) => self.vms.iter().filter(|vm| vm.status == *filter).collect(),
         }
     }
 

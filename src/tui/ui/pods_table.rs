@@ -9,7 +9,6 @@ use ratatui::{
     Frame,
 };
 
-
 pub fn render(f: &mut Frame, area: Rect) {
     let chunks = Layout::default()
         .direction(Direction::Vertical)
@@ -23,8 +22,16 @@ pub fn render(f: &mut Frame, area: Rect) {
     // Header
     // Gradient brand header
     let mut header_spans = gradient::brand().text("Zorvia");
-    header_spans.push(Span::styled(" | ", Style::default().fg(Color::Rgb(128, 128, 128))));
-    header_spans.push(Span::styled("Pods", Style::default().fg(Color::Rgb(255, 145, 115)).add_modifier(Modifier::BOLD)));
+    header_spans.push(Span::styled(
+        " | ",
+        Style::default().fg(Color::Rgb(128, 128, 128)),
+    ));
+    header_spans.push(Span::styled(
+        "Pods",
+        Style::default()
+            .fg(Color::Rgb(255, 145, 115))
+            .add_modifier(Modifier::BOLD),
+    ));
     let header_text = Line::from(header_spans);
     let header = Paragraph::new(header_text)
         .alignment(Alignment::Center)
@@ -49,12 +56,32 @@ pub fn render(f: &mut Frame, area: Rect) {
         .style(Style::default().bg(Color::Rgb(40, 35, 55)))
         .height(1);
 
-    let sample_data = [("virt-launcher-web-01-abc12", "default", "Running", "node-1", "2d"),
-        ("virt-launcher-db-pri-def34", "production", "Running", "node-2", "5d"),
-        ("virt-launcher-wrk-03-ghi56", "staging", "Pending", "node-1", "10m"),
+    let sample_data = [
+        (
+            "virt-launcher-web-01-abc12",
+            "default",
+            "Running",
+            "node-1",
+            "2d",
+        ),
+        (
+            "virt-launcher-db-pri-def34",
+            "production",
+            "Running",
+            "node-2",
+            "5d",
+        ),
+        (
+            "virt-launcher-wrk-03-ghi56",
+            "staging",
+            "Pending",
+            "node-1",
+            "10m",
+        ),
         ("virt-handler-jkl78", "kubevirt", "Running", "node-3", "14d"),
         ("virt-api-mno90", "kubevirt", "Running", "node-1", "14d"),
-        ("cdi-operator-pqr12", "cdi", "Running", "node-2", "14d")];
+        ("cdi-operator-pqr12", "cdi", "Running", "node-2", "14d"),
+    ];
 
     let rows = sample_data.iter().map(|(name, ns, status, node, age)| {
         let status_color = match *status {
@@ -89,7 +116,9 @@ pub fn render(f: &mut Frame, area: Rect) {
                 .border_style(Style::default().fg(Color::Rgb(222, 115, 86)))
                 .title(Span::styled(
                     " Pods ",
-                    Style::default().fg(Color::Rgb(222, 115, 86)).add_modifier(Modifier::BOLD),
+                    Style::default()
+                        .fg(Color::Rgb(222, 115, 86))
+                        .add_modifier(Modifier::BOLD),
                 )),
         )
         .column_spacing(1);
@@ -97,13 +126,33 @@ pub fn render(f: &mut Frame, area: Rect) {
 
     // Help
     let help = Paragraph::new(Line::from(vec![
-        Span::styled("↑↓", Style::default().fg(Color::Rgb(222, 115, 86)).add_modifier(Modifier::BOLD)),
+        Span::styled(
+            "↑↓",
+            Style::default()
+                .fg(Color::Rgb(222, 115, 86))
+                .add_modifier(Modifier::BOLD),
+        ),
         Span::styled(": Navigate | ", Style::default().fg(Color::Gray)),
-        Span::styled("l", Style::default().fg(Color::Rgb(222, 115, 86)).add_modifier(Modifier::BOLD)),
+        Span::styled(
+            "l",
+            Style::default()
+                .fg(Color::Rgb(222, 115, 86))
+                .add_modifier(Modifier::BOLD),
+        ),
         Span::styled(": Logs | ", Style::default().fg(Color::Gray)),
-        Span::styled("d", Style::default().fg(Color::Rgb(222, 115, 86)).add_modifier(Modifier::BOLD)),
+        Span::styled(
+            "d",
+            Style::default()
+                .fg(Color::Rgb(222, 115, 86))
+                .add_modifier(Modifier::BOLD),
+        ),
         Span::styled(": Describe | ", Style::default().fg(Color::Gray)),
-        Span::styled("q", Style::default().fg(Color::Rgb(222, 115, 86)).add_modifier(Modifier::BOLD)),
+        Span::styled(
+            "q",
+            Style::default()
+                .fg(Color::Rgb(222, 115, 86))
+                .add_modifier(Modifier::BOLD),
+        ),
         Span::styled(": Back", Style::default().fg(Color::Gray)),
     ]))
     .alignment(Alignment::Center)

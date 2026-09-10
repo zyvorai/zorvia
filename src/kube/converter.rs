@@ -115,10 +115,7 @@ pub fn vm_config_to_kubevirt(config: &VMConfig) -> Result<VirtualMachine> {
         } else {
             None
         };
-        let bus = disk
-            .bus
-            .clone()
-            .unwrap_or_else(|| "virtio".to_string());
+        let bus = disk.bus.clone().unwrap_or_else(|| "virtio".to_string());
 
         match disk.device_type {
             DiskDeviceType::CDROM => {
@@ -258,12 +255,9 @@ pub fn vm_config_to_kubevirt(config: &VMConfig) -> Result<VirtualMachine> {
     let firmware = config.firmware.as_ref().map(convert_firmware);
 
     // Build machine type
-    let machine = config
-        .machine_type
-        .as_ref()
-        .map(|t| Machine {
-            machine_type: Some(t.clone()),
-        });
+    let machine = config.machine_type.as_ref().map(|t| Machine {
+        machine_type: Some(t.clone()),
+    });
 
     // Build memory with hugepages
     let memory_hugepages = config
@@ -633,7 +627,10 @@ mod tests {
         assert_eq!(cpu.isolate_emulator_thread, Some(true));
 
         assert!(domain.memory.as_ref().unwrap().hugepages.is_some());
-        assert_eq!(domain.machine.as_ref().unwrap().machine_type, Some("q35".to_string()));
+        assert_eq!(
+            domain.machine.as_ref().unwrap().machine_type,
+            Some("q35".to_string())
+        );
 
         let devices = domain.devices.as_ref().unwrap();
         assert!(devices.tpm.is_some());

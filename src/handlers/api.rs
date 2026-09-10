@@ -48,7 +48,16 @@ pub async fn deliver_webhook(url: &str, event: &str, data: &serde_json::Value) -
     let payload_str = serde_json::to_string(&payload)?;
 
     let status = std::process::Command::new("curl")
-        .args(["-s", "-X", "POST", "-H", "Content-Type: application/json", "-d", &payload_str, url])
+        .args([
+            "-s",
+            "-X",
+            "POST",
+            "-H",
+            "Content-Type: application/json",
+            "-d",
+            &payload_str,
+            url,
+        ])
         .output();
 
     match status {
@@ -57,7 +66,11 @@ pub async fn deliver_webhook(url: &str, event: &str, data: &serde_json::Value) -
             Ok(())
         }
         Ok(output) => {
-            log::warn!("Webhook delivery to {} failed: {}", url, String::from_utf8_lossy(&output.stderr));
+            log::warn!(
+                "Webhook delivery to {} failed: {}",
+                url,
+                String::from_utf8_lossy(&output.stderr)
+            );
             Ok(()) // Don't fail the operation due to webhook delivery failure
         }
         Err(e) => {
@@ -97,8 +110,12 @@ pub async fn handle_api_serve(
         }
     }
 
-    let auth_method = AuthMethod::parse(&auth)
-        .ok_or_else(|| anyhow::anyhow!("Invalid auth method '{}'. Valid values: none, api-key, bearer, basic", auth))?;
+    let auth_method = AuthMethod::parse(&auth).ok_or_else(|| {
+        anyhow::anyhow!(
+            "Invalid auth method '{}'. Valid values: none, api-key, bearer, basic",
+            auth
+        )
+    })?;
     config = config.with_auth(auth_method.clone());
 
     if rate_limit > 0 {
@@ -162,7 +179,14 @@ pub async fn handle_api_serve(
         } else {
             None
         };
-        crate::api::http_server::web::start_server(&host, port, namespace, tls_config, rate_limit as u64).await?;
+        crate::api::http_server::web::start_server(
+            &host,
+            port,
+            namespace,
+            tls_config,
+            rate_limit as u64,
+        )
+        .await?;
     }
 
     Ok(())
@@ -186,8 +210,16 @@ pub fn handle_api_status(output: String) -> Result<()> {
         _ => {
             println!("{}", color::header("API Server Status"));
             println!();
-            println!("  {}", color::muted("No running server instance detected from CLI."));
-            println!("  {}", color::muted("Query the /api/v1/health endpoint on the running server for live status."));
+            println!(
+                "  {}",
+                color::muted("No running server instance detected from CLI.")
+            );
+            println!(
+                "  {}",
+                color::muted(
+                    "Query the /api/v1/health endpoint on the running server for live status."
+                )
+            );
             println!();
             println!("  Default port: {}", color::value("8080"));
             println!("  Start with:   {}", color::value("zorvia api-serve"));
@@ -336,8 +368,7 @@ pub fn handle_api_key_create(
     let random_bytes: Vec<u8> = (0..32).map(|_| rand::thread_rng().gen::<u8>()).collect();
     let key_hash: String = random_bytes.iter().map(|b| format!("{:02x}", b)).collect();
 
-    let mut key = ApiKey::new(&name, key_hash.clone())
-        .with_permissions(perms.clone());
+    let mut key = ApiKey::new(&name, key_hash.clone()).with_permissions(perms.clone());
 
     if let Some(limit) = rate_limit {
         key = key.with_rate_limit(limit);
@@ -491,7 +522,10 @@ pub fn handle_webhook_create(
     println!("  Events:   {}", events);
     println!("  ID:       {}", color::muted(&webhook.id));
     println!();
-    println!("{}", color::success("✓ Webhook registered and persisted successfully"));
+    println!(
+        "{}",
+        color::success("✓ Webhook registered and persisted successfully")
+    );
     Ok(())
 }
 
@@ -531,7 +565,10 @@ pub fn handle_webhook_delete(webhook: String, yes: bool) -> Result<()> {
     if removed > 0 {
         println!(
             "{}",
-            color::success(&format!("✓ Webhook '{}' deleted and removed from store", webhook))
+            color::success(&format!(
+                "✓ Webhook '{}' deleted and removed from store",
+                webhook
+            ))
         );
     } else {
         println!(
@@ -564,8 +601,7 @@ pub fn handle_event_list(
     use crate::api::{ApiResponse, HttpMethod, RequestContext};
     use crate::automation::triggers::Event;
 
-    let ctx = RequestContext::new(HttpMethod::GET, "/api/v1/events")
-        .with_namespace(&namespace);
+    let ctx = RequestContext::new(HttpMethod::GET, "/api/v1/events").with_namespace(&namespace);
 
     // Collect events from the trigger system and any persisted activity
     let mut events: Vec<Event> = Vec::new();
@@ -649,8 +685,8 @@ pub fn handle_event_recent(namespace: String, limit: usize, output: String) -> R
     use crate::automation::triggers::Event;
     use chrono::TimeDelta as Duration;
 
-    let ctx = RequestContext::new(HttpMethod::GET, "/api/v1/events/recent")
-        .with_namespace(&namespace);
+    let ctx =
+        RequestContext::new(HttpMethod::GET, "/api/v1/events/recent").with_namespace(&namespace);
 
     // Recent events — in production from an event store with time-based query
     let recent_types = [
@@ -716,7 +752,12 @@ pub fn handle_event_recent(namespace: String, limit: usize, output: String) -> R
     Ok(())
 }
 
-pub async fn handle_tui(namespace: String, theme: Option<String>, interactive: bool, no_splash: bool) -> Result<()> {
+pub async fn handle_tui(
+    namespace: String,
+    theme: Option<String>,
+    interactive: bool,
+    no_splash: bool,
+) -> Result<()> {
     use crossterm::{
         execute,
         terminal::{disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen},
@@ -921,10 +962,7 @@ mod tests {
 
         assert_eq!(event.event_type, "vm.started");
         assert_eq!(event.source, "web-server-01");
-        assert_eq!(
-            event.data.get("namespace"),
-            Some(&"production".to_string())
-        );
+        assert_eq!(event.data.get("namespace"), Some(&"production".to_string()));
         assert!(event.event_id.starts_with("evt-"));
     }
 
@@ -952,8 +990,8 @@ mod tests {
     fn test_event_request_context() {
         use crate::api::{HttpMethod, RequestContext};
 
-        let ctx = RequestContext::new(HttpMethod::GET, "/api/v1/events")
-            .with_namespace("production");
+        let ctx =
+            RequestContext::new(HttpMethod::GET, "/api/v1/events").with_namespace("production");
         assert_eq!(ctx.namespace, "production");
         assert_eq!(ctx.method, HttpMethod::GET);
         assert!(!ctx.is_authenticated());
@@ -994,9 +1032,7 @@ mod tests {
         let router = build_default_router();
         let all_routes = router.all_routes();
         assert!(all_routes.iter().any(|r| r.handler == "list_events"));
-        assert!(all_routes
-            .iter()
-            .any(|r| r.handler == "list_recent_events"));
+        assert!(all_routes.iter().any(|r| r.handler == "list_recent_events"));
         assert!(all_routes.iter().any(|r| r.handler == "list_vm_events"));
     }
 }

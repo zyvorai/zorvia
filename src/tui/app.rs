@@ -120,7 +120,9 @@ impl App {
         match self.current_view {
             View::Dashboard => ui::dashboard::render(f, &self.state, &self.config),
             View::VmList => ui::vm_list::render(f, &mut self.state, &self.config),
-            View::VmDetails => ui::vm_details::render(f, &self.state, &self.config, self.detail_tab),
+            View::VmDetails => {
+                ui::vm_details::render(f, &self.state, &self.config, self.detail_tab)
+            }
             View::Snapshots => ui::snapshots::render(f, &self.state, &self.config),
             View::Profiles => ui::profiles::render(f, &self.state, &self.config),
             View::Blueprints => ui::blueprints::render(f, &self.state, &self.config),
@@ -262,11 +264,7 @@ impl App {
             match key.code {
                 KeyCode::Char('y') => {
                     // Confirmed: perform the delete
-                    let vm_name = self
-                        .state
-                        .filtered_vms()
-                        .get(idx)
-                        .map(|vm| vm.name.clone());
+                    let vm_name = self.state.filtered_vms().get(idx).map(|vm| vm.name.clone());
                     self.pending_delete = None;
                     if let Some(name) = vm_name {
                         self.delete_vm(&name).await?;

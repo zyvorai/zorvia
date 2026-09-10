@@ -38,7 +38,8 @@ pub async fn fabric_migrate_vm(
             // raw error text (running sanitize_error() first would collapse
             // it before the classifier ever sees it — see hotplug_handlers).
             let raw = e.to_string();
-            let (code, kind, msg) = crate::kube::lifecycle::classify_migration_error("start migration", &raw);
+            let (code, kind, msg) =
+                crate::kube::lifecycle::classify_migration_error("start migration", &raw);
             let (st, j) = err_json(code, kind, &msg);
             (st, j).into_response()
         }
@@ -54,7 +55,9 @@ pub async fn fabric_list_vm_migrations(
     let client = s.client();
     drop(s);
     match client.list_migrations(&namespace, Some(&name)).await {
-        Ok(list) => Json(json!(list.iter().map(migration_json).collect::<Vec<_>>())).into_response(),
+        Ok(list) => {
+            Json(json!(list.iter().map(migration_json).collect::<Vec<_>>())).into_response()
+        }
         Err(e) => {
             let (st, j) = err_json(500, "MIGRATION_LIST_FAILED", &sanitize_error(&e));
             (st, j).into_response()

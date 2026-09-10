@@ -26,12 +26,13 @@ pub struct AuthState {
 impl AuthState {
     pub fn from_env() -> anyhow::Result<Self> {
         let db = UserDb::from_env()?;
-        let admin_user =
-            std::env::var("ZORVIA_ADMIN_USER").unwrap_or_else(|_| "admin".to_string());
-        let admin_password = std::env::var("ZORVIA_ADMIN_PASSWORD")
-            .unwrap_or_else(|_| "Admin@321".to_string());
+        let admin_user = std::env::var("ZORVIA_ADMIN_USER").unwrap_or_else(|_| "admin".to_string());
+        let admin_password =
+            std::env::var("ZORVIA_ADMIN_PASSWORD").unwrap_or_else(|_| "Admin@321".to_string());
         db.seed_admin(&admin_user, &admin_password)?;
-        let api_key = std::env::var("ZORVIA_API_KEY").ok().filter(|k| !k.is_empty());
+        let api_key = std::env::var("ZORVIA_API_KEY")
+            .ok()
+            .filter(|k| !k.is_empty());
         Ok(Self {
             jwt: JwtConfig::from_env(),
             db,
@@ -129,7 +130,10 @@ pub async fn login_handler(
                         return err(StatusCode::UNAUTHORIZED, "Invalid 2FA code").into_response();
                     }
                 }
-                return match auth.jwt.generate(&user.id, &user.username, user.role.clone()) {
+                return match auth
+                    .jwt
+                    .generate(&user.id, &user.username, user.role.clone())
+                {
                     Ok(token) => {
                         let _ = auth.db.update_last_login(&user.id);
                         Json(LoginResponse {
@@ -270,14 +274,26 @@ pub async fn create_user_handler(
         return err(StatusCode::BAD_REQUEST, "Invalid username format").into_response();
     }
     if body.password.len() < 8 {
-        return err(StatusCode::BAD_REQUEST, "Password must be at least 8 characters")
-            .into_response();
+        return err(
+            StatusCode::BAD_REQUEST,
+            "Password must be at least 8 characters",
+        )
+        .into_response();
     }
     let Some(role) = parse_role(&body.role) else {
-        return err(StatusCode::BAD_REQUEST, "Invalid role (expected admin, user, or viewer)")
-            .into_response();
+        return err(
+            StatusCode::BAD_REQUEST,
+            "Invalid role (expected admin, user, or viewer)",
+        )
+        .into_response();
     };
-    if auth.db.get_by_username(&body.username).ok().flatten().is_some() {
+    if auth
+        .db
+        .get_by_username(&body.username)
+        .ok()
+        .flatten()
+        .is_some()
+    {
         return err(StatusCode::CONFLICT, "Username already exists").into_response();
     }
     match auth.db.create_user(&body.username, &body.password, role) {
@@ -298,12 +314,20 @@ fn reject_if_last_admin(
     }
     match auth.db.enabled_admin_count() {
         Ok(n) if n <= 1 => Some(
-            err(StatusCode::CONFLICT, "This is the last enabled admin account").into_response(),
+            err(
+                StatusCode::CONFLICT,
+                "This is the last enabled admin account",
+            )
+            .into_response(),
         ),
         Ok(_) => None,
-        Err(_) => {
-            Some(err(StatusCode::INTERNAL_SERVER_ERROR, "Failed to check admin count").into_response())
-        }
+        Err(_) => Some(
+            err(
+                StatusCode::INTERNAL_SERVER_ERROR,
+                "Failed to check admin count",
+            )
+            .into_response(),
+        ),
     }
 }
 

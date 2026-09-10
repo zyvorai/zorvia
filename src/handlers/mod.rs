@@ -14,5 +14,5 @@ pub mod multitenancy;
 pub mod observability;
 pub mod profiles;
 pub mod security;
-pub mod vm;
 pub mod vcenter;
+pub mod vm;

@@ -53,7 +53,9 @@ pub async fn rook_bootstrap(
     drop(s);
     let opts = BootstrapOptions {
         namespace: body.namespace.unwrap_or_else(default_namespace),
-        version: body.version.unwrap_or_else(|| BootstrapOptions::default().version),
+        version: body
+            .version
+            .unwrap_or_else(|| BootstrapOptions::default().version),
         manifest_base_url: std::env::var("ROOK_MANIFEST_BASE_URL").ok(),
     };
     match client.bootstrap_operator(&opts).await {
@@ -110,7 +112,9 @@ pub async fn rook_create_cluster(
         name: body.namespace.clone(),
         namespace: body.namespace,
         mon_count: body.mon_count.unwrap_or(defaults.mon_count),
-        data_dir_host_path: body.data_dir_host_path.unwrap_or(defaults.data_dir_host_path),
+        data_dir_host_path: body
+            .data_dir_host_path
+            .unwrap_or(defaults.data_dir_host_path),
         use_all_nodes: body.use_all_nodes.unwrap_or(defaults.use_all_nodes),
         use_all_devices: body.use_all_devices.unwrap_or(defaults.use_all_devices),
         device_filter: body.device_filter,
@@ -177,7 +181,11 @@ pub async fn rook_create_pool(
         failure_domain: body
             .failure_domain
             .unwrap_or_else(|| crate::rook::manifests::DEFAULT_FAILURE_DOMAIN.to_string()),
-        replicated_size: body.replicated_size.or(if body.erasure_coded.is_none() { Some(3) } else { None }),
+        replicated_size: body.replicated_size.or(if body.erasure_coded.is_none() {
+            Some(3)
+        } else {
+            None
+        }),
         erasure_coded: body.erasure_coded,
         device_class: body.device_class,
     };
@@ -372,12 +380,28 @@ pub async fn rook_create_storage_class(
     let client = RookClient::new(s.kube_client.client());
     drop(s);
     let manifest = match &body {
-        CreateStorageClassBody::Rbd { name, namespace, pool, reclaim_policy } => {
-            crate::rook::manifests::rbd_storage_class_manifest(name, namespace, pool, reclaim_policy)
-        }
-        CreateStorageClassBody::Cephfs { name, namespace, filesystem, reclaim_policy } => {
-            crate::rook::manifests::cephfs_storage_class_manifest(name, namespace, filesystem, reclaim_policy)
-        }
+        CreateStorageClassBody::Rbd {
+            name,
+            namespace,
+            pool,
+            reclaim_policy,
+        } => crate::rook::manifests::rbd_storage_class_manifest(
+            name,
+            namespace,
+            pool,
+            reclaim_policy,
+        ),
+        CreateStorageClassBody::Cephfs {
+            name,
+            namespace,
+            filesystem,
+            reclaim_policy,
+        } => crate::rook::manifests::cephfs_storage_class_manifest(
+            name,
+            namespace,
+            filesystem,
+            reclaim_policy,
+        ),
     };
     let manifest = match manifest {
         Ok(m) => m,
@@ -406,7 +430,10 @@ pub async fn rook_create_volume_snapshot_class(
     let s = state.read().await;
     let client = RookClient::new(s.kube_client.client());
     drop(s);
-    let manifest = match crate::rook::manifests::rbd_volume_snapshot_class_manifest(&body.name, &body.namespace) {
+    let manifest = match crate::rook::manifests::rbd_volume_snapshot_class_manifest(
+        &body.name,
+        &body.namespace,
+    ) {
         Ok(m) => m,
         Err(e) => {
             let (st, j) = err_json(400, "INVALID", &e.to_string());

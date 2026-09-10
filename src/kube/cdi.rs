@@ -150,7 +150,10 @@ mod tests {
             DataVolumeWait::Failed
         );
         let obj = serde_json::json!({"status": {"phase": "Succeeded"}});
-        assert_eq!(data_volume_phase_from_object(&obj).as_deref(), Some("Succeeded"));
+        assert_eq!(
+            data_volume_phase_from_object(&obj).as_deref(),
+            Some("Succeeded")
+        );
     }
 
     #[test]

@@ -74,7 +74,9 @@ mod tests {
         paths.dedup();
         assert_eq!(before, paths.len(), "duplicate image paths in catalog");
         assert!(images.iter().any(|i| i.path.contains("ubuntu")));
-        assert!(images.iter().any(|i| i.distro.contains("ubuntu") || i.path.contains("ubuntu")));
+        assert!(images
+            .iter()
+            .any(|i| i.distro.contains("ubuntu") || i.path.contains("ubuntu")));
         assert!(images.iter().any(|i| !i.url.is_empty()));
     }
 }

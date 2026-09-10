@@ -81,16 +81,29 @@ fn render_header(f: &mut Frame, state: &AppState, area: Rect) {
     // Build header with gradient brand name
     let mut header_spans = gradient::brand().text("Zorvia");
     header_spans.push(Span::styled(" - ", Style::default().fg(colors::TEXT_MUTED)));
-    header_spans.push(Span::styled("KubeVirt VM Manager", Style::default().fg(colors::TEXT)));
-    header_spans.push(Span::styled("  │  ", Style::default().fg(colors::TEXT_MUTED)));
+    header_spans.push(Span::styled(
+        "KubeVirt VM Manager",
+        Style::default().fg(colors::TEXT),
+    ));
+    header_spans.push(Span::styled(
+        "  │  ",
+        Style::default().fg(colors::TEXT_MUTED),
+    ));
     // Gradient "Dashboard" label
     let mut dash_spans = gradient::sunset().text("📊 Dashboard");
     header_spans.append(&mut dash_spans);
     header_spans.push(Span::styled(
-        format!(": {} VMs • {} Running", state.vms.len(), state.get_stats().running),
+        format!(
+            ": {} VMs • {} Running",
+            state.vms.len(),
+            state.get_stats().running
+        ),
         Style::default().fg(colors::TEXT),
     ));
-    header_spans.push(Span::styled("  │  1-6: Views", Style::default().fg(colors::TEXT_MUTED)));
+    header_spans.push(Span::styled(
+        "  │  1-6: Views",
+        Style::default().fg(colors::TEXT_MUTED),
+    ));
     let header_text = Line::from(header_spans);
 
     let header = Paragraph::new(header_text)
@@ -232,21 +245,19 @@ fn render_cluster_health(f: &mut Frame, state: &AppState, area: Rect) {
         ("⚪", "Idle", colors::TEXT_MUTED)
     };
 
-    let text = vec![
-        Line::from(vec![
-            Span::styled(format!("{} ", health_icon), Style::default()),
-            Span::styled(
-                health_text,
-                Style::default()
-                    .fg(health_color)
-                    .add_modifier(Modifier::BOLD),
-            ),
-            Span::styled(
-                format!("  ns:{}", state.namespace),
-                Style::default().fg(colors::TEXT_MUTED),
-            ),
-        ]),
-    ];
+    let text = vec![Line::from(vec![
+        Span::styled(format!("{} ", health_icon), Style::default()),
+        Span::styled(
+            health_text,
+            Style::default()
+                .fg(health_color)
+                .add_modifier(Modifier::BOLD),
+        ),
+        Span::styled(
+            format!("  ns:{}", state.namespace),
+            Style::default().fg(colors::TEXT_MUTED),
+        ),
+    ])];
 
     let block = Block::default()
         .borders(Borders::ALL)
@@ -452,10 +463,7 @@ fn render_recent_activity(f: &mut Frame, state: &AppState, area: Rect) {
                 };
                 ListItem::new(vec![
                     Line::from(vec![
-                        Span::styled(
-                            format!("{} ", event.icon),
-                            Style::default().fg(icon_color),
-                        ),
+                        Span::styled(format!("{} ", event.icon), Style::default().fg(icon_color)),
                         Span::styled(
                             &event.vm_name,
                             Style::default()

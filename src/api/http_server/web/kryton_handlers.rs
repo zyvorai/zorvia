@@ -26,7 +26,12 @@ pub(super) struct MachineListQuery {
 
 fn error_response(error: KrytonError) -> Response {
     match error {
-        KrytonError::Upstream { status, code, message, hint } => {
+        KrytonError::Upstream {
+            status,
+            code,
+            message,
+            hint,
+        } => {
             let status = StatusCode::from_u16(status).unwrap_or(StatusCode::BAD_GATEWAY);
             (
                 status,
@@ -113,34 +118,68 @@ pub(super) async fn kryton_status(State(state): State<SharedState>) -> Response 
 }
 
 pub(super) async fn kryton_capabilities(State(state): State<SharedState>) -> Response {
-    let c = match client(&state).await { Ok(v) => v, Err(r) => return r };
-    match c.capabilities().await { Ok(v) => Json(v).into_response(), Err(e) => error_response(e) }
+    let c = match client(&state).await {
+        Ok(v) => v,
+        Err(r) => return r,
+    };
+    match c.capabilities().await {
+        Ok(v) => Json(v).into_response(),
+        Err(e) => error_response(e),
+    }
 }
 
 pub(super) async fn kryton_doctor(State(state): State<SharedState>) -> Response {
-    let c = match client(&state).await { Ok(v) => v, Err(r) => return r };
-    match c.doctor().await { Ok(v) => Json(v).into_response(), Err(e) => error_response(e) }
+    let c = match client(&state).await {
+        Ok(v) => v,
+        Err(r) => return r,
+    };
+    match c.doctor().await {
+        Ok(v) => Json(v).into_response(),
+        Err(e) => error_response(e),
+    }
 }
 
 pub(super) async fn kryton_images(State(state): State<SharedState>) -> Response {
-    let c = match client(&state).await { Ok(v) => v, Err(r) => return r };
-    match c.images().await { Ok(v) => Json(v).into_response(), Err(e) => error_response(e) }
+    let c = match client(&state).await {
+        Ok(v) => v,
+        Err(r) => return r,
+    };
+    match c.images().await {
+        Ok(v) => Json(v).into_response(),
+        Err(e) => error_response(e),
+    }
 }
 
 pub(super) async fn kryton_summary(
     State(state): State<SharedState>,
     Query(query): Query<ProjectQuery>,
 ) -> Response {
-    let c = match client(&state).await { Ok(v) => v, Err(r) => return r };
-    match c.summary(query.project.as_deref()).await { Ok(v) => Json(v).into_response(), Err(e) => error_response(e) }
+    let c = match client(&state).await {
+        Ok(v) => v,
+        Err(r) => return r,
+    };
+    match c.summary(query.project.as_deref()).await {
+        Ok(v) => Json(v).into_response(),
+        Err(e) => error_response(e),
+    }
 }
 
 pub(super) async fn kryton_list_machines(
     State(state): State<SharedState>,
     Query(query): Query<MachineListQuery>,
 ) -> Response {
-    let c = match client(&state).await { Ok(v) => v, Err(r) => return r };
-    match c.machines(query.project.as_deref(), query.limit, query.cursor.as_deref()).await {
+    let c = match client(&state).await {
+        Ok(v) => v,
+        Err(r) => return r,
+    };
+    match c
+        .machines(
+            query.project.as_deref(),
+            query.limit,
+            query.cursor.as_deref(),
+        )
+        .await
+    {
         Ok(v) => Json(v).into_response(),
         Err(e) => error_response(e),
     }
@@ -151,15 +190,24 @@ pub(super) async fn kryton_get_machine(
     Path(id): Path<String>,
     Query(query): Query<ProjectQuery>,
 ) -> Response {
-    let c = match client(&state).await { Ok(v) => v, Err(r) => return r };
-    match c.machine(&id, query.project.as_deref()).await { Ok(v) => Json(v).into_response(), Err(e) => error_response(e) }
+    let c = match client(&state).await {
+        Ok(v) => v,
+        Err(r) => return r,
+    };
+    match c.machine(&id, query.project.as_deref()).await {
+        Ok(v) => Json(v).into_response(),
+        Err(e) => error_response(e),
+    }
 }
 
 pub(super) async fn kryton_create_machine(
     State(state): State<SharedState>,
     Json(body): Json<CreateMachineRequest>,
 ) -> Response {
-    let c = match client(&state).await { Ok(v) => v, Err(r) => return r };
+    let c = match client(&state).await {
+        Ok(v) => v,
+        Err(r) => return r,
+    };
     match c.create(body).await {
         Ok(v) => (StatusCode::CREATED, Json(v)).into_response(),
         Err(e) => error_response(e),
@@ -167,23 +215,44 @@ pub(super) async fn kryton_create_machine(
 }
 
 pub(super) async fn kryton_start_machine(
-    State(state): State<SharedState>, Path(id): Path<String>, Query(query): Query<ProjectQuery>,
+    State(state): State<SharedState>,
+    Path(id): Path<String>,
+    Query(query): Query<ProjectQuery>,
 ) -> Response {
-    let c = match client(&state).await { Ok(v) => v, Err(r) => return r };
-    match c.start(&id, query.project.as_deref()).await { Ok(v) => Json(v).into_response(), Err(e) => error_response(e) }
+    let c = match client(&state).await {
+        Ok(v) => v,
+        Err(r) => return r,
+    };
+    match c.start(&id, query.project.as_deref()).await {
+        Ok(v) => Json(v).into_response(),
+        Err(e) => error_response(e),
+    }
 }
 
 pub(super) async fn kryton_stop_machine(
-    State(state): State<SharedState>, Path(id): Path<String>, Query(query): Query<ProjectQuery>,
+    State(state): State<SharedState>,
+    Path(id): Path<String>,
+    Query(query): Query<ProjectQuery>,
 ) -> Response {
-    let c = match client(&state).await { Ok(v) => v, Err(r) => return r };
-    match c.stop(&id, query.project.as_deref()).await { Ok(v) => Json(v).into_response(), Err(e) => error_response(e) }
+    let c = match client(&state).await {
+        Ok(v) => v,
+        Err(r) => return r,
+    };
+    match c.stop(&id, query.project.as_deref()).await {
+        Ok(v) => Json(v).into_response(),
+        Err(e) => error_response(e),
+    }
 }
 
 pub(super) async fn kryton_delete_machine(
-    State(state): State<SharedState>, Path(id): Path<String>, Query(query): Query<ProjectQuery>,
+    State(state): State<SharedState>,
+    Path(id): Path<String>,
+    Query(query): Query<ProjectQuery>,
 ) -> Response {
-    let c = match client(&state).await { Ok(v) => v, Err(r) => return r };
+    let c = match client(&state).await {
+        Ok(v) => v,
+        Err(r) => return r,
+    };
     match c.delete(&id, query.project.as_deref()).await {
         Ok(()) => StatusCode::NO_CONTENT.into_response(),
         Err(e) => error_response(e),
@@ -196,7 +265,10 @@ pub(super) async fn kryton_snapshot_machine(
     Query(query): Query<ProjectQuery>,
     Json(body): Json<SnapshotRequest>,
 ) -> Response {
-    let c = match client(&state).await { Ok(v) => v, Err(r) => return r };
+    let c = match client(&state).await {
+        Ok(v) => v,
+        Err(r) => return r,
+    };
     match c.snapshot(&id, query.project.as_deref(), body.name).await {
         Ok(v) => (StatusCode::CREATED, Json(v)).into_response(),
         Err(e) => error_response(e),
@@ -204,10 +276,18 @@ pub(super) async fn kryton_snapshot_machine(
 }
 
 pub(super) async fn kryton_list_snapshots(
-    State(state): State<SharedState>, Path(id): Path<String>, Query(query): Query<ProjectQuery>,
+    State(state): State<SharedState>,
+    Path(id): Path<String>,
+    Query(query): Query<ProjectQuery>,
 ) -> Response {
-    let c = match client(&state).await { Ok(v) => v, Err(r) => return r };
-    match c.snapshots(&id, query.project.as_deref()).await { Ok(v) => Json(v).into_response(), Err(e) => error_response(e) }
+    let c = match client(&state).await {
+        Ok(v) => v,
+        Err(r) => return r,
+    };
+    match c.snapshots(&id, query.project.as_deref()).await {
+        Ok(v) => Json(v).into_response(),
+        Err(e) => error_response(e),
+    }
 }
 
 pub(super) async fn kryton_restore_snapshot(
@@ -215,8 +295,14 @@ pub(super) async fn kryton_restore_snapshot(
     Path((id, sid)): Path<(String, String)>,
     Query(query): Query<ProjectQuery>,
 ) -> Response {
-    let c = match client(&state).await { Ok(v) => v, Err(r) => return r };
-    match c.restore_snapshot(&id, &sid, query.project.as_deref()).await {
+    let c = match client(&state).await {
+        Ok(v) => v,
+        Err(r) => return r,
+    };
+    match c
+        .restore_snapshot(&id, &sid, query.project.as_deref())
+        .await
+    {
         Ok(v) => (StatusCode::ACCEPTED, Json(v)).into_response(),
         Err(e) => error_response(e),
     }
@@ -227,7 +313,10 @@ pub(super) async fn kryton_delete_snapshot(
     Path((id, sid)): Path<(String, String)>,
     Query(query): Query<ProjectQuery>,
 ) -> Response {
-    let c = match client(&state).await { Ok(v) => v, Err(r) => return r };
+    let c = match client(&state).await {
+        Ok(v) => v,
+        Err(r) => return r,
+    };
     match c.delete_snapshot(&id, &sid, query.project.as_deref()).await {
         Ok(()) => StatusCode::NO_CONTENT.into_response(),
         Err(e) => error_response(e),

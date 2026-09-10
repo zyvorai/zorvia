@@ -16,8 +16,8 @@ pub mod web {
         Router,
     };
     use serde::{Deserialize, Serialize};
-    use std::sync::Arc;
     use std::sync::atomic::{AtomicU64, Ordering};
+    use std::sync::Arc;
     use tokio::sync::RwLock;
     use tower_http::cors::{AllowOrigin, CorsLayer};
     use tower_http::services::{ServeDir, ServeFile};
@@ -117,10 +117,7 @@ pub mod web {
                 ));
             }
             if !std::path::Path::new(&self.key_path).exists() {
-                return Err(anyhow::anyhow!(
-                    "TLS key file not found: {}",
-                    self.key_path
-                ));
+                return Err(anyhow::anyhow!("TLS key file not found: {}", self.key_path));
             }
             Ok(())
         }
@@ -148,7 +145,11 @@ pub mod web {
             let kube_client = KubeClient::new().await?;
             let kryton = crate::kryton::Client::from_env()?;
             if let Some(ref client) = kryton {
-                log::info!("Kryton integration enabled: {} (project={:?})", client.base_url(), client.configured_project());
+                log::info!(
+                    "Kryton integration enabled: {} (project={:?})",
+                    client.base_url(),
+                    client.configured_project()
+                );
             }
             Ok(Self {
                 namespace,
@@ -181,8 +182,7 @@ pub mod web {
         if !bytes[0].is_ascii_lowercase() && !bytes[0].is_ascii_digit() {
             return false;
         }
-        if !bytes[bytes.len() - 1].is_ascii_lowercase()
-            && !bytes[bytes.len() - 1].is_ascii_digit()
+        if !bytes[bytes.len() - 1].is_ascii_lowercase() && !bytes[bytes.len() - 1].is_ascii_digit()
         {
             return false;
         }
@@ -324,7 +324,8 @@ pub mod web {
 
         let s = state.read().await;
         if !s.rate_limiter.check_rate_limit() {
-            let (status, json) = err_json(429, "RATE_LIMITED", "Too many requests. Please slow down.");
+            let (status, json) =
+                err_json(429, "RATE_LIMITED", "Too many requests. Please slow down.");
             return (status, json).into_response();
         }
         drop(s);
@@ -468,7 +469,10 @@ pub mod web {
             .route("/vms/:name/drift", post(fabric_vm_drift))
             .route("/vms/:name/plan", post(fabric_vm_change_plan))
             .route("/vms/:name/disks", get(fabric_list_disks))
-            .route("/vms/:name/disks/:disk_name/resize", post(fabric_resize_disk))
+            .route(
+                "/vms/:name/disks/:disk_name/resize",
+                post(fabric_resize_disk),
+            )
             .route("/vms/:name/interfaces", get(fabric_list_interfaces))
             .route("/vms/:name/migrate", post(fabric_migrate_vm))
             .route("/vms/:name/migrations", get(fabric_list_vm_migrations))
@@ -476,15 +480,41 @@ pub mod web {
             .route("/migrations/:id/cancel", post(fabric_cancel_migration))
             // Rook-Ceph distributed storage
             .route("/storage/rook/bootstrap", post(rook_bootstrap))
-            .route("/storage/rook/cluster", get(rook_cluster_status).post(rook_create_cluster).delete(rook_delete_cluster))
-            .route("/storage/rook/pools", get(rook_list_pools).post(rook_create_pool))
+            .route(
+                "/storage/rook/cluster",
+                get(rook_cluster_status)
+                    .post(rook_create_cluster)
+                    .delete(rook_delete_cluster),
+            )
+            .route(
+                "/storage/rook/pools",
+                get(rook_list_pools).post(rook_create_pool),
+            )
             .route("/storage/rook/pools/:name", delete(rook_delete_pool))
-            .route("/storage/rook/filesystems", get(rook_list_filesystems).post(rook_create_filesystem))
-            .route("/storage/rook/filesystems/:name", delete(rook_delete_filesystem))
-            .route("/storage/rook/objectstores", get(rook_list_object_stores).post(rook_create_object_store))
-            .route("/storage/rook/objectstores/:name", delete(rook_delete_object_store))
-            .route("/storage/rook/storage-classes", post(rook_create_storage_class))
-            .route("/storage/rook/volume-snapshot-classes", post(rook_create_volume_snapshot_class))
+            .route(
+                "/storage/rook/filesystems",
+                get(rook_list_filesystems).post(rook_create_filesystem),
+            )
+            .route(
+                "/storage/rook/filesystems/:name",
+                delete(rook_delete_filesystem),
+            )
+            .route(
+                "/storage/rook/objectstores",
+                get(rook_list_object_stores).post(rook_create_object_store),
+            )
+            .route(
+                "/storage/rook/objectstores/:name",
+                delete(rook_delete_object_store),
+            )
+            .route(
+                "/storage/rook/storage-classes",
+                post(rook_create_storage_class),
+            )
+            .route(
+                "/storage/rook/volume-snapshot-classes",
+                post(rook_create_volume_snapshot_class),
+            )
             .route("/vms/:name/metrics", get(fabric_vm_metrics))
             .route("/vms/:name/guest-insight", get(fabric_guest_insight))
             .route("/vms/:name/wait-ready", post(fabric_wait_guest_ready))
@@ -503,10 +533,7 @@ pub mod web {
                 "/vms/:name/snapshots",
                 get(fabric_list_vm_snapshots).post(fabric_create_snapshot),
             )
-            .route(
-                "/vms/:name/snapshots/:id",
-                delete(fabric_delete_snapshot),
-            )
+            .route("/vms/:name/snapshots/:id", delete(fabric_delete_snapshot))
             .route(
                 "/vms/:name/snapshots/:id/revert",
                 post(fabric_revert_snapshot),
@@ -539,14 +566,32 @@ pub mod web {
             .route("/v1/kryton/doctor", get(kryton_doctor))
             .route("/v1/kryton/images", get(kryton_images))
             .route("/v1/kryton/summary", get(kryton_summary))
-            .route("/v1/kryton/machines", get(kryton_list_machines).post(kryton_create_machine))
-            .route("/v1/kryton/machines/:id", get(kryton_get_machine).delete(kryton_delete_machine))
+            .route(
+                "/v1/kryton/machines",
+                get(kryton_list_machines).post(kryton_create_machine),
+            )
+            .route(
+                "/v1/kryton/machines/:id",
+                get(kryton_get_machine).delete(kryton_delete_machine),
+            )
             .route("/v1/kryton/machines/:id/start", post(kryton_start_machine))
             .route("/v1/kryton/machines/:id/stop", post(kryton_stop_machine))
-            .route("/v1/kryton/machines/:id/snapshot", post(kryton_snapshot_machine))
-            .route("/v1/kryton/machines/:id/snapshots", get(kryton_list_snapshots))
-            .route("/v1/kryton/machines/:id/snapshots/:sid/restore", post(kryton_restore_snapshot))
-            .route("/v1/kryton/machines/:id/snapshots/:sid", delete(kryton_delete_snapshot))
+            .route(
+                "/v1/kryton/machines/:id/snapshot",
+                post(kryton_snapshot_machine),
+            )
+            .route(
+                "/v1/kryton/machines/:id/snapshots",
+                get(kryton_list_snapshots),
+            )
+            .route(
+                "/v1/kryton/machines/:id/snapshots/:sid/restore",
+                post(kryton_restore_snapshot),
+            )
+            .route(
+                "/v1/kryton/machines/:id/snapshots/:sid",
+                delete(kryton_delete_snapshot),
+            )
             .route("/v1/health", get(health_handler))
             .fallback(fabric_not_implemented)
             .layer(TimeoutLayer::with_status_code(
@@ -556,15 +601,24 @@ pub mod web {
             .with_state(state.clone());
 
         Router::new()
-            .route("/dashboard", get(|| async { axum::response::Redirect::temporary("/app") }))
+            .route(
+                "/dashboard",
+                get(|| async { axum::response::Redirect::temporary("/app") }),
+            )
             .route("/ws/console/:name", get(ws_console))
             .route("/ws/vnc/:name", get(ws_vnc))
             .route("/ws/ssh/:name", get(ws_ssh))
             .nest("/api", api)
             .fallback_service(spa)
             .layer(middleware::from_fn(security_headers_middleware))
-            .layer(middleware::from_fn_with_state(state.clone(), rate_limit_middleware))
-            .layer(middleware::from_fn_with_state(state.clone(), auth_middleware))
+            .layer(middleware::from_fn_with_state(
+                state.clone(),
+                rate_limit_middleware,
+            ))
+            .layer(middleware::from_fn_with_state(
+                state.clone(),
+                auth_middleware,
+            ))
             .layer(build_cors_layer())
             .layer(DefaultBodyLimit::max(10 * 1024 * 1024))
             .with_state(state)
@@ -583,7 +637,9 @@ pub mod web {
         }
 
         // Initialize kube client at startup instead of lazily per-request
-        let state = Arc::new(RwLock::new(WebState::new(namespace, rate_limit_per_minute).await?));
+        let state = Arc::new(RwLock::new(
+            WebState::new(namespace, rate_limit_per_minute).await?,
+        ));
         let app = build_router(state);
         let addr = format!("{}:{}", host, port);
 
@@ -593,11 +649,9 @@ pub mod web {
             // Install the ring crypto provider (already used by kube-client)
             let _ = rustls::crypto::ring::default_provider().install_default();
 
-            let rustls_config = axum_server::tls_rustls::RustlsConfig::from_pem_file(
-                &tls.cert_path,
-                &tls.key_path,
-            )
-            .await?;
+            let rustls_config =
+                axum_server::tls_rustls::RustlsConfig::from_pem_file(&tls.cert_path, &tls.key_path)
+                    .await?;
             let addr: std::net::SocketAddr = addr.parse()?;
             axum_server::bind_rustls(addr, rustls_config)
                 .serve(app.into_make_service())
@@ -690,8 +744,12 @@ pub mod web {
         Json(body): Json<crate::api::auth::handlers::CreateUserRequest>,
     ) -> impl IntoResponse {
         let auth = auth_shared(&state).await;
-        crate::api::auth::handlers::create_user_handler(axum::extract::State(auth), headers, Json(body))
-            .await
+        crate::api::auth::handlers::create_user_handler(
+            axum::extract::State(auth),
+            headers,
+            Json(body),
+        )
+        .await
     }
 
     async fn users_delete(
@@ -700,8 +758,12 @@ pub mod web {
         Path(id): Path<String>,
     ) -> impl IntoResponse {
         let auth = auth_shared(&state).await;
-        crate::api::auth::handlers::delete_user_handler(axum::extract::State(auth), headers, Path(id))
-            .await
+        crate::api::auth::handlers::delete_user_handler(
+            axum::extract::State(auth),
+            headers,
+            Path(id),
+        )
+        .await
     }
 
     async fn users_update_role(
@@ -1117,7 +1179,11 @@ pub mod web {
                         })
                         .unwrap_or_default(),
                 });
-                Ok::<_, Infallible>(SseEvent::default().event("vm-event").data(payload.to_string()))
+                Ok::<_, Infallible>(
+                    SseEvent::default()
+                        .event("vm-event")
+                        .data(payload.to_string()),
+                )
             });
 
         Sse::new(stream).keep_alive(KeepAlive::default())
@@ -1137,8 +1203,7 @@ pub mod web {
         let s = state.read().await;
         let namespace = s.namespace.clone();
         let client = s.client();
-        let auth_configured =
-            s.api_key.is_some() || std::env::var("ZORVIA_ADMIN_PASSWORD").is_ok();
+        let auth_configured = s.api_key.is_some() || std::env::var("ZORVIA_ADMIN_PASSWORD").is_ok();
         drop(s);
 
         let vm_driver = match client.list_vms(&namespace).await {
@@ -1224,7 +1289,6 @@ pub mod web {
         RequestContext::new(method, path)
     }
 
-
     /// Sanitize internal error details before sending to clients.
     ///
     /// For known patterns (e.g. kube errors), returns just the first sentence.
@@ -1241,9 +1305,7 @@ pub mod web {
             "Timeout",
             "connection",
         ];
-        let is_known = known_prefixes
-            .iter()
-            .any(|p| msg.starts_with(p));
+        let is_known = known_prefixes.iter().any(|p| msg.starts_with(p));
 
         if is_known {
             // Keep the first sentence, bounded to a safe length. Cutting at
@@ -1276,7 +1338,10 @@ pub mod web {
         Query(query): Query<VmQuery>,
     ) -> impl IntoResponse {
         let s = state.read().await;
-        let namespace = query.namespace.clone().unwrap_or_else(|| s.namespace.clone());
+        let namespace = query
+            .namespace
+            .clone()
+            .unwrap_or_else(|| s.namespace.clone());
         let client = s.client();
 
         match client.list_vms(&namespace).await {
@@ -1431,7 +1496,10 @@ pub mod web {
     ) -> impl IntoResponse {
         let namespace = {
             let s = state.read().await;
-            query.namespace.clone().unwrap_or_else(|| s.namespace.clone())
+            query
+                .namespace
+                .clone()
+                .unwrap_or_else(|| s.namespace.clone())
         };
 
         match crate::snapshots::SnapshotManager::new(&namespace).await {
@@ -1550,9 +1618,7 @@ pub mod web {
                         timestamp: e
                             .last_timestamp
                             .map(|t| t.0.to_rfc3339())
-                            .or_else(|| {
-                                e.metadata.creation_timestamp.map(|t| t.0.to_rfc3339())
-                            })
+                            .or_else(|| e.metadata.creation_timestamp.map(|t| t.0.to_rfc3339()))
                             .unwrap_or_default(),
                     })
                     .collect();
@@ -1563,9 +1629,7 @@ pub mod web {
         }
     }
 
-    async fn recent_events_handler(
-        State(state): State<SharedState>,
-    ) -> impl IntoResponse {
+    async fn recent_events_handler(State(state): State<SharedState>) -> impl IntoResponse {
         let s = state.read().await;
         let namespace = s.namespace.clone();
         let client = s.client();
@@ -1601,9 +1665,7 @@ pub mod web {
                         timestamp: e
                             .last_timestamp
                             .map(|t| t.0.to_rfc3339())
-                            .or_else(|| {
-                                e.metadata.creation_timestamp.map(|t| t.0.to_rfc3339())
-                            })
+                            .or_else(|| e.metadata.creation_timestamp.map(|t| t.0.to_rfc3339()))
                             .unwrap_or_default(),
                     })
                     .collect();
@@ -1616,9 +1678,7 @@ pub mod web {
 
     // ── Dashboard Overview ────────────────────────────────────────
 
-    async fn dashboard_overview_handler(
-        State(state): State<SharedState>,
-    ) -> impl IntoResponse {
+    async fn dashboard_overview_handler(State(state): State<SharedState>) -> impl IntoResponse {
         let s = state.read().await;
         let namespace = s.namespace.clone();
         let client = s.client();
@@ -1684,8 +1744,7 @@ pub mod web {
                 stopped_vms: stopped,
                 error_vms: error,
                 total_vcpus_allocated: total_cpus,
-                total_memory_allocated_gb: (total_memory_bytes as f64)
-                    / (1024.0 * 1024.0 * 1024.0),
+                total_memory_allocated_gb: (total_memory_bytes as f64) / (1024.0 * 1024.0 * 1024.0),
                 total_snapshots: snapshot_count,
             },
         };
@@ -1754,9 +1813,9 @@ pub mod web {
     // ── Helpers ─────────────────────────────────────────────────────
 
     fn ok_json<T: Serialize>(data: &T) -> (StatusCode, Json<serde_json::Value>) {
-        let value = serde_json::to_value(data).unwrap_or_else(|e| {
-            serde_json::json!({"error": format!("serialization failed: {}", e)})
-        });
+        let value = serde_json::to_value(data).unwrap_or_else(
+            |e| serde_json::json!({"error": format!("serialization failed: {}", e)}),
+        );
         // Extract the status code from the serialized response if present,
         // so that 201/204/etc. responses get the correct HTTP status.
         let status_code = value
@@ -1774,9 +1833,9 @@ pub mod web {
     ) -> (StatusCode, Json<serde_json::Value>) {
         let ctx = req_ctx(HttpMethod::GET, "");
         let resp = ApiResponse::error(status, code, message, &ctx.request_id);
-        let value = serde_json::to_value(&resp).unwrap_or_else(|_| {
-            serde_json::json!({"status": status, "error": code, "message": "internal error"})
-        });
+        let value = serde_json::to_value(&resp).unwrap_or_else(
+            |_| serde_json::json!({"status": status, "error": code, "message": "internal error"}),
+        );
         (
             StatusCode::from_u16(status).unwrap_or(StatusCode::INTERNAL_SERVER_ERROR),
             Json(value),

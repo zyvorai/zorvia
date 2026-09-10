@@ -52,7 +52,8 @@ impl UserDb {
         // IF NOT EXISTS only guards table creation, not column additions.
         // Errors here (column already exists) are expected on every restart
         // after the first and are ignored to keep this idempotent.
-        let _ = conn.execute_batch("ALTER TABLE users ADD COLUMN enabled INTEGER NOT NULL DEFAULT 1;");
+        let _ =
+            conn.execute_batch("ALTER TABLE users ADD COLUMN enabled INTEGER NOT NULL DEFAULT 1;");
         let _ = conn.execute_batch("ALTER TABLE users ADD COLUMN last_login TEXT;");
         Ok(Self {
             conn: Mutex::new(conn),

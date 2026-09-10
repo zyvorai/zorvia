@@ -15,7 +15,10 @@ pub struct OidcConfig {
 impl OidcConfig {
     pub fn from_env() -> Option<Self> {
         let issuer = std::env::var("ZORVIA_OIDC_ISSUER").ok()?.trim().to_string();
-        let client_id = std::env::var("ZORVIA_OIDC_CLIENT_ID").ok()?.trim().to_string();
+        let client_id = std::env::var("ZORVIA_OIDC_CLIENT_ID")
+            .ok()?
+            .trim()
+            .to_string();
         let client_secret = std::env::var("ZORVIA_OIDC_CLIENT_SECRET")
             .ok()?
             .trim()
@@ -23,11 +26,9 @@ impl OidcConfig {
         if issuer.is_empty() || client_id.is_empty() || client_secret.is_empty() {
             return None;
         }
-        let redirect_uri = std::env::var("ZORVIA_OIDC_REDIRECT_URI").unwrap_or_else(|_| {
-            "https://127.0.0.1:30152/api/v1/auth/oidc/callback".to_string()
-        });
-        let name =
-            std::env::var("ZORVIA_OIDC_NAME").unwrap_or_else(|_| "OIDC".to_string());
+        let redirect_uri = std::env::var("ZORVIA_OIDC_REDIRECT_URI")
+            .unwrap_or_else(|_| "https://127.0.0.1:30152/api/v1/auth/oidc/callback".to_string());
+        let name = std::env::var("ZORVIA_OIDC_NAME").unwrap_or_else(|_| "OIDC".to_string());
         Some(Self {
             id: "default".into(),
             name,

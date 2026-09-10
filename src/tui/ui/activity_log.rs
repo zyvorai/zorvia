@@ -31,10 +31,7 @@ pub fn render(f: &mut Frame, state: &AppState, _config: &TuiConfig) {
                 .add_modifier(Modifier::BOLD),
         ),
         Span::styled(" - ", Style::default().fg(colors::TEXT_MUTED)),
-        Span::styled(
-            "KubeVirt VM Manager",
-            Style::default().fg(colors::TEXT),
-        ),
+        Span::styled("KubeVirt VM Manager", Style::default().fg(colors::TEXT)),
         Span::styled("  │  ", Style::default().fg(colors::TEXT_MUTED)),
         Span::styled(
             "⏱  Activity Log",
@@ -105,32 +102,27 @@ pub fn render(f: &mut Frame, state: &AppState, _config: &TuiConfig) {
 
                 let num = format!("{:>3}. ", i + 1);
 
-                ListItem::new(vec![
-                    Line::from(vec![
-                        Span::styled(num, Style::default().fg(colors::TEXT_MUTED)),
-                        Span::styled(
-                            format!("{} ", event.icon),
-                            Style::default().fg(icon_color),
-                        ),
-                        Span::styled(
-                            &event.vm_name,
-                            Style::default()
-                                .fg(colors::TEXT)
-                                .add_modifier(Modifier::BOLD),
-                        ),
-                        Span::styled(
-                            format!(" {}", event.action),
-                            Style::default().fg(colors::TEXT_MUTED),
-                        ),
-                        Span::styled("  ", Style::default()),
-                        Span::styled(
-                            event.elapsed_display(),
-                            Style::default()
-                                .fg(colors::TEXT_MUTED)
-                                .add_modifier(Modifier::ITALIC),
-                        ),
-                    ]),
-                ])
+                ListItem::new(vec![Line::from(vec![
+                    Span::styled(num, Style::default().fg(colors::TEXT_MUTED)),
+                    Span::styled(format!("{} ", event.icon), Style::default().fg(icon_color)),
+                    Span::styled(
+                        &event.vm_name,
+                        Style::default()
+                            .fg(colors::TEXT)
+                            .add_modifier(Modifier::BOLD),
+                    ),
+                    Span::styled(
+                        format!(" {}", event.action),
+                        Style::default().fg(colors::TEXT_MUTED),
+                    ),
+                    Span::styled("  ", Style::default()),
+                    Span::styled(
+                        event.elapsed_display(),
+                        Style::default()
+                            .fg(colors::TEXT_MUTED)
+                            .add_modifier(Modifier::ITALIC),
+                    ),
+                ])])
             })
             .collect();
 

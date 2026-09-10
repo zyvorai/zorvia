@@ -18,10 +18,7 @@ impl BatchConfig {
         let content = std::fs::read_to_string(path)?;
 
         let file_path = std::path::Path::new(path);
-        let ext = file_path
-            .extension()
-            .and_then(|e| e.to_str())
-            .unwrap_or("");
+        let ext = file_path.extension().and_then(|e| e.to_str()).unwrap_or("");
 
         let config: BatchConfig = match ext {
             "json" => serde_json::from_str(&content)

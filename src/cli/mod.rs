@@ -1811,31 +1811,116 @@ pub enum Commands {
 
     // ========== VCENTER-STYLE OPERATIONS ==========
     /// Show Datacenter -> Cluster -> Host/Folder -> VM inventory
-    Inventory { #[arg(short='A', long)] all_namespaces: bool, #[arg(long)] datacenter: Option<String>, #[arg(long)] cluster: Option<String>, #[arg(long)] folder: Option<String>, #[arg(short,long,default_value="table")] output: String },
+    Inventory {
+        #[arg(short = 'A', long)]
+        all_namespaces: bool,
+        #[arg(long)]
+        datacenter: Option<String>,
+        #[arg(long)]
+        cluster: Option<String>,
+        #[arg(long)]
+        folder: Option<String>,
+        #[arg(short, long, default_value = "table")]
+        output: String,
+    },
     /// Set/remove VM tags backed by Kubernetes labels
-    TagSet { vm:String, key:String, value:String },
-    TagRemove { vm:String, key:String },
+    TagSet {
+        vm: String,
+        key: String,
+        value: String,
+    },
+    TagRemove {
+        vm: String,
+        key: String,
+    },
     /// Set/remove custom attributes backed by Kubernetes annotations
-    AttributeSet { vm:String, key:String, value:String },
-    AttributeRemove { vm:String, key:String },
+    AttributeSet {
+        vm: String,
+        key: String,
+        value: String,
+    },
+    AttributeRemove {
+        vm: String,
+        key: String,
+    },
     /// Logical inventory assignment
-    InventoryDatacenterSet { vm:String, datacenter:String },
-    InventoryClusterSet { vm:String, cluster:String },
-    InventoryFolderSet { vm:String, folder:String },
+    InventoryDatacenterSet {
+        vm: String,
+        datacenter: String,
+    },
+    InventoryClusterSet {
+        vm: String,
+        cluster: String,
+    },
+    InventoryFolderSet {
+        vm: String,
+        folder: String,
+    },
     /// Recent Tasks, Events and Alarms derived from Kubernetes Events
-    Activity { #[arg(short='A',long)] all_namespaces:bool, #[arg(long)] target:Option<String>, #[arg(long)] severity:Option<String>, #[arg(long)] kind:Option<String>, #[arg(short,long,default_value="100")] limit:usize, #[arg(short,long,default_value="table")] output:String },
+    Activity {
+        #[arg(short = 'A', long)]
+        all_namespaces: bool,
+        #[arg(long)]
+        target: Option<String>,
+        #[arg(long)]
+        severity: Option<String>,
+        #[arg(long)]
+        kind: Option<String>,
+        #[arg(short, long, default_value = "100")]
+        limit: usize,
+        #[arg(short, long, default_value = "table")]
+        output: String,
+    },
     /// Dry-run a host maintenance/evacuation plan
-    MaintenancePlan { node:String, #[arg(long,default_value="2")] max_parallel:usize, #[arg(short,long,default_value="table")] output:String },
+    MaintenancePlan {
+        node: String,
+        #[arg(long, default_value = "2")]
+        max_parallel: usize,
+        #[arg(short, long, default_value = "table")]
+        output: String,
+    },
     /// Cordon a host and submit migrations/controlled stops
-    MaintenanceEnter { node:String, #[arg(long,default_value="2")] max_parallel:usize, #[arg(long)] dry_run:bool, #[arg(long)] force:bool },
+    MaintenanceEnter {
+        node: String,
+        #[arg(long, default_value = "2")]
+        max_parallel: usize,
+        #[arg(long)]
+        dry_run: bool,
+        #[arg(long)]
+        force: bool,
+    },
     /// Show host maintenance state and remaining VMIs
-    MaintenanceStatus { node:String },
+    MaintenanceStatus {
+        node: String,
+    },
     /// Uncordon a host and leave maintenance mode
-    MaintenanceExit { node:String },
+    MaintenanceExit {
+        node: String,
+    },
     /// Explain the best node for a prospective VM
-    PlacementAdvisor { #[arg(long)] cpu:f64, #[arg(long)] memory_gib:f64, #[arg(long)] required_label:Vec<String>, #[arg(long)] avoid_node:Vec<String>, #[arg(long)] preferred_zone:Vec<String>, #[arg(short,long,default_value="table")] output:String },
+    PlacementAdvisor {
+        #[arg(long)]
+        cpu: f64,
+        #[arg(long)]
+        memory_gib: f64,
+        #[arg(long)]
+        required_label: Vec<String>,
+        #[arg(long)]
+        avoid_node: Vec<String>,
+        #[arg(long)]
+        preferred_zone: Vec<String>,
+        #[arg(short, long, default_value = "table")]
+        output: String,
+    },
     /// Recommend migrations that reduce node imbalance; does not execute them
-    PlacementRebalance { #[arg(long,default_value="0.15")] threshold:f64, #[arg(long,default_value="5")] max_migrations:usize, #[arg(short,long,default_value="table")] output:String },
+    PlacementRebalance {
+        #[arg(long, default_value = "0.15")]
+        threshold: f64,
+        #[arg(long, default_value = "5")]
+        max_migrations: usize,
+        #[arg(short, long, default_value = "table")]
+        output: String,
+    },
     // ========== DEVELOPER EXPERIENCE & TOOLING ==========
     /// Generate shell completions
     Completions {

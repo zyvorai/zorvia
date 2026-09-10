@@ -318,7 +318,10 @@ pub fn cephfs_storage_class_manifest(
 }
 
 /// VolumeSnapshotClass wired to Rook's RBD CSI provisioner.
-pub fn rbd_volume_snapshot_class_manifest(vsc_name: &str, cluster_namespace: &str) -> Result<Value> {
+pub fn rbd_volume_snapshot_class_manifest(
+    vsc_name: &str,
+    cluster_namespace: &str,
+) -> Result<Value> {
     validate_k8s_name("VolumeSnapshotClass name", vsc_name)?;
     validate_k8s_name("namespace", cluster_namespace)?;
     Ok(json!({
@@ -451,7 +454,8 @@ mod tests {
 
     #[test]
     fn rbd_storage_class_references_correct_provisioner() {
-        let m = rbd_storage_class_manifest("rook-ceph-block", "rook-ceph", "fast-ssd", "Delete").unwrap();
+        let m = rbd_storage_class_manifest("rook-ceph-block", "rook-ceph", "fast-ssd", "Delete")
+            .unwrap();
         assert_eq!(m["provisioner"], "rook-ceph.rbd.csi.ceph.com");
         assert_eq!(m["parameters"]["pool"], "fast-ssd");
         assert_eq!(m["parameters"]["clusterID"], "rook-ceph");
@@ -459,7 +463,8 @@ mod tests {
 
     #[test]
     fn cephfs_storage_class_references_correct_provisioner() {
-        let m = cephfs_storage_class_manifest("rook-cephfs", "rook-ceph", "cephfs", "Delete").unwrap();
+        let m =
+            cephfs_storage_class_manifest("rook-cephfs", "rook-ceph", "cephfs", "Delete").unwrap();
         assert_eq!(m["provisioner"], "rook-ceph.cephfs.csi.ceph.com");
         assert_eq!(m["parameters"]["fsName"], "cephfs");
     }

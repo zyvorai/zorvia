@@ -17,7 +17,11 @@ pub fn generate_id(prefix: &str, name: &str) -> String {
     use chrono::Utc;
     let sanitized = name.to_lowercase().replace(' ', "-");
     let truncated_name = if sanitized.chars().count() > 20 {
-        &sanitized[..sanitized.char_indices().nth(20).map(|(i, _)| i).unwrap_or(sanitized.len())]
+        &sanitized[..sanitized
+            .char_indices()
+            .nth(20)
+            .map(|(i, _)| i)
+            .unwrap_or(sanitized.len())]
     } else {
         &sanitized
     };

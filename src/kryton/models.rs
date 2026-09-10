@@ -284,8 +284,15 @@ mod tests {
             project: "finance".into(),
             name: "win11-01".into(),
             image: "windows-11-enterprise".into(),
-            compute: ComputeSpec { cpu: 4, memory_mi_b: 8192 },
-            disk: DiskSpec { size_gi_b: 80, storage_class: None, volume_mode: None },
+            compute: ComputeSpec {
+                cpu: 4,
+                memory_mi_b: 8192,
+            },
+            disk: DiskSpec {
+                size_gi_b: 80,
+                storage_class: None,
+                volume_mode: None,
+            },
             network: None,
             ttl_minutes: Some(60),
             dockur: None,

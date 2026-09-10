@@ -25,8 +25,9 @@ fn validate_pvc_name(name: &str) -> Result<()> {
 
 /// Validate that a size string matches Kubernetes quantity format (e.g., "10Gi", "500Mi")
 fn validate_k8s_quantity(size: &str) -> Result<()> {
-    static RE: once_cell::sync::Lazy<Regex> =
-        once_cell::sync::Lazy::new(|| Regex::new(r"^[0-9]+(\.[0-9]+)?(Ki|Mi|Gi|Ti|Pi|Ei|k|M|G|T|P|E)?$").unwrap());
+    static RE: once_cell::sync::Lazy<Regex> = once_cell::sync::Lazy::new(|| {
+        Regex::new(r"^[0-9]+(\.[0-9]+)?(Ki|Mi|Gi|Ti|Pi|Ei|k|M|G|T|P|E)?$").unwrap()
+    });
     if size.is_empty() || !RE.is_match(size) {
         anyhow::bail!("Invalid Kubernetes quantity format: {}", size);
     }

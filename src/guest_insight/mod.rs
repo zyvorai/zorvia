@@ -109,22 +109,29 @@ impl GuestInsightReport {
         if status.node_name.is_some() {
             score = score.saturating_add(10);
         }
-        if interfaces.iter().any(|iface| {
-            iface.primary_ip.is_some() || !iface.ip_addresses.is_empty()
-        }) {
+        if interfaces
+            .iter()
+            .any(|iface| iface.primary_ip.is_some() || !iface.ip_addresses.is_empty())
+        {
             score = score.saturating_add(20);
         }
         if guest.is_some() {
             score = score.saturating_add(30);
         }
-        if guest.and_then(|info| info.kernel_release.as_ref()).is_some() {
+        if guest
+            .and_then(|info| info.kernel_release.as_ref())
+            .is_some()
+        {
             score = score.saturating_add(20);
         }
 
         let mut recommendations = Vec::new();
         match agent_state {
             GuestAgentState::Connected => {
-                if guest.and_then(|info| info.kernel_release.as_ref()).is_none() {
+                if guest
+                    .and_then(|info| info.kernel_release.as_ref())
+                    .is_none()
+                {
                     recommendations.push(
                         "Guest agent is connected but kernel metadata is incomplete; verify qemu-guest-agent is current"
                             .to_string(),
@@ -138,9 +145,8 @@ impl GuestInsightReport {
                 }
             }
             GuestAgentState::NotDetected => {
-                recommendations.push(
-                    "Install and enable qemu-guest-agent inside the guest".to_string(),
-                );
+                recommendations
+                    .push("Install and enable qemu-guest-agent inside the guest".to_string());
                 recommendations.push(
                     "Verify the KubeVirt guest-agent channel is available and the service is running"
                         .to_string(),
@@ -150,7 +156,8 @@ impl GuestInsightReport {
                 "Bring the VMI to Running state before evaluating guest-agent health".to_string(),
             ),
             GuestAgentState::Unknown => recommendations.push(
-                "Guest-agent state is unknown; inspect VMI status and KubeVirt conditions".to_string(),
+                "Guest-agent state is unknown; inspect VMI status and KubeVirt conditions"
+                    .to_string(),
             ),
         }
 
@@ -235,7 +242,10 @@ mod tests {
         let report = GuestInsightReport::from_status("vm", "default", Some(&status));
         assert_eq!(report.agent_state, GuestAgentState::NotDetected);
         assert!(!report.agent_connected());
-        assert!(report.recommendations.iter().any(|v| v.contains("qemu-guest-agent")));
+        assert!(report
+            .recommendations
+            .iter()
+            .any(|v| v.contains("qemu-guest-agent")));
     }
 
     #[test]
@@ -259,7 +269,10 @@ mod tests {
         let report = GuestInsightReport::from_status("vm", "default", Some(&status));
         assert_eq!(report.interfaces.len(), 1);
         assert_eq!(report.interfaces[0].guest_name.as_deref(), Some("eth0"));
-        assert_eq!(report.interfaces[0].primary_ip.as_deref(), Some("10.0.0.10"));
+        assert_eq!(
+            report.interfaces[0].primary_ip.as_deref(),
+            Some("10.0.0.10")
+        );
     }
 
     #[test]
@@ -276,7 +289,10 @@ mod tests {
         status.guest_os_info.as_mut().unwrap().kernel_release = None;
         let report = GuestInsightReport::from_status("vm", "default", Some(&status));
         assert_eq!(report.readiness_score, 80);
-        assert!(report.recommendations.iter().any(|v| v.contains("kernel metadata")));
+        assert!(report
+            .recommendations
+            .iter()
+            .any(|v| v.contains("kernel metadata")));
     }
 
     #[test]

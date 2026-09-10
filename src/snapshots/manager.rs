@@ -48,10 +48,7 @@ impl SnapshotManager {
         // Build labels
         let mut labels = BTreeMap::new();
         labels.insert("zorvia.io/vm".to_string(), config.vm_name.clone());
-        labels.insert(
-            "zorvia.io/created-by".to_string(),
-            "zorvia".to_string(),
-        );
+        labels.insert("zorvia.io/created-by".to_string(), "zorvia".to_string());
 
         for (k, v) in &config.labels {
             labels.insert(k.clone(), v.clone());
@@ -102,8 +99,9 @@ impl SnapshotManager {
         if value.len() > 63 {
             anyhow::bail!("Label value must be 63 characters or less");
         }
-        static RE: once_cell::sync::Lazy<regex::Regex> =
-            once_cell::sync::Lazy::new(|| regex::Regex::new(r"^[a-zA-Z0-9]([a-zA-Z0-9._-]*[a-zA-Z0-9])?$").unwrap());
+        static RE: once_cell::sync::Lazy<regex::Regex> = once_cell::sync::Lazy::new(|| {
+            regex::Regex::new(r"^[a-zA-Z0-9]([a-zA-Z0-9._-]*[a-zA-Z0-9])?$").unwrap()
+        });
         if !value.is_empty() && !RE.is_match(value) {
             anyhow::bail!("Invalid label value: {}", value);
         }
@@ -234,8 +232,15 @@ impl SnapshotManager {
             // Delete oldest snapshots beyond the limit
             for snapshot in sorted.iter().skip(max_snapshots as usize) {
                 // Skip snapshots that may be in use by active restores
-                if self.is_snapshot_in_use(&snapshot.name).await.unwrap_or(true) {
-                    log::warn!("Skipping deletion of snapshot '{}': may be in use by an active restore", snapshot.name);
+                if self
+                    .is_snapshot_in_use(&snapshot.name)
+                    .await
+                    .unwrap_or(true)
+                {
+                    log::warn!(
+                        "Skipping deletion of snapshot '{}': may be in use by an active restore",
+                        snapshot.name
+                    );
                     continue;
                 }
 

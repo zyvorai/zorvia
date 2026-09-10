@@ -35,7 +35,10 @@ impl Default for GuestMetrics {
 }
 
 /// Merge guestosinfo + filesystemlist JSON into a metrics snapshot.
-pub fn metrics_from_guest_payloads(osinfo: Option<&Value>, filesystems: Option<&Value>) -> GuestMetrics {
+pub fn metrics_from_guest_payloads(
+    osinfo: Option<&Value>,
+    filesystems: Option<&Value>,
+) -> GuestMetrics {
     let mut out = GuestMetrics::default();
     if let Some(os) = osinfo {
         out.agent = true;
@@ -75,7 +78,8 @@ pub fn metrics_from_guest_payloads(osinfo: Option<&Value>, filesystems: Option<&
         let mut total = 0u64;
         for item in items {
             used = used.saturating_add(item.get("usedBytes").and_then(|v| v.as_u64()).unwrap_or(0));
-            total = total.saturating_add(item.get("totalBytes").and_then(|v| v.as_u64()).unwrap_or(0));
+            total =
+                total.saturating_add(item.get("totalBytes").and_then(|v| v.as_u64()).unwrap_or(0));
         }
         if used > 0 || total > 0 {
             out.disk_usage = used;

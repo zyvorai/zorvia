@@ -373,7 +373,10 @@ pub fn handle_alerts_create(
     println!("  Threshold: {} {}", operator, threshold);
     println!("  Duration:  {} minutes", duration);
     println!();
-    println!("{}", color::success("✓ Alert rule created and persisted successfully"));
+    println!(
+        "{}",
+        color::success("✓ Alert rule created and persisted successfully")
+    );
     Ok(())
 }
 
@@ -516,10 +519,7 @@ pub async fn handle_health_check(component: Option<String>, output: String) -> R
 
     if let Some(comp) = &component {
         println!("  Component: {}", color::value(comp));
-        let check = health
-            .checks
-            .iter()
-            .find(|c| c.component == *comp);
+        let check = health.checks.iter().find(|c| c.component == *comp);
         if let Some(c) = check {
             let status_str = match c.status {
                 HealthStatus::Healthy => color::success("Healthy"),

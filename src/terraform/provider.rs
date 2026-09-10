@@ -78,7 +78,9 @@ mod tests {
         let s = provider_schema();
         assert_eq!(s["provider"]["name"], "zorvia");
         assert_eq!(s["resources"]["zorvia_vm"]["path"], "/api/vms");
-        assert!(s["provider"]["config"]["token"]["sensitive"].as_bool().unwrap());
+        assert!(s["provider"]["config"]["token"]["sensitive"]
+            .as_bool()
+            .unwrap());
         assert!(s["resources"]["zorvia_vm"]["endpoints"]["pause"]
             .as_str()
             .unwrap()

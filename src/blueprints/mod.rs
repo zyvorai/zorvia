@@ -13,15 +13,17 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::sync::RwLock;
 
-pub static BLUEPRINTS: Lazy<RwLock<BlueprintManager>> = Lazy::new(|| {
-    match BlueprintManager::new() {
+pub static BLUEPRINTS: Lazy<RwLock<BlueprintManager>> =
+    Lazy::new(|| match BlueprintManager::new() {
         Ok(manager) => RwLock::new(manager),
         Err(e) => {
-            log::error!("Failed to initialize BlueprintManager: {}. Using empty manager.", e);
+            log::error!(
+                "Failed to initialize BlueprintManager: {}. Using empty manager.",
+                e
+            );
             RwLock::new(BlueprintManager::empty())
         }
-    }
-});
+    });
 
 /// VMSpec defines a single VM in a blueprint
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -194,7 +196,10 @@ impl BlueprintManager {
 impl Default for BlueprintManager {
     fn default() -> Self {
         Self::new().unwrap_or_else(|e| {
-            log::error!("Failed to initialize BlueprintManager: {}. Using empty manager.", e);
+            log::error!(
+                "Failed to initialize BlueprintManager: {}. Using empty manager.",
+                e
+            );
             Self::empty()
         })
     }

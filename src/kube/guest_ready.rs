@@ -85,7 +85,12 @@ mod tests {
     use super::*;
     use crate::kube::types::{Condition, GuestOsInfo, VmiInterface};
 
-    fn status(phase: &str, ready: bool, ip: Option<&str>, ga: bool) -> VirtualMachineInstanceStatus {
+    fn status(
+        phase: &str,
+        ready: bool,
+        ip: Option<&str>,
+        ga: bool,
+    ) -> VirtualMachineInstanceStatus {
         VirtualMachineInstanceStatus {
             phase: Some(phase.into()),
             node_name: Some("node-a".into()),

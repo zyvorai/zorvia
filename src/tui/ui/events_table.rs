@@ -9,7 +9,6 @@ use ratatui::{
     Frame,
 };
 
-
 pub fn render(f: &mut Frame, area: Rect) {
     let chunks = Layout::default()
         .direction(Direction::Vertical)
@@ -23,8 +22,16 @@ pub fn render(f: &mut Frame, area: Rect) {
     // Header
     // Gradient brand header
     let mut header_spans = gradient::brand().text("Zorvia");
-    header_spans.push(Span::styled(" | ", Style::default().fg(Color::Rgb(128, 128, 128))));
-    header_spans.push(Span::styled("Cluster Events", Style::default().fg(Color::Rgb(255, 145, 115)).add_modifier(Modifier::BOLD)));
+    header_spans.push(Span::styled(
+        " | ",
+        Style::default().fg(Color::Rgb(128, 128, 128)),
+    ));
+    header_spans.push(Span::styled(
+        "Cluster Events",
+        Style::default()
+            .fg(Color::Rgb(255, 145, 115))
+            .add_modifier(Modifier::BOLD),
+    ));
     let header_text = Line::from(header_spans);
     let header = Paragraph::new(header_text)
         .alignment(Alignment::Center)
@@ -49,12 +56,50 @@ pub fn render(f: &mut Frame, area: Rect) {
         .style(Style::default().bg(Color::Rgb(40, 35, 55)))
         .height(1);
 
-    let sample_data = [("2m ago", "Normal", "Started", "Pod/virt-launcher-web-01", "Started container compute"),
-        ("3m ago", "Normal", "Created", "Pod/virt-launcher-web-01", "Created container compute"),
-        ("5m ago", "Warning", "FailedMount", "Pod/virt-launcher-db-01", "Unable to attach volume"),
-        ("8m ago", "Normal", "Scheduled", "Pod/virt-launcher-wrk-03", "Assigned to node-2"),
-        ("12m ago", "Warning", "Unhealthy", "Pod/virt-launcher-cache", "Readiness probe failed"),
-        ("15m ago", "Normal", "SuccessfulCreate", "VMI/web-server-01", "Created virtual machine instance")];
+    let sample_data = [
+        (
+            "2m ago",
+            "Normal",
+            "Started",
+            "Pod/virt-launcher-web-01",
+            "Started container compute",
+        ),
+        (
+            "3m ago",
+            "Normal",
+            "Created",
+            "Pod/virt-launcher-web-01",
+            "Created container compute",
+        ),
+        (
+            "5m ago",
+            "Warning",
+            "FailedMount",
+            "Pod/virt-launcher-db-01",
+            "Unable to attach volume",
+        ),
+        (
+            "8m ago",
+            "Normal",
+            "Scheduled",
+            "Pod/virt-launcher-wrk-03",
+            "Assigned to node-2",
+        ),
+        (
+            "12m ago",
+            "Warning",
+            "Unhealthy",
+            "Pod/virt-launcher-cache",
+            "Readiness probe failed",
+        ),
+        (
+            "15m ago",
+            "Normal",
+            "SuccessfulCreate",
+            "VMI/web-server-01",
+            "Created virtual machine instance",
+        ),
+    ];
 
     let rows = sample_data.iter().map(|(time, etype, reason, obj, msg)| {
         let type_color = match *etype {
@@ -88,7 +133,9 @@ pub fn render(f: &mut Frame, area: Rect) {
                 .border_style(Style::default().fg(Color::Rgb(222, 115, 86)))
                 .title(Span::styled(
                     " Events ",
-                    Style::default().fg(Color::Rgb(222, 115, 86)).add_modifier(Modifier::BOLD),
+                    Style::default()
+                        .fg(Color::Rgb(222, 115, 86))
+                        .add_modifier(Modifier::BOLD),
                 )),
         )
         .column_spacing(1);
@@ -96,13 +143,33 @@ pub fn render(f: &mut Frame, area: Rect) {
 
     // Help
     let help = Paragraph::new(Line::from(vec![
-        Span::styled("↑↓", Style::default().fg(Color::Rgb(222, 115, 86)).add_modifier(Modifier::BOLD)),
+        Span::styled(
+            "↑↓",
+            Style::default()
+                .fg(Color::Rgb(222, 115, 86))
+                .add_modifier(Modifier::BOLD),
+        ),
         Span::styled(": Navigate | ", Style::default().fg(Color::Gray)),
-        Span::styled("f", Style::default().fg(Color::Rgb(222, 115, 86)).add_modifier(Modifier::BOLD)),
+        Span::styled(
+            "f",
+            Style::default()
+                .fg(Color::Rgb(222, 115, 86))
+                .add_modifier(Modifier::BOLD),
+        ),
         Span::styled(": Filter | ", Style::default().fg(Color::Gray)),
-        Span::styled("r", Style::default().fg(Color::Rgb(222, 115, 86)).add_modifier(Modifier::BOLD)),
+        Span::styled(
+            "r",
+            Style::default()
+                .fg(Color::Rgb(222, 115, 86))
+                .add_modifier(Modifier::BOLD),
+        ),
         Span::styled(": Refresh | ", Style::default().fg(Color::Gray)),
-        Span::styled("q", Style::default().fg(Color::Rgb(222, 115, 86)).add_modifier(Modifier::BOLD)),
+        Span::styled(
+            "q",
+            Style::default()
+                .fg(Color::Rgb(222, 115, 86))
+                .add_modifier(Modifier::BOLD),
+        ),
         Span::styled(": Back", Style::default().fg(Color::Gray)),
     ]))
     .alignment(Alignment::Center)

@@ -107,9 +107,14 @@ impl ChangePlanner {
         let mut postflight = BTreeSet::new();
 
         if !report.findings.is_empty() {
-            preflight.insert("Confirm the target VM has a recent rollback point or backup".to_string());
-            preflight.insert("Confirm the VM is not already migrating or in an unhealthy state".to_string());
-            postflight.insert("Verify VM Ready state and workload health after reconciliation".to_string());
+            preflight
+                .insert("Confirm the target VM has a recent rollback point or backup".to_string());
+            preflight.insert(
+                "Confirm the VM is not already migrating or in an unhealthy state".to_string(),
+            );
+            postflight.insert(
+                "Verify VM Ready state and workload health after reconciliation".to_string(),
+            );
         }
 
         for finding in &report.findings {
@@ -165,8 +170,7 @@ fn classify_finding(finding: &DriftFinding) -> PlannedChange {
             "cloud-init normally takes effect during first boot, not on an existing guest",
             "Preserve a rollback point and reprovision the guest to apply cloud-init deterministically",
         )
-    } else if path.contains("/datavolumetemplates")
-        || path.contains("/spec/template/spec/volumes")
+    } else if path.contains("/datavolumetemplates") || path.contains("/spec/template/spec/volumes")
     {
         if finding.desired_value.is_some() && finding.actual_value.is_none() {
             (
@@ -273,30 +277,48 @@ fn add_checks_and_steps(
     match change.disposition {
         ChangeDisposition::Online => {}
         ChangeDisposition::RestartRequired => {
-            preflight.insert("Confirm an approved maintenance window or verified hotplug path".to_string());
-            postflight.insert("Confirm the guest returned to its expected node/network state".to_string());
+            preflight.insert(
+                "Confirm an approved maintenance window or verified hotplug path".to_string(),
+            );
+            postflight.insert(
+                "Confirm the guest returned to its expected node/network state".to_string(),
+            );
         }
         ChangeDisposition::RecreateRequired => {
-            preflight.insert("Validate recovery by snapshot/backup before destructive reconciliation".to_string());
-            preflight.insert("Confirm persistent volumes will be retained and reattached as intended".to_string());
-            postflight.insert("Verify boot, storage attachment and application data after recreation".to_string());
+            preflight.insert(
+                "Validate recovery by snapshot/backup before destructive reconciliation"
+                    .to_string(),
+            );
+            preflight.insert(
+                "Confirm persistent volumes will be retained and reattached as intended"
+                    .to_string(),
+            );
+            postflight.insert(
+                "Verify boot, storage attachment and application data after recreation".to_string(),
+            );
         }
         ChangeDisposition::ManualReview => {
-            preflight.insert("Require explicit operator approval for unmapped/feature-gated behavior".to_string());
+            preflight.insert(
+                "Require explicit operator approval for unmapped/feature-gated behavior"
+                    .to_string(),
+            );
         }
     }
 
     if change.path.to_ascii_lowercase().contains("network")
         || change.path.to_ascii_lowercase().contains("interfaces")
     {
-        preflight.insert("Validate Multus/NAD, NetworkPolicy and expected MAC/IP dependencies".to_string());
+        preflight.insert(
+            "Validate Multus/NAD, NetworkPolicy and expected MAC/IP dependencies".to_string(),
+        );
         postflight.insert("Verify guest ingress/egress and dependent services".to_string());
     }
 
     if change.path.to_ascii_lowercase().contains("volume")
         || change.path.to_ascii_lowercase().contains("disks")
     {
-        preflight.insert("Validate PVC/DataVolume readiness and storage-class capabilities".to_string());
+        preflight
+            .insert("Validate PVC/DataVolume readiness and storage-class capabilities".to_string());
         postflight.insert("Verify guest disks, mounts and filesystem integrity".to_string());
     }
 }
@@ -331,8 +353,10 @@ mod tests {
 
     #[test]
     fn metadata_is_online() {
-        let desired = json!({"kind":"VirtualMachine","metadata":{"name":"demo","labels":{"team":"a"}}});
-        let actual = json!({"kind":"VirtualMachine","metadata":{"name":"demo","labels":{"team":"b"}}});
+        let desired =
+            json!({"kind":"VirtualMachine","metadata":{"name":"demo","labels":{"team":"a"}}});
+        let actual =
+            json!({"kind":"VirtualMachine","metadata":{"name":"demo","labels":{"team":"b"}}});
         let plan = plan_for(desired, actual);
         assert_eq!(plan.overall_disposition, ChangeDisposition::Online);
     }
@@ -356,24 +380,35 @@ mod tests {
 
     #[test]
     fn firmware_change_requires_recreation() {
-        let desired = vm(json!({"template":{"spec":{"domain":{"firmware":{"bootloader":{"efi":{}}}}}}}));
-        let actual = vm(json!({"template":{"spec":{"domain":{"firmware":{"bootloader":{"bios":{}}}}}}}));
+        let desired =
+            vm(json!({"template":{"spec":{"domain":{"firmware":{"bootloader":{"efi":{}}}}}}}));
+        let actual =
+            vm(json!({"template":{"spec":{"domain":{"firmware":{"bootloader":{"bios":{}}}}}}}));
         let plan = plan_for(desired, actual);
         assert!(plan.requires_recreation);
-        assert_eq!(plan.overall_disposition, ChangeDisposition::RecreateRequired);
+        assert_eq!(
+            plan.overall_disposition,
+            ChangeDisposition::RecreateRequired
+        );
     }
 
     #[test]
     fn volume_source_change_requires_recreation() {
-        let desired = vm(json!({"template":{"spec":{"volumes":[{"name":"root","dataVolume":{"name":"gold-v2"}}]}}}));
-        let actual = vm(json!({"template":{"spec":{"volumes":[{"name":"root","dataVolume":{"name":"gold-v1"}}]}}}));
+        let desired = vm(
+            json!({"template":{"spec":{"volumes":[{"name":"root","dataVolume":{"name":"gold-v2"}}]}}}),
+        );
+        let actual = vm(
+            json!({"template":{"spec":{"volumes":[{"name":"root","dataVolume":{"name":"gold-v1"}}]}}}),
+        );
         let plan = plan_for(desired, actual);
         assert!(plan.requires_recreation);
     }
 
     #[test]
     fn added_volume_requires_manual_review() {
-        let desired = vm(json!({"template":{"spec":{"volumes":[{"name":"data","persistentVolumeClaim":{"claimName":"data"}}]}}}));
+        let desired = vm(
+            json!({"template":{"spec":{"volumes":[{"name":"data","persistentVolumeClaim":{"claimName":"data"}}]}}}),
+        );
         let actual = vm(json!({"template":{"spec":{"volumes":[]}}}));
         let plan = plan_for(desired, actual);
         assert!(plan.manual_review_required);
@@ -382,7 +417,9 @@ mod tests {
     #[test]
     fn network_change_requires_restart() {
         let desired = vm(json!({"template":{"spec":{"networks":[{"name":"default","pod":{}}]}}}));
-        let actual = vm(json!({"template":{"spec":{"networks":[{"name":"default","multus":{"networkName":"prod"}}]}}}));
+        let actual = vm(
+            json!({"template":{"spec":{"networks":[{"name":"default","multus":{"networkName":"prod"}}]}}}),
+        );
         let plan = plan_for(desired, actual);
         assert_eq!(plan.overall_disposition, ChangeDisposition::RestartRequired);
     }
@@ -417,16 +454,29 @@ mod tests {
             "spec":{"template":{"spec":{"domain":{"machine":{"type":"pc"}}}}}
         });
         let plan = plan_for(desired, actual);
-        assert_eq!(plan.overall_disposition, ChangeDisposition::RecreateRequired);
+        assert_eq!(
+            plan.overall_disposition,
+            ChangeDisposition::RecreateRequired
+        );
         assert!(plan.change_count() >= 2);
     }
 
     #[test]
     fn storage_plan_adds_storage_checks() {
-        let desired = vm(json!({"template":{"spec":{"volumes":[{"name":"root","dataVolume":{"name":"v2"}}]}}}));
-        let actual = vm(json!({"template":{"spec":{"volumes":[{"name":"root","dataVolume":{"name":"v1"}}]}}}));
+        let desired = vm(
+            json!({"template":{"spec":{"volumes":[{"name":"root","dataVolume":{"name":"v2"}}]}}}),
+        );
+        let actual = vm(
+            json!({"template":{"spec":{"volumes":[{"name":"root","dataVolume":{"name":"v1"}}]}}}),
+        );
         let plan = plan_for(desired, actual);
-        assert!(plan.preflight_checks.iter().any(|v| v.contains("PVC/DataVolume")));
-        assert!(plan.postflight_checks.iter().any(|v| v.contains("filesystem")));
+        assert!(plan
+            .preflight_checks
+            .iter()
+            .any(|v| v.contains("PVC/DataVolume")));
+        assert!(plan
+            .postflight_checks
+            .iter()
+            .any(|v| v.contains("filesystem")));
     }
 }

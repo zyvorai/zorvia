@@ -22,9 +22,9 @@ pub async fn handle_guest_insight(
     let status = match client.get_vmi(namespace, &vm).await {
         Ok(vmi) => vmi.status,
         Err(error) => {
-            let not_found = error
-                .downcast_ref::<kube::Error>()
-                .is_some_and(|kube_error| matches!(kube_error, kube::Error::Api(api) if api.code == 404));
+            let not_found = error.downcast_ref::<kube::Error>().is_some_and(
+                |kube_error| matches!(kube_error, kube::Error::Api(api) if api.code == 404),
+            );
             if not_found {
                 None
             } else {
@@ -76,7 +76,10 @@ fn render_guest_table(report: &GuestInsightReport) {
         report.os_name.as_deref().unwrap_or("-"),
         report.os_version.as_deref().unwrap_or("")
     );
-    println!("  Kernel:      {}", report.kernel_release.as_deref().unwrap_or("-"));
+    println!(
+        "  Kernel:      {}",
+        report.kernel_release.as_deref().unwrap_or("-")
+    );
     println!();
 
     if !report.interfaces.is_empty() {

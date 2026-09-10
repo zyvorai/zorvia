@@ -10,7 +10,7 @@ fn is_private_ip(ip: &std::net::IpAddr) -> bool {
             || v4.is_private()         // 10.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16
             || v4.is_link_local()      // 169.254.0.0/16
             || v4.is_broadcast()       // 255.255.255.255
-            || v4.is_unspecified()     // 0.0.0.0
+            || v4.is_unspecified() // 0.0.0.0
         }
         std::net::IpAddr::V6(v6) => {
             v6.is_loopback()           // ::1
@@ -34,7 +34,11 @@ fn validate_webhook_url(url: &str) -> anyhow::Result<()> {
     let host_port = after_scheme.split('/').next().unwrap_or("");
     let host = if host_port.starts_with('[') {
         // IPv6 bracket notation: [::1]:8080
-        host_port.split(']').next().unwrap_or("").trim_start_matches('[')
+        host_port
+            .split(']')
+            .next()
+            .unwrap_or("")
+            .trim_start_matches('[')
     } else {
         host_port.split(':').next().unwrap_or("")
     };
@@ -45,7 +49,8 @@ fn validate_webhook_url(url: &str) -> anyhow::Result<()> {
 
     // Reject known dangerous hostnames
     let lower = host.to_lowercase();
-    if lower == "localhost" || lower.ends_with(".localhost") || lower == "metadata.google.internal" {
+    if lower == "localhost" || lower.ends_with(".localhost") || lower == "metadata.google.internal"
+    {
         anyhow::bail!("Webhook URL must not point to internal addresses");
     }
 
@@ -469,8 +474,7 @@ mod tests {
         wh1.add_event(WebhookEvent::VMCreated);
         wh1.add_event(WebhookEvent::VMDeleted);
 
-        let mut wh2 =
-            WebhookConfig::new("backup-events", "https://example.com/backup").unwrap();
+        let mut wh2 = WebhookConfig::new("backup-events", "https://example.com/backup").unwrap();
         wh2.add_event(WebhookEvent::BackupCompleted);
 
         manager.register(wh1);

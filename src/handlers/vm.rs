@@ -605,9 +605,10 @@ pub async fn handle_console(name: String, namespace: &str) -> Result<()> {
 
     match status {
         Ok(exit) if exit.success() => Ok(()),
-        Ok(exit) => {
-            Err(anyhow::anyhow!("Console session ended with exit code: {}", exit.code().unwrap_or(-1)))
-        }
+        Ok(exit) => Err(anyhow::anyhow!(
+            "Console session ended with exit code: {}",
+            exit.code().unwrap_or(-1)
+        )),
         Err(e) if e.kind() == std::io::ErrorKind::NotFound => {
             eprintln!("Error: 'virtctl' not found in PATH.");
             eprintln!();
@@ -634,7 +635,10 @@ pub async fn handle_ssh(name: String, user: String, namespace: &str) -> Result<(
                         .status();
                     match status {
                         Ok(exit) if exit.success() => Ok(()),
-                        Ok(exit) => Err(anyhow::anyhow!("SSH session ended with exit code: {}", exit.code().unwrap_or(-1))),
+                        Ok(exit) => Err(anyhow::anyhow!(
+                            "SSH session ended with exit code: {}",
+                            exit.code().unwrap_or(-1)
+                        )),
                         Err(e) => Err(anyhow::anyhow!("Failed to launch ssh: {}", e)),
                     }
                 }
@@ -666,7 +670,10 @@ pub async fn handle_vnc(name: String, namespace: &str) -> Result<()> {
         .status();
     match status {
         Ok(exit) if exit.success() => Ok(()),
-        Ok(exit) => Err(anyhow::anyhow!("VNC session ended with exit code: {}", exit.code().unwrap_or(-1))),
+        Ok(exit) => Err(anyhow::anyhow!(
+            "VNC session ended with exit code: {}",
+            exit.code().unwrap_or(-1)
+        )),
         Err(e) if e.kind() == std::io::ErrorKind::NotFound => {
             eprintln!("Error: 'virtctl' not found in PATH.");
             eprintln!("Install virtctl for VNC access:");
@@ -689,14 +696,19 @@ pub async fn handle_logs(name: String, follow: bool, tail: u32, namespace: &str)
 
     use k8s_openapi::api::core::v1::Pod;
     let pods_api: kube::api::Api<Pod> = kube::api::Api::namespaced(k8s_client, namespace);
-    let lp = kube::api::ListParams::default()
-        .labels(&format!("kubevirt.io/vm={}", name));
+    let lp = kube::api::ListParams::default().labels(&format!("kubevirt.io/vm={}", name));
 
-    let pod_list = pods_api.list(&lp).await
+    let pod_list = pods_api
+        .list(&lp)
+        .await
         .map_err(|e| anyhow::anyhow!("Failed to list pods: {}", e))?;
 
-    let pod = pod_list.items.first()
-        .ok_or_else(|| anyhow::anyhow!("No virt-launcher pod found for VM '{}'. Is the VM running?", name))?;
+    let pod = pod_list.items.first().ok_or_else(|| {
+        anyhow::anyhow!(
+            "No virt-launcher pod found for VM '{}'. Is the VM running?",
+            name
+        )
+    })?;
     let pod_name = pod.metadata.name.as_deref().unwrap_or_default();
 
     // Use kubectl logs for streaming
@@ -712,7 +724,10 @@ pub async fn handle_logs(name: String, follow: bool, tail: u32, namespace: &str)
         .map_err(|e| anyhow::anyhow!("Failed to launch kubectl: {}", e))?;
 
     if !status.success() {
-        return Err(anyhow::anyhow!("kubectl logs exited with code: {}", status.code().unwrap_or(-1)));
+        return Err(anyhow::anyhow!(
+            "kubectl logs exited with code: {}",
+            status.code().unwrap_or(-1)
+        ));
     }
     Ok(())
 }

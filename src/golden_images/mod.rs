@@ -55,7 +55,9 @@ impl GoldenImageSpec {
         match self.source_type {
             ImageSourceType::Http => {
                 if !(self.source.starts_with("http://") || self.source.starts_with("https://")) {
-                    return Err(anyhow!("HTTP image source must begin with http:// or https://"));
+                    return Err(anyhow!(
+                        "HTTP image source must begin with http:// or https://"
+                    ));
                 }
             }
             ImageSourceType::Registry => {
@@ -137,10 +139,7 @@ fn data_volume_manifest(spec: &GoldenImageSpec, versioned_name: &str) -> Value {
     // "local-path" ships without a StorageProfile access mode) — CDI then
     // rejects the DataVolume with ErrClaimNotValid instead of importing,
     // so set it explicitly rather than depending on cluster-specific setup.
-    storage.insert(
-        "accessModes".to_string(),
-        json!(["ReadWriteOnce"]),
-    );
+    storage.insert("accessModes".to_string(), json!(["ReadWriteOnce"]));
     if let Some(storage_class) = &spec.storage_class {
         storage.insert(
             "storageClassName".to_string(),
@@ -266,7 +265,10 @@ mod tests {
     #[test]
     fn source_type_parser_accepts_aliases() {
         assert_eq!(ImageSourceType::parse("https"), Some(ImageSourceType::Http));
-        assert_eq!(ImageSourceType::parse("oci"), Some(ImageSourceType::Registry));
+        assert_eq!(
+            ImageSourceType::parse("oci"),
+            Some(ImageSourceType::Registry)
+        );
         assert_eq!(ImageSourceType::parse("pvc"), None);
     }
 
@@ -313,7 +315,10 @@ mod tests {
     #[test]
     fn storage_class_is_preserved() {
         let bundle = GoldenImageBundle::build(spec()).unwrap();
-        assert_eq!(bundle.data_volume["spec"]["storage"]["storageClassName"], "fast");
+        assert_eq!(
+            bundle.data_volume["spec"]["storage"]["storageClassName"],
+            "fast"
+        );
     }
 
     #[test]

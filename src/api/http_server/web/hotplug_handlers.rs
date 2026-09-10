@@ -118,9 +118,19 @@ pub async fn fabric_hotplug_disk(
     let client = s.client();
     drop(s);
 
-    let volume_name = format!("hotplug-{}", body.path.trim().trim_start_matches('/').replace('/', "-"));
+    let volume_name = format!(
+        "hotplug-{}",
+        body.path.trim().trim_start_matches('/').replace('/', "-")
+    );
     match client
-        .add_volume(&namespace, &name, &volume_name, body.path.trim(), body.bus.as_deref(), false)
+        .add_volume(
+            &namespace,
+            &name,
+            &volume_name,
+            body.path.trim(),
+            body.bus.as_deref(),
+            false,
+        )
         .await
     {
         Ok(()) => Json(json!({ "device_id": volume_name, "claim": body.path })).into_response(),

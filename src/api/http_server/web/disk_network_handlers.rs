@@ -23,7 +23,10 @@ pub async fn fabric_resize_disk(
     let client = s.client();
     drop(s);
 
-    match client.resize_disk(&namespace, &name, &disk_name, &body.size).await {
+    match client
+        .resize_disk(&namespace, &name, &disk_name, &body.size)
+        .await
+    {
         Ok(pvc) => {
             let new_size = pvc
                 .spec
@@ -80,7 +83,12 @@ pub async fn fabric_list_disks(
         }
     };
     let spec = &vm.spec.template.spec;
-    let disks = spec.domain.devices.as_ref().and_then(|d| d.disks.clone()).unwrap_or_default();
+    let disks = spec
+        .domain
+        .devices
+        .as_ref()
+        .and_then(|d| d.disks.clone())
+        .unwrap_or_default();
     let volumes = spec.volumes.clone().unwrap_or_default();
 
     let mut result = Vec::new();
@@ -89,7 +97,9 @@ pub async fn fabric_list_disks(
         let (source, pvc_name): (&str, Option<String>) = match volume {
             Some(v) if v.persistent_volume_claim.is_some() => (
                 "pvc",
-                v.persistent_volume_claim.as_ref().map(|p| p.claim_name.clone()),
+                v.persistent_volume_claim
+                    .as_ref()
+                    .map(|p| p.claim_name.clone()),
             ),
             Some(v) if v.data_volume.is_some() => {
                 ("dataVolume", v.data_volume.as_ref().map(|d| d.name.clone()))
@@ -174,7 +184,12 @@ pub async fn fabric_list_interfaces(
 
     let spec = &vm.spec.template.spec;
     let networks = spec.networks.clone().unwrap_or_default();
-    let interfaces = spec.domain.devices.as_ref().and_then(|d| d.interfaces.clone()).unwrap_or_default();
+    let interfaces = spec
+        .domain
+        .devices
+        .as_ref()
+        .and_then(|d| d.interfaces.clone())
+        .unwrap_or_default();
 
     let result: Vec<serde_json::Value> = interfaces
         .iter()
