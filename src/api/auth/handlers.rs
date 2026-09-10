@@ -221,23 +221,6 @@ fn parse_role(s: &str) -> Option<Role> {
     }
 }
 
-/// Validates the bearer token and requires `Role::Admin`. There is no
-/// role-checking middleware anywhere in the server today (`is_public_path`
-/// only distinguishes authenticated vs. not), so every user-management
-/// handler checks this itself.
-async fn require_admin(
-    auth: &SharedAuth,
-    headers: &HeaderMap,
-) -> Result<Claims, axum::response::Response> {
-    let Some(claims) = bearer_token(headers).and_then(|t| auth.validate_bearer(&t)) else {
-        return Err(err(StatusCode::UNAUTHORIZED, "Unauthorized").into_response());
-    };
-    if claims.role != Role::Admin {
-        return Err(err(StatusCode::FORBIDDEN, "Admin role required").into_response());
-    }
-    Ok(claims)
-}
-
 #[derive(Debug, Serialize)]
 pub struct UserSummary {
     pub id: String,
@@ -263,11 +246,8 @@ impl From<&crate::api::auth::user_db::User> for UserSummary {
 
 pub async fn list_users_handler(
     State(auth): State<SharedAuth>,
-    headers: HeaderMap,
+    _headers: HeaderMap,
 ) -> impl IntoResponse {
-    if let Err(resp) = require_admin(&auth, &headers).await {
-        return resp;
-    }
     match auth.db.list_users() {
         Ok(users) => Json(users.iter().map(UserSummary::from).collect::<Vec<_>>()).into_response(),
         Err(_) => err(StatusCode::INTERNAL_SERVER_ERROR, "Failed to list users").into_response(),
@@ -283,12 +263,9 @@ pub struct CreateUserRequest {
 
 pub async fn create_user_handler(
     State(auth): State<SharedAuth>,
-    headers: HeaderMap,
+    _headers: HeaderMap,
     Json(body): Json<CreateUserRequest>,
 ) -> impl IntoResponse {
-    if let Err(resp) = require_admin(&auth, &headers).await {
-        return resp;
-    }
     if !validate_username(&body.username) {
         return err(StatusCode::BAD_REQUEST, "Invalid username format").into_response();
     }
@@ -332,12 +309,9 @@ fn reject_if_last_admin(
 
 pub async fn delete_user_handler(
     State(auth): State<SharedAuth>,
-    headers: HeaderMap,
+    _headers: HeaderMap,
     Path(id): Path<String>,
 ) -> impl IntoResponse {
-    if let Err(resp) = require_admin(&auth, &headers).await {
-        return resp;
-    }
     let Ok(Some(target)) = auth.db.get_by_id(&id) else {
         return err(StatusCode::NOT_FOUND, "User not found").into_response();
     };
@@ -357,13 +331,10 @@ pub struct UpdateRoleRequest {
 
 pub async fn update_role_handler(
     State(auth): State<SharedAuth>,
-    headers: HeaderMap,
+    _headers: HeaderMap,
     Path(id): Path<String>,
     Json(body): Json<UpdateRoleRequest>,
 ) -> impl IntoResponse {
-    if let Err(resp) = require_admin(&auth, &headers).await {
-        return resp;
-    }
     let Some(new_role) = parse_role(&body.role) else {
         return err(StatusCode::BAD_REQUEST, "Invalid role").into_response();
     };
@@ -386,13 +357,10 @@ pub struct SetEnabledRequest {
 
 pub async fn set_enabled_handler(
     State(auth): State<SharedAuth>,
-    headers: HeaderMap,
+    _headers: HeaderMap,
     Path(id): Path<String>,
     Json(body): Json<SetEnabledRequest>,
 ) -> impl IntoResponse {
-    if let Err(resp) = require_admin(&auth, &headers).await {
-        return resp;
-    }
     let Ok(Some(target)) = auth.db.get_by_id(&id) else {
         return err(StatusCode::NOT_FOUND, "User not found").into_response();
     };

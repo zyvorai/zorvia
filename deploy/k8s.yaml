@@ -111,6 +111,24 @@ roleRef:
   name: zorvia
   apiGroup: rbac.authorization.k8s.io
 ---
+# Persists the sqlite user/role DB across pod restarts and redeploys.
+# storageClassName intentionally omitted -- binds to whatever the cluster's
+# default class is, same reasoning as ZORVIA_EXPOSE_HOST below: don't
+# hardcode a host-specific resource into a manifest meant to run anywhere.
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: zorvia-auth-data
+  namespace: zorvia-system
+  labels:
+    app.kubernetes.io/name: zorvia
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 1Gi
+---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -267,7 +285,8 @@ spec:
         - name: tls-certs
           emptyDir: {}
         - name: auth-data
-          emptyDir: {}
+          persistentVolumeClaim:
+            claimName: zorvia-auth-data
 ---
 # Lab bootstrap credentials (change for non-lab). admin / Admin@321
 apiVersion: v1

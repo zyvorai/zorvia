@@ -248,6 +248,43 @@ pub mod web {
         (status, json).into_response()
     }
 
+    /// Requires a valid JWT Bearer with `Role::Admin`. Applied via
+    /// `route_layer` to the `/v1/users*` group -- centralizes admin-gating
+    /// at the router level so a future admin-only route is protected by
+    /// being added to that group, rather than by each handler remembering
+    /// to self-check.
+    async fn require_admin_middleware(
+        State(state): State<SharedState>,
+        headers: HeaderMap,
+        request: axum::extract::Request,
+        next: middleware::Next,
+    ) -> impl IntoResponse {
+        let s = state.read().await;
+        let auth = s.auth.clone();
+        drop(s);
+
+        let Some(token) = headers
+            .get(header::AUTHORIZATION)
+            .and_then(|v| v.to_str().ok())
+            .and_then(|v| v.strip_prefix("Bearer "))
+        else {
+            let (status, json) = err_json(401, "UNAUTHORIZED", "Invalid or missing credentials");
+            return (status, json).into_response();
+        };
+
+        let Some(claims) = auth.validate_bearer(token) else {
+            let (status, json) = err_json(401, "UNAUTHORIZED", "Invalid or missing credentials");
+            return (status, json).into_response();
+        };
+
+        if claims.role != crate::api::auth::Role::Admin {
+            let (status, json) = err_json(403, "FORBIDDEN", "Admin role required");
+            return (status, json).into_response();
+        }
+
+        next.run(request).await.into_response()
+    }
+
     fn is_public_path(path: &str) -> bool {
         // SPA assets and client routes are public; only /api/* is gated (except auth/health/instance).
         if !path.starts_with("/api/") {
@@ -374,6 +411,22 @@ pub mod web {
         let index = web_dir.join("index.html");
         let spa = ServeDir::new(web_dir).fallback(ServeFile::new(index));
 
+        // Admin-only: role-gated via route_layer rather than each handler
+        // self-checking, so a future admin route just needs to join this
+        // group to be protected. Kept in its own Router since route_layer
+        // applies to every route already registered on *that* router --
+        // calling it inline in the big flat `api` chain below would wrongly
+        // cover the auth/login routes registered earlier too.
+        let admin_only = Router::new()
+            .route("/v1/users", get(users_list).post(users_create))
+            .route("/v1/users/:id", delete(users_delete))
+            .route("/v1/users/:id/role", put(users_update_role))
+            .route("/v1/users/:id/enabled", put(users_set_enabled))
+            .route_layer(middleware::from_fn_with_state(
+                state.clone(),
+                require_admin_middleware,
+            ));
+
         let api = Router::new()
             // Auth (Zorvia)
             .route("/v1/auth/login", post(auth_login))
@@ -384,10 +437,7 @@ pub mod web {
             .route("/v1/auth/totp/disable", post(auth_totp_disable))
             .route("/v1/auth/oidc/callback", get(auth_oidc_callback))
             .route("/v1/auth/oidc/:id", get(auth_oidc_login))
-            .route("/v1/users", get(users_list).post(users_create))
-            .route("/v1/users/:id", delete(users_delete))
-            .route("/v1/users/:id/role", put(users_update_role))
-            .route("/v1/users/:id/enabled", put(users_set_enabled))
+            .merge(admin_only)
             .route("/v1/instance", get(instance_handler))
             .route("/instance", get(instance_handler))
             // Images (create wizard)
