@@ -87,6 +87,7 @@ pub async fn fabric_list_disks(
             }
             Some(v) if v.container_disk.is_some() => ("containerDisk", None),
             Some(v) if v.empty_disk.is_some() => ("blank", None),
+            Some(v) if v.cloud_init_no_cloud.is_some() => ("cloudInit", None),
             _ => ("unknown", None),
         };
         let size = if let Some(pvc_name) = &pvc_name {

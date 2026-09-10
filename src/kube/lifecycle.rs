@@ -107,8 +107,18 @@ pub fn classify_lifecycle_error(action: &str, raw: &str) -> (u16, &'static str, 
             format!("Not allowed to {action} this VM (check subresources.kubevirt.io RBAC)"),
         );
     }
-    if lower.contains("conflict") || lower.contains("already paused") || lower.contains("not paused") {
-        return (409, "CONFLICT", format!("Cannot {action}: {raw}"));
+    if lower.contains("already paused") {
+        return (409, "CONFLICT", format!("Cannot {action}: VM is already paused"));
+    }
+    if lower.contains("not paused") {
+        return (409, "CONFLICT", format!("Cannot {action}: VM is not paused"));
+    }
+    if lower.contains("conflict") {
+        // Deliberately templated rather than echoing `raw`: kube-rs's ApiError
+        // Display includes the full Rust Debug output of the K8s ErrorResponse
+        // struct, which is noisy/unprofessional to surface verbatim in a JSON
+        // API response.
+        return (409, "CONFLICT", format!("Cannot {action}: VM is in a conflicting state, try again"));
     }
     (
         500,
@@ -123,7 +133,11 @@ pub fn classify_migration_error(action: &str, raw: &str) -> (u16, &'static str, 
     if lower.contains("already exists") || lower.contains("exists") {
         return (409, "CONFLICT", format!("Cannot {action}: a migration with this name already exists"));
     }
-    if lower.contains("notfound") || lower.contains("not found") {
+    if lower.contains("notfound") || lower.contains("not found") || lower.contains("does not exist") {
+        // KubeVirt's migration-create-validator admission webhook rejects a
+        // migration for a nonexistent VMI with "...the VMI ... does not
+        // exist" — a 200-level apiserver response, not a 404, so it needs
+        // its own check alongside the generic NotFound patterns above.
         return (
             404,
             "NOT_FOUND",
@@ -136,6 +150,9 @@ pub fn classify_migration_error(action: &str, raw: &str) -> (u16, &'static str, 
             "FORBIDDEN",
             format!("Not allowed to {action} (check virtualmachineinstancemigrations RBAC)"),
         );
+    }
+    if lower.contains("admission webhook") && lower.contains("denied the request") {
+        return (400, "VALIDATION_FAILED", format!("Cannot {action}: rejected by KubeVirt (VM may not be in a migratable state)"));
     }
     (500, "MIGRATION_FAILED", format!("Failed to {action}"))
 }
@@ -244,6 +261,20 @@ mod tests {
     }
 
     #[test]
+    fn classifies_already_paused_conflict_without_echoing_raw_debug_output() {
+        // Verified against a real cluster: kube-rs's ApiError Display embeds
+        // the full Rust Debug output of the K8s ErrorResponse struct
+        // (`ErrorResponse { status: ..., message: ..., reason: ..., code: ... }`)
+        // — the response message must never echo that verbatim.
+        let raw = "ApiError: Operation cannot be fulfilled on virtualmachineinstance.kubevirt.io \"demo-linux\": VMI is already paused: Conflict (ErrorResponse { status: \"Failure\", message: \"...\", reason: \"Conflict\", code: 409 })";
+        let (code, kind, msg) = classify_lifecycle_error("pause", raw);
+        assert_eq!(code, 409);
+        assert_eq!(kind, "CONFLICT");
+        assert!(!msg.contains("ErrorResponse"));
+        assert!(!msg.contains("Failure"));
+    }
+
+    #[test]
     fn classifies_zorvia_vm_not_found_display_text() {
         // Regression: handlers must pass classify_lifecycle_error the RAW
         // error text, not output already collapsed by sanitize_error() —
@@ -306,6 +337,28 @@ mod tests {
         let (code, kind, _) = classify_migration_error("migrate", "ApiError: NotFound (reason: NotFound)");
         assert_eq!(code, 404);
         assert_eq!(kind, "NOT_FOUND");
+    }
+
+    #[test]
+    fn classifies_migration_admission_webhook_vmi_missing() {
+        // Verified against a real cluster: KubeVirt's migration-create-validator
+        // rejects a migration targeting a nonexistent VMI with this exact text.
+        let (code, kind, _) = classify_migration_error(
+            "migrate",
+            r#"ApiError: admission webhook "migration-create-validator.kubevirt.io" denied the request: the VMI "default/x" does not exist"#,
+        );
+        assert_eq!(code, 404);
+        assert_eq!(kind, "NOT_FOUND");
+    }
+
+    #[test]
+    fn classifies_migration_other_admission_webhook_rejection() {
+        let (code, kind, _) = classify_migration_error(
+            "migrate",
+            r#"ApiError: admission webhook "migration-create-validator.kubevirt.io" denied the request: VMI is not migratable"#,
+        );
+        assert_eq!(code, 400);
+        assert_eq!(kind, "VALIDATION_FAILED");
     }
 
     #[test]

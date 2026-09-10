@@ -24,7 +24,7 @@ export interface VmDisk {
   boot_order: number | null
   device_type: 'disk' | 'cdrom' | 'lun'
   bus: string | null
-  source: 'pvc' | 'dataVolume' | 'containerDisk' | 'blank' | 'unknown'
+  source: 'pvc' | 'dataVolume' | 'containerDisk' | 'blank' | 'cloudInit' | 'unknown'
   size: string | null
   resizable: boolean
 }
