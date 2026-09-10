@@ -306,7 +306,7 @@ export default function CreateVM() {
         network_static_ip: networkMode === 'bridged' && staticIp,
         expose_ssh: exposeSsh,
         expose_vnc: exposeVnc,
-        expose_rdp: false,
+        expose_rdp: exposeRdp,
         ...(tenant.trim() ? { tenant: tenant.trim() } : {}),
         ...(port_forwards.length ? { port_forwards } : {}),
         cloud_init: {
@@ -498,7 +498,7 @@ export default function CreateVM() {
                   <input type="checkbox" checked={exposeVnc} onChange={(e) => setExposeVnc(e.target.checked)} />
                   Expose VNC (guest 5900 → NodePort)
                 </label>
-                {guestOs === 'windows' && (
+                {guestOs === 'linux' && (
                   <label className="flex items-center gap-2 text-sm">
                     <input type="checkbox" checked={exposeRdp} onChange={(e) => setExposeRdp(e.target.checked)} />
                     Expose RDP (guest 3389 → NodePort)

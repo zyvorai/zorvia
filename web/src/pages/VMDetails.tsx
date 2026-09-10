@@ -10,7 +10,7 @@ import { listAuditLogs, AuditLog } from '../api/audit'
 import {
   Play, Square, RotateCw, Trash2, Info, Activity, HardDrive,
   Network, Camera, Terminal, Cpu, MemoryStick, Pause, Copy, Wifi,
-  AlertCircle, Loader2, RefreshCw, Plus, Plug, Usb, Cloud, Settings, Wrench, Shield,
+  AlertCircle, Loader2, RefreshCw, Plus, Plug, Usb, Cloud, Settings, Wrench, Shield, MonitorPlay,
 } from 'lucide-react'
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts'
 import { useToastContext } from '../contexts/ToastContext'
@@ -24,6 +24,7 @@ import UndoBar from '../components/UndoBar'
 import { useUndoableAction } from '../hooks/useUndoableAction'
 import { formatUserError } from '../utils/apiError'
 import { toastFailure } from '../utils/toastError'
+import { downloadRdpFile } from '../utils/rdp'
 import { hintsForError } from '../utils/daemonHints'
 import { usePermissions } from '../hooks/usePermissions'
 import ReadOnlyNotice from '../components/ReadOnlyNotice'
@@ -811,11 +812,7 @@ function PortForwardsSection({ vm, onUpdated }: { vm: VM; onUpdated: () => void 
     setRemovingPort(hostPort)
     try {
       await removePortForward(vm.name, hostPort)
-      toast.success(
-        vm.state === 'running'
-          ? `Port ${hostPort} no longer exposed — VM restarted to apply it`
-          : `Port ${hostPort} will no longer be exposed on next start`,
-      )
+      toast.success(`Port ${hostPort} no longer exposed`)
       onUpdated()
     } catch (err) {
       toastFailure(toast, 'Failed to remove port forward', err)
@@ -839,11 +836,7 @@ function PortForwardsSection({ vm, onUpdated }: { vm: VM; onUpdated: () => void 
     setFormError('')
     try {
       await addPortForward(vm.name, { hostPort: h, guestPort: g, protocol })
-      toast.success(
-        vm.state === 'running'
-          ? `Port ${h} → ${g}/${protocol} exposed — VM restarted to apply it`
-          : `Port ${h} → ${g}/${protocol} will be exposed on next start`,
-      )
+      toast.success(`Port ${h} → ${g}/${protocol} exposed`)
       setShowForm(false)
       setHostPort('')
       setGuestPort('22')
@@ -920,11 +913,6 @@ function PortForwardsSection({ vm, onUpdated }: { vm: VM; onUpdated: () => void 
               <option value="udp">UDP</option>
             </select>
           </div>
-          {vm.state === 'running' && (
-            <p className="text-xs text-amber-700/80">
-              This VM is running — adding a forward requires restarting it to apply.
-            </p>
-          )}
           {formError && <p className="text-[var(--zf-danger)] text-sm">{formError}</p>}
           <div className="flex gap-2">
             <button
@@ -967,16 +955,27 @@ function PortForwardsSection({ vm, onUpdated }: { vm: VM; onUpdated: () => void 
                   </span>
                 </td>
                 <td className="py-3 px-4 text-right">
-                  {canWrite && (
-                    <button
-                      onClick={() => handleRemove(f.host_port)}
-                      disabled={removingPort === f.host_port}
-                      title="Remove port forward"
-                      className="p-1.5 rounded-md text-[var(--zf-muted)] hover:text-[var(--zf-danger)] hover:bg-red-50 disabled:opacity-50 transition-colors"
-                    >
-                      <Trash2 className="w-3.5 h-3.5" />
-                    </button>
-                  )}
+                  <div className="flex items-center justify-end gap-1">
+                    {f.guest_port === 3389 && (
+                      <button
+                        onClick={() => downloadRdpFile(f.expose_host || window.location.hostname, f.host_port)}
+                        title="Download .rdp file"
+                        className="p-1.5 rounded-md text-[var(--zf-muted)] hover:text-[var(--zf-link)] hover:bg-black/[0.03] transition-colors"
+                      >
+                        <MonitorPlay className="w-3.5 h-3.5" />
+                      </button>
+                    )}
+                    {canWrite && (
+                      <button
+                        onClick={() => handleRemove(f.host_port)}
+                        disabled={removingPort === f.host_port}
+                        title="Remove port forward"
+                        className="p-1.5 rounded-md text-[var(--zf-muted)] hover:text-[var(--zf-danger)] hover:bg-red-50 disabled:opacity-50 transition-colors"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    )}
+                  </div>
                 </td>
               </tr>
             ))}

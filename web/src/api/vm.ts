@@ -7,6 +7,8 @@ export interface PortForwardSpec {
   host_port: number
   guest_port: number
   protocol: 'tcp' | 'udp'
+  /** Externally-reachable host for this forward (from ZORVIA_EXPOSE_HOST/HOST on the API pod). Only present on responses, never sent on create. */
+  expose_host?: string
 }
 
 export interface VM {
@@ -181,10 +183,9 @@ export async function getVMLogs(name: string, opts?: { lines?: number; grep?: st
 }
 
 /**
- * Expose a guest port on this VM's usermode networking. If the VM is
- * currently running, the backend destroys and relaunches it (usermode
- * networking can't add a forward live) -- expect this to take a few
- * seconds and briefly show the VM as starting again.
+ * Expose a guest port by creating a Kubernetes NodePort Service selecting the
+ * VM's virt-launcher pod. Takes effect immediately -- the VM/VMI itself is
+ * never touched, running or not.
  */
 export async function addPortForward(
   name: string,
@@ -198,8 +199,8 @@ export async function addPortForward(
 }
 
 /**
- * Stop exposing a previously-forwarded guest port. Same restart-on-running-VM
- * caveat as addPortForward -- usermode networking can't drop a forward live.
+ * Stop exposing a previously-forwarded guest port by deleting its NodePort
+ * Service. Same as addPortForward: no VM/VMI restart involved.
  */
 export async function removePortForward(name: string, hostPort: number): Promise<void> {
   return apiDelete(`${API_BASE}/vms/${name}/port-forwards/${hostPort}`)

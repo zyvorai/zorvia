@@ -2,10 +2,11 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { FormEvent, useCallback, useEffect, useMemo, useState } from 'react'
-import { MonitorCog, Play, RefreshCw, Square, Trash2, Camera, Plus } from 'lucide-react'
+import { MonitorCog, MonitorPlay, Play, RefreshCw, Square, Trash2, Camera, Plus } from 'lucide-react'
 import { PageHeader, StatusBadge } from '../components/ui'
 import ErrorBanner from '../components/ErrorBanner'
 import { formatUserError } from '../utils/apiError'
+import { downloadRdpFile } from '../utils/rdp'
 import {
   createKrytonMachine,
   deleteKrytonMachine,
@@ -204,6 +205,9 @@ export default function KrytonWindows() {
                           <button title="Stop" className="zf-btn zf-btn-ghost zf-btn-sm !px-2" disabled={actionBusy} onClick={() => void run(`${key}:stop`, () => stopKrytonMachine(key, machine.project))}><Square className="w-3.5 h-3.5" /></button>
                         )}
                         <button title="Snapshot" className="zf-btn zf-btn-ghost zf-btn-sm !px-2" disabled={actionBusy} onClick={() => void run(`${key}:snapshot`, () => snapshotKrytonMachine(key, machine.project))}><Camera className="w-3.5 h-3.5" /></button>
+                        {machine.rdpHost && (
+                          <button title="Download .rdp file" className="zf-btn zf-btn-ghost zf-btn-sm !px-2" onClick={() => downloadRdpFile(machine.rdpHost!, machine.rdpPort || 3389, machine.rdpUsername)}><MonitorPlay className="w-3.5 h-3.5" /></button>
+                        )}
                         <button title="Delete" className="zf-btn zf-btn-ghost zf-btn-sm !px-2 text-[var(--zf-danger)]" disabled={actionBusy} onClick={() => { if (window.confirm(`Delete ${machine.spec.name}?`)) void run(`${key}:delete`, () => deleteKrytonMachine(key, machine.project)) }}><Trash2 className="w-3.5 h-3.5" /></button>
                       </div></td>
                     </tr>

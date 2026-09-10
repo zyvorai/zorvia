@@ -32,7 +32,6 @@ pub mod performance;
 pub mod pods;
 pub mod quotas;
 pub mod rbac;
-pub mod rdp;
 pub mod recommendations;
 pub mod scheduling;
 pub mod security;
@@ -96,5 +95,4 @@ pub fn all_routes() -> axum::Router {
         .merge(custom_resources::router())
         .merge(chaos_engineering::router())
         .merge(slo::router())
-        .merge(rdp::router())
 }

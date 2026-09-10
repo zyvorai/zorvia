@@ -637,6 +637,7 @@ pub async fn fabric_add_port_forward(
                                     "host_port": p.host_port,
                                     "guest_port": p.guest_port,
                                     "protocol": p.protocol,
+                                    "expose_host": p.expose_host,
                                 }))
                                 .collect::<Vec<_>>()),
                         );
