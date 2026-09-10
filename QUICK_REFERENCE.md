@@ -86,6 +86,37 @@ VNC: `wss://HOST:30152/ws/vnc/myvm?token=$TOKEN`
 SSH: `wss://HOST:30152/ws/ssh/myvm?token=$TOKEN&user=ubuntu`  
 Expose: port-forwards API → NodePort (`ZORVIA_EXPOSE_HOST`). See `docs/WEB_CONSOLE.md`.
 
+### Hotplug, resize & migration (web console + API)
+```bash
+# Hotplug CPU / memory (needs cpu.maxSockets/memory.maxGuest headroom, set by default at create)
+curl -sk -X POST -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' \
+  -d '{"count":4}' https://HOST:30152/api/vms/myvm/hotplug/cpu
+curl -sk -X POST -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' \
+  -d '{"size_mb":1024}' https://HOST:30152/api/vms/myvm/hotplug/memory
+
+# Hotplug disk (bus defaults to scsi — KubeVirt requires it for hotplugged disks)
+curl -sk -X POST -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' \
+  -d '{"path":"my-pvc"}' https://HOST:30152/api/vms/myvm/hotplug/disk
+
+# Resize a PVC-backed disk (grow-only)
+curl -sk -X POST -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' \
+  -d '{"size":"50Gi"}' https://HOST:30152/api/vms/myvm/disks/rootdisk/resize
+
+# Live migration
+curl -sk -X POST -H "Authorization: Bearer $TOKEN" https://HOST:30152/api/vms/myvm/migrate
+open https://HOST:30152/app/migrations
+```
+See `docs/WEB_CONSOLE.md` for feature-gate requirements (CPU/memory hotplug needs KubeVirt `VMLiveUpdateFeatures`).
+
+### Rook-Ceph storage (web console + API)
+```bash
+open https://HOST:30152/app/storage
+curl -sk -X POST -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' \
+  -d '{"name":"mypool","replicated_size":3}' https://HOST:30152/api/storage/rook/pools
+curl -sk -X POST -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' \
+  -d '{"type":"rbd","name":"mysc","pool":"mypool"}' https://HOST:30152/api/storage/rook/storage-classes
+```
+
 ### Drift, plan & guest insight
 ```bash
 zorvia drift desired.yaml

@@ -9,6 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **VM hotplug** — CPU (`POST /api/vms/:name/hotplug/cpu`), memory (`…/hotplug/memory`), disk attach/detach (`…/hotplug/disk[/:id]`), NIC attach/detach (`…/hotplug/nic[/:id]`); web console Hotplug tab. Fabric `POST /api/vms` now sets `cpu.maxSockets`/`memory.maxGuest` headroom by default (4x sockets / 2x memory) so VMs created through the wizard are hotplug-capable without extra steps.
+- **Disk resize** — `POST /api/vms/:name/disks/:disk_name/resize` grows a PVC-backed disk in place; `GET /api/vms/:name/disks` lists disks with bus/source/resizable
+- **Live migration, for real** — `POST /api/vms/:name/migrate` creates a `VirtualMachineInstanceMigration`; `GET /api/vms/:name/migrations`, `GET/POST /api/migrations/:id[/cancel]`; `/app/migrations` rewritten around KubeVirt's actual migration phases (Pending → Scheduling → PreparingTarget → TargetReady → Running → Succeeded/Failed) — previously real at the kube-client layer but CLI-only, with a UI mockup that never routed
+- **VM creation feature parity** — `POST /api/vms` accepts the full `VMConfig` surface: CPU model, dedicated placement, isolate-emulator-thread, memory hugepages, firmware (BIOS/UEFI/secure boot), machine type, TPM/RNG, HyperV/ACPI/APIC features, multiple disks and NICs. Create VM wizard gained a collapsible Advanced Options step
+- **Rook-Ceph storage** — `src/rook`: typed CephCluster/CephBlockPool/CephFilesystem/CephObjectStore client, pinned-manifest operator bootstrap, StorageClass + VolumeSnapshotClass provisioning; `/api/storage/rook/*`; `/app/storage` page
+- **Kryton in the main wizard** — Create VM's Windows path now renders the live Kryton golden-image catalog and creates through `POST /api/v1/kryton/machines`, instead of requiring a separate flow; see [docs/KRYTON_INTEGRATION.md](docs/KRYTON_INTEGRATION.md)
 - **Live metrics graph** — metrics API returns a 30-point `history` ring; `ZORVIA_PROM_SAMPLES` overlays Prometheus text; console shows source
 - **Terraform module** — `terraform/modules/zorvia_vm` create/destroy via the Fabric API
 - **Guest ready wait** — create+start waits for Ready+IP; `zorvia wait-ready`; `POST /api/vms/:name/wait-ready`
@@ -52,6 +58,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Console WS auth** — in-cluster proxy uses SA `token_file` + cluster CA when dialing KubeVirt subresources
 
 ### Fixed
+
+#### Error Messages Hidden Behind Generic 500s
+Found while browser-testing VM creation and day-2 ops end-to-end against a real cluster: several handlers ran the generic `sanitize_error()` *before* their own classification logic, which collapsed Zorvia's own safe, structured error messages (e.g. `ZorviaError::VmExists`, `"VOLUME_NOT_FOUND: …"`, `"SHRINK_NOT_SUPPORTED: …"` — none start with `sanitize_error`'s allowed prefixes) down to a bare "Internal server error" before the classification checks ever saw the real text — so the classification always fell through to a generic 500.
+- **VM create name conflicts** — `POST /api/vms` now reports `409` with the real "VM 'x' already exists" message instead of a generic 500
+- **Disk resize failures** — `POST /api/vms/:name/disks/:name/resize` now reports `404`/`501`/`409` with the real reason instead of a generic 500
+- **`sanitize_error()` itself** — cut the "keep the first sentence" boundary at the first `": "`, which for kube-rs's `"ApiError: <reason>"` format meant *any* passthrough error was truncated to the literal word `"ApiError"` with zero detail; now cuts at sentence-end (`". "`), bounded to 500 chars
+- **NIC hotplug 404s** — `addinterface`/`removeinterface` unconditionally turned any 404 into "VM not found", including the case where the subresource route itself isn't registered on the cluster's KubeVirt version — now reports `501 UNSUPPORTED` for that case instead of falsely claiming a running VM doesn't exist
+- **vCPU count after hotplug** — every VM API response (list/get/hotplug) computed vCPU count from `domain.cpu.cores` alone; CPU hotplug raises `sockets`, not `cores`, so the reported count silently reverted to the pre-hotplug value forever after a successful hotplug. Now `cores * sockets * threads`
+
+#### Golden Image Downloads Were a No-Op
+`DownloadRegistry::start()` built the CDI DataVolume/DataSource manifests and reported "Completed" without ever calling the Kubernetes API — a VM "created" from a downloaded image would fail since nothing was ever imported. Now actually applies both objects; the `dv:`-prefixed image reference it previously returned (which nothing recognized) is now `datavolume:<name>`, handled by the Create VM disk-image parser. Also added an explicit `accessModes: [ReadWriteOnce]` to the DataVolume spec — CDI rejects the import with `ErrClaimNotValid` on any StorageClass without a StorageProfile access mode (e.g. k3s's built-in `local-path`).
 
 #### Crash Prevention
 - **Terminal cleanup on panic** - TUI now restores terminal state even if `app.run()` panics or errors

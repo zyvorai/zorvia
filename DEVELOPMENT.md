@@ -53,7 +53,10 @@ src/
 ├── multitenancy/       (tenants, RBAC, quotas)
 ├── api/                (REST API, OpenAPI, webhooks, http_server + SPA)
 ├── devexp/             (completions, config templates, diff, init)
-└── [12 more modules]   (networking, finops, edge, secrets, etc.)
+├── rook/               (Rook-Ceph CRD client, manifests, operator bootstrap, health)
+├── golden_images/      (CDI DataVolume/DataSource bundle generation + download jobs)
+├── kryton/             (Kryton Windows control-plane proxy client)
+└── [10 more modules]   (networking, finops, edge, secrets, etc.)
 ```
 
 ## Completed Features
@@ -95,9 +98,16 @@ src/
 - [x] Network interface management
 - [x] Traffic analysis and bandwidth monitoring
 - [x] Network policies (Kubernetes + Cilium)
-- [x] Live migration with progress tracking
+- [x] Live migration with progress tracking (CLI + `POST /api/vms/:name/migrate`, `/app/migrations`)
 - [x] HA configuration and failover
 - [x] Node evacuation planning
+
+### Day-2 Hotplug & Distributed Storage
+- [x] CPU/memory hotplug (`POST /api/vms/:name/hotplug/cpu|memory`) — requires cluster-side KubeVirt `VMLiveUpdateFeatures` to actually reach the running guest, not just Zorvia's API
+- [x] Disk hotplug attach/detach (`POST/DELETE /api/vms/:name/hotplug/disk[/:id]`), verified live end-to-end
+- [x] NIC hotplug attach/detach (`POST/DELETE /api/vms/:name/hotplug/nic[/:id]`), reports 501 when Multus/HotplugNICs unavailable
+- [x] Disk resize for PVC-backed disks (`POST /api/vms/:name/disks/:disk_name/resize`), grow-only
+- [x] Rook-Ceph: pools, filesystems, object stores, StorageClass/VolumeSnapshotClass provisioning, operator bootstrap (`/api/storage/rook/*`, `/app/storage`)
 
 ### Security & Compliance
 - [x] Vulnerability scanning (quick/standard/deep/compliance)
@@ -142,8 +152,9 @@ src/
 ### API & Interface
 - [x] REST API server with OpenAPI spec
 - [x] API key + JWT login (TOTP/OIDC/PAM hooks)
-- [x] Fabric-compatible `/api/vms` create, power, port-forwards, cloud-init, clone, snapshots
-- [x] Web SPA (`web/`) — Dashboard, VMs, Create VM, Console (serial+VNC), Snapshots
+- [x] Fabric-compatible `/api/vms` create, power, port-forwards, cloud-init, clone, snapshots, hotplug, disk resize, migration
+- [x] `/api/vms` create accepts the full CLI `VMConfig` surface (firmware, CPU model, hugepages, TPM/RNG, HyperV, multiple disks/NICs), not just the single-disk/NIC wizard defaults
+- [x] Web SPA (`web/`) — Dashboard, VMs, Create VM (Linux + Kryton Windows), Console (serial+VNC+SSH), Snapshots, Migrations, Storage (Rook-Ceph)
 - [x] Authenticated `/ws/console/:name` and `/ws/vnc/:name` KubeVirt proxies
 - [x] NodePort expose helpers (`src/kube/expose.rs`) for SSH/VNC/RDP
 - [x] In-cluster HTTPS NodePort 30152 (`deploy/k8s.yaml`)

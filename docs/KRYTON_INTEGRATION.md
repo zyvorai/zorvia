@@ -20,6 +20,12 @@ Kryton REST API
 
 The browser never receives `KRYTON_TOKEN`. This is deliberate: Zorvia owns user authentication and Kryton credentials remain a server secret.
 
+## Create VM wizard integration
+
+Windows isn't a separate page you have to know to look for — it's the "Windows" toggle in the main Create VM wizard (`/app/create`). Picking it swaps the Linux cloud-init/disk-image steps for a live Kryton golden-image catalog (`GET /api/v1/kryton/images`), and submitting calls `POST /api/v1/kryton/machines` directly instead of the KubeVirt-backed `/api/vms`. None of the KubeVirt-specific advanced options (firmware, CPU model, TPM, HyperV, …) apply to this path — Kryton owns the VM's actual virtualization layer (KubeVirt, dockur, or its own KubeVirt provider, depending on how it's configured). A successful create navigates to `/app/windows`, where the machine shows up in the same inventory used for lifecycle/snapshot management.
+
+If `KRYTON_URL` is unset, the Windows toggle still renders but shows a "Kryton not reachable" state instead of the catalog — the wizard doesn't hard-fail, it just can't create anything until Kryton is configured.
+
 ## Configuration
 
 Set these on the Zorvia API process:

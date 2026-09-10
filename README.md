@@ -74,10 +74,12 @@ open https://<HOST>:30152/app
 | Ship a stack | **5** blueprints (LAMP, 3-tier, k8s-cluster, CI/CD, dev-stack) |
 | Browser ops | Web console — create, power, console, expose, snapshots |
 | Reach the guest | Serial, VNC, in-browser SSH (authenticated WebSockets) |
+| Day-2 without downtime | Hotplug CPU/memory/disk/NIC, live migration, disk resize — CLI and web console |
 | Catch drift | `zorvia drift` + `zorvia plan` |
-| Golden library | quay.io containerdisks + CDI `image-bundle` |
+| Golden library | quay.io containerdisks + CDI `image-bundle`; web console download now applies real DataVolumes |
+| Distributed storage | Rook-Ceph pools/filesystems/object stores + StorageClass provisioning (`/app/storage`) |
 | GitOps | Terraform scaffold + module over the Fabric API |
-| Windows plane | Kryton proxy when `KRYTON_URL` is set (`/app/windows`) |
+| Windows plane | Full Create VM wizard support via Kryton when `KRYTON_URL` is set (`/app/create`, inventory at `/app/windows`) |
 
 No OpenShift tax. Same VirtualMachines from terminal or browser.
 
@@ -114,10 +116,12 @@ zorvia tui --interactive
 | Route | Purpose |
 |-------|---------|
 | `/app` | Dashboard |
-| `/app/create` | Linux (cloud-init) or Windows create |
-| `/app/vms/:name` | Power, port-forwards, cloud-init, snapshots |
+| `/app/create` | Linux (cloud-init) or Windows (Kryton golden images) create |
+| `/app/vms/:name` | Power, port-forwards, cloud-init, snapshots, hotplug, disk resize |
 | `/app/vms/:name/console` | Serial · VNC · SSH |
 | `/app/snapshots` | Snapshot browser |
+| `/app/migrations` | Live migration |
+| `/app/storage` | Rook-Ceph storage management |
 | `/app/windows` | Kryton Windows inventory (optional) |
 
 ```text

@@ -4,7 +4,7 @@
 
 | Doc | Topic |
 |-----|--------|
-| [WEB_CONSOLE.md](WEB_CONSOLE.md) | SPA, Fabric HTTP API, console/VNC/SSH WebSockets, NodePort expose |
+| [WEB_CONSOLE.md](WEB_CONSOLE.md) | SPA, Fabric HTTP API, console/VNC/SSH WebSockets, NodePort expose, hotplug, migration, Rook-Ceph storage |
 | [OS_TEMPLATES.md](OS_TEMPLATES.md) | 43 OS templates |
 | [INNOVATIVE_FEATURES.md](INNOVATIVE_FEATURES.md) | Profiles, blueprints, health, recommendations |
 | [THEME.md](THEME.md) | CLI/TUI theme |
@@ -32,7 +32,7 @@
 
 | Doc | Topic |
 |-----|--------|
-| [KRYTON_INTEGRATION.md](KRYTON_INTEGRATION.md) | Windows plane via Kryton (`/app/windows`) |
+| [KRYTON_INTEGRATION.md](KRYTON_INTEGRATION.md) | Windows via Kryton — Create VM wizard + inventory (`/app/windows`) |
 | [TERRAFORM.md](TERRAFORM.md) | Terraform scaffold + Fabric API module |
 
 ## TUI
