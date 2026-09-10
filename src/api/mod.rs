@@ -2,7 +2,6 @@ use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
-pub mod handlers;
 pub mod http_server;
 pub mod middleware;
 pub mod openapi;
