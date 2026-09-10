@@ -26,7 +26,7 @@ impl RetentionEnforcer {
         let mut deleted = Vec::new();
 
         // Sort by creation time, newest first
-        snapshots.sort_by(|a, b| b.created_at.cmp(&a.created_at));
+        snapshots.sort_by_key(|a| std::cmp::Reverse(a.created_at));
 
         // Track the actual remaining count across both enforcement loops
         let mut remaining_count = snapshots.len();
@@ -151,7 +151,7 @@ impl RetentionEnforcer {
         let mut would_delete = Vec::new();
 
         // Sort by creation time, newest first
-        snapshots.sort_by(|a, b| b.created_at.cmp(&a.created_at));
+        snapshots.sort_by_key(|a| std::cmp::Reverse(a.created_at));
 
         // Check max_snapshots policy
         if let Some(max_snapshots) = policy.max_snapshots {

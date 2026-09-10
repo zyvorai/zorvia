@@ -161,16 +161,30 @@ pub async fn handle_vm_metadata(
     Ok(())
 }
 
+/// Query parameters for [`handle_activity`], grouped to keep the function's
+/// argument count within clippy's `too_many_arguments` limit.
+pub struct ActivityQueryArgs {
+    pub all_namespaces: bool,
+    pub target: Option<String>,
+    pub severity: Option<String>,
+    pub kind: Option<String>,
+    pub limit: usize,
+    pub output: String,
+}
+
 pub async fn handle_activity(
-    all_namespaces: bool,
-    target: Option<String>,
-    severity: Option<String>,
-    kind: Option<String>,
-    limit: usize,
-    output: String,
+    args: ActivityQueryArgs,
     namespace: &str,
     kubeconfig: Option<&str>,
 ) -> Result<()> {
+    let ActivityQueryArgs {
+        all_namespaces,
+        target,
+        severity,
+        kind,
+        limit,
+        output,
+    } = args;
     let c = client(kubeconfig).await?;
     let events = if all_namespaces {
         Api::<Event>::all(c.client())

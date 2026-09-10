@@ -531,8 +531,8 @@ pub async fn oidc_callback_handler(
     }
 
     // Exchange code for tokens (best-effort; providers vary)
-    let client = match reqwest_client() {
-        Some(c) => c,
+    match reqwest_client() {
+        Some(()) => {}
         None => {
             // No reqwest: issue lab token for configured client (dev fallback)
             let uid = format!("oidc:{}", oidc.client_id);
@@ -545,8 +545,8 @@ pub async fn oidc_callback_handler(
                 Err(_) => err(StatusCode::INTERNAL_SERVER_ERROR, "Token error").into_response(),
             };
         }
-    };
-    let _ = (client, code, oidc);
+    }
+    let _ = (code, oidc);
     let uid = format!("oidc:{}", uuid::Uuid::new_v4());
     match auth.jwt.generate(&uid, "oidc-user", Role::User) {
         Ok(token) => axum::response::Redirect::temporary(&format!(

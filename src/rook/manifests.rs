@@ -357,17 +357,21 @@ mod tests {
 
     #[test]
     fn cluster_manifest_applies_device_filter() {
-        let mut spec = CephClusterSpec::default();
-        spec.use_all_devices = false;
-        spec.device_filter = Some("^sd[b-z]$".into());
+        let spec = CephClusterSpec {
+            use_all_devices: false,
+            device_filter: Some("^sd[b-z]$".into()),
+            ..Default::default()
+        };
         let m = ceph_cluster_manifest(&spec).unwrap();
         assert_eq!(m["spec"]["storage"]["deviceFilter"], "^sd[b-z]$");
     }
 
     #[test]
     fn cluster_manifest_rejects_bad_mon_count() {
-        let mut spec = CephClusterSpec::default();
-        spec.mon_count = 0;
+        let mut spec = CephClusterSpec {
+            mon_count: 0,
+            ..Default::default()
+        };
         assert!(ceph_cluster_manifest(&spec).is_err());
         spec.mon_count = 20;
         assert!(ceph_cluster_manifest(&spec).is_err());

@@ -307,7 +307,7 @@ impl TrafficAnalyzer {
 
         // Sort and take top N
         let mut talkers: Vec<TopTalker> = talker_map.into_values().collect();
-        talkers.sort_by(|a, b| b.total_bytes.cmp(&a.total_bytes));
+        talkers.sort_by_key(|a| std::cmp::Reverse(a.total_bytes));
         talkers.truncate(top_n);
         summary.top_talkers = talkers;
 

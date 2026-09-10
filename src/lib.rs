@@ -1130,12 +1130,14 @@ pub async fn run(mut cli: Cli) -> Result<()> {
             output,
         } => {
             handlers::vcenter::handle_activity(
-                all_namespaces,
-                target,
-                severity,
-                kind,
-                limit,
-                output,
+                handlers::vcenter::ActivityQueryArgs {
+                    all_namespaces,
+                    target,
+                    severity,
+                    kind,
+                    limit,
+                    output,
+                },
                 &cli.namespace,
                 cli.kubeconfig.as_deref(),
             )

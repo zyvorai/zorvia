@@ -161,7 +161,7 @@ impl PlacementAdvisor {
             + 20.0 / (n.vm_count as f64 + 1.0);
         if !w.preferred_zones.is_empty() {
             let zone = n.labels.get(&self.zone_label);
-            if zone.map_or(false, |z| w.preferred_zones.contains(z)) {
+            if zone.is_some_and(|z| w.preferred_zones.contains(z)) {
                 score += 10.0;
                 reasons.push(format!("preferred zone {}", zone.unwrap()));
             } else {
@@ -200,7 +200,7 @@ impl PlacementAdvisor {
         for w in workloads.iter().filter(|w| {
             w.current_node
                 .as_ref()
-                .map_or(false, |n| overloaded.contains(n))
+                .is_some_and(|n| overloaded.contains(n))
         }) {
             let from = w.current_node.clone().unwrap();
             let rec = self.recommend(w, nodes);

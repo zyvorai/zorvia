@@ -238,10 +238,10 @@ impl BandwidthMonitor {
                     .timestamp
                     .signed_duration_since(curr.timestamp)
                     .num_seconds() as u64;
-                if dur > 0 {
-                    let rx = next.rx_bytes.saturating_sub(curr.rx_bytes) / dur;
-                    let tx = next.tx_bytes.saturating_sub(curr.tx_bytes) / dur;
-
+                if let (Some(rx), Some(tx)) = (
+                    next.rx_bytes.saturating_sub(curr.rx_bytes).checked_div(dur),
+                    next.tx_bytes.saturating_sub(curr.tx_bytes).checked_div(dur),
+                ) {
                     peak_rx = std::cmp::max(peak_rx, rx);
                     peak_tx = std::cmp::max(peak_tx, tx);
                     sum_rx += rx;
@@ -251,8 +251,8 @@ impl BandwidthMonitor {
             }
         }
 
-        let avg_rx = if count > 0 { sum_rx / count } else { rx_rate };
-        let avg_tx = if count > 0 { sum_tx / count } else { tx_rate };
+        let avg_rx = sum_rx.checked_div(count).unwrap_or(rx_rate);
+        let avg_tx = sum_tx.checked_div(count).unwrap_or(tx_rate);
 
         Some(BandwidthStats {
             interface_name: self.interface_name.clone(),

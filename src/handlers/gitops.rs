@@ -236,27 +236,6 @@ fn truncate(value: &str, max_chars: usize) -> String {
     truncated
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn fail_threshold_accepts_none_and_levels() {
-        assert!(parse_fail_threshold("none").unwrap().is_none());
-        assert_eq!(
-            parse_fail_threshold("high").unwrap(),
-            Some(DriftSeverity::High)
-        );
-        assert!(parse_fail_threshold("banana").is_err());
-    }
-
-    #[test]
-    fn truncate_is_unicode_safe() {
-        assert_eq!(truncate("abcdef", 10), "abcdef");
-        assert_eq!(truncate("abcdef", 4), "abc…");
-        assert_eq!(truncate("αβγδε", 4), "αβγ…");
-    }
-}
 /// Build an operational execution plan from the same semantic comparison used by Drift Guard.
 #[allow(clippy::too_many_arguments)]
 pub async fn handle_change_plan(
@@ -420,5 +399,27 @@ fn print_plan_section(title: &str, items: &[String]) {
     println!("{}", color::label(&format!("{}:", title)));
     for item in items {
         println!("  - {}", item);
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn fail_threshold_accepts_none_and_levels() {
+        assert!(parse_fail_threshold("none").unwrap().is_none());
+        assert_eq!(
+            parse_fail_threshold("high").unwrap(),
+            Some(DriftSeverity::High)
+        );
+        assert!(parse_fail_threshold("banana").is_err());
+    }
+
+    #[test]
+    fn truncate_is_unicode_safe() {
+        assert_eq!(truncate("abcdef", 10), "abcdef");
+        assert_eq!(truncate("abcdef", 4), "abc…");
+        assert_eq!(truncate("αβγδε", 4), "αβγ…");
     }
 }

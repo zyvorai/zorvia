@@ -21,7 +21,10 @@ pub struct FabricCreateVmRequest {
     pub port_forwards: Option<Vec<FabricPortForward>>,
     #[serde(default)]
     pub network_tap: Option<bool>,
+    /// Accepted for forward-compat with the create-VM wizard's payload; not
+    /// yet wired into VM creation.
     #[serde(default)]
+    #[allow(dead_code)]
     pub network_static_ip: Option<bool>,
     #[serde(default)]
     pub tenant: Option<String>,
@@ -123,18 +126,26 @@ pub struct CloudInitPostBody {
     pub hostname: Option<String>,
     #[serde(default)]
     pub user_data: Option<String>,
+    /// Accepted from the cloud-init NoCloud seed request; only `user_data`
+    /// is applied today, meta-data/network-config are not yet templated in.
     #[serde(default)]
+    #[allow(dead_code)]
     pub meta_data: Option<serde_json::Value>,
     #[serde(default)]
+    #[allow(dead_code)]
     pub network_config: Option<serde_json::Value>,
 }
 
 #[derive(Debug, Deserialize)]
 pub struct CloneBody {
     pub target_name: String,
+    /// Accepted from the clone request; the current PVC-clone path always
+    /// clones the live disk state and doesn't yet distinguish these modes.
     #[serde(default)]
+    #[allow(dead_code)]
     pub include_snapshots: Option<bool>,
     #[serde(default)]
+    #[allow(dead_code)]
     pub linked_clone: Option<bool>,
     /// `cdi` (default) creates a CDI DataVolume from the source PVC.
     /// `empty` allocates a blank same-size PVC.

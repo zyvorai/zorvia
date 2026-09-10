@@ -1518,8 +1518,7 @@ fn test_cdi_clone_and_ssh_helpers() {
 }
 
 #[test]
-fn test_download_job_and_terraform_scaffold() {
-    use zorvia::golden_images::jobs::DownloadRegistry;
+fn test_catalog_and_terraform_scaffold() {
     use zorvia::kube::catalog::cloud_images_from_templates;
 
     let img = cloud_images_from_templates()
@@ -1528,11 +1527,6 @@ fn test_download_job_and_terraform_scaffold() {
         .unwrap();
     assert!(!img.url.is_empty());
     assert!(!img.distro.is_empty());
-
-    let job = DownloadRegistry::global()
-        .start(&img.path, "default")
-        .expect("download job");
-    assert!(job.output_path.unwrap().starts_with("dv:"));
 
     let tf = zorvia::terraform::example_main_tf("https://lab:30152");
     assert!(tf.contains("POST"));
@@ -1544,6 +1538,30 @@ fn test_download_job_and_terraform_scaffold() {
         .as_str()
         .unwrap()
         .contains("pause"));
+}
+
+/// `DownloadRegistry::start` now applies a real DataVolume via `KubeClient`
+/// (previously it only built manifests without creating anything -- see
+/// src/golden_images/jobs.rs), so exercising it needs a reachable KubeVirt
+/// cluster. Not something CI's fmt/clippy/test job has.
+#[tokio::test]
+#[ignore = "requires a live KubeVirt cluster"]
+async fn test_download_job_applies_data_volume() {
+    use zorvia::golden_images::jobs::DownloadRegistry;
+    use zorvia::kube::catalog::cloud_images_from_templates;
+    use zorvia::kube::KubeClient;
+
+    let img = cloud_images_from_templates()
+        .into_iter()
+        .find(|i| i.path.contains("ubuntu"))
+        .unwrap();
+
+    let client = KubeClient::new().await.expect("kube client");
+    let job = DownloadRegistry::global()
+        .start(&img.path, "default", &client)
+        .await
+        .expect("download job");
+    assert!(job.output_path.unwrap().starts_with("dv:"));
 }
 
 #[test]

@@ -200,7 +200,7 @@ impl RetentionPolicy {
 
         // Sort by date descending
         let mut sorted: Vec<_> = backups.to_vec();
-        sorted.sort_by(|a, b| b.1.cmp(&a.1));
+        sorted.sort_by_key(|a| std::cmp::Reverse(a.1));
 
         // Keep by max_age_days
         if let Some(max_days) = self.max_age_days {

@@ -260,7 +260,7 @@ impl PerformanceAnalyzer {
             })
             .collect();
 
-        comparison.sort_by(|a, b| b.1.cmp(&a.1)); // Sort by score descending
+        comparison.sort_by_key(|a| std::cmp::Reverse(a.1)); // Sort by score descending
         comparison
     }
 }

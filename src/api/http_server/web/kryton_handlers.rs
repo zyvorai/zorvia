@@ -68,19 +68,21 @@ fn error_response(error: KrytonError) -> Response {
     }
 }
 
-async fn client(state: &SharedState) -> Result<Client, Response> {
+async fn client(state: &SharedState) -> Result<Client, Box<Response>> {
     state.read().await.kryton.clone().ok_or_else(|| {
-        (
-            StatusCode::SERVICE_UNAVAILABLE,
-            Json(serde_json::json!({
-                "success": false,
-                "error": {
-                    "code": "KRYTON_DISABLED",
-                    "message": "Kryton integration is disabled; configure KRYTON_URL on the Zorvia server"
-                }
-            })),
+        Box::new(
+            (
+                StatusCode::SERVICE_UNAVAILABLE,
+                Json(serde_json::json!({
+                    "success": false,
+                    "error": {
+                        "code": "KRYTON_DISABLED",
+                        "message": "Kryton integration is disabled; configure KRYTON_URL on the Zorvia server"
+                    }
+                })),
+            )
+                .into_response(),
         )
-            .into_response()
     })
 }
 
@@ -120,7 +122,7 @@ pub(super) async fn kryton_status(State(state): State<SharedState>) -> Response 
 pub(super) async fn kryton_capabilities(State(state): State<SharedState>) -> Response {
     let c = match client(&state).await {
         Ok(v) => v,
-        Err(r) => return r,
+        Err(r) => return *r,
     };
     match c.capabilities().await {
         Ok(v) => Json(v).into_response(),
@@ -131,7 +133,7 @@ pub(super) async fn kryton_capabilities(State(state): State<SharedState>) -> Res
 pub(super) async fn kryton_doctor(State(state): State<SharedState>) -> Response {
     let c = match client(&state).await {
         Ok(v) => v,
-        Err(r) => return r,
+        Err(r) => return *r,
     };
     match c.doctor().await {
         Ok(v) => Json(v).into_response(),
@@ -142,7 +144,7 @@ pub(super) async fn kryton_doctor(State(state): State<SharedState>) -> Response 
 pub(super) async fn kryton_images(State(state): State<SharedState>) -> Response {
     let c = match client(&state).await {
         Ok(v) => v,
-        Err(r) => return r,
+        Err(r) => return *r,
     };
     match c.images().await {
         Ok(v) => Json(v).into_response(),
@@ -156,7 +158,7 @@ pub(super) async fn kryton_summary(
 ) -> Response {
     let c = match client(&state).await {
         Ok(v) => v,
-        Err(r) => return r,
+        Err(r) => return *r,
     };
     match c.summary(query.project.as_deref()).await {
         Ok(v) => Json(v).into_response(),
@@ -170,7 +172,7 @@ pub(super) async fn kryton_list_machines(
 ) -> Response {
     let c = match client(&state).await {
         Ok(v) => v,
-        Err(r) => return r,
+        Err(r) => return *r,
     };
     match c
         .machines(
@@ -192,7 +194,7 @@ pub(super) async fn kryton_get_machine(
 ) -> Response {
     let c = match client(&state).await {
         Ok(v) => v,
-        Err(r) => return r,
+        Err(r) => return *r,
     };
     match c.machine(&id, query.project.as_deref()).await {
         Ok(v) => Json(v).into_response(),
@@ -206,7 +208,7 @@ pub(super) async fn kryton_create_machine(
 ) -> Response {
     let c = match client(&state).await {
         Ok(v) => v,
-        Err(r) => return r,
+        Err(r) => return *r,
     };
     match c.create(body).await {
         Ok(v) => (StatusCode::CREATED, Json(v)).into_response(),
@@ -221,7 +223,7 @@ pub(super) async fn kryton_start_machine(
 ) -> Response {
     let c = match client(&state).await {
         Ok(v) => v,
-        Err(r) => return r,
+        Err(r) => return *r,
     };
     match c.start(&id, query.project.as_deref()).await {
         Ok(v) => Json(v).into_response(),
@@ -236,7 +238,7 @@ pub(super) async fn kryton_stop_machine(
 ) -> Response {
     let c = match client(&state).await {
         Ok(v) => v,
-        Err(r) => return r,
+        Err(r) => return *r,
     };
     match c.stop(&id, query.project.as_deref()).await {
         Ok(v) => Json(v).into_response(),
@@ -251,7 +253,7 @@ pub(super) async fn kryton_delete_machine(
 ) -> Response {
     let c = match client(&state).await {
         Ok(v) => v,
-        Err(r) => return r,
+        Err(r) => return *r,
     };
     match c.delete(&id, query.project.as_deref()).await {
         Ok(()) => StatusCode::NO_CONTENT.into_response(),
@@ -267,7 +269,7 @@ pub(super) async fn kryton_snapshot_machine(
 ) -> Response {
     let c = match client(&state).await {
         Ok(v) => v,
-        Err(r) => return r,
+        Err(r) => return *r,
     };
     match c.snapshot(&id, query.project.as_deref(), body.name).await {
         Ok(v) => (StatusCode::CREATED, Json(v)).into_response(),
@@ -282,7 +284,7 @@ pub(super) async fn kryton_list_snapshots(
 ) -> Response {
     let c = match client(&state).await {
         Ok(v) => v,
-        Err(r) => return r,
+        Err(r) => return *r,
     };
     match c.snapshots(&id, query.project.as_deref()).await {
         Ok(v) => Json(v).into_response(),
@@ -297,7 +299,7 @@ pub(super) async fn kryton_restore_snapshot(
 ) -> Response {
     let c = match client(&state).await {
         Ok(v) => v,
-        Err(r) => return r,
+        Err(r) => return *r,
     };
     match c
         .restore_snapshot(&id, &sid, query.project.as_deref())
@@ -315,7 +317,7 @@ pub(super) async fn kryton_delete_snapshot(
 ) -> Response {
     let c = match client(&state).await {
         Ok(v) => v,
-        Err(r) => return r,
+        Err(r) => return *r,
     };
     match c.delete_snapshot(&id, &sid, query.project.as_deref()).await {
         Ok(()) => StatusCode::NO_CONTENT.into_response(),
