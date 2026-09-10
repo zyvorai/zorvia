@@ -1,0 +1,169 @@
+//! Fabric-compat CPU/memory/disk/NIC hotplug for running VMs.
+//!
+//! The request field names (`count`, `size_mb`, `path`, `bus`, `bridge`,
+//! `model`) match `web/src/api/hotplug.ts` exactly — the frontend contract is
+//! unchanged. `path`/`bridge` are reinterpreted server-side as the target
+//! PVC/DataVolume name and Multus NetworkAttachmentDefinition name
+//! respectively, since that is what KubeVirt's addvolume/addinterface
+//! subresources actually take (not a filesystem path or bridge device).
+
+use super::*;
+use axum::extract::Json as AxumJson;
+use serde_json::json;
+
+#[derive(Debug, Deserialize)]
+pub struct HotplugCpuBody {
+    pub count: u32,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct HotplugMemoryBody {
+    pub size_mb: u64,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct HotplugDiskBody {
+    pub path: String,
+    #[serde(default)]
+    pub bus: Option<String>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct HotplugNicBody {
+    pub bridge: String,
+    #[serde(default)]
+    #[allow(dead_code)]
+    pub model: Option<String>,
+}
+
+fn hotplug_error_response(action: &str, e: impl std::fmt::Display) -> axum::response::Response {
+    // classify_hotplug_error is itself the sanitizer here — it inspects the
+    // raw error text and returns an already-safe message. Running the
+    // generic sanitize_error() first would collapse our own structured
+    // errors (which don't start with kube-rs's "ApiError" prefix) to
+    // "Internal server error" before classify_hotplug_error ever sees them.
+    let raw = e.to_string();
+    let (code, kind, msg) = crate::kube::lifecycle::classify_hotplug_error(action, &raw);
+    let (st, j) = err_json(code, kind, &msg);
+    (st, j).into_response()
+}
+
+pub async fn fabric_hotplug_cpu(
+    State(state): State<SharedState>,
+    Path(name): Path<String>,
+    AxumJson(body): AxumJson<HotplugCpuBody>,
+) -> impl IntoResponse {
+    let s = state.read().await;
+    let namespace = s.namespace.clone();
+    let client = s.client();
+    drop(s);
+    match client.hotplug_cpu(&namespace, &name, body.count).await {
+        Ok(vm) => Json(fabric_vm_json(&VmInfo::from_vm_with_ip(&vm, None))).into_response(),
+        Err(e) => hotplug_error_response("hotplug CPU", e),
+    }
+}
+
+pub async fn fabric_hotplug_memory(
+    State(state): State<SharedState>,
+    Path(name): Path<String>,
+    AxumJson(body): AxumJson<HotplugMemoryBody>,
+) -> impl IntoResponse {
+    let s = state.read().await;
+    let namespace = s.namespace.clone();
+    let client = s.client();
+    drop(s);
+
+    let current_mib = match client.get_vm(&namespace, &name).await {
+        Ok(vm) => vm
+            .spec
+            .template
+            .spec
+            .domain
+            .memory
+            .as_ref()
+            .and_then(|m| m.guest.as_deref())
+            .and_then(crate::storage::parse_size_to_bytes)
+            .map(|b| b / (1024 * 1024))
+            .unwrap_or(0),
+        Err(e) => return hotplug_error_response("hotplug memory", e),
+    };
+    let target_mib = current_mib.saturating_add(body.size_mb);
+    let target = if target_mib >= 1024 && target_mib % 1024 == 0 {
+        format!("{}Gi", target_mib / 1024)
+    } else {
+        format!("{target_mib}Mi")
+    };
+
+    match client.hotplug_memory(&namespace, &name, &target).await {
+        Ok(vm) => Json(fabric_vm_json(&VmInfo::from_vm_with_ip(&vm, None))).into_response(),
+        Err(e) => hotplug_error_response("hotplug memory", e),
+    }
+}
+
+pub async fn fabric_hotplug_disk(
+    State(state): State<SharedState>,
+    Path(name): Path<String>,
+    AxumJson(body): AxumJson<HotplugDiskBody>,
+) -> impl IntoResponse {
+    let s = state.read().await;
+    let namespace = s.namespace.clone();
+    let client = s.client();
+    drop(s);
+
+    let volume_name = format!("hotplug-{}", body.path.trim().trim_start_matches('/').replace('/', "-"));
+    match client
+        .add_volume(&namespace, &name, &volume_name, body.path.trim(), body.bus.as_deref(), false)
+        .await
+    {
+        Ok(()) => Json(json!({ "device_id": volume_name, "claim": body.path })).into_response(),
+        Err(e) => hotplug_error_response("hotplug disk", e),
+    }
+}
+
+pub async fn fabric_hotunplug_disk(
+    State(state): State<SharedState>,
+    Path((name, device_id)): Path<(String, String)>,
+) -> impl IntoResponse {
+    let s = state.read().await;
+    let namespace = s.namespace.clone();
+    let client = s.client();
+    drop(s);
+    match client.remove_volume(&namespace, &name, &device_id).await {
+        Ok(()) => StatusCode::NO_CONTENT.into_response(),
+        Err(e) => hotplug_error_response("hot-remove disk", e),
+    }
+}
+
+pub async fn fabric_hotplug_nic(
+    State(state): State<SharedState>,
+    Path(name): Path<String>,
+    AxumJson(body): AxumJson<HotplugNicBody>,
+) -> impl IntoResponse {
+    let s = state.read().await;
+    let namespace = s.namespace.clone();
+    let client = s.client();
+    drop(s);
+
+    let iface_name = format!("hotplug-{}", body.bridge.trim());
+    match client
+        .add_interface(&namespace, &name, &iface_name, body.bridge.trim())
+        .await
+    {
+        Ok(()) => Json(json!({ "device_id": iface_name, "network": body.bridge })).into_response(),
+        Err(e) => hotplug_error_response("hotplug NIC", e),
+    }
+}
+
+pub async fn fabric_hotunplug_nic(
+    State(state): State<SharedState>,
+    Path((name, device_id)): Path<(String, String)>,
+) -> impl IntoResponse {
+    let s = state.read().await;
+    let namespace = s.namespace.clone();
+    let client = s.client();
+    drop(s);
+    match client.remove_interface(&namespace, &name, &device_id).await {
+        Ok(()) => StatusCode::NO_CONTENT.into_response(),
+        Err(e) => hotplug_error_response("hot-remove NIC", e),
+    }
+}

@@ -253,7 +253,7 @@ _ssh "
     elif command -v podman >/dev/null 2>&1; then
         BUILDER=podman
     fi
-    if [ -n "$BUILDER" ] && [ -x target/release/zorvia ]; then
+    if [ -n \"\$BUILDER\" ] && [ -x target/release/zorvia ]; then
         mkdir -p /tmp/zorvia-img/web
         cp -f target/release/zorvia /tmp/zorvia-img/zorvia
         cp -f deploy/Dockerfile.local /tmp/zorvia-img/Dockerfile
@@ -267,14 +267,14 @@ _ssh "
             echo 'web UI: placeholder (web/dist missing)'
         fi
         # Podman often tags as localhost/zorvia:local — normalize for imagePullPolicy: Never
-        $SUDO "$BUILDER" build -t zorvia:local /tmp/zorvia-img
-        $SUDO "$BUILDER" save zorvia:local | $SUDO k3s ctr images import - 2>/dev/null \
-          || $SUDO "$BUILDER" save zorvia:local | $SUDO ctr -n k8s.io images import - 2>/dev/null \
+        $SUDO \"\$BUILDER\" build -t zorvia:local /tmp/zorvia-img
+        $SUDO \"\$BUILDER\" save zorvia:local | $SUDO k3s ctr images import - 2>/dev/null \
+          || $SUDO \"\$BUILDER\" save zorvia:local | $SUDO ctr -n k8s.io images import - 2>/dev/null \
           || true
         $SUDO k3s ctr images tag zorvia:local docker.io/library/zorvia:local 2>/dev/null || true
         $SUDO k3s ctr images tag localhost/zorvia:local zorvia:local 2>/dev/null || true
         $SUDO k3s ctr images tag localhost/zorvia:local docker.io/library/zorvia:local 2>/dev/null || true
-        echo "image: zorvia:local built/imported via $BUILDER"
+        echo \"image: zorvia:local built/imported via \$BUILDER\"
         $SUDO kubectl -n zorvia-system rollout restart deployment/zorvia-api 2>/dev/null || true
     else
         echo 'docker/podman/binary missing; using existing zorvia:local if present'

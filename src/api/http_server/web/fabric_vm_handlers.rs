@@ -1,7 +1,10 @@
 //! Fabric-compat VM create / images / port-forwards / cloud-init / clone / metrics.
 
 use super::*;
-use crate::config::{validate_vm_config, VMConfigBuilder};
+use crate::config::{
+    validate_vm_config, DiskConfig, FeaturesConfig, FirmwareConfig, InterfaceConfig,
+    VMConfigBuilder,
+};
 use crate::snapshots::{SnapshotConfig, SnapshotManager};
 use axum::extract::Json as AxumJson;
 use serde_json::json;
@@ -36,6 +39,54 @@ pub struct FabricCreateVmRequest {
     pub expose_rdp: Option<bool>,
     #[serde(default)]
     pub start: Option<bool>,
+    /// Maximum socket count this VM can be CPU-hotplugged up to. Defaults to
+    /// 4x the initial socket count when unset. Must be declared at create
+    /// time since KubeVirt cannot raise it later.
+    #[serde(default)]
+    pub cpu_max_sockets: Option<u32>,
+    /// Maximum guest memory (MiB) this VM can be memory-hotplugged up to.
+    /// Defaults to 2x the initial memory when unset.
+    #[serde(default)]
+    pub memory_max_guest_mb: Option<u64>,
+
+    // ── Advanced (Phase 2): full VMConfig surface, all optional ──
+    /// CPU model (e.g. "host-passthrough", "Haswell").
+    #[serde(default)]
+    pub cpu_model: Option<String>,
+    /// Pin vCPUs to physical CPUs for latency-sensitive workloads.
+    #[serde(default)]
+    pub cpu_dedicated_placement: Option<bool>,
+    /// Isolate the QEMU emulator thread from vCPU threads.
+    #[serde(default)]
+    pub cpu_isolate_emulator_thread: Option<bool>,
+    /// Hugepages page size (e.g. "2Mi", "1Gi").
+    #[serde(default)]
+    pub memory_hugepages_page_size: Option<String>,
+    /// Firmware/bootloader: `{"bootloader": "bios"}` or
+    /// `{"bootloader": {"efi": {"secure_boot": true, "persistent": true}}}`.
+    #[serde(default)]
+    pub firmware: Option<FirmwareConfig>,
+    /// Domain features: ACPI/APIC/HyperV enlightenments/SMM.
+    #[serde(default)]
+    pub features: Option<FeaturesConfig>,
+    /// Machine type (e.g. "q35").
+    #[serde(default)]
+    pub machine_type: Option<String>,
+    /// Attach a TPM 2.0 device.
+    #[serde(default)]
+    pub enable_tpm: Option<bool>,
+    /// Attach a virtio-rng device.
+    #[serde(default)]
+    pub enable_rng: Option<bool>,
+    /// Full disk list, overriding the single-disk `image`/`disk` shorthand
+    /// when present. Each entry matches `VMConfig`'s `DiskConfig` JSON shape
+    /// (the same shape the CLI's `--from-file` accepts).
+    #[serde(default)]
+    pub disks: Option<Vec<DiskConfig>>,
+    /// Full interface list, overriding the single-NIC `network_tap` shorthand
+    /// when present. Each entry matches `VMConfig`'s `InterfaceConfig` shape.
+    #[serde(default)]
+    pub interfaces: Option<Vec<InterfaceConfig>>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -321,28 +372,71 @@ pub async fn fabric_create_vm(
     let mem = memory_to_kube(req.memory.max(256));
     let cpus = req.cpus.max(1);
 
+    let max_sockets = req.cpu_max_sockets.unwrap_or_else(|| cpus.saturating_mul(4)).max(1);
+    let max_guest_mib = req.memory_max_guest_mb.unwrap_or(req.memory.max(256) * 2);
+
     let mut builder = VMConfigBuilder::new(&req.name)
         .namespace(&namespace)
         .cpu(cpus, 1, 1)
-        .memory(&mem);
+        .cpu_max_sockets(max_sockets)
+        .memory(&mem)
+        .max_guest_memory(memory_to_kube(max_guest_mib));
 
-    let image = req.image.trim();
-    if image.is_empty() || image.starts_with("blank:") {
-        let size = image
-            .strip_prefix("blank:")
-            .unwrap_or(&disk_size)
-            .to_string();
-        builder = builder.add_blank_disk("rootdisk", size, 1);
-    } else if let Some(pvc) = image.strip_prefix("pvc:") {
-        builder = builder.add_pvc_disk("rootdisk", pvc, &disk_size, 1);
-    } else if image.contains('/') || image.contains(':') {
-        // OCI containerdisk reference
-        builder = builder.add_container_disk("rootdisk", image, 1);
-    } else {
-        builder = builder.add_blank_disk("rootdisk", &disk_size, 1);
+    if let Some(model) = &req.cpu_model {
+        builder = builder.cpu_model(model);
+    }
+    if let Some(dedicated) = req.cpu_dedicated_placement {
+        builder = builder.dedicated_cpu_placement(dedicated);
+    }
+    if let Some(isolate) = req.cpu_isolate_emulator_thread {
+        builder = builder.isolate_emulator_thread(isolate);
+    }
+    if let Some(page_size) = &req.memory_hugepages_page_size {
+        builder = builder.hugepages(page_size);
+    }
+    if let Some(machine_type) = &req.machine_type {
+        builder = builder.machine_type(machine_type);
+    }
+    if let Some(firmware) = req.firmware.clone() {
+        builder = builder.firmware(firmware);
+    }
+    if let Some(features) = req.features.clone() {
+        builder = builder.features(features);
+    }
+    if req.enable_tpm.unwrap_or(false) {
+        builder = builder.enable_tpm();
+    }
+    if req.enable_rng.unwrap_or(false) {
+        builder = builder.enable_rng();
     }
 
-    if req.network_tap.unwrap_or(false) {
+    if let Some(disks) = req.disks.clone().filter(|d| !d.is_empty()) {
+        for disk in disks {
+            builder = builder.add_disk(disk);
+        }
+    } else {
+        let image = req.image.trim();
+        if image.is_empty() || image.starts_with("blank:") {
+            let size = image
+                .strip_prefix("blank:")
+                .unwrap_or(&disk_size)
+                .to_string();
+            builder = builder.add_blank_disk("rootdisk", size, 1);
+        } else if let Some(pvc) = image.strip_prefix("pvc:") {
+            builder = builder.add_pvc_disk("rootdisk", pvc, &disk_size, 1);
+        } else if image.contains('/') || image.contains(':') {
+            // OCI containerdisk reference
+            builder = builder.add_container_disk("rootdisk", image, 1);
+        } else {
+            builder = builder.add_blank_disk("rootdisk", &disk_size, 1);
+        }
+    }
+
+    if let Some(interfaces) = req.interfaces.clone().filter(|i| !i.is_empty()) {
+        for iface in interfaces {
+            builder = builder.add_interface(iface);
+        }
+    } else if req.network_tap.unwrap_or(false) {
         builder = builder.add_bridge_network("default");
     } else {
         builder = builder.add_pod_network("default");
@@ -1117,7 +1211,12 @@ pub async fn fabric_pause_vm(
     match client.pause_vm(&namespace, &name).await {
         Ok(()) => StatusCode::NO_CONTENT.into_response(),
         Err(e) => {
-            let raw = sanitize_error(&e);
+            // classify_lifecycle_error is the sanitizer here; it needs raw
+            // error text (sanitize_error() first would collapse our own
+            // ZorviaError::VmNotFound — "VM '...' not found", not prefixed
+            // with any of sanitize_error's allowed prefixes — to a generic
+            // "Internal server error" before classification ever runs).
+            let raw = e.to_string();
             let (code, kind, msg) = crate::kube::lifecycle::classify_lifecycle_error("pause", &raw);
             let (st, j) = err_json(code, kind, &msg);
             (st, j).into_response()
@@ -1135,7 +1234,7 @@ pub async fn fabric_resume_vm(
     match client.resume_vm(&namespace, &name).await {
         Ok(()) => StatusCode::NO_CONTENT.into_response(),
         Err(e) => {
-            let raw = sanitize_error(&e);
+            let raw = e.to_string();
             let (code, kind, msg) = crate::kube::lifecycle::classify_lifecycle_error("resume", &raw);
             let (st, j) = err_json(code, kind, &msg);
             (st, j).into_response()

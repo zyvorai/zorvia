@@ -4,6 +4,7 @@
 import { useEffect, useState, useCallback, useRef, useMemo } from 'react'
 import { useParams, useNavigate, Link } from 'react-router'
 import { getVM, getMetrics, deleteVM, addPortForward, removePortForward, getVMLogs, VM, VMMetrics, VMLogEntry } from '../api/vm'
+import { listDisks, resizeDisk, listInterfaces, VmDisk, VmInterface } from '../api/diskNetwork'
 import { listSnapshots, createSnapshotWithRetry, deleteSnapshot, revertSnapshot, VMSnapshot } from '../api/snapshots'
 import { listAuditLogs, AuditLog } from '../api/audit'
 import {
@@ -540,26 +541,44 @@ function MetricStat({ label, value, color }: { label: string; value: string; col
 }
 
 function DisksTab({ vm }: { vm: VM }) {
-  const rootImage = vm.image
-  const format = rootImage?.endsWith('.raw') ? 'raw' : rootImage?.endsWith('.qcow2') ? 'qcow2' : 'image'
+  const toast = useToastContext()
+  const { canWrite } = usePermissions()
+  const [disks, setDisks] = useState<VmDisk[] | null>(null)
+  const [loadError, setLoadError] = useState<string | null>(null)
+  const [resizeTarget, setResizeTarget] = useState<VmDisk | null>(null)
+  const [resizing, setResizing] = useState(false)
 
-  const disks: { name: string; path: string; size: string; format: string; bus: string }[] = []
+  const load = useCallback(() => {
+    listDisks(vm.name)
+      .then(setDisks)
+      .catch((e) => {
+        setLoadError(formatUserError(e))
+        setDisks([])
+      })
+  }, [vm.name])
 
-  if (rootImage) {
-    disks.push({
-      name: 'vda',
-      path: rootImage,
-      size: '--',
-      format,
-      bus: 'virtio',
-    })
+  useEffect(() => {
+    setDisks(null)
+    setLoadError(null)
+    load()
+  }, [load])
+
+  if (disks === null) {
+    return (
+      <div className="zf-panel p-8 text-center text-sm text-[var(--zf-muted)]">
+        <Loader2 className="w-6 h-6 mx-auto mb-2 animate-spin" />
+        Loading disks…
+      </div>
+    )
   }
 
   if (disks.length === 0) {
     return (
       <div className="zf-panel p-8 text-center">
         <HardDrive className="w-10 h-10 text-[var(--zf-muted)] mx-auto mb-3" />
-        <p className="text-[var(--zf-muted)] text-sm">No disk information available</p>
+        <p className="text-[var(--zf-muted)] text-sm">
+          {loadError ? `Could not load disks: ${loadError}` : 'No disk information available'}
+        </p>
       </div>
     )
   }
@@ -570,28 +589,102 @@ function DisksTab({ vm }: { vm: VM }) {
         <thead>
           <tr className="text-left text-xs font-medium text-[var(--zf-muted)] uppercase tracking-wider border-b border-[var(--zf-hairline)]">
             <th className="py-3 px-5">Device</th>
-            <th className="py-3 px-4">Path</th>
+            <th className="py-3 px-4">Source</th>
             <th className="py-3 px-4">Size</th>
-            <th className="py-3 px-4">Format</th>
+            <th className="py-3 px-4">Type</th>
             <th className="py-3 px-4">Bus</th>
+            <th className="py-3 px-4"></th>
           </tr>
         </thead>
         <tbody>
           {disks.map((disk) => (
             <tr key={disk.name} className="border-t border-[var(--zf-hairline)]/50 hover:bg-black/[0.03] transition-colors">
               <td className="py-3 px-5 font-medium text-[var(--zf-ink)]">{disk.name}</td>
-              <td className="py-3 px-4 font-mono text-xs text-[var(--zf-muted)] max-w-[300px] truncate">{disk.path}</td>
-              <td className="py-3 px-4 text-[var(--zf-muted)]">{disk.size}</td>
+              <td className="py-3 px-4 text-[var(--zf-muted)]">{disk.source}</td>
+              <td className="py-3 px-4 text-[var(--zf-muted)]">{disk.size ?? '--'}</td>
               <td className="py-3 px-4">
                 <span className="px-2 py-0.5 text-[11px] font-medium rounded text-[var(--zf-muted)] bg-[var(--zf-canvas)] border border-[var(--zf-hairline)]">
-                  {disk.format.toUpperCase()}
+                  {disk.device_type.toUpperCase()}
                 </span>
               </td>
-              <td className="py-3 px-4 text-[var(--zf-muted)]">{disk.bus}</td>
+              <td className="py-3 px-4 text-[var(--zf-muted)]">{disk.bus ?? '--'}</td>
+              <td className="py-3 px-4 text-right">
+                {disk.resizable && canWrite && (
+                  <button
+                    type="button"
+                    onClick={() => setResizeTarget(disk)}
+                    className="zf-btn zf-btn-ghost zf-btn-sm"
+                  >
+                    Resize
+                  </button>
+                )}
+              </td>
             </tr>
           ))}
         </tbody>
       </table>
+      {resizeTarget && (
+        <ResizeDiskDialog
+          disk={resizeTarget}
+          busy={resizing}
+          onClose={() => setResizeTarget(null)}
+          onSubmit={async (size) => {
+            setResizing(true)
+            try {
+              await resizeDisk(vm.name, resizeTarget.name, size)
+              toast.success(`Disk '${resizeTarget.name}' resize requested`)
+              setResizeTarget(null)
+              load()
+            } catch (e) {
+              toastFailure(toast, 'Failed to resize disk', e)
+            } finally {
+              setResizing(false)
+            }
+          }}
+        />
+      )}
+    </div>
+  )
+}
+
+function ResizeDiskDialog({
+  disk,
+  busy,
+  onClose,
+  onSubmit,
+}: {
+  disk: VmDisk
+  busy: boolean
+  onClose: () => void
+  onSubmit: (size: string) => void
+}) {
+  const [size, setSize] = useState('')
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
+      <div className="bg-[var(--zf-surface)] rounded-lg border border-[var(--zf-hairline)] w-full max-w-sm p-6 space-y-4">
+        <h3 className="text-lg font-bold text-[var(--zf-ink)]">Resize '{disk.name}'</h3>
+        <p className="text-sm text-[var(--zf-muted)]">Current size: {disk.size ?? 'unknown'}. Storage can only grow, never shrink.</p>
+        <input
+          type="text"
+          value={size}
+          onChange={(e) => setSize(e.target.value)}
+          placeholder="e.g. 40Gi"
+          className="w-full px-3 py-2 bg-white border border-[var(--zf-hairline)] rounded-lg text-sm font-mono"
+        />
+        <div className="flex justify-end gap-2">
+          <button type="button" onClick={onClose} disabled={busy} className="zf-btn zf-btn-ghost zf-btn-sm">
+            Cancel
+          </button>
+          <button
+            type="button"
+            onClick={() => onSubmit(size.trim())}
+            disabled={busy || !size.trim()}
+            className="zf-btn zf-btn-primary zf-btn-sm"
+          >
+            {busy ? 'Resizing…' : 'Resize'}
+          </button>
+        </div>
+      </div>
     </div>
   )
 }
@@ -628,34 +721,34 @@ function NetworkTabContent({
   onUpdated: () => void
   onOpenDataplane: () => void
 }) {
-  interface NetworkInterface {
-    name: string
-    mac: string
-    ip: string
-    model: string
-    state: string
-  }
+  const toast = useToastContext()
+  const [interfaces, setInterfaces] = useState<VmInterface[] | null>(null)
+  const [loadError, setLoadError] = useState<string | null>(null)
 
-  const interfaces: NetworkInterface[] = []
+  useEffect(() => {
+    setInterfaces(null)
+    setLoadError(null)
+    listInterfaces(vm.name)
+      .then(setInterfaces)
+      .catch((e) => {
+        toastFailure(toast, 'Failed to load network interfaces', e)
+        setLoadError(formatUserError(e))
+        setInterfaces([])
+      })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [vm.name])
 
-  const ipAddr = vm.ip || ''
-  const operState = vm.state === 'running' ? 'up' : 'down'
-
-  if (ipAddr || vm.state === 'running' || vm.network_tap) {
-    interfaces.push({
-      name: 'eth0',
-      mac: '--',
-      ip: ipAddr || '--',
-      model: 'virtio-net',
-      state: operState,
-    })
-  }
-
-  const interfacesSection = interfaces.length === 0 ? (
+  const interfacesSection = interfaces === null ? (
+    <div className="zf-panel p-8 text-center text-sm text-[var(--zf-muted)]">
+      <Loader2 className="w-6 h-6 mx-auto mb-2 animate-spin" />
+      Loading network interfaces…
+    </div>
+  ) : interfaces.length === 0 ? (
     <div className="zf-panel p-8 text-center">
       <Network className="w-10 h-10 text-[var(--zf-muted)] mx-auto mb-3" />
-      <p className="text-[var(--zf-muted)] text-sm">No network information available</p>
-      <p className="text-[var(--zf-muted)] text-xs mt-2">VM is not running or has no guest IP recorded</p>
+      <p className="text-[var(--zf-muted)] text-sm">
+        {loadError ? `Could not load interfaces: ${loadError}` : 'No network information available'}
+      </p>
     </div>
   ) : (
     <div className="zf-panel overflow-hidden">
@@ -663,21 +756,27 @@ function NetworkTabContent({
         <thead>
           <tr className="text-left text-xs font-medium text-[var(--zf-muted)] uppercase tracking-wider border-b border-[var(--zf-hairline)]">
             <th className="py-3 px-5">Interface</th>
+            <th className="py-3 px-4">Network</th>
             <th className="py-3 px-4">MAC Address</th>
             <th className="py-3 px-4">IP Address</th>
             <th className="py-3 px-4">Model</th>
-            <th className="py-3 px-4">State</th>
+            <th className="py-3 px-4">Type</th>
           </tr>
         </thead>
         <tbody>
           {interfaces.map((iface) => (
             <tr key={iface.name} className="border-t border-[var(--zf-hairline)]/50 hover:bg-black/[0.03] transition-colors">
               <td className="py-3 px-5 font-medium text-[var(--zf-ink)]">{iface.name}</td>
-              <td className="py-3 px-4 font-mono text-xs text-[var(--zf-muted)]">{iface.mac}</td>
-              <td className="py-3 px-4 font-mono text-xs text-[var(--zf-ink)]">{iface.ip}</td>
-              <td className="py-3 px-4 text-[var(--zf-muted)]">{iface.model}</td>
+              <td className="py-3 px-4 text-[var(--zf-muted)]">{iface.network ?? '--'}</td>
+              <td className="py-3 px-4 font-mono text-xs text-[var(--zf-muted)]">{iface.mac_address ?? '--'}</td>
+              <td className="py-3 px-4 font-mono text-xs text-[var(--zf-ink)]">
+                {iface.ip_addresses.length > 0 ? iface.ip_addresses.join(', ') : iface.ip_address ?? '--'}
+              </td>
+              <td className="py-3 px-4 text-[var(--zf-muted)]">{iface.model ?? '--'}</td>
               <td className="py-3 px-4">
-                <StatusBadge status={iface.state === 'up' ? 'running' : 'stopped'} />
+                <span className="px-2 py-0.5 text-[11px] font-medium rounded text-[var(--zf-muted)] bg-[var(--zf-canvas)] border border-[var(--zf-hairline)]">
+                  {iface.network_type}
+                </span>
               </td>
             </tr>
           ))}

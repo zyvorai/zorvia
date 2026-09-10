@@ -317,6 +317,7 @@ pub fn vm_config_to_kubevirt(config: &VMConfig) -> Result<VirtualMachine> {
                         isolate_emulator_thread: config.cpu.isolate_emulator_thread,
                         numa: None,
                         realtime: None,
+                        max_sockets: config.cpu.max_sockets,
                     }),
                     memory: Some(Memory {
                         guest: Some(config.memory.size.clone()),
@@ -537,6 +538,128 @@ mod tests {
             volumes[0].container_disk.as_ref().unwrap().image,
             "quay.io/containerdisks/fedora:39"
         );
+    }
+
+    #[test]
+    fn test_advanced_surface_conversion() {
+        use crate::config::{
+            BootloaderType, DiskConfig, DiskDeviceType, DiskSource, FeaturesConfig, FirmwareConfig,
+            HyperVConfig, InterfaceConfig, NetworkType,
+        };
+
+        let config = VMConfigBuilder::new("win-vm")
+            .namespace("default")
+            .cpu(4, 1, 1)
+            .cpu_model("host-passthrough")
+            .dedicated_cpu_placement(true)
+            .isolate_emulator_thread(true)
+            .memory("8Gi")
+            .hugepages("2Mi")
+            .machine_type("q35")
+            .enable_tpm()
+            .enable_rng()
+            .firmware(FirmwareConfig {
+                bootloader: BootloaderType::EFI {
+                    secure_boot: true,
+                    persistent: true,
+                },
+            })
+            .features(FeaturesConfig {
+                acpi: true,
+                apic: true,
+                hyperv: Some(HyperVConfig {
+                    relaxed: true,
+                    vapic: true,
+                    spinlocks: Some(8191),
+                    vpindex: true,
+                    runtime: false,
+                    synic: true,
+                    stimer: true,
+                    reset: false,
+                    frequencies: false,
+                    reenlightenment: false,
+                    tlbflush: true,
+                    ipi: true,
+                }),
+                kvm_hidden: Some(true),
+                smm: Some(true),
+            })
+            .add_disk(DiskConfig {
+                name: "rootdisk".into(),
+                size: "60Gi".into(),
+                storage_class: None,
+                boot_order: 1,
+                source: DiskSource::Blank,
+                device_type: DiskDeviceType::Disk,
+                bus: Some("virtio".into()),
+                cache: None,
+                io: None,
+            })
+            .add_disk(DiskConfig {
+                name: "datadisk".into(),
+                size: "100Gi".into(),
+                storage_class: Some("fast-ssd".into()),
+                boot_order: 2,
+                source: DiskSource::Blank,
+                device_type: DiskDeviceType::Disk,
+                bus: Some("virtio".into()),
+                cache: None,
+                io: None,
+            })
+            .add_interface(InterfaceConfig {
+                name: "eth0".into(),
+                network: "default".into(),
+                model: "virtio".into(),
+                network_type: NetworkType::Pod,
+                mac_address: None,
+            })
+            .add_interface(InterfaceConfig {
+                name: "eth1".into(),
+                network: "storage-net".into(),
+                model: "virtio".into(),
+                network_type: NetworkType::Multus {
+                    name: "storage-net".into(),
+                },
+                mac_address: Some("52:54:00:12:34:56".into()),
+            })
+            .build();
+
+        let vm = vm_config_to_kubevirt(&config).unwrap();
+        let domain = &vm.spec.template.spec.domain;
+
+        let cpu = domain.cpu.as_ref().unwrap();
+        assert_eq!(cpu.model, Some("host-passthrough".to_string()));
+        assert_eq!(cpu.dedicated_cpu_placement, Some(true));
+        assert_eq!(cpu.isolate_emulator_thread, Some(true));
+
+        assert!(domain.memory.as_ref().unwrap().hugepages.is_some());
+        assert_eq!(domain.machine.as_ref().unwrap().machine_type, Some("q35".to_string()));
+
+        let devices = domain.devices.as_ref().unwrap();
+        assert!(devices.tpm.is_some());
+        assert!(devices.rng.is_some());
+        assert_eq!(devices.disks.as_ref().unwrap().len(), 2);
+        assert_eq!(devices.interfaces.as_ref().unwrap().len(), 2);
+        assert_eq!(
+            devices.interfaces.as_ref().unwrap()[1].mac_address,
+            Some("52:54:00:12:34:56".to_string())
+        );
+
+        let firmware = domain.firmware.as_ref().unwrap();
+        let bootloader = firmware.bootloader.as_ref().unwrap();
+        assert!(bootloader.bios.is_none());
+        assert_eq!(bootloader.efi.as_ref().unwrap().secure_boot, Some(true));
+
+        let features = domain.features.as_ref().unwrap();
+        assert_eq!(features.acpi.as_ref().unwrap().enabled, Some(true));
+        assert!(features.apic.is_some());
+        assert!(features.hyperv.is_some());
+        assert!(features.smm.is_some());
+
+        let volumes = vm.spec.template.spec.volumes.as_ref().unwrap();
+        assert_eq!(volumes.len(), 2);
+        let networks = vm.spec.template.spec.networks.as_ref().unwrap();
+        assert_eq!(networks.len(), 2);
     }
 
     #[test]

@@ -100,6 +100,8 @@ pub struct CPU {
     pub numa: Option<NUMA>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub realtime: Option<Realtime>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub max_sockets: Option<u32>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]

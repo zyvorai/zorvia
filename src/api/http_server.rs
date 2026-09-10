@@ -35,6 +35,22 @@ pub mod web {
     mod ws_proxy_handlers;
     use ws_proxy_handlers::{ws_console, ws_ssh, ws_vnc};
 
+    #[path = "hotplug_handlers.rs"]
+    mod hotplug_handlers;
+    use hotplug_handlers::*;
+
+    #[path = "migration_handlers.rs"]
+    mod migration_handlers;
+    use migration_handlers::*;
+
+    #[path = "rook_handlers.rs"]
+    mod rook_handlers;
+    use rook_handlers::*;
+
+    #[path = "disk_network_handlers.rs"]
+    mod disk_network_handlers;
+    use disk_network_handlers::*;
+
     /// Simple sliding-window rate limiter state.
     struct RateLimiterState {
         /// Number of requests in the current window
@@ -379,6 +395,36 @@ pub mod web {
             .route("/vms/:name/restart", post(fabric_restart_vm))
             .route("/vms/:name/pause", post(fabric_pause_vm))
             .route("/vms/:name/resume", post(fabric_resume_vm))
+            .route("/vms/:name/hotplug/cpu", post(fabric_hotplug_cpu))
+            .route("/vms/:name/hotplug/memory", post(fabric_hotplug_memory))
+            .route("/vms/:name/hotplug/disk", post(fabric_hotplug_disk))
+            .route(
+                "/vms/:name/hotplug/disk/:device_id",
+                delete(fabric_hotunplug_disk),
+            )
+            .route("/vms/:name/hotplug/nic", post(fabric_hotplug_nic))
+            .route(
+                "/vms/:name/hotplug/nic/:device_id",
+                delete(fabric_hotunplug_nic),
+            )
+            .route("/vms/:name/disks", get(fabric_list_disks))
+            .route("/vms/:name/disks/:disk_name/resize", post(fabric_resize_disk))
+            .route("/vms/:name/interfaces", get(fabric_list_interfaces))
+            .route("/vms/:name/migrate", post(fabric_migrate_vm))
+            .route("/vms/:name/migrations", get(fabric_list_vm_migrations))
+            .route("/migrations/:id", get(fabric_get_migration))
+            .route("/migrations/:id/cancel", post(fabric_cancel_migration))
+            // Rook-Ceph distributed storage
+            .route("/storage/rook/bootstrap", post(rook_bootstrap))
+            .route("/storage/rook/cluster", get(rook_cluster_status).post(rook_create_cluster).delete(rook_delete_cluster))
+            .route("/storage/rook/pools", get(rook_list_pools).post(rook_create_pool))
+            .route("/storage/rook/pools/:name", delete(rook_delete_pool))
+            .route("/storage/rook/filesystems", get(rook_list_filesystems).post(rook_create_filesystem))
+            .route("/storage/rook/filesystems/:name", delete(rook_delete_filesystem))
+            .route("/storage/rook/objectstores", get(rook_list_object_stores).post(rook_create_object_store))
+            .route("/storage/rook/objectstores/:name", delete(rook_delete_object_store))
+            .route("/storage/rook/storage-classes", post(rook_create_storage_class))
+            .route("/storage/rook/volume-snapshot-classes", post(rook_create_volume_snapshot_class))
             .route("/vms/:name/metrics", get(fabric_vm_metrics))
             .route("/vms/:name/guest-insight", get(fabric_guest_insight))
             .route("/vms/:name/wait-ready", post(fabric_wait_guest_ready))

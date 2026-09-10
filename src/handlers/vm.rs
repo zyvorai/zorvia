@@ -1346,6 +1346,7 @@ mod tests {
                                 isolate_emulator_thread: None,
                                 numa: None,
                                 realtime: None,
+                                max_sockets: None,
                             }),
                             memory: Some(Memory {
                                 guest: Some(memory.to_string()),

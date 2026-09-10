@@ -10,7 +10,6 @@ pub mod costs;
 pub mod custom_dashboards;
 pub mod custom_resources;
 pub mod dependencies;
-pub mod disks;
 pub mod events;
 pub mod forecasting;
 pub mod gitops;
@@ -21,7 +20,6 @@ pub mod hpa;
 pub mod ingress;
 pub mod logs;
 pub mod metrics;
-pub mod migrations;
 pub mod monitoring;
 pub mod namespaces;
 pub mod network;
@@ -40,7 +38,6 @@ pub mod scheduling;
 pub mod security;
 pub mod slo;
 pub mod snapshots;
-pub mod storage;
 pub mod templates;
 pub mod topology;
 pub mod vmis;
@@ -61,9 +58,7 @@ pub fn all_routes() -> axum::Router {
         .merge(events::router())
         .merge(snapshots::router())
         .merge(clones::router())
-        .merge(disks::router())
         .merge(templates::router())
-        .merge(migrations::router())
         .merge(namespaces::router())
         .merge(quotas::router())
         .merge(metrics::router())
@@ -84,7 +79,6 @@ pub fn all_routes() -> axum::Router {
         .merge(backups::router())
         .merge(network::router())
         .merge(network_policies::router())
-        .merge(storage::router())
         .merge(workloads::router())
         .merge(scheduling::router())
         .merge(hpa::router())

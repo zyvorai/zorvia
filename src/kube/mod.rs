@@ -362,12 +362,26 @@ impl KubeClient {
     }
 
     async fn vmi_subresource(&self, namespace: &str, name: &str, subresource: &str) -> Result<()> {
+        self.vmi_subresource_with_body(namespace, name, subresource, json!({}))
+            .await
+    }
+
+    /// PUT a VMI subresource with a real JSON body (addvolume/removevolume/
+    /// addinterface/removeinterface all require a payload, unlike pause/
+    /// unpause/freeze/unfreeze which accept an empty body).
+    async fn vmi_subresource_with_body(
+        &self,
+        namespace: &str,
+        name: &str,
+        subresource: &str,
+        body: serde_json::Value,
+    ) -> Result<()> {
         let path = lifecycle::vmi_subresource_path(namespace, name, subresource)?;
         let req = http::Request::builder()
             .method(http::Method::PUT)
             .uri(&path)
             .header(http::header::CONTENT_TYPE, "application/json")
-            .body("{}".as_bytes().to_vec())
+            .body(serde_json::to_vec(&body)?)
             .map_err(|e| anyhow::anyhow!("failed to build {subresource} request: {e}"))?;
 
         match self.client.request::<serde_json::Value>(req).await {
@@ -378,6 +392,277 @@ impl KubeClient {
             }
             Err(e) => Err(e.into()),
         }
+    }
+
+    /// Hotplug CPU: `target_vcpus` is the desired total vCPU count. Cores and
+    /// threads are fixed at VM-create time, so this solves for a new socket
+    /// count and patches `spec.template.spec.domain.cpu.sockets`. Requires
+    /// `cpu.maxSockets` to have been declared when the VM was created.
+    pub async fn hotplug_cpu(
+        &self,
+        namespace: &str,
+        name: &str,
+        target_vcpus: u32,
+    ) -> Result<VirtualMachine> {
+        let vm = self.get_vm(namespace, name).await?;
+        let cpu = vm
+            .spec
+            .template
+            .spec
+            .domain
+            .cpu
+            .as_ref()
+            .ok_or_else(|| anyhow::anyhow!("VM '{name}' has no CPU topology configured"))?;
+        let max_sockets = cpu.max_sockets.ok_or_else(|| {
+            anyhow::anyhow!(
+                "HOTPLUG_NOT_PROVISIONED: VM '{name}' was not created with cpu.maxSockets; recreate it with hotplug headroom to enable CPU hotplug"
+            )
+        })?;
+        let cores = cpu.cores.unwrap_or(1).max(1);
+        let threads = cpu.threads.unwrap_or(1).max(1);
+        let per_socket = cores.saturating_mul(threads).max(1);
+        let new_sockets = target_vcpus.saturating_add(per_socket - 1) / per_socket;
+        let new_sockets = new_sockets.max(1);
+        if new_sockets > max_sockets {
+            anyhow::bail!(
+                "HOTPLUG_LIMIT_EXCEEDED: {target_vcpus} vCPUs requires {new_sockets} sockets, exceeding maxSockets={max_sockets} for VM '{name}'"
+            );
+        }
+
+        let vms: Api<VirtualMachine> = self.vm_api(namespace);
+        let patch = json!({
+            "spec": { "template": { "spec": { "domain": { "cpu": { "sockets": new_sockets } } } } }
+        });
+        let pp = PatchParams::default();
+        Ok(vms.patch(name, &pp, &Patch::Merge(&patch)).await?)
+    }
+
+    /// Hotplug memory: `target_guest` is an absolute Quantity string (e.g.
+    /// "6Gi"). Requires `memory.maxGuest` to have been declared when the VM
+    /// was created; rejects targets exceeding that ceiling.
+    pub async fn hotplug_memory(
+        &self,
+        namespace: &str,
+        name: &str,
+        target_guest: &str,
+    ) -> Result<VirtualMachine> {
+        let vm = self.get_vm(namespace, name).await?;
+        let memory = vm
+            .spec
+            .template
+            .spec
+            .domain
+            .memory
+            .as_ref()
+            .ok_or_else(|| anyhow::anyhow!("VM '{name}' has no memory configured"))?;
+        let max_guest = memory.max_guest.clone().ok_or_else(|| {
+            anyhow::anyhow!(
+                "HOTPLUG_NOT_PROVISIONED: VM '{name}' was not created with memory.maxGuest; recreate it with hotplug headroom to enable memory hotplug"
+            )
+        })?;
+        let max_bytes = crate::storage::parse_size_to_bytes(&max_guest)
+            .ok_or_else(|| anyhow::anyhow!("could not parse maxGuest quantity '{max_guest}'"))?;
+        let target_bytes = crate::storage::parse_size_to_bytes(target_guest)
+            .ok_or_else(|| anyhow::anyhow!("could not parse requested memory quantity '{target_guest}'"))?;
+        if target_bytes > max_bytes {
+            anyhow::bail!(
+                "HOTPLUG_LIMIT_EXCEEDED: requested {target_guest} exceeds maxGuest={max_guest} for VM '{name}'"
+            );
+        }
+
+        let vms: Api<VirtualMachine> = self.vm_api(namespace);
+        let patch = json!({
+            "spec": { "template": { "spec": { "domain": { "memory": { "guest": target_guest } } } } }
+        });
+        let pp = PatchParams::default();
+        Ok(vms.patch(name, &pp, &Patch::Merge(&patch)).await?)
+    }
+
+    /// Attach an existing PVC or DataVolume to a running VMI by name via the
+    /// `addvolume` subresource.
+    pub async fn add_volume(
+        &self,
+        namespace: &str,
+        name: &str,
+        volume_name: &str,
+        claim_name: &str,
+        bus: Option<&str>,
+        is_data_volume: bool,
+    ) -> Result<()> {
+        self.get_pvc(namespace, claim_name).await.map_err(|_| {
+            anyhow::anyhow!(
+                "VOLUME_NOT_FOUND: PVC or DataVolume '{claim_name}' does not exist in namespace '{namespace}'"
+            )
+        })?;
+        let bus = bus.unwrap_or("scsi");
+        let volume_source = if is_data_volume {
+            json!({ "dataVolume": { "name": claim_name } })
+        } else {
+            json!({ "persistentVolumeClaim": { "claimName": claim_name } })
+        };
+        let body = json!({
+            "name": volume_name,
+            "disk": { "name": volume_name, "disk": { "bus": bus } },
+            "volumeSource": volume_source,
+        });
+        self.vmi_subresource_with_body(namespace, name, "addvolume", body)
+            .await
+    }
+
+    /// Detach a previously hotplugged volume by its volume name.
+    pub async fn remove_volume(&self, namespace: &str, name: &str, volume_name: &str) -> Result<()> {
+        let body = json!({ "name": volume_name });
+        self.vmi_subresource_with_body(namespace, name, "removevolume", body)
+            .await
+    }
+
+    /// Attach an existing Multus `NetworkAttachmentDefinition` to a running
+    /// VMI by network name via the `addinterface` subresource (alpha feature,
+    /// requires the KubeVirt `HotplugNICs` feature gate).
+    pub async fn add_interface(
+        &self,
+        namespace: &str,
+        name: &str,
+        iface_name: &str,
+        network_name: &str,
+    ) -> Result<()> {
+        let body = json!({ "name": iface_name, "networkName": network_name });
+        self.vmi_subresource_with_body(namespace, name, "addinterface", body)
+            .await
+    }
+
+    /// Detach a hotplugged interface by its interface name.
+    pub async fn remove_interface(&self, namespace: &str, name: &str, iface_name: &str) -> Result<()> {
+        let body = json!({ "name": iface_name });
+        self.vmi_subresource_with_body(namespace, name, "removeinterface", body)
+            .await
+    }
+
+    /// Start a live migration by creating a `VirtualMachineInstanceMigration`.
+    /// KubeVirt's scheduler selects the target node; there is no user-supplied
+    /// destination.
+    pub async fn migrate_vm(
+        &self,
+        namespace: &str,
+        name: &str,
+    ) -> Result<VirtualMachineInstanceMigration> {
+        lifecycle::validate_k8s_name("namespace", namespace)?;
+        lifecycle::validate_k8s_name("name", name)?;
+        let mig_api: Api<VirtualMachineInstanceMigration> = Api::namespaced(self.client.clone(), namespace);
+        let mig_name = format!(
+            "{name}-migrate-{}",
+            chrono::Utc::now().format("%Y%m%d%H%M%S")
+        );
+        let migration = VirtualMachineInstanceMigration {
+            metadata: k8s_openapi::apimachinery::pkg::apis::meta::v1::ObjectMeta {
+                name: Some(mig_name),
+                namespace: Some(namespace.to_string()),
+                ..Default::default()
+            },
+            spec: VirtualMachineInstanceMigrationSpec {
+                vmi_name: Some(name.to_string()),
+            },
+            status: None,
+        };
+        let pp = PostParams::default();
+        Ok(mig_api.create(&pp, &migration).await?)
+    }
+
+    /// List migrations in a namespace, optionally filtered to one VM.
+    pub async fn list_migrations(
+        &self,
+        namespace: &str,
+        vm_name: Option<&str>,
+    ) -> Result<Vec<VirtualMachineInstanceMigration>> {
+        let mig_api: Api<VirtualMachineInstanceMigration> = Api::namespaced(self.client.clone(), namespace);
+        let lp = ListParams::default();
+        let list = mig_api.list(&lp).await?;
+        Ok(list
+            .items
+            .into_iter()
+            .filter(|m| match vm_name {
+                Some(vm) => m.spec.vmi_name.as_deref() == Some(vm),
+                None => true,
+            })
+            .collect())
+    }
+
+    /// Get one migration by name.
+    pub async fn get_migration(
+        &self,
+        namespace: &str,
+        id: &str,
+    ) -> Result<VirtualMachineInstanceMigration> {
+        let mig_api: Api<VirtualMachineInstanceMigration> = Api::namespaced(self.client.clone(), namespace);
+        Ok(mig_api.get(id).await?)
+    }
+
+    /// Cancel a migration. KubeVirt aborts an in-progress migration when its
+    /// `VirtualMachineInstanceMigration` object is deleted.
+    pub async fn cancel_migration(&self, namespace: &str, id: &str) -> Result<()> {
+        let mig_api: Api<VirtualMachineInstanceMigration> = Api::namespaced(self.client.clone(), namespace);
+        let dp = DeleteParams::default();
+        mig_api.delete(id, &dp).await?;
+        Ok(())
+    }
+
+    /// Grow a PVC's requested storage size. Kubernetes/CSI only support
+    /// expansion, never shrinking; callers should reject a smaller target
+    /// before calling this (checked here too, defense in depth).
+    pub async fn resize_pvc(
+        &self,
+        namespace: &str,
+        pvc_name: &str,
+        new_size: &str,
+    ) -> Result<PersistentVolumeClaim> {
+        let pvcs: Api<PersistentVolumeClaim> = self.pvc_api(namespace);
+        let current = pvcs.get(pvc_name).await?;
+        let current_size = current
+            .spec
+            .as_ref()
+            .and_then(|s| s.resources.as_ref())
+            .and_then(|r| r.requests.as_ref())
+            .and_then(|req| req.get("storage"))
+            .map(|q| q.0.clone());
+        if let (Some(current_size), Some(current_bytes), Some(new_bytes)) = (
+            current_size.clone(),
+            current_size
+                .as_deref()
+                .and_then(crate::storage::parse_size_to_bytes),
+            crate::storage::parse_size_to_bytes(new_size),
+        ) {
+            if new_bytes < current_bytes {
+                anyhow::bail!(
+                    "SHRINK_NOT_SUPPORTED: requested {new_size} is smaller than current {current_size}; PVCs can only grow"
+                );
+            }
+        }
+
+        let patch = json!({ "spec": { "resources": { "requests": { "storage": new_size } } } });
+        let pp = PatchParams::default();
+        Ok(pvcs.patch(pvc_name, &pp, &Patch::Merge(&patch)).await?)
+    }
+
+    /// Resize a VM's named disk by growing the PVC or DataVolume-backed PVC
+    /// behind it. Blank (`emptyDisk`) and container disks have no PVC and
+    /// can't be resized this way.
+    pub async fn resize_disk(
+        &self,
+        namespace: &str,
+        vm_name: &str,
+        disk_name: &str,
+        new_size: &str,
+    ) -> Result<PersistentVolumeClaim> {
+        let vm = self.get_vm(namespace, vm_name).await?;
+        let volumes = vm
+            .spec
+            .template
+            .spec
+            .volumes
+            .as_ref()
+            .ok_or_else(|| anyhow::anyhow!("VM '{vm_name}' has no volumes"))?;
+        let pvc_name = resolve_disk_pvc_name(volumes, vm_name, disk_name)?;
+        self.resize_pvc(namespace, &pvc_name, new_size).await
     }
 
     /// Apply a CDI DataVolume JSON manifest.
@@ -493,6 +778,24 @@ impl KubeClient {
     }
 }
 
+/// Find the PVC/DataVolume name backing a VM's named disk. Blank
+/// (`emptyDisk`) and container disks have no PVC and are rejected.
+fn resolve_disk_pvc_name(volumes: &[Volume], vm_name: &str, disk_name: &str) -> Result<String> {
+    let volume = volumes.iter().find(|v| v.name == disk_name).ok_or_else(|| {
+        anyhow::anyhow!("VOLUME_NOT_FOUND: disk '{disk_name}' not found on VM '{vm_name}'")
+    })?;
+    volume
+        .persistent_volume_claim
+        .as_ref()
+        .map(|p| p.claim_name.clone())
+        .or_else(|| volume.data_volume.as_ref().map(|d| d.name.clone()))
+        .ok_or_else(|| {
+            anyhow::anyhow!(
+                "UNSUPPORTED: disk '{disk_name}' is not backed by a PVC or DataVolume (blank/container disks can't be resized)"
+            )
+        })
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -511,5 +814,102 @@ mod tests {
 
         let vm = vm_config_to_kubevirt(&config).unwrap();
         assert_eq!(vm.metadata.name, Some("test".to_string()));
+    }
+
+    #[test]
+    fn test_vm_conversion_threads_hotplug_headroom() {
+        use crate::config::VMConfigBuilder;
+
+        let config = VMConfigBuilder::new("test")
+            .namespace("default")
+            .cpu(2, 1, 1)
+            .cpu_max_sockets(4)
+            .memory("4Gi")
+            .max_guest_memory("16Gi")
+            .add_blank_disk("rootdisk", "20Gi", 1)
+            .add_pod_network("default")
+            .build();
+
+        let vm = vm_config_to_kubevirt(&config).unwrap();
+        let domain = &vm.spec.template.spec.domain;
+        assert_eq!(domain.cpu.as_ref().and_then(|c| c.max_sockets), Some(4));
+        assert_eq!(
+            domain.memory.as_ref().and_then(|m| m.max_guest.clone()),
+            Some("16Gi".to_string())
+        );
+
+        let json = serde_json::to_value(&vm).unwrap();
+        assert_eq!(json["spec"]["template"]["spec"]["domain"]["cpu"]["maxSockets"], 4);
+        assert_eq!(json["spec"]["template"]["spec"]["domain"]["memory"]["maxGuest"], "16Gi");
+    }
+
+    /// CPU hotplug's socket-count math: `new_sockets = ceil(target_vcpus / (cores*threads))`.
+    fn hotplug_cpu_new_sockets(target_vcpus: u32, cores: u32, threads: u32) -> u32 {
+        let per_socket = cores.saturating_mul(threads).max(1);
+        (target_vcpus.saturating_add(per_socket - 1) / per_socket).max(1)
+    }
+
+    #[test]
+    fn hotplug_cpu_socket_math() {
+        assert_eq!(hotplug_cpu_new_sockets(4, 2, 1), 2);
+        assert_eq!(hotplug_cpu_new_sockets(5, 2, 1), 3);
+        assert_eq!(hotplug_cpu_new_sockets(1, 4, 1), 1);
+        assert_eq!(hotplug_cpu_new_sockets(8, 2, 2), 2);
+        assert_eq!(hotplug_cpu_new_sockets(9, 2, 2), 3);
+        assert_eq!(hotplug_cpu_new_sockets(0, 2, 1), 1);
+    }
+
+    #[test]
+    fn vmi_subresource_with_body_rejects_unknown_subresource() {
+        // Path construction is shared with the empty-body variant and already
+        // validated in kube::lifecycle's own tests; this confirms the
+        // addvolume/addinterface family round-trips through the same guard.
+        assert!(lifecycle::vmi_subresource_path("default", "vm", "addvolume").is_ok());
+        assert!(lifecycle::vmi_subresource_path("default", "vm", "addinterface").is_ok());
+        assert!(lifecycle::vmi_subresource_path("default", "vm", "removeinterface").is_ok());
+        assert!(lifecycle::vmi_subresource_path("default", "vm", "bogus").is_err());
+    }
+
+    fn volume(name: &str) -> Volume {
+        Volume {
+            name: name.to_string(),
+            container_disk: None,
+            persistent_volume_claim: None,
+            data_volume: None,
+            cloud_init_no_cloud: None,
+            empty_disk: None,
+        }
+    }
+
+    #[test]
+    fn resolves_pvc_backed_disk() {
+        let mut vol = volume("rootdisk");
+        vol.persistent_volume_claim = Some(PersistentVolumeClaimVolumeSource {
+            claim_name: "my-pvc".into(),
+        });
+        let name = resolve_disk_pvc_name(&[vol], "vm1", "rootdisk").unwrap();
+        assert_eq!(name, "my-pvc");
+    }
+
+    #[test]
+    fn resolves_data_volume_backed_disk() {
+        let mut vol = volume("rootdisk");
+        vol.data_volume = Some(DataVolumeSource { name: "my-dv".into() });
+        let name = resolve_disk_pvc_name(&[vol], "vm1", "rootdisk").unwrap();
+        assert_eq!(name, "my-dv");
+    }
+
+    #[test]
+    fn rejects_missing_disk() {
+        let vol = volume("rootdisk");
+        assert!(resolve_disk_pvc_name(&[vol], "vm1", "other").is_err());
+    }
+
+    #[test]
+    fn rejects_blank_disk() {
+        let mut vol = volume("rootdisk");
+        vol.empty_disk = Some(EmptyDiskSource { capacity: "20Gi".into() });
+        let err = resolve_disk_pvc_name(&[vol], "vm1", "rootdisk").unwrap_err();
+        assert!(err.to_string().contains("UNSUPPORTED"));
     }
 }

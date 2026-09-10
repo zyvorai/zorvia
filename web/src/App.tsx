@@ -26,6 +26,8 @@ const Console = lazy(() => import('./pages/Console'))
 const Snapshots = lazy(() => import('./pages/Snapshots'))
 const FavoriteVMs = lazy(() => import('./pages/FavoriteVMs'))
 const KrytonWindows = lazy(() => import('./pages/KrytonWindows'))
+const Migrations = lazy(() => import('./pages/Migrations'))
+const RookStorage = lazy(() => import('./pages/RookStorage'))
 
 function ProtectedRoute({ children }: { children: ReactNode }) {
   const { isAuthenticated, loading } = useAuth()
@@ -61,6 +63,8 @@ function ConsoleRoutes() {
             <Route path="create" element={<CreateVM />} />
             <Route path="favorites" element={<FavoriteVMs />} />
             <Route path="snapshots" element={<Snapshots />} />
+            <Route path="migrations" element={<Migrations />} />
+            <Route path="storage" element={<RookStorage />} />
             <Route path="windows" element={<KrytonWindows />} />
             <Route path="*" element={<Navigate to="/app" replace />} />
           </Routes>

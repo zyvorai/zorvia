@@ -49,6 +49,49 @@ export interface CreateVMRequest {
   expose_vnc?: boolean
   expose_rdp?: boolean
   start?: boolean
+
+  // ── Advanced (optional): full VM config surface ──
+  cpu_max_sockets?: number
+  memory_max_guest_mb?: number
+  cpu_model?: string
+  cpu_dedicated_placement?: boolean
+  cpu_isolate_emulator_thread?: boolean
+  memory_hugepages_page_size?: string
+  firmware?: CreateVMFirmware
+  features?: CreateVMFeatures
+  machine_type?: string
+  enable_tpm?: boolean
+  enable_rng?: boolean
+}
+
+/** Matches the Rust `FirmwareConfig`/`BootloaderType` JSON shape exactly. */
+export type CreateVMFirmware =
+  | { bootloader: 'bios' }
+  | { bootloader: { efi: { secure_boot: boolean; persistent: boolean } } }
+
+export interface CreateVMHyperV {
+  relaxed?: boolean
+  vapic?: boolean
+  spinlocks?: number
+  vpindex?: boolean
+  runtime?: boolean
+  synic?: boolean
+  stimer?: boolean
+  reset?: boolean
+  frequencies?: boolean
+  reenlightenment?: boolean
+  tlbflush?: boolean
+  ipi?: boolean
+}
+
+/** Matches the Rust `FeaturesConfig` JSON shape; every field is optional and
+ * defaults server-side (ACPI defaults on, everything else off). */
+export interface CreateVMFeatures {
+  acpi?: boolean
+  apic?: boolean
+  hyperv?: CreateVMHyperV
+  kvm_hidden?: boolean
+  smm?: boolean
 }
 
 export interface VMMetricsPoint {

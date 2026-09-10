@@ -34,22 +34,20 @@ export async function hotplugDisk(vmName: string, req: HotplugDiskRequest): Prom
   return apiPost<unknown>(`${API_BASE_URL}/vms/${vmName}/hotplug/disk`, req)
 }
 
-export async function hotremoveDisk(vmName: string, deviceId: string): Promise<unknown> {
+export async function hotremoveDisk(vmName: string, deviceId: string): Promise<void> {
   const res = await apiFetch(`${API_BASE_URL}/vms/${vmName}/hotplug/disk/${deviceId}`, {
     method: 'DELETE',
   })
   if (!res.ok) throw new Error('Failed to hot-remove disk')
-  return res.json()
 }
 
 export async function hotplugNic(vmName: string, req: HotplugNicRequest): Promise<unknown> {
   return apiPost<unknown>(`${API_BASE_URL}/vms/${vmName}/hotplug/nic`, req)
 }
 
-export async function hotremoveNic(vmName: string, deviceId: string): Promise<unknown> {
+export async function hotremoveNic(vmName: string, deviceId: string): Promise<void> {
   const res = await apiFetch(`${API_BASE_URL}/vms/${vmName}/hotplug/nic/${deviceId}`, {
     method: 'DELETE',
   })
   if (!res.ok) throw new Error('Failed to hot-remove NIC')
-  return res.json()
 }

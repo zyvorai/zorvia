@@ -37,6 +37,8 @@ pub const VMI_SUBRESOURCES: &[&str] = &[
     "filesystemlist",
     "addvolume",
     "removevolume",
+    "addinterface",
+    "removeinterface",
 ];
 
 /// WebSocket subprotocol expected by KubeVirt for a given console type.
@@ -115,6 +117,75 @@ pub fn classify_lifecycle_error(action: &str, raw: &str) -> (u16, &'static str, 
     )
 }
 
+/// Map a KubeVirt / HTTP error into a client-safe migration message.
+pub fn classify_migration_error(action: &str, raw: &str) -> (u16, &'static str, String) {
+    let lower = raw.to_ascii_lowercase();
+    if lower.contains("already exists") || lower.contains("exists") {
+        return (409, "CONFLICT", format!("Cannot {action}: a migration with this name already exists"));
+    }
+    if lower.contains("notfound") || lower.contains("not found") {
+        return (
+            404,
+            "NOT_FOUND",
+            format!("Cannot {action}: VM instance not found; start the VM before migrating"),
+        );
+    }
+    if lower.contains("forbidden") || lower.contains("unauthorized") {
+        return (
+            403,
+            "FORBIDDEN",
+            format!("Not allowed to {action} (check virtualmachineinstancemigrations RBAC)"),
+        );
+    }
+    (500, "MIGRATION_FAILED", format!("Failed to {action}"))
+}
+
+/// Map a KubeVirt / HTTP error into a client-safe hotplug message.
+pub fn classify_hotplug_error(action: &str, raw: &str) -> (u16, &'static str, String) {
+    let lower = raw.to_ascii_lowercase();
+    if lower.contains("hotplug_not_provisioned") {
+        return (
+            409,
+            "HOTPLUG_NOT_PROVISIONED",
+            format!("Cannot {action}: this VM was not created with hotplug headroom (maxSockets/maxGuest); recreate it to enable live resize"),
+        );
+    }
+    if lower.contains("hotplug_limit_exceeded") {
+        return (409, "HOTPLUG_LIMIT_EXCEEDED", format!("Cannot {action}: {raw}"));
+    }
+    if lower.contains("volume_not_found") {
+        return (404, "VOLUME_NOT_FOUND", format!("Cannot {action}: {raw}"));
+    }
+    if lower.contains("notfound") || lower.contains("not found") {
+        return (
+            404,
+            "NOT_FOUND",
+            format!("VM instance not found; start the VM before {action}"),
+        );
+    }
+    if lower.contains("forbidden") || lower.contains("unauthorized") {
+        return (
+            403,
+            "FORBIDDEN",
+            format!("Not allowed to {action} this VM (check subresources.kubevirt.io RBAC)"),
+        );
+    }
+    if lower.contains("methodnotallowed")
+        || lower.contains("method not allowed")
+        || (lower.contains("interface") && (lower.contains("not supported") || lower.contains("unsupported")))
+    {
+        return (
+            501,
+            "UNSUPPORTED",
+            format!("{action} is not supported on this cluster (requires the KubeVirt HotplugNICs feature gate + Multus)"),
+        );
+    }
+    if lower.contains("conflict") || lower.contains("already exists") {
+        return (409, "CONFLICT", format!("Cannot {action}: {raw}"));
+    }
+    (500, "HOTPLUG_FAILED", format!("Failed to {action}"))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -170,5 +241,83 @@ mod tests {
         let (code, kind, _) = classify_lifecycle_error("pause", "ApiError: NotFound");
         assert_eq!(code, 404);
         assert_eq!(kind, "NOT_FOUND");
+    }
+
+    #[test]
+    fn classifies_zorvia_vm_not_found_display_text() {
+        // Regression: handlers must pass classify_lifecycle_error the RAW
+        // error text, not output already collapsed by sanitize_error() —
+        // ZorviaError::VmNotFound displays as "VM 'x' not found", which
+        // doesn't start with any of sanitize_error's allowed prefixes and
+        // used to get collapsed to a generic 500 before classification ran.
+        let (code, kind, _) = classify_lifecycle_error("pause", "VM 'demo-linux' not found");
+        assert_eq!(code, 404);
+        assert_eq!(kind, "NOT_FOUND");
+    }
+
+    #[test]
+    fn builds_addvolume_and_addinterface_paths() {
+        let addvolume = vmi_subresource_path("default", "prod-db", "addvolume").unwrap();
+        assert!(addvolume.ends_with("/prod-db/addvolume"));
+        let addinterface = vmi_subresource_path("default", "prod-db", "addinterface").unwrap();
+        assert!(addinterface.ends_with("/prod-db/addinterface"));
+        let removeinterface = vmi_subresource_path("default", "prod-db", "removeinterface").unwrap();
+        assert!(removeinterface.ends_with("/prod-db/removeinterface"));
+    }
+
+    #[test]
+    fn classifies_hotplug_not_provisioned() {
+        let (code, kind, _) = classify_hotplug_error(
+            "hotplug CPU",
+            "HOTPLUG_NOT_PROVISIONED: VM 'x' was not created with cpu.maxSockets",
+        );
+        assert_eq!(code, 409);
+        assert_eq!(kind, "HOTPLUG_NOT_PROVISIONED");
+    }
+
+    #[test]
+    fn classifies_hotplug_limit_exceeded() {
+        let (code, kind, _) = classify_hotplug_error(
+            "hotplug memory",
+            "HOTPLUG_LIMIT_EXCEEDED: requested 8Gi exceeds maxGuest=4Gi",
+        );
+        assert_eq!(code, 409);
+        assert_eq!(kind, "HOTPLUG_LIMIT_EXCEEDED");
+    }
+
+    #[test]
+    fn classifies_volume_not_found() {
+        let (code, kind, _) =
+            classify_hotplug_error("hotplug disk", "VOLUME_NOT_FOUND: PVC 'x' does not exist");
+        assert_eq!(code, 404);
+        assert_eq!(kind, "VOLUME_NOT_FOUND");
+    }
+
+    #[test]
+    fn classifies_nic_hotplug_unsupported() {
+        let (code, kind, _) =
+            classify_hotplug_error("hotplug NIC", "the server could not find the requested resource for interface hotplug (not supported)");
+        assert_eq!(code, 501);
+        assert_eq!(kind, "UNSUPPORTED");
+    }
+
+    #[test]
+    fn classifies_migration_not_found() {
+        let (code, kind, _) = classify_migration_error("migrate", "ApiError: NotFound (reason: NotFound)");
+        assert_eq!(code, 404);
+        assert_eq!(kind, "NOT_FOUND");
+    }
+
+    #[test]
+    fn classifies_migration_conflict() {
+        let (code, kind, _) = classify_migration_error("migrate", "ApiError: AlreadyExists (reason: AlreadyExists)");
+        assert_eq!(code, 409);
+        assert_eq!(kind, "CONFLICT");
+    }
+
+    #[test]
+    fn migration_error_message_never_echoes_raw_text() {
+        let (_, _, msg) = classify_migration_error("migrate", "some internal detail that should not leak");
+        assert!(!msg.contains("internal detail"));
     }
 }

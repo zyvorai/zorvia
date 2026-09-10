@@ -672,6 +672,7 @@ mod tests {
                                 isolate_emulator_thread: None,
                                 numa: None,
                                 realtime: None,
+                                max_sockets: None,
                             }),
                             memory: None,
                             devices: Some(Devices {

@@ -989,14 +989,12 @@ describe('hotplug', () => {
     expect(mockApiPost).toHaveBeenCalledWith('/api/vms/vm1/hotplug/disk', { path: '/dev/sdb' })
   })
 
-  it('hotremoveDisk uses apiFetch with DELETE and returns JSON', async () => {
+  it('hotremoveDisk uses apiFetch with DELETE', async () => {
     const { hotremoveDisk } = await import('../hotplug')
-    const data = { status: 'removed' }
-    mockApiFetch.mockResolvedValue({ ok: true, json: () => Promise.resolve(data) } as Response)
+    mockApiFetch.mockResolvedValue({ ok: true } as Response)
 
-    const result = await hotremoveDisk('vm1', 'disk1')
+    await hotremoveDisk('vm1', 'disk1')
     expect(mockApiFetch).toHaveBeenCalledWith('/api/vms/vm1/hotplug/disk/disk1', { method: 'DELETE' })
-    expect(result).toEqual(data)
   })
 
   it('hotremoveDisk throws on failure', async () => {
@@ -1011,14 +1009,12 @@ describe('hotplug', () => {
     expect(mockApiPost).toHaveBeenCalledWith('/api/vms/vm1/hotplug/nic', { bridge: 'br0' })
   })
 
-  it('hotremoveNic uses apiFetch with DELETE and returns JSON', async () => {
+  it('hotremoveNic uses apiFetch with DELETE', async () => {
     const { hotremoveNic } = await import('../hotplug')
-    const data = { status: 'removed' }
-    mockApiFetch.mockResolvedValue({ ok: true, json: () => Promise.resolve(data) } as Response)
+    mockApiFetch.mockResolvedValue({ ok: true } as Response)
 
-    const result = await hotremoveNic('vm1', 'nic1')
+    await hotremoveNic('vm1', 'nic1')
     expect(mockApiFetch).toHaveBeenCalledWith('/api/vms/vm1/hotplug/nic/nic1', { method: 'DELETE' })
-    expect(result).toEqual(data)
   })
 
   it('hotremoveNic throws on failure', async () => {
@@ -1119,17 +1115,16 @@ describe('lifecycle', () => {
 // ─── migrations.ts ────────────────────────────────────────────────────────────
 
 describe('migrations', () => {
-  it('startMigration calls apiPost', async () => {
+  it('startMigration calls apiPost against the VM migrate route', async () => {
     const { startMigration } = await import('../migrations')
-    const req = { vm_name: 'vm1', target_host: 'h2', migration_type: 'live' as const }
-    await startMigration(req)
-    expect(mockApiPost).toHaveBeenCalledWith('/api/migrations', req)
+    await startMigration('vm1')
+    expect(mockApiPost).toHaveBeenCalledWith('/api/vms/vm1/migrate')
   })
 
-  it('listMigrations calls apiGet', async () => {
-    const { listMigrations } = await import('../migrations')
-    await listMigrations()
-    expect(mockApiGet).toHaveBeenCalledWith('/api/migrations')
+  it('listVmMigrations calls apiGet', async () => {
+    const { listVmMigrations } = await import('../migrations')
+    await listVmMigrations('vm1')
+    expect(mockApiGet).toHaveBeenCalledWith('/api/vms/vm1/migrations')
   })
 
   it('getMigration calls apiGet', async () => {
@@ -1138,10 +1133,10 @@ describe('migrations', () => {
     expect(mockApiGet).toHaveBeenCalledWith('/api/migrations/m1')
   })
 
-  it('cancelMigration calls apiPost', async () => {
+  it('cancelMigration calls apiPostVoid', async () => {
     const { cancelMigration } = await import('../migrations')
     await cancelMigration('m1')
-    expect(mockApiPost).toHaveBeenCalledWith('/api/migrations/m1/cancel')
+    expect(mockApiPostVoid).toHaveBeenCalledWith('/api/migrations/m1/cancel')
   })
 })
 

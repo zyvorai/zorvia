@@ -68,6 +68,13 @@ impl VMConfigBuilder {
         self
     }
 
+    /// Set the maximum socket count the VM can be hotplugged up to. Must be
+    /// declared at create time since KubeVirt cannot raise it later.
+    pub fn cpu_max_sockets(mut self, max_sockets: u32) -> Self {
+        self.config.cpu.max_sockets = Some(max_sockets);
+        self
+    }
+
     /// Set the memory size (e.g., "4Gi", "512Mi").
     pub fn memory(mut self, size: impl Into<String>) -> Self {
         self.config.memory.size = size.into();

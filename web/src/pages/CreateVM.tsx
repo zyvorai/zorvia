@@ -4,13 +4,12 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router'
 import { createVM, listVMs } from '../api/vm'
-import type { PortForwardSpec, VM } from '../api/vm'
+import type { CreateVMFeatures, CreateVMFirmware, PortForwardSpec, VM } from '../api/vm'
 import { listImages, createImageFromVm, getConvertJob, listCloudImages, downloadCloudImage, listDownloads } from '../api/images'
 import type { ImageInfo, CloudImage } from '../api/images'
-import { applyCreateAdvancedOptions, AdvancedOptionsError } from '../utils/applyCreateAdvancedOptions'
 import { formatBytes } from '../utils/format'
 import {
-  ArrowLeft, ArrowRight, Cpu, HardDrive, ChevronDown, ChevronUp, Shield, Monitor, Plus, X,
+  ArrowLeft, ArrowRight, Cpu, HardDrive, ChevronDown, ChevronUp, Shield, Plus, X,
   Network, Server, Sparkles, Check, Download,
 } from 'lucide-react'
 import WizardStepper from '../components/WizardStepper'
@@ -25,20 +24,58 @@ interface AdvancedOptions {
   firmware: 'bios' | 'uefi'
   secureBoot: boolean
   cpuMode: 'host-passthrough' | 'host-model' | 'custom'
+  cpuModelName: string
+  dedicatedCpuPlacement: boolean
   machineType: string
-  displayType: 'vnc' | 'spice'
-  bootOrder: string[]
-  enableBalloon: boolean
+  enableTpm: boolean
+  enableRng: boolean
+  windowsHyperv: boolean
 }
 
 const defaultAdvanced: AdvancedOptions = {
   firmware: 'uefi',
   secureBoot: false,
   cpuMode: 'host-passthrough',
+  cpuModelName: '',
+  dedicatedCpuPlacement: false,
   machineType: 'q35',
-  displayType: 'vnc',
-  bootOrder: ['hd', 'cdrom', 'network'],
-  enableBalloon: true,
+  enableTpm: false,
+  enableRng: true,
+  windowsHyperv: true,
+}
+
+/** Maps wizard advanced state onto the create request's VMConfig-shaped
+ * fields. These are applied when the VM is created (KubeVirt requires
+ * firmware/CPU model/machine type to be set upfront, not patched in later). */
+function buildAdvancedCreateFields(adv: AdvancedOptions, guestOs: 'linux' | 'windows') {
+  const firmware: CreateVMFirmware =
+    adv.firmware === 'uefi'
+      ? { bootloader: { efi: { secure_boot: adv.secureBoot, persistent: true } } }
+      : { bootloader: 'bios' }
+
+  const cpu_model =
+    adv.cpuMode === 'custom' ? adv.cpuModelName.trim() || undefined : adv.cpuMode
+
+  let features: CreateVMFeatures | undefined
+  if (adv.firmware === 'uefi' && adv.secureBoot) {
+    features = { ...features, smm: true }
+  }
+  if (guestOs === 'windows' && adv.windowsHyperv) {
+    features = {
+      ...features,
+      hyperv: { relaxed: true, vapic: true, spinlocks: 8191, synic: true, stimer: true, vpindex: true },
+    }
+  }
+
+  return {
+    firmware,
+    ...(cpu_model ? { cpu_model } : {}),
+    ...(adv.dedicatedCpuPlacement ? { cpu_dedicated_placement: true } : {}),
+    ...(adv.machineType.trim() ? { machine_type: adv.machineType.trim() } : {}),
+    ...(adv.enableTpm ? { enable_tpm: true } : {}),
+    ...(adv.enableRng ? { enable_rng: true } : {}),
+    ...(features ? { features } : {}),
+  }
 }
 
 const WIZARD_STEPS = ['Basics', 'Resources', 'Review'] as const
@@ -219,19 +256,8 @@ export default function CreateVM() {
               },
             }
           : {}),
+        ...(showAdvanced ? buildAdvancedCreateFields(advanced, guestOs) : {}),
       })
-      if (showAdvanced) {
-        try {
-          await applyCreateAdvancedOptions(name, advanced)
-        } catch (advErr) {
-          const failed = advErr instanceof AdvancedOptionsError
-            ? advErr.failures.map((f) => f.option).join(', ')
-            : 'some options'
-          toastFailure(toast, `VM created, but ${failed} could not be applied`, advErr)
-          navigate(`/app/vms/${name}`)
-          return
-        }
-      }
       toast.success(`VM '${name}' created`)
       navigate(`/app/vms/${name}`)
     } catch (err) {
@@ -639,7 +665,7 @@ export default function CreateVM() {
             {showAdvanced && (
               <div className="px-6 pb-6 space-y-5 border-t border-[var(--zf-hairline)] pt-5">
                 <p className="text-xs text-[var(--zf-muted)] bg-white border border-[var(--zf-hairline)] rounded-lg px-3 py-2">
-                  Applied after the VM is created (boot, display, CPU mode, and UEFI settings).
+                  Applied when the VM is created — KubeVirt requires firmware, CPU model, and machine type to be set upfront.
                 </p>
                 <div>
                       <label className="flex items-center gap-2 text-sm font-medium text-[var(--zf-ink)] mb-2">
@@ -668,29 +694,96 @@ export default function CreateVM() {
                           </button>
                         ))}
                       </div>
+                      {advanced.firmware === 'uefi' && (
+                        <label className="flex items-center gap-2 mt-3 text-sm text-[var(--zf-ink)]">
+                          <input
+                            type="checkbox"
+                            checked={advanced.secureBoot}
+                            onChange={(e) => setAdvanced({ ...advanced, secureBoot: e.target.checked })}
+                          />
+                          Secure Boot
+                        </label>
+                      )}
                     </div>
 
                     <div>
                       <label className="flex items-center gap-2 text-sm font-medium text-[var(--zf-ink)] mb-2">
-                        <Monitor className="w-4 h-4 text-[var(--zf-muted)]" />
-                        Display Protocol
+                        <Cpu className="w-4 h-4 text-[var(--zf-muted)]" />
+                        CPU model
                       </label>
-                      <div className="flex gap-2">
-                        {(['vnc', 'spice'] as const).map((dt) => (
+                      <div className="flex gap-2 flex-wrap">
+                        {(['host-passthrough', 'host-model', 'custom'] as const).map((mode) => (
                           <button
-                            key={dt}
+                            key={mode}
                             type="button"
-                            onClick={() => setAdvanced({ ...advanced, displayType: dt })}
+                            onClick={() => setAdvanced({ ...advanced, cpuMode: mode })}
                             className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-                              advanced.displayType === dt
+                              advanced.cpuMode === mode
                                 ? 'bg-[var(--zf-link)]/20 text-[var(--zf-link)] border border-[var(--zf-link)]/30'
                                 : 'bg-white border border-[var(--zf-hairline)] text-[var(--zf-muted)] hover:text-[var(--zf-ink)]'
                             }`}
                           >
-                            {dt.toUpperCase()}
+                            {mode}
                           </button>
                         ))}
                       </div>
+                      {advanced.cpuMode === 'custom' && (
+                        <input
+                          type="text"
+                          value={advanced.cpuModelName}
+                          onChange={(e) => setAdvanced({ ...advanced, cpuModelName: e.target.value })}
+                          placeholder="e.g. Haswell, EPYC-Rome"
+                          className="mt-2 w-full px-3 py-2 bg-white border border-[var(--zf-hairline)] rounded-lg text-sm"
+                        />
+                      )}
+                      <label className="flex items-center gap-2 mt-3 text-sm text-[var(--zf-ink)]">
+                        <input
+                          type="checkbox"
+                          checked={advanced.dedicatedCpuPlacement}
+                          onChange={(e) => setAdvanced({ ...advanced, dedicatedCpuPlacement: e.target.checked })}
+                        />
+                        Dedicated CPU placement (pin vCPUs to physical cores)
+                      </label>
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-[var(--zf-ink)] mb-2">Machine type</label>
+                      <input
+                        type="text"
+                        value={advanced.machineType}
+                        onChange={(e) => setAdvanced({ ...advanced, machineType: e.target.value })}
+                        placeholder="q35"
+                        className="w-40 px-3 py-2 bg-white border border-[var(--zf-hairline)] rounded-lg text-sm font-mono"
+                      />
+                    </div>
+
+                    <div className="space-y-2">
+                      <label className="flex items-center gap-2 text-sm text-[var(--zf-ink)]">
+                        <input
+                          type="checkbox"
+                          checked={advanced.enableTpm}
+                          onChange={(e) => setAdvanced({ ...advanced, enableTpm: e.target.checked })}
+                        />
+                        Attach TPM 2.0 device
+                      </label>
+                      <label className="flex items-center gap-2 text-sm text-[var(--zf-ink)]">
+                        <input
+                          type="checkbox"
+                          checked={advanced.enableRng}
+                          onChange={(e) => setAdvanced({ ...advanced, enableRng: e.target.checked })}
+                        />
+                        Attach virtio-rng device
+                      </label>
+                      {guestOs === 'windows' && (
+                        <label className="flex items-center gap-2 text-sm text-[var(--zf-ink)]">
+                          <input
+                            type="checkbox"
+                            checked={advanced.windowsHyperv}
+                            onChange={(e) => setAdvanced({ ...advanced, windowsHyperv: e.target.checked })}
+                          />
+                          Enable HyperV enlightenments (recommended for Windows performance)
+                        </label>
+                      )}
                     </div>
 
                     <div>
@@ -870,6 +963,28 @@ export default function CreateVM() {
                           {row.hostPort} → {row.guestPort}/{row.protocol}
                         </div>
                       ))}
+                    </dd>
+                  </div>
+                )}
+                {showAdvanced && (
+                  <div className="flex justify-between gap-4 border-t border-[var(--zf-hairline)] pt-2">
+                    <dt className="text-[var(--zf-muted)]">Advanced</dt>
+                    <dd className="text-[var(--zf-ink)] text-right text-xs space-y-0.5">
+                      <div>
+                        {advanced.firmware.toUpperCase()}
+                        {advanced.firmware === 'uefi' && advanced.secureBoot ? ' + Secure Boot' : ''}
+                      </div>
+                      <div>
+                        CPU: {advanced.cpuMode === 'custom' ? advanced.cpuModelName.trim() || 'custom' : advanced.cpuMode}
+                        {advanced.dedicatedCpuPlacement ? ' (dedicated)' : ''}
+                      </div>
+                      {advanced.machineType.trim() && <div>Machine: {advanced.machineType.trim()}</div>}
+                      {(advanced.enableTpm || advanced.enableRng) && (
+                        <div>
+                          {[advanced.enableTpm && 'TPM', advanced.enableRng && 'RNG'].filter(Boolean).join(' + ')}
+                        </div>
+                      )}
+                      {guestOs === 'windows' && advanced.windowsHyperv && <div>HyperV enlightenments</div>}
                     </dd>
                   </div>
                 )}

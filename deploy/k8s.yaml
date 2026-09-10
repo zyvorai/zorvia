@@ -38,6 +38,10 @@ rules:
       - virtualmachineinstances/guestosinfo
       - virtualmachineinstances/filesystemlist
       - virtualmachineinstances/userlist
+      - virtualmachineinstances/addvolume
+      - virtualmachineinstances/removevolume
+      - virtualmachineinstances/addinterface
+      - virtualmachineinstances/removeinterface
     verbs: ["get", "update", "patch"]
   - apiGroups: ["snapshot.kubevirt.io"]
     resources: ["virtualmachinesnapshots", "virtualmachinesnapshotcontents", "virtualmachinerestores"]
@@ -46,8 +50,11 @@ rules:
     resources: ["datavolumes", "datasources"]
     verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
   - apiGroups: [""]
-    resources: ["namespaces", "pods", "events"]
+    resources: ["pods", "events"]
     verbs: ["get", "list", "watch"]
+  - apiGroups: [""]
+    resources: ["namespaces"]
+    verbs: ["get", "list", "watch", "create", "update", "patch"]
   - apiGroups: [""]
     resources: ["persistentvolumeclaims"]
     verbs: ["get", "list", "watch", "create", "update", "patch"]
@@ -56,7 +63,40 @@ rules:
     verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
   - apiGroups: ["storage.k8s.io"]
     resources: ["storageclasses"]
-    verbs: ["get", "list", "watch"]
+    verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+  - apiGroups: ["snapshot.storage.k8s.io"]
+    resources: ["volumesnapshotclasses"]
+    verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+  # Rook-Ceph: managing an existing (or Zorvia-bootstrapped) CephCluster and
+  # its pools/filesystems/object stores.
+  - apiGroups: ["ceph.rook.io"]
+    resources: ["cephclusters", "cephblockpools", "cephfilesystems", "cephobjectstores"]
+    verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+  # Rook operator bootstrap (POST /api/storage/rook/bootstrap): Zorvia can
+  # install the Rook operator + its CRDs from scratch, not just manage an
+  # already-running one. That needs broad, near-cluster-admin permissions —
+  # CRD installation, and creating the operator's own ServiceAccount/
+  # ClusterRole/ClusterRoleBinding/Deployment. Kubernetes' RBAC escalation
+  # guard means this ServiceAccount can still only grant permissions it
+  # already holds via this same ClusterRole, but this is nonetheless a
+  # significant trust expansion — omit this block (and skip the bootstrap
+  # endpoint) if Zorvia should only ever attach to a Rook install that's
+  # already running.
+  - apiGroups: ["apiextensions.k8s.io"]
+    resources: ["customresourcedefinitions"]
+    verbs: ["get", "list", "watch", "create", "update", "patch"]
+  - apiGroups: ["rbac.authorization.k8s.io"]
+    resources: ["clusterroles", "clusterrolebindings", "roles", "rolebindings"]
+    verbs: ["get", "list", "watch", "create", "update", "patch"]
+  - apiGroups: ["apps"]
+    resources: ["deployments", "daemonsets"]
+    verbs: ["get", "list", "watch", "create", "update", "patch"]
+  - apiGroups: [""]
+    resources: ["serviceaccounts", "configmaps"]
+    verbs: ["get", "list", "watch", "create", "update", "patch"]
+  - apiGroups: ["scheduling.k8s.io"]
+    resources: ["priorityclasses"]
+    verbs: ["get", "list", "watch", "create", "update", "patch"]
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding

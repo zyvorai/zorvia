@@ -58,6 +58,10 @@ pub struct CPUConfig {
     /// Isolate QEMU emulator thread from vCPU threads
     #[serde(skip_serializing_if = "Option::is_none")]
     pub isolate_emulator_thread: Option<bool>,
+    /// Maximum socket count the VM can be hotplugged up to; must be declared at
+    /// create time since KubeVirt cannot raise it after the VM exists.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub max_sockets: Option<u32>,
 }
 
 impl Default for CPUConfig {
@@ -69,6 +73,7 @@ impl Default for CPUConfig {
             model: None,
             dedicated_cpu_placement: None,
             isolate_emulator_thread: None,
+            max_sockets: None,
         }
     }
 }

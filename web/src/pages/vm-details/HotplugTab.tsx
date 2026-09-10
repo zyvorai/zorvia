@@ -22,7 +22,7 @@ export default function HotplugTab({ vm }: { vm: VM }) {
   const [cpuCount, setCpuCount] = useState(vm.cpus + 1)
   const [memMb, setMemMb] = useState(512)
   const [diskPath, setDiskPath] = useState('')
-  const [nicBridge, setNicBridge] = useState('br0')
+  const [nicBridge, setNicBridge] = useState('')
   const [diskDeviceId, setDiskDeviceId] = useState('')
   const [nicDeviceId, setNicDeviceId] = useState('')
   const [busy, setBusy] = useState<string | null>(null)
@@ -110,7 +110,7 @@ export default function HotplugTab({ vm }: { vm: VM }) {
           <div className="space-y-2">
             <input
               type="text"
-              placeholder="/path/to/disk.qcow2"
+              placeholder="Existing PVC or DataVolume name"
               value={diskPath}
               onChange={(e) => setDiskPath(e.target.value)}
               disabled={!canWrite}
@@ -146,7 +146,7 @@ export default function HotplugTab({ vm }: { vm: VM }) {
           <div className="space-y-2">
             <input
               type="text"
-              placeholder="Bridge name (e.g. br0)"
+              placeholder="Multus network attachment name"
               value={nicBridge}
               onChange={(e) => setNicBridge(e.target.value)}
               disabled={!canWrite}
