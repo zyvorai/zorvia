@@ -534,7 +534,19 @@ pub async fn fabric_create_vm(
                 }
             }
 
-            match client.get_vm(&namespace, &req.name).await {
+            // The VM was just created; a GET by name right after can transiently
+            // fail (K8s API read-after-write lag), which would otherwise report
+            // "creation failed" for a VM that actually exists. Retry briefly
+            // before surfacing an error to the client.
+            let mut get_result = client.get_vm(&namespace, &req.name).await;
+            for _ in 0..3 {
+                if get_result.is_ok() {
+                    break;
+                }
+                tokio::time::sleep(std::time::Duration::from_millis(300)).await;
+                get_result = client.get_vm(&namespace, &req.name).await;
+            }
+            match get_result {
                 Ok(vm) => {
                     let ip = client.get_vm_ip(&namespace, &req.name).await.unwrap_or(None);
                     let mut body = fabric_vm_json(&VmInfo::from_vm_with_ip(&vm, ip));
