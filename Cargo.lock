@@ -2317,6 +2317,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "pty-process"
+version = "0.5.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "71cec9e2670207c5ebb9e477763c74436af3b9091dd550b9fb3c1bec7f3ea266"
+dependencies = [
+ "rustix 1.1.3",
+ "tokio",
+]
+
+[[package]]
 name = "quinn"
 version = "0.11.11"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4301,6 +4311,7 @@ dependencies = [
  "native-tls",
  "once_cell",
  "owo-colors",
+ "pty-process",
  "rand 0.8.5",
  "ratatui",
  "regex",

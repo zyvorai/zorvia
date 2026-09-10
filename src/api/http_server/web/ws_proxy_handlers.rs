@@ -296,14 +296,31 @@ async fn proxy_ssh(
         )))
         .await;
 
-    let mut cmd = tokio::process::Command::new(&argv[0]);
-    cmd.args(&argv[1..])
-        .stdin(std::process::Stdio::piped())
-        .stdout(std::process::Stdio::piped())
-        .stderr(std::process::Stdio::piped())
-        .env("TERM", "xterm-256color");
+    // A plain Stdio::piped() child doesn't have a controlling terminal, and
+    // OpenSSH's password prompt reads from /dev/tty rather than stdin -- with
+    // no tty, that open fails and ssh silently submits empty passwords for
+    // all 3 attempts before giving up. A real pty (as any actual terminal
+    // emulator would provide) is required for interactive password auth to
+    // work at all; it also merges stdout+stderr into one stream like a real
+    // terminal does, so there's only one output reader below instead of two.
+    let (pty, pts) = match pty_process::open() {
+        Ok(p) => p,
+        Err(e) => {
+            let _ = client_ws
+                .send(Message::Text(format!("error: failed to allocate pty: {e}\r\n")))
+                .await;
+            let _ = client_ws.close().await;
+            return;
+        }
+    };
+    if let Err(e) = pty.resize(pty_process::Size::new(24, 80)) {
+        log::warn!("ssh proxy: failed to size pty: {e}");
+    }
 
-    let mut child = match cmd.spawn() {
+    let mut cmd = pty_process::Command::new(&argv[0]);
+    cmd = cmd.args(&argv[1..]).env("TERM", "xterm-256color");
+
+    let mut child = match cmd.spawn(pts) {
         Ok(c) => c,
         Err(e) => {
             let _ = client_ws
@@ -317,13 +334,9 @@ async fn proxy_ssh(
         }
     };
 
-    let mut stdin = child.stdin.take();
-    let mut stdout = child.stdout.take();
-    let mut stderr = child.stderr.take();
+    let (mut pty_read, mut pty_write) = pty.into_split();
     let (sink, mut stream) = client_ws.split();
     let sink = std::sync::Arc::new(tokio::sync::Mutex::new(sink));
-    let sink_out = sink.clone();
-    let sink_err = sink.clone();
 
     let to_proc = async {
         use tokio::io::AsyncWriteExt;
@@ -334,54 +347,27 @@ async fn proxy_ssh(
                 Message::Close(_) => break,
                 _ => continue,
             };
-            if let Some(ref mut stdin) = stdin {
-                if stdin.write_all(&bytes).await.is_err() {
-                    break;
-                }
+            if pty_write.write_all(&bytes).await.is_err() {
+                break;
             }
         }
     };
 
-    let from_out = async {
+    let from_pty = async {
         use tokio::io::AsyncReadExt;
         let mut buf = [0u8; 4096];
-        if let Some(ref mut out) = stdout {
-            loop {
-                match out.read(&mut buf).await {
-                    Ok(0) | Err(_) => break,
-                    Ok(n) => {
-                        if sink_out
-                            .lock()
-                            .await
-                            .send(Message::Binary(buf[..n].to_vec()))
-                            .await
-                            .is_err()
-                        {
-                            break;
-                        }
-                    }
-                }
-            }
-        }
-    };
-
-    let from_err = async {
-        use tokio::io::AsyncReadExt;
-        let mut buf = [0u8; 1024];
-        if let Some(ref mut err) = stderr {
-            loop {
-                match err.read(&mut buf).await {
-                    Ok(0) | Err(_) => break,
-                    Ok(n) => {
-                        if sink_err
-                            .lock()
-                            .await
-                            .send(Message::Binary(buf[..n].to_vec()))
-                            .await
-                            .is_err()
-                        {
-                            break;
-                        }
+        loop {
+            match pty_read.read(&mut buf).await {
+                Ok(0) | Err(_) => break,
+                Ok(n) => {
+                    if sink
+                        .lock()
+                        .await
+                        .send(Message::Binary(buf[..n].to_vec()))
+                        .await
+                        .is_err()
+                    {
+                        break;
                     }
                 }
             }
@@ -390,8 +376,7 @@ async fn proxy_ssh(
 
     tokio::select! {
         _ = to_proc => {}
-        _ = from_out => {}
-        _ = from_err => {}
+        _ = from_pty => {}
     }
     let _ = child.kill().await;
 }

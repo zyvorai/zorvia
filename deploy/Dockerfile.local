@@ -1,6 +1,6 @@
 # Runtime image for host-built release binary (ubuntu 24.04 / glibc 2.39+).
 FROM ubuntu:24.04
-RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates \
+RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates openssh-client \
     && rm -rf /var/lib/apt/lists/* \
     && useradd -u 10001 -m zorvia \
     && mkdir -p /usr/share/zorvia/web \
