@@ -12,7 +12,7 @@ pub mod web {
         http::{header, HeaderMap, StatusCode},
         middleware,
         response::{IntoResponse, Json},
-        routing::{delete, get, post},
+        routing::{delete, get, post, put},
         Router,
     };
     use serde::{Deserialize, Serialize};
@@ -384,6 +384,10 @@ pub mod web {
             .route("/v1/auth/totp/disable", post(auth_totp_disable))
             .route("/v1/auth/oidc/callback", get(auth_oidc_callback))
             .route("/v1/auth/oidc/:id", get(auth_oidc_login))
+            .route("/v1/users", get(users_list).post(users_create))
+            .route("/v1/users/:id", delete(users_delete))
+            .route("/v1/users/:id/role", put(users_update_role))
+            .route("/v1/users/:id/enabled", put(users_set_enabled))
             .route("/v1/instance", get(instance_handler))
             .route("/instance", get(instance_handler))
             // Images (create wizard)
@@ -618,6 +622,68 @@ pub mod web {
     ) -> impl IntoResponse {
         let auth = auth_shared(&state).await;
         crate::api::auth::oidc_callback_handler(axum::extract::State(auth), Query(q)).await
+    }
+
+    // ── Admin-only user management ──────────────────────────────────────
+    // Every handler here re-validates the bearer token itself and requires
+    // Role::Admin -- there is no role-checking middleware in this server,
+    // `is_public_path` only distinguishes authenticated vs. not.
+
+    async fn users_list(State(state): State<SharedState>, headers: HeaderMap) -> impl IntoResponse {
+        let auth = auth_shared(&state).await;
+        crate::api::auth::handlers::list_users_handler(axum::extract::State(auth), headers).await
+    }
+
+    async fn users_create(
+        State(state): State<SharedState>,
+        headers: HeaderMap,
+        Json(body): Json<crate::api::auth::handlers::CreateUserRequest>,
+    ) -> impl IntoResponse {
+        let auth = auth_shared(&state).await;
+        crate::api::auth::handlers::create_user_handler(axum::extract::State(auth), headers, Json(body))
+            .await
+    }
+
+    async fn users_delete(
+        State(state): State<SharedState>,
+        headers: HeaderMap,
+        Path(id): Path<String>,
+    ) -> impl IntoResponse {
+        let auth = auth_shared(&state).await;
+        crate::api::auth::handlers::delete_user_handler(axum::extract::State(auth), headers, Path(id))
+            .await
+    }
+
+    async fn users_update_role(
+        State(state): State<SharedState>,
+        headers: HeaderMap,
+        Path(id): Path<String>,
+        Json(body): Json<crate::api::auth::handlers::UpdateRoleRequest>,
+    ) -> impl IntoResponse {
+        let auth = auth_shared(&state).await;
+        crate::api::auth::handlers::update_role_handler(
+            axum::extract::State(auth),
+            headers,
+            Path(id),
+            Json(body),
+        )
+        .await
+    }
+
+    async fn users_set_enabled(
+        State(state): State<SharedState>,
+        headers: HeaderMap,
+        Path(id): Path<String>,
+        Json(body): Json<crate::api::auth::handlers::SetEnabledRequest>,
+    ) -> impl IntoResponse {
+        let auth = auth_shared(&state).await;
+        crate::api::auth::handlers::set_enabled_handler(
+            axum::extract::State(auth),
+            headers,
+            Path(id),
+            Json(body),
+        )
+        .await
     }
 
     async fn instance_handler() -> impl IntoResponse {

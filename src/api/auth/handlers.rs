@@ -103,6 +103,9 @@ pub async fn login_handler(
 
     // 1) Local DB user
     if let Ok(Some(user)) = auth.db.get_by_username(&req.username) {
+        if !user.enabled {
+            return err(StatusCode::FORBIDDEN, "This account has been disabled").into_response();
+        }
         match user.verify_password(&req.password) {
             Ok(true) => {
                 if user.totp_enabled {
@@ -127,13 +130,16 @@ pub async fn login_handler(
                     }
                 }
                 return match auth.jwt.generate(&user.id, &user.username, user.role.clone()) {
-                    Ok(token) => Json(LoginResponse {
-                        token,
-                        user_id: user.id,
-                        role: role_str(&user.role).into(),
-                        username: user.username,
-                    })
-                    .into_response(),
+                    Ok(token) => {
+                        let _ = auth.db.update_last_login(&user.id);
+                        Json(LoginResponse {
+                            token,
+                            user_id: user.id,
+                            role: role_str(&user.role).into(),
+                            username: user.username,
+                        })
+                        .into_response()
+                    }
                     Err(_) => err(StatusCode::INTERNAL_SERVER_ERROR, "Token error").into_response(),
                 };
             }
@@ -204,6 +210,199 @@ fn bearer_token(headers: &HeaderMap) -> Option<String> {
         .get(header::AUTHORIZATION)
         .and_then(|v| v.to_str().ok())
         .and_then(|v| v.strip_prefix("Bearer ").map(|s| s.to_string()))
+}
+
+fn parse_role(s: &str) -> Option<Role> {
+    match s.to_ascii_lowercase().as_str() {
+        "admin" => Some(Role::Admin),
+        "user" => Some(Role::User),
+        "viewer" => Some(Role::Viewer),
+        _ => None,
+    }
+}
+
+/// Validates the bearer token and requires `Role::Admin`. There is no
+/// role-checking middleware anywhere in the server today (`is_public_path`
+/// only distinguishes authenticated vs. not), so every user-management
+/// handler checks this itself.
+async fn require_admin(
+    auth: &SharedAuth,
+    headers: &HeaderMap,
+) -> Result<Claims, axum::response::Response> {
+    let Some(claims) = bearer_token(headers).and_then(|t| auth.validate_bearer(&t)) else {
+        return Err(err(StatusCode::UNAUTHORIZED, "Unauthorized").into_response());
+    };
+    if claims.role != Role::Admin {
+        return Err(err(StatusCode::FORBIDDEN, "Admin role required").into_response());
+    }
+    Ok(claims)
+}
+
+#[derive(Debug, Serialize)]
+pub struct UserSummary {
+    pub id: String,
+    pub username: String,
+    pub role: String,
+    pub enabled: bool,
+    pub created: String,
+    pub last_login: Option<String>,
+}
+
+impl From<&crate::api::auth::user_db::User> for UserSummary {
+    fn from(u: &crate::api::auth::user_db::User) -> Self {
+        Self {
+            id: u.id.clone(),
+            username: u.username.clone(),
+            role: role_str(&u.role).to_string(),
+            enabled: u.enabled,
+            created: u.created.clone(),
+            last_login: u.last_login.clone(),
+        }
+    }
+}
+
+pub async fn list_users_handler(
+    State(auth): State<SharedAuth>,
+    headers: HeaderMap,
+) -> impl IntoResponse {
+    if let Err(resp) = require_admin(&auth, &headers).await {
+        return resp;
+    }
+    match auth.db.list_users() {
+        Ok(users) => Json(users.iter().map(UserSummary::from).collect::<Vec<_>>()).into_response(),
+        Err(_) => err(StatusCode::INTERNAL_SERVER_ERROR, "Failed to list users").into_response(),
+    }
+}
+
+#[derive(Debug, Deserialize)]
+pub struct CreateUserRequest {
+    pub username: String,
+    pub password: String,
+    pub role: String,
+}
+
+pub async fn create_user_handler(
+    State(auth): State<SharedAuth>,
+    headers: HeaderMap,
+    Json(body): Json<CreateUserRequest>,
+) -> impl IntoResponse {
+    if let Err(resp) = require_admin(&auth, &headers).await {
+        return resp;
+    }
+    if !validate_username(&body.username) {
+        return err(StatusCode::BAD_REQUEST, "Invalid username format").into_response();
+    }
+    if body.password.len() < 8 {
+        return err(StatusCode::BAD_REQUEST, "Password must be at least 8 characters")
+            .into_response();
+    }
+    let Some(role) = parse_role(&body.role) else {
+        return err(StatusCode::BAD_REQUEST, "Invalid role (expected admin, user, or viewer)")
+            .into_response();
+    };
+    if auth.db.get_by_username(&body.username).ok().flatten().is_some() {
+        return err(StatusCode::CONFLICT, "Username already exists").into_response();
+    }
+    match auth.db.create_user(&body.username, &body.password, role) {
+        Ok(user) => (StatusCode::CREATED, Json(UserSummary::from(&user))).into_response(),
+        Err(_) => err(StatusCode::INTERNAL_SERVER_ERROR, "Failed to create user").into_response(),
+    }
+}
+
+/// Shared "would this drop the instance to zero enabled admins" guard, used
+/// before deleting, demoting, or disabling an admin account.
+fn reject_if_last_admin(
+    auth: &SharedAuth,
+    target: &crate::api::auth::user_db::User,
+    target_will_remain_enabled_admin: bool,
+) -> Option<axum::response::Response> {
+    if target.role != Role::Admin || !target.enabled || target_will_remain_enabled_admin {
+        return None;
+    }
+    match auth.db.enabled_admin_count() {
+        Ok(n) if n <= 1 => Some(
+            err(StatusCode::CONFLICT, "This is the last enabled admin account").into_response(),
+        ),
+        Ok(_) => None,
+        Err(_) => {
+            Some(err(StatusCode::INTERNAL_SERVER_ERROR, "Failed to check admin count").into_response())
+        }
+    }
+}
+
+pub async fn delete_user_handler(
+    State(auth): State<SharedAuth>,
+    headers: HeaderMap,
+    Path(id): Path<String>,
+) -> impl IntoResponse {
+    if let Err(resp) = require_admin(&auth, &headers).await {
+        return resp;
+    }
+    let Ok(Some(target)) = auth.db.get_by_id(&id) else {
+        return err(StatusCode::NOT_FOUND, "User not found").into_response();
+    };
+    if let Some(resp) = reject_if_last_admin(&auth, &target, false) {
+        return resp;
+    }
+    match auth.db.delete_user(&id) {
+        Ok(()) => StatusCode::NO_CONTENT.into_response(),
+        Err(_) => err(StatusCode::INTERNAL_SERVER_ERROR, "Failed to delete user").into_response(),
+    }
+}
+
+#[derive(Debug, Deserialize)]
+pub struct UpdateRoleRequest {
+    pub role: String,
+}
+
+pub async fn update_role_handler(
+    State(auth): State<SharedAuth>,
+    headers: HeaderMap,
+    Path(id): Path<String>,
+    Json(body): Json<UpdateRoleRequest>,
+) -> impl IntoResponse {
+    if let Err(resp) = require_admin(&auth, &headers).await {
+        return resp;
+    }
+    let Some(new_role) = parse_role(&body.role) else {
+        return err(StatusCode::BAD_REQUEST, "Invalid role").into_response();
+    };
+    let Ok(Some(target)) = auth.db.get_by_id(&id) else {
+        return err(StatusCode::NOT_FOUND, "User not found").into_response();
+    };
+    if let Some(resp) = reject_if_last_admin(&auth, &target, new_role == Role::Admin) {
+        return resp;
+    }
+    match auth.db.update_role(&id, new_role) {
+        Ok(()) => StatusCode::NO_CONTENT.into_response(),
+        Err(_) => err(StatusCode::INTERNAL_SERVER_ERROR, "Failed to update role").into_response(),
+    }
+}
+
+#[derive(Debug, Deserialize)]
+pub struct SetEnabledRequest {
+    pub enabled: bool,
+}
+
+pub async fn set_enabled_handler(
+    State(auth): State<SharedAuth>,
+    headers: HeaderMap,
+    Path(id): Path<String>,
+    Json(body): Json<SetEnabledRequest>,
+) -> impl IntoResponse {
+    if let Err(resp) = require_admin(&auth, &headers).await {
+        return resp;
+    }
+    let Ok(Some(target)) = auth.db.get_by_id(&id) else {
+        return err(StatusCode::NOT_FOUND, "User not found").into_response();
+    };
+    if let Some(resp) = reject_if_last_admin(&auth, &target, body.enabled) {
+        return resp;
+    }
+    match auth.db.set_enabled(&id, body.enabled) {
+        Ok(()) => StatusCode::NO_CONTENT.into_response(),
+        Err(_) => err(StatusCode::INTERNAL_SERVER_ERROR, "Failed to update user").into_response(),
+    }
 }
 
 #[derive(Debug, Deserialize)]

@@ -2,12 +2,16 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import type { LucideIcon } from 'lucide-react'
-import { Home, Server, Star, Camera, Plus, MonitorCog, ArrowRightLeft, Database } from 'lucide-react'
+import { Home, Server, Star, Camera, Plus, MonitorCog, ArrowRightLeft, Database, ShieldCheck } from 'lucide-react'
 
 export interface NavItem {
   label: string
   path: string
   icon: LucideIcon
+  /** Hidden from the sidebar unless usePermissions().canAdmin is true --
+   * the backend independently enforces this too, this is just UX so a
+   * non-admin isn't shown a link that always 403s. */
+  adminOnly?: boolean
 }
 
 export interface NavSection {
@@ -59,6 +63,7 @@ export const NAV_GROUPS: NavGroup[] = [
       { label: 'Migrations', path: '/app/migrations', icon: ArrowRightLeft },
       { label: 'Storage', path: '/app/storage', icon: Database },
       { label: 'Windows', path: '/app/windows', icon: MonitorCog },
+      { label: 'Access Control', path: '/app/access-control', icon: ShieldCheck, adminOnly: true },
     ],
   },
 ]

@@ -7,6 +7,7 @@ import { ThemeProvider } from './contexts/ThemeContext'
 import { ToastProvider } from './contexts/ToastContext'
 import { WebSocketProvider } from './contexts/WebSocketContext'
 import { AuthProvider, useAuth } from './contexts/AuthContext'
+import { usePermissions } from './hooks/usePermissions'
 import { PlatformInfoProvider } from './contexts/PlatformInfoContext'
 import PageSkeleton from './components/PageSkeleton'
 import { PageErrorBoundary } from './components/ErrorBoundary'
@@ -28,6 +29,7 @@ const FavoriteVMs = lazy(() => import('./pages/FavoriteVMs'))
 const KrytonWindows = lazy(() => import('./pages/KrytonWindows'))
 const Migrations = lazy(() => import('./pages/Migrations'))
 const RookStorage = lazy(() => import('./pages/RookStorage'))
+const AccessControl = lazy(() => import('./pages/AccessControl'))
 
 function ProtectedRoute({ children }: { children: ReactNode }) {
   const { isAuthenticated, loading } = useAuth()
@@ -50,6 +52,24 @@ function ProtectedRoute({ children }: { children: ReactNode }) {
   return <>{children}</>
 }
 
+/** First admin-gated route in the app -- everything else here only checks
+ * `canWrite` (read vs. write) via usePermissions(), never `canAdmin`. The
+ * backend independently enforces this too (every /api/v1/users handler
+ * requires Role::Admin), so this is UX, not the actual security boundary. */
+function AdminRoute({ children }: { children: ReactNode }) {
+  const { canAdmin } = usePermissions()
+
+  if (!canAdmin) {
+    return (
+      <div className="flex items-center justify-center h-64 text-[var(--zf-muted)]">
+        <p className="text-sm">Admins only.</p>
+      </div>
+    )
+  }
+
+  return <>{children}</>
+}
+
 function ConsoleRoutes() {
   return (
     <ConsoleLayout>
@@ -66,6 +86,7 @@ function ConsoleRoutes() {
             <Route path="migrations" element={<Migrations />} />
             <Route path="storage" element={<RookStorage />} />
             <Route path="windows" element={<KrytonWindows />} />
+            <Route path="access-control" element={<AdminRoute><AccessControl /></AdminRoute>} />
             <Route path="*" element={<Navigate to="/app" replace />} />
           </Routes>
         </Suspense>

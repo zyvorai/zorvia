@@ -61,10 +61,30 @@ export function formatHttpErrorBody(status: number, statusText: string, text: st
   }
 
   try {
-    const j = JSON.parse(raw) as { error?: string; message?: string; error_code?: string }
-    const code = typeof j.error_code === 'string' ? j.error_code : undefined
+    const j = JSON.parse(raw) as {
+      error?: string | { code?: string; message?: string }
+      message?: string
+      error_code?: string
+    }
+    // Two shapes exist in this codebase: the older flat `{error, error_code}`
+    // and the `err()` helper in src/api/auth/handlers.rs's nested
+    // `{error: {code, message}}` -- handle both rather than falling through
+    // to a raw JSON dump for the latter.
+    const nestedError = typeof j.error === 'object' && j.error !== null ? j.error : undefined
+    const code =
+      typeof j.error_code === 'string'
+        ? j.error_code
+        : typeof nestedError?.code === 'string'
+          ? nestedError.code
+          : undefined
     const rawMsg =
-      typeof j.error === 'string' ? j.error : typeof j.message === 'string' ? j.message : ''
+      typeof j.error === 'string'
+        ? j.error
+        : typeof nestedError?.message === 'string'
+          ? nestedError.message
+          : typeof j.message === 'string'
+            ? j.message
+            : ''
     const clean = sanitizeErrorText(rawMsg)
 
     if (clean) {

@@ -3,22 +3,23 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import { Users, Plus, Trash2, Loader2, CheckCircle } from 'lucide-react'
-import { apiFetch } from '../api/client'
+import { listUsers, createUser, deleteUser, setUserEnabled, UserAccount, UserRole } from '../api/users'
 import { useToastContext } from '../contexts/ToastContext'
 import { useConfirm } from '../hooks/useConfirm'
+import { useAuth } from '../contexts/AuthContext'
 import ConfirmDialog from '../components/ConfirmDialog'
 import ErrorBanner from '../components/ErrorBanner'
 import { PageHeader } from '../components/ui'
-import { formatHttpErrorBody, formatUserError } from '../utils/apiError'
+import { formatUserError } from '../utils/apiError'
 import { toastFailure } from '../utils/toastError'
 import { hintsForError } from '../utils/daemonHints'
 
-interface UserAccount { id: string; username: string; role: string; enabled: boolean; created_at: string; last_login?: string }
+const ROLES: UserRole[] = ['admin', 'user', 'viewer']
 
 function roleBadge(role: string): string {
   switch (role?.toLowerCase()) {
     case 'admin': return 'text-red-700 bg-red-50 border-red-200'
-    case 'operator': return 'text-amber-800 bg-amber-50 border-amber-200'
+    case 'user': return 'text-amber-800 bg-amber-50 border-amber-200'
     case 'viewer': return 'text-emerald-700 bg-emerald-50 border-emerald-200'
     default: return 'text-[var(--zf-muted)] bg-[var(--zf-canvas)] border-[var(--zf-hairline)]'
   }
@@ -29,6 +30,7 @@ const MIN_PASSWORD_LENGTH = 8
 
 export default function AccessControl() {
   const toast = useToastContext()
+  const { user: currentUser } = useAuth()
   const { confirmState, confirm, cancel } = useConfirm()
   const [users, setUsers] = useState<UserAccount[]>([])
   const [loading, setLoading] = useState(true)
@@ -36,22 +38,17 @@ export default function AccessControl() {
   const [showAdd, setShowAdd] = useState(false)
   const [newUsername, setNewUsername] = useState('')
   const [newPassword, setNewPassword] = useState('')
-  const [newRole, setNewRole] = useState('viewer')
+  const [newRole, setNewRole] = useState<UserRole>('viewer')
   const [adding, setAdding] = useState(false)
   const [addError, setAddError] = useState('')
   const [addSuccess, setAddSuccess] = useState('')
+  const [togglingId, setTogglingId] = useState<string | null>(null)
 
   const fetchUsers = useCallback(async () => {
     setLoading(true)
     setLoadError(null)
     try {
-      const res = await apiFetch('/api/users')
-      if (!res.ok) {
-        const body = await res.text()
-        throw new Error(formatHttpErrorBody(res.status, res.statusText, body))
-      }
-      const data = await res.json()
-      setUsers(Array.isArray(data) ? data : data.users || [])
+      setUsers(await listUsers())
     } catch (err) {
       const msg = formatUserError(err)
       setLoadError(msg)
@@ -70,8 +67,7 @@ export default function AccessControl() {
     if (newPassword.length < MIN_PASSWORD_LENGTH) { setAddError(`Password must be at least ${MIN_PASSWORD_LENGTH} characters`); return }
     setAdding(true); setAddError(''); setAddSuccess('')
     try {
-      const res = await apiFetch('/api/users', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ username: newUsername.trim(), password: newPassword, role: newRole }) })
-      if (!res.ok) { const body = await res.json().catch(() => null); throw new Error(body?.error || `HTTP ${res.status}`) }
+      await createUser(newUsername.trim(), newPassword, newRole)
       setAddSuccess(`User "${newUsername}" created`); setNewUsername(''); setNewPassword(''); setShowAdd(false); fetchUsers()
       setTimeout(() => setAddSuccess(''), 3000)
     } catch (err) {
@@ -83,11 +79,7 @@ export default function AccessControl() {
   const handleDelete = async (id: string, username: string) => {
     if (!await confirm('Delete User', `Delete user "${username}"?`, { variant: 'danger', confirmLabel: 'Delete' })) return
     try {
-      const res = await apiFetch(`/api/users/${id}`, { method: 'DELETE' })
-      if (!res.ok) {
-        const body = await res.text()
-        throw new Error(formatHttpErrorBody(res.status, res.statusText, body))
-      }
+      await deleteUser(id)
       setUsers(prev => prev.filter(u => u.id !== id))
       toast.success(`User "${username}" deleted`)
     } catch (err) {
@@ -96,20 +88,19 @@ export default function AccessControl() {
   }
 
   const handleToggle = async (id: string, enabled: boolean) => {
+    setTogglingId(id)
     try {
-      const res = await apiFetch(`/api/users/${id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ enabled: !enabled }) })
-      if (!res.ok) {
-        const body = await res.text()
-        throw new Error(formatHttpErrorBody(res.status, res.statusText, body))
-      }
+      await setUserEnabled(id, !enabled)
       setUsers(prev => prev.map(u => u.id === id ? { ...u, enabled: !enabled } : u))
     } catch (err) {
       toastFailure(toast, 'Failed to update user', err)
+    } finally {
+      setTogglingId(null)
     }
   }
 
   const adminCount = users.filter(u => u.role === 'admin').length
-  const operatorCount = users.filter(u => u.role === 'operator').length
+  const userCount = users.filter(u => u.role === 'user').length
   const viewerCount = users.filter(u => u.role === 'viewer').length
 
   return (
@@ -149,18 +140,14 @@ export default function AccessControl() {
 
       {addSuccess && <div className="bg-emerald-50 border border-emerald-200 rounded-xl px-4 py-3 text-sm text-emerald-700 flex items-center gap-2"><CheckCircle className="w-4 h-4" />{addSuccess}</div>}
 
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
         <div className="stat-card-blue rounded-xl border border-[var(--zf-hairline)] px-4 py-3 card-glow transition-all hover:scale-[1.02]">
-          <div className="text-2xl font-bold text-[var(--zf-ink)]">{users.length}</div>
-          <div className="text-xs text-[var(--zf-muted)] mt-1">Total Users</div>
-        </div>
-        <div className="stat-card-red rounded-xl border border-[var(--zf-hairline)] px-4 py-3 card-glow transition-all hover:scale-[1.02]">
           <div className="text-2xl font-bold text-[var(--zf-ink)]">{adminCount}</div>
           <div className="text-xs text-[var(--zf-muted)] mt-1">Admins</div>
         </div>
         <div className="stat-card-cyan rounded-xl border border-[var(--zf-hairline)] px-4 py-3 card-glow-cyan transition-all hover:scale-[1.02]">
-          <div className="text-2xl font-bold text-[var(--zf-ink)]">{operatorCount}</div>
-          <div className="text-xs text-[var(--zf-muted)] mt-1">Operators</div>
+          <div className="text-2xl font-bold text-[var(--zf-ink)]">{userCount}</div>
+          <div className="text-xs text-[var(--zf-muted)] mt-1">Users</div>
         </div>
         <div className="stat-card-green rounded-xl border border-[var(--zf-hairline)] px-4 py-3 card-glow-green transition-all hover:scale-[1.02]">
           <div className="text-2xl font-bold text-[var(--zf-ink)]">{viewerCount}</div>
@@ -176,7 +163,7 @@ export default function AccessControl() {
             <div><label className="block text-xs font-medium text-[var(--zf-muted)] mb-1.5">Password</label><input type="password" value={newPassword} onChange={(e) => setNewPassword(e.target.value)} placeholder="password" className="input-field text-sm" /></div>
             <div><label className="block text-xs font-medium text-[var(--zf-muted)] mb-1.5">Role</label>
               <div className="flex gap-2">
-                {['admin', 'operator', 'viewer'].map(r => (
+                {ROLES.map(r => (
                   <button key={r} onClick={() => setNewRole(r)} className={`px-3 py-1.5 text-xs font-medium rounded-lg border transition-colors capitalize ${newRole === r ? 'bg-[var(--zf-link)] text-white border-[var(--zf-link)]' : 'text-[var(--zf-muted)] bg-white border-[var(--zf-hairline)] hover:border-[var(--zf-ink)]'}`}>{r}</button>
                 ))}
               </div>
@@ -204,23 +191,26 @@ export default function AccessControl() {
               <th className="text-right px-5 py-3 text-xs font-medium text-[var(--zf-muted)] uppercase tracking-wider">Actions</th>
             </tr></thead>
             <tbody className="divide-y divide-[var(--zf-hairline)]/30">
-              {users.map(user => (
+              {users.map(user => {
+                const isSelf = currentUser?.id === user.id
+                return (
                 <tr key={user.id} className="hover:bg-black/[0.04] transition-colors">
-                  <td className="px-5 py-3"><div className="flex items-center gap-3"><div className="w-8 h-8 rounded-full bg-[var(--zf-ink)] flex items-center justify-center text-xs font-bold text-white uppercase">{user.username.charAt(0)}</div><span className="text-[var(--zf-ink)] font-medium">{user.username}</span></div></td>
+                  <td className="px-5 py-3"><div className="flex items-center gap-3"><div className="w-8 h-8 rounded-full bg-[var(--zf-ink)] flex items-center justify-center text-xs font-bold text-white uppercase">{user.username.charAt(0)}</div><span className="text-[var(--zf-ink)] font-medium">{user.username}</span>{isSelf && <span className="text-[10px] text-[var(--zf-muted)]">(you)</span>}</div></td>
                   <td className="px-5 py-3"><span className={`px-2.5 py-0.5 rounded-full text-xs font-medium border capitalize ${roleBadge(user.role)}`}>{user.role}</span></td>
                   <td className="px-5 py-3">
-                    <button onClick={() => handleToggle(user.id, user.enabled)} className="flex items-center gap-1.5" aria-label={`${user.enabled ? 'Disable' : 'Enable'} user ${user.username}`}>
+                    <button onClick={() => handleToggle(user.id, user.enabled)} disabled={togglingId === user.id} className="flex items-center gap-1.5 disabled:opacity-50" aria-label={`${user.enabled ? 'Disable' : 'Enable'} user ${user.username}`}>
                       <div className={`relative w-8 h-4 rounded-full transition-colors ${user.enabled ? 'bg-emerald-500' : 'bg-[var(--zf-hairline)]'}`} role="switch" aria-checked={user.enabled}><div className={`absolute top-0.5 w-3.5 h-3.5 rounded-full bg-white transition-transform ${user.enabled ? 'translate-x-4' : 'translate-x-0.5'}`} /></div>
                       <span className={`text-xs ${user.enabled ? 'text-emerald-700' : 'text-[var(--zf-muted)]'}`}>{user.enabled ? 'Active' : 'Disabled'}</span>
                     </button>
                   </td>
-                  <td className="px-5 py-3 text-xs text-[var(--zf-muted)]">{user.created_at ? new Date(user.created_at).toLocaleDateString() : '-'}</td>
+                  <td className="px-5 py-3 text-xs text-[var(--zf-muted)]">{user.created ? new Date(user.created).toLocaleDateString() : '-'}</td>
                   <td className="px-5 py-3 text-xs text-[var(--zf-muted)]">{user.last_login ? new Date(user.last_login).toLocaleString() : 'Never'}</td>
                   <td className="px-5 py-3 text-right">
                     <button onClick={() => handleDelete(user.id, user.username)} className="p-1.5 text-[var(--zf-muted)] hover:text-red-600 hover:bg-red-500/10 rounded-lg transition-colors" title="Delete user"><Trash2 className="w-4 h-4" /></button>
                   </td>
                 </tr>
-              ))}
+                )
+              })}
             </tbody>
           </table>
         </div>

@@ -5,6 +5,7 @@ import { ReactNode, useMemo, useState } from 'react'
 import { Link, NavLink, useNavigate } from 'react-router'
 import { LogOut, Menu, PanelLeftClose, PanelLeftOpen, Search, X } from 'lucide-react'
 import { useAuth } from '../contexts/AuthContext'
+import { usePermissions } from '../hooks/usePermissions'
 import { NAV_GROUPS, flattenNavGroup } from '../navigation/navConfig'
 import ConnectionStatus from './ConnectionStatus'
 import CommandPalette from './CommandPalette'
@@ -60,6 +61,7 @@ function ConsoleShortcuts({
 
 export default function ConsoleLayout({ children }: { children: ReactNode }) {
   const { user, logout } = useAuth()
+  const { canAdmin } = usePermissions()
   const navigate = useNavigate()
   const [mobileNav, setMobileNav] = useState(false)
   const [helpOpen, setHelpOpen] = useState(false)
@@ -156,7 +158,7 @@ export default function ConsoleLayout({ children }: { children: ReactNode }) {
             {!collapsed && <span>Collapse</span>}
           </button>
           {NAV_GROUPS.map((group) => {
-            const items = flattenNavGroup(group)
+            const items = flattenNavGroup(group).filter((item) => !item.adminOnly || canAdmin)
             return (
               <div key={group.name} className="console-sidebar-group">
                 {!collapsed && <div className="console-sidebar-label">{group.compact}</div>}
