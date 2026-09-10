@@ -131,6 +131,16 @@ fn data_volume_manifest(spec: &GoldenImageSpec, versioned_name: &str) -> Value {
         "resources".to_string(),
         json!({"requests": {"storage": spec.size.clone()}}),
     );
+    // ReadWriteOnce is the standard default for a single-VM boot disk. CDI
+    // can normally infer this from the target StorageClass's StorageProfile,
+    // but not every cluster has one configured (e.g. k3s's built-in
+    // "local-path" ships without a StorageProfile access mode) — CDI then
+    // rejects the DataVolume with ErrClaimNotValid instead of importing,
+    // so set it explicitly rather than depending on cluster-specific setup.
+    storage.insert(
+        "accessModes".to_string(),
+        json!(["ReadWriteOnce"]),
+    );
     if let Some(storage_class) = &spec.storage_class {
         storage.insert(
             "storageClassName".to_string(),
@@ -274,6 +284,19 @@ mod tests {
         assert_eq!(
             bundle.data_volume["spec"]["source"]["http"]["url"],
             "https://example.invalid/ubuntu.qcow2"
+        );
+    }
+
+    #[test]
+    fn data_volume_sets_an_explicit_access_mode() {
+        // Regression: verified against a real cluster — CDI rejects a
+        // DataVolume with ErrClaimNotValid on any StorageClass whose
+        // StorageProfile doesn't declare an access mode (e.g. k3s's
+        // built-in "local-path"), unless one is set explicitly here.
+        let bundle = GoldenImageBundle::build(spec()).unwrap();
+        assert_eq!(
+            bundle.data_volume["spec"]["storage"]["accessModes"],
+            serde_json::json!(["ReadWriteOnce"])
         );
     }
 
