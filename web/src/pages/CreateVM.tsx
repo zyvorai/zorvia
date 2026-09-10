@@ -7,10 +7,12 @@ import { createVM, listVMs } from '../api/vm'
 import type { CreateVMFeatures, CreateVMFirmware, PortForwardSpec, VM } from '../api/vm'
 import { listImages, createImageFromVm, getConvertJob, listCloudImages, downloadCloudImage, listDownloads } from '../api/images'
 import type { ImageInfo, CloudImage } from '../api/images'
+import { getKrytonStatus, getKrytonImages, createKrytonMachine } from '../api/kryton'
+import type { KrytonStatus, KrytonImage } from '../api/kryton'
 import { formatBytes } from '../utils/format'
 import {
   ArrowLeft, ArrowRight, Cpu, HardDrive, ChevronDown, ChevronUp, Shield, Plus, X,
-  Network, Server, Sparkles, Check, Download,
+  Network, Server, Sparkles, Check, Download, MonitorCog,
 } from 'lucide-react'
 import WizardStepper from '../components/WizardStepper'
 import ErrorBanner from '../components/ErrorBanner'
@@ -114,6 +116,9 @@ export default function CreateVM() {
   const [exposeSsh, setExposeSsh] = useState(true)
   const [exposeVnc, setExposeVnc] = useState(false)
   const [exposeRdp, setExposeRdp] = useState(false)
+  const [krytonStatus, setKrytonStatus] = useState<KrytonStatus | null>(null)
+  const [krytonImages, setKrytonImages] = useState<KrytonImage[]>([])
+  const [krytonLoading, setKrytonLoading] = useState(false)
 
   const addPortForwardRow = (guestPort = '', hostPort = '') => {
     setPortForwards((rows) => [...rows, { hostPort, guestPort, protocol: 'tcp' }])
@@ -149,6 +154,35 @@ export default function CreateVM() {
       })
     return () => { cancelled = true }
   }, [wizardStep, imagesReload, toast])
+
+  useEffect(() => {
+    if (wizardStep !== 0 || guestOs !== 'windows') return
+    let cancelled = false
+    setKrytonLoading(true)
+    getKrytonStatus()
+      .then(async (status) => {
+        if (cancelled) return
+        setKrytonStatus(status)
+        if (!status.enabled || !status.connected || !status.project) {
+          setKrytonImages([])
+          return
+        }
+        const page = await getKrytonImages()
+        if (cancelled) return
+        setKrytonImages(page.items.filter((img) => img.ready))
+      })
+      .catch((err) => {
+        if (!cancelled) {
+          setKrytonStatus({ enabled: false, connected: false })
+          setKrytonImages([])
+          toastFailure(toast, 'Could not reach Kryton', err)
+        }
+      })
+      .finally(() => {
+        if (!cancelled) setKrytonLoading(false)
+      })
+    return () => { cancelled = true }
+  }, [wizardStep, guestOs, toast])
 
   const memoryPresets = [
     { label: '512 MB', value: 512 },
@@ -219,6 +253,35 @@ export default function CreateVM() {
     setValidationError('')
     setSubmitError(null)
 
+    if (guestOs === 'windows') {
+      // Kryton is the Windows virtualization control plane (see
+      // docs/KRYTON_INTEGRATION.md) — Windows VMs are created there, not via
+      // the KubeVirt-backed /api/vms path Linux uses.
+      if (!krytonStatus?.project) {
+        setSubmitError('Kryton is not configured (KRYTON_PROJECT missing) — see the Windows page for status.')
+        setLoading(false)
+        return
+      }
+      try {
+        await createKrytonMachine({
+          project: krytonStatus.project,
+          name,
+          image,
+          compute: { cpu: cpus, memoryMiB: memory },
+          disk: { sizeGiB: diskGb },
+        })
+        toast.success(`Windows machine '${name}' created in Kryton`)
+        navigate('/app/windows')
+      } catch (err) {
+        const msg = formatUserError(err)
+        setSubmitError(msg)
+        toastFailure(toast, 'Failed to create Windows machine', err)
+      } finally {
+        setLoading(false)
+      }
+      return
+    }
+
     try {
       const port_forwards: PortForwardSpec[] = networkMode === 'nat'
         ? portForwards.map((row) => ({
@@ -231,6 +294,7 @@ export default function CreateVM() {
         .split('\n')
         .map((l) => l.trim())
         .filter(Boolean)
+      // guestOs is narrowed to 'linux' here — Windows returns above via Kryton.
       await createVM({
         name,
         image,
@@ -240,22 +304,18 @@ export default function CreateVM() {
         guest_os: guestOs,
         network_tap: networkMode === 'bridged',
         network_static_ip: networkMode === 'bridged' && staticIp,
-        expose_ssh: guestOs === 'linux' && exposeSsh,
-        expose_vnc: guestOs === 'windows' ? exposeVnc || true : exposeVnc,
-        expose_rdp: guestOs === 'windows' && exposeRdp,
+        expose_ssh: exposeSsh,
+        expose_vnc: exposeVnc,
+        expose_rdp: false,
         ...(tenant.trim() ? { tenant: tenant.trim() } : {}),
         ...(port_forwards.length ? { port_forwards } : {}),
-        ...(guestOs === 'linux'
-          ? {
-              cloud_init: {
-                hostname: ciHostname.trim() || name,
-                username: ciUsername.trim() || 'zorvia',
-                ...(ciPassword ? { password: ciPassword } : {}),
-                ...(sshKeys.length ? { ssh_authorized_keys: sshKeys } : {}),
-                ...(ciUserData.trim() ? { user_data: ciUserData } : {}),
-              },
-            }
-          : {}),
+        cloud_init: {
+          hostname: ciHostname.trim() || name,
+          username: ciUsername.trim() || 'zorvia',
+          ...(ciPassword ? { password: ciPassword } : {}),
+          ...(sshKeys.length ? { ssh_authorized_keys: sshKeys } : {}),
+          ...(ciUserData.trim() ? { user_data: ciUserData } : {}),
+        },
         ...(showAdvanced ? buildAdvancedCreateFields(advanced, guestOs) : {}),
       })
       toast.success(`VM '${name}' created`)
@@ -350,6 +410,7 @@ export default function CreateVM() {
                       type="button"
                       onClick={() => {
                         setGuestOs(os)
+                        setImage('')
                         if (os === 'windows') {
                           setExposeSsh(false)
                           setExposeVnc(true)
@@ -459,6 +520,69 @@ export default function CreateVM() {
                 />
               </div>
 
+            {guestOs === 'windows' ? (
+              <div>
+                <label className="block text-sm font-medium text-[var(--zf-ink)] mb-1.5">
+                  Windows golden image
+                </label>
+                {krytonLoading ? (
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 mb-2">
+                    {[0, 1, 2].map((i) => (
+                      <div key={i} className="h-[4.25rem] rounded-lg bg-[var(--zf-canvas)] animate-pulse" />
+                    ))}
+                  </div>
+                ) : !krytonStatus?.enabled || !krytonStatus?.connected ? (
+                  <p className="text-xs text-amber-800 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
+                    Kryton (the Windows control plane) is not reachable from this Zorvia server. Configure{' '}
+                    <code className="font-mono">KRYTON_URL</code> and see the{' '}
+                    <a href="/app/windows" className="underline">Windows page</a> for status.
+                  </p>
+                ) : !krytonStatus.project ? (
+                  <p className="text-xs text-amber-800 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
+                    Kryton is reachable, but <code className="font-mono">KRYTON_PROJECT</code> is not configured on
+                    the Zorvia server — Windows VM creation is blocked until it is.
+                  </p>
+                ) : krytonImages.length === 0 ? (
+                  <p className="text-xs text-[var(--zf-muted)] mb-2">
+                    No certified Windows golden images are available in this Kryton project.
+                  </p>
+                ) : (
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 mb-2">
+                    {krytonImages.map((img) => {
+                      const selected = image === img.id
+                      return (
+                        <button
+                          key={img.id}
+                          type="button"
+                          onClick={() => setImage(img.id)}
+                          className={`relative text-left p-3 rounded-lg border transition-colors ${
+                            selected
+                              ? 'bg-[var(--zf-link)]/15 border-[var(--zf-link)]/40 ring-1 ring-[var(--zf-link)]/30'
+                              : 'bg-white border-[var(--zf-hairline)] hover:border-[var(--zf-hairline)]'
+                          }`}
+                        >
+                          {selected && (
+                            <div className="absolute top-2 right-2 w-4 h-4 rounded-full bg-[var(--zf-link)] flex items-center justify-center">
+                              <Check className="w-2.5 h-2.5 text-[var(--zf-ink)]" />
+                            </div>
+                          )}
+                          <div className="flex items-center gap-2 mb-1.5">
+                            <div className="icon-tile icon-tile-sm icon-tile-blue shrink-0">
+                              <MonitorCog className="w-3.5 h-3.5" />
+                            </div>
+                            <span className="text-sm font-medium text-[var(--zf-ink)] truncate">{img.name}</span>
+                          </div>
+                          <p className="text-xs text-[var(--zf-muted)]">
+                            {img.version}
+                            {img.certified ? ' · certified' : ''}
+                          </p>
+                        </button>
+                      )
+                    })}
+                  </div>
+                )}
+              </div>
+            ) : (
             <div>
               <div className="flex items-center justify-between mb-1.5 gap-3 flex-wrap">
                 <label htmlFor="vm-image" className="block text-sm font-medium text-[var(--zf-ink)]">
@@ -539,6 +663,7 @@ export default function CreateVM() {
                 required
               />
             </div>
+            )}
             </div>
           )}
 
@@ -931,9 +1056,17 @@ export default function CreateVM() {
                   </div>
                 )}
                 <div className="flex justify-between gap-4 border-b border-[var(--zf-hairline)] pb-2">
-                  <dt className="text-[var(--zf-muted)]">Image</dt>
-                  <dd className="text-[var(--zf-ink)] font-mono text-xs text-right break-all">{image}</dd>
+                  <dt className="text-[var(--zf-muted)]">{guestOs === 'windows' ? 'Windows image' : 'Image'}</dt>
+                  <dd className="text-[var(--zf-ink)] font-mono text-xs text-right break-all">
+                    {guestOs === 'windows' ? krytonImages.find((i) => i.id === image)?.name ?? image : image}
+                  </dd>
                 </div>
+                {guestOs === 'windows' && (
+                  <div className="flex justify-between gap-4 border-b border-[var(--zf-hairline)] pb-2">
+                    <dt className="text-[var(--zf-muted)]">Provisioned by</dt>
+                    <dd className="text-[var(--zf-ink)]">Kryton{krytonStatus?.project ? ` (project: ${krytonStatus.project})` : ''}</dd>
+                  </div>
+                )}
                 <div className="flex justify-between gap-4 border-b border-[var(--zf-hairline)] pb-2">
                   <dt className="text-[var(--zf-muted)]">vCPUs</dt>
                   <dd className="text-[var(--zf-ink)]">{cpus}</dd>
@@ -944,17 +1077,19 @@ export default function CreateVM() {
                     {memory} MB ({(memory / 1024).toFixed(1)} GB)
                   </dd>
                 </div>
-                <div className="flex justify-between gap-4 border-b border-[var(--zf-hairline)] pb-2">
+                <div className={`flex justify-between gap-4 ${guestOs === 'linux' ? 'border-b border-[var(--zf-hairline)] pb-2' : ''}`}>
                   <dt className="text-[var(--zf-muted)]">Root disk</dt>
                   <dd className="text-[var(--zf-ink)]">{diskGb} GB</dd>
                 </div>
-                <div className={`flex justify-between gap-4 ${networkMode === 'nat' && portForwards.length ? 'border-b border-[var(--zf-hairline)] pb-2' : ''}`}>
-                  <dt className="text-[var(--zf-muted)]">Networking</dt>
-                  <dd className="text-[var(--zf-ink)]">
-                    {networkMode === 'nat' ? 'NAT' : staticIp ? 'Bridged (static IP)' : 'Bridged (DHCP)'}
-                  </dd>
-                </div>
-                {networkMode === 'nat' && portForwards.length > 0 && (
+                {guestOs === 'linux' && (
+                  <div className={`flex justify-between gap-4 ${networkMode === 'nat' && portForwards.length ? 'border-b border-[var(--zf-hairline)] pb-2' : ''}`}>
+                    <dt className="text-[var(--zf-muted)]">Networking</dt>
+                    <dd className="text-[var(--zf-ink)]">
+                      {networkMode === 'nat' ? 'NAT' : staticIp ? 'Bridged (static IP)' : 'Bridged (DHCP)'}
+                    </dd>
+                  </div>
+                )}
+                {guestOs === 'linux' && networkMode === 'nat' && portForwards.length > 0 && (
                   <div className="flex justify-between gap-4">
                     <dt className="text-[var(--zf-muted)]">Exposed ports</dt>
                     <dd className="text-[var(--zf-ink)] text-right">
@@ -966,7 +1101,7 @@ export default function CreateVM() {
                     </dd>
                   </div>
                 )}
-                {showAdvanced && (
+                {guestOs === 'linux' && showAdvanced && (
                   <div className="flex justify-between gap-4 border-t border-[var(--zf-hairline)] pt-2">
                     <dt className="text-[var(--zf-muted)]">Advanced</dt>
                     <dd className="text-[var(--zf-ink)] text-right text-xs space-y-0.5">
@@ -984,7 +1119,6 @@ export default function CreateVM() {
                           {[advanced.enableTpm && 'TPM', advanced.enableRng && 'RNG'].filter(Boolean).join(' + ')}
                         </div>
                       )}
-                      {guestOs === 'windows' && advanced.windowsHyperv && <div>HyperV enlightenments</div>}
                     </dd>
                   </div>
                 )}
