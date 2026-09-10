@@ -245,28 +245,39 @@ _ssh "
     fi
 
     # Build/import local image for k3s (zorvia:local) when container tooling exists.
+    # Prefer docker; fall back to podman (common on Ubuntu labs without docker).
     # Use ubuntu:24.04 so host-built binaries (glibc 2.39+) run.
-    if command -v docker >/dev/null 2>&1 && [ -x target/release/zorvia ]; then
+    BUILDER=""
+    if command -v docker >/dev/null 2>&1; then
+        BUILDER=docker
+    elif command -v podman >/dev/null 2>&1; then
+        BUILDER=podman
+    fi
+    if [ -n "$BUILDER" ] && [ -x target/release/zorvia ]; then
         mkdir -p /tmp/zorvia-img/web
         cp -f target/release/zorvia /tmp/zorvia-img/zorvia
         cp -f deploy/Dockerfile.local /tmp/zorvia-img/Dockerfile
         if [ -d web/dist ] && [ -f web/dist/index.html ]; then
             rm -rf /tmp/zorvia-img/web
             cp -a web/dist /tmp/zorvia-img/web
-            echo 'web UI: bundled from web/dist'
+            echo "web UI: bundled from web/dist"
         else
             echo '<!DOCTYPE html><html><body><p>Zorvia UI not built. Run npm run build in web/.</p></body></html>' \
               > /tmp/zorvia-img/web/index.html
             echo 'web UI: placeholder (web/dist missing)'
         fi
-        $SUDO docker build -t zorvia:local /tmp/zorvia-img
-        $SUDO docker save zorvia:local | $SUDO k3s ctr images import - 2>/dev/null \
-          || $SUDO docker save zorvia:local | $SUDO ctr -n k8s.io images import - 2>/dev/null \
+        # Podman often tags as localhost/zorvia:local — normalize for imagePullPolicy: Never
+        $SUDO "$BUILDER" build -t zorvia:local /tmp/zorvia-img
+        $SUDO "$BUILDER" save zorvia:local | $SUDO k3s ctr images import - 2>/dev/null \
+          || $SUDO "$BUILDER" save zorvia:local | $SUDO ctr -n k8s.io images import - 2>/dev/null \
           || true
-        echo 'image: zorvia:local built/imported'
+        $SUDO k3s ctr images tag zorvia:local docker.io/library/zorvia:local 2>/dev/null || true
+        $SUDO k3s ctr images tag localhost/zorvia:local zorvia:local 2>/dev/null || true
+        $SUDO k3s ctr images tag localhost/zorvia:local docker.io/library/zorvia:local 2>/dev/null || true
+        echo "image: zorvia:local built/imported via $BUILDER"
         $SUDO kubectl -n zorvia-system rollout restart deployment/zorvia-api 2>/dev/null || true
     else
-        echo 'docker/binary missing; using existing zorvia:local if present'
+        echo 'docker/podman/binary missing; using existing zorvia:local if present'
     fi
 
     # Apply Kubernetes HTTPS manifests (in-pod TLS + NodePort 30152)
