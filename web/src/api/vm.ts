@@ -64,6 +64,46 @@ export interface CreateVMRequest {
   machine_type?: string
   enable_tpm?: boolean
   enable_rng?: boolean
+
+  /** When present (non-empty), completely overrides `image`/`disk` -- the
+   * server ignores the shorthand fields entirely once this is set. */
+  disks?: CreateVMDisk[]
+  /** When present (non-empty), completely overrides `network_tap` -- same
+   * all-or-nothing behavior as `disks`. */
+  interfaces?: CreateVMInterface[]
+}
+
+/** Matches the Rust `DiskSource` JSON shape (serde tag = "type"). */
+export type CreateVMDiskSource =
+  | { type: 'blank' }
+  | { type: 'pvc'; name: string }
+  | { type: 'containerDisk'; image: string }
+  | { type: 'dataVolume'; name: string }
+
+/** Matches the Rust `DiskConfig` JSON shape. */
+export interface CreateVMDisk {
+  name: string
+  size: string
+  boot_order: number
+  source: CreateVMDiskSource
+  bus?: string
+}
+
+/** Matches the Rust `NetworkType` JSON shape -- externally tagged (no
+ * `#[serde(tag = ...)]`, unlike `DiskSource`): unit variants serialize as a
+ * plain lowercase string, struct variants as `{ variantName: { ... } }`. */
+export type CreateVMNetworkType =
+  | 'bridge'
+  | 'pod'
+  | { multus: { name: string } }
+  | { sriov: { name: string } }
+
+/** Matches the Rust `InterfaceConfig` JSON shape. */
+export interface CreateVMInterface {
+  name: string
+  network: string
+  model?: string
+  network_type: CreateVMNetworkType
 }
 
 /** Matches the Rust `FirmwareConfig`/`BootloaderType` JSON shape exactly. */

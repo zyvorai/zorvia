@@ -4,7 +4,7 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router'
 import { createVM, listVMs } from '../api/vm'
-import type { CreateVMFeatures, CreateVMFirmware, PortForwardSpec, VM } from '../api/vm'
+import type { CreateVMDisk, CreateVMFeatures, CreateVMFirmware, CreateVMInterface, PortForwardSpec, VM } from '../api/vm'
 import { listImages, createImageFromVm, getConvertJob, listCloudImages, downloadCloudImage, listDownloads } from '../api/images'
 import type { ImageInfo, CloudImage } from '../api/images'
 import { getKrytonStatus, getKrytonImages, createKrytonMachine } from '../api/kryton'
@@ -21,6 +21,21 @@ import { formatUserError } from '../utils/apiError'
 import { toastFailure } from '../utils/toastError'
 import { hintsForError } from '../utils/daemonHints'
 import { useToastContext } from '../contexts/ToastContext'
+
+interface DiskRow {
+  name: string
+  size: string
+  sourceType: 'blank' | 'pvc' | 'containerDisk' | 'dataVolume'
+  sourceValue: string
+  bus: string
+}
+
+interface NicRow {
+  name: string
+  network: string
+  networkType: 'pod' | 'bridge' | 'multus' | 'sriov'
+  networkTypeValue: string
+}
 
 interface AdvancedOptions {
   firmware: 'bios' | 'uefi'
@@ -107,6 +122,8 @@ export default function CreateVM() {
   const [staticIp, setStaticIp] = useState(false)
   const [tenant, setTenant] = useState('')
   const [portForwards, setPortForwards] = useState<{ hostPort: string; guestPort: string; protocol: 'tcp' | 'udp' }[]>([])
+  const [extraDisks, setExtraDisks] = useState<DiskRow[]>([])
+  const [extraNics, setExtraNics] = useState<NicRow[]>([])
   const [guestOs, setGuestOs] = useState<'linux' | 'windows'>('linux')
   const [ciHostname, setCiHostname] = useState('')
   const [ciUsername, setCiUsername] = useState('zorvia')
@@ -129,6 +146,75 @@ export default function CreateVM() {
   const removePortForwardRow = (index: number) => {
     setPortForwards((rows) => rows.filter((_, i) => i !== index))
   }
+
+  const addDiskRow = () => {
+    setExtraDisks((rows) => [
+      ...rows,
+      { name: `disk${rows.length + 2}`, size: '20Gi', sourceType: 'blank', sourceValue: '', bus: 'virtio' },
+    ])
+  }
+  const updateDiskRow = (index: number, patch: Partial<DiskRow>) => {
+    setExtraDisks((rows) => rows.map((r, i) => (i === index ? { ...r, ...patch } : r)))
+  }
+  const removeDiskRow = (index: number) => {
+    setExtraDisks((rows) => rows.filter((_, i) => i !== index))
+  }
+
+  const addNicRow = () => {
+    setExtraNics((rows) => [
+      ...rows,
+      { name: `nic${rows.length + 2}`, network: '', networkType: 'pod', networkTypeValue: '' },
+    ])
+  }
+  const updateNicRow = (index: number, patch: Partial<NicRow>) => {
+    setExtraNics((rows) => rows.map((r, i) => (i === index ? { ...r, ...patch } : r)))
+  }
+  const removeNicRow = (index: number) => {
+    setExtraNics((rows) => rows.filter((_, i) => i !== index))
+  }
+
+  /** Builds the full disks/interfaces arrays for the create request. Only
+   * called when the user has added at least one extra row -- since sending
+   * these arrays makes the server ignore `image`/`disk`/`network_tap`
+   * entirely, the primary disk/NIC (today's single-disk/single-NIC fields)
+   * must be synthesized as the first entry or it would silently vanish. */
+  const buildDisksField = (): CreateVMDisk[] => [
+    { name: 'rootdisk', size: `${diskGb}Gi`, boot_order: 1, source: { type: 'blank' } },
+    ...extraDisks.map((row, i) => ({
+      name: row.name.trim() || `disk${i + 2}`,
+      size: row.size.trim() || '20Gi',
+      boot_order: i + 2,
+      bus: row.bus || undefined,
+      source:
+        row.sourceType === 'pvc'
+          ? { type: 'pvc' as const, name: row.sourceValue.trim() }
+          : row.sourceType === 'containerDisk'
+            ? { type: 'containerDisk' as const, image: row.sourceValue.trim() }
+            : row.sourceType === 'dataVolume'
+              ? { type: 'dataVolume' as const, name: row.sourceValue.trim() }
+              : { type: 'blank' as const },
+    })),
+  ]
+
+  const buildInterfacesField = (): CreateVMInterface[] => [
+    {
+      name: 'default',
+      network: 'default',
+      network_type: networkMode === 'bridged' ? 'bridge' : 'pod',
+    },
+    ...extraNics.map((row, i) => ({
+      name: row.name.trim() || `nic${i + 2}`,
+      network: row.network.trim() || `nic${i + 2}`,
+      network_type:
+        row.networkType === 'multus'
+          ? { multus: { name: row.networkTypeValue.trim() } }
+          : row.networkType === 'sriov'
+            ? { sriov: { name: row.networkTypeValue.trim() } }
+            : row.networkType === 'bridge'
+              ? ('bridge' as const)
+              : ('pod' as const),
+    })),
+  ]
 
   useEffect(() => {
     if (wizardStep !== 0) return
@@ -222,6 +308,18 @@ export default function CreateVM() {
           hostPorts.add(row.hostPort)
         }
       }
+      for (const row of extraDisks) {
+        if (!row.name.trim()) return 'Each additional disk needs a name'
+        if (row.sourceType !== 'blank' && !row.sourceValue.trim()) {
+          return `Disk '${row.name.trim() || '?'}' needs a ${row.sourceType === 'containerDisk' ? 'container image' : 'PVC/DataVolume name'}`
+        }
+      }
+      for (const row of extraNics) {
+        if (!row.name.trim()) return 'Each additional NIC needs a name'
+        if ((row.networkType === 'multus' || row.networkType === 'sriov') && !row.networkTypeValue.trim()) {
+          return `NIC '${row.name.trim() || '?'}' needs a network attachment name`
+        }
+      }
     }
     return null
   }
@@ -309,6 +407,8 @@ export default function CreateVM() {
         expose_rdp: exposeRdp,
         ...(tenant.trim() ? { tenant: tenant.trim() } : {}),
         ...(port_forwards.length ? { port_forwards } : {}),
+        ...(extraDisks.length ? { disks: buildDisksField() } : {}),
+        ...(extraNics.length ? { interfaces: buildInterfacesField() } : {}),
         cloud_init: {
           hostname: ciHostname.trim() || name,
           username: ciUsername.trim() || 'zorvia',
@@ -777,6 +877,70 @@ export default function CreateVM() {
               />
             </div>
 
+            {guestOs === 'linux' && (
+              <div>
+                <label className="flex items-center gap-2 text-sm font-medium text-[var(--zf-ink)] mb-2">
+                  <HardDrive className="w-4 h-4 text-[var(--zf-muted)]" />
+                  Additional disks
+                </label>
+                <div className="space-y-3">
+                  {extraDisks.map((row, i) => (
+                    <div key={i} className="flex flex-wrap items-center gap-2 bg-white border border-[var(--zf-hairline)] rounded-lg p-3">
+                      <input
+                        type="text"
+                        value={row.name}
+                        onChange={(e) => updateDiskRow(i, { name: e.target.value })}
+                        placeholder="Name"
+                        className="w-28 px-2.5 py-1.5 bg-white border border-[var(--zf-hairline)] rounded-md text-sm text-[var(--zf-ink)] focus:outline-none focus:border-[var(--zf-link)]/50"
+                      />
+                      <input
+                        type="text"
+                        value={row.size}
+                        onChange={(e) => updateDiskRow(i, { size: e.target.value })}
+                        placeholder="Size (e.g. 20Gi)"
+                        className="w-28 px-2.5 py-1.5 bg-white border border-[var(--zf-hairline)] rounded-md text-sm text-[var(--zf-ink)] focus:outline-none focus:border-[var(--zf-link)]/50"
+                      />
+                      <select
+                        value={row.sourceType}
+                        onChange={(e) => updateDiskRow(i, { sourceType: e.target.value as DiskRow['sourceType'], sourceValue: '' })}
+                        className="px-2 py-1.5 bg-white border border-[var(--zf-hairline)] rounded-md text-sm text-[var(--zf-ink)]"
+                      >
+                        <option value="blank">Blank</option>
+                        <option value="pvc">Existing PVC</option>
+                        <option value="dataVolume">Existing DataVolume</option>
+                        <option value="containerDisk">Container image</option>
+                      </select>
+                      {row.sourceType !== 'blank' && (
+                        <input
+                          type="text"
+                          value={row.sourceValue}
+                          onChange={(e) => updateDiskRow(i, { sourceValue: e.target.value })}
+                          placeholder={row.sourceType === 'containerDisk' ? 'quay.io/...' : 'PVC/DataVolume name'}
+                          className="flex-1 min-w-[10rem] px-2.5 py-1.5 bg-white border border-[var(--zf-hairline)] rounded-md text-sm text-[var(--zf-ink)] focus:outline-none focus:border-[var(--zf-link)]/50"
+                        />
+                      )}
+                      <button
+                        type="button"
+                        onClick={() => removeDiskRow(i)}
+                        className="p-1.5 rounded-md text-[var(--zf-muted)] hover:text-red-600 hover:bg-red-50 transition-colors"
+                        title="Remove"
+                      >
+                        <X className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+                <button
+                  type="button"
+                  onClick={addDiskRow}
+                  className="mt-2 flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-white border border-[var(--zf-hairline)] text-[var(--zf-ink)] hover:border-[var(--zf-hairline)] transition-colors"
+                >
+                  <Plus className="w-3.5 h-3.5" />
+                  Add disk
+                </button>
+              </div>
+            )}
+
               <div className="bg-[var(--zf-canvas)] rounded-xl border border-[var(--zf-hairline)] overflow-hidden">
             <button
               type="button"
@@ -1035,6 +1199,68 @@ export default function CreateVM() {
                       </button>
                     </div>
                     )}
+
+                    <div>
+                      <label className="flex items-center gap-2 text-sm font-medium text-[var(--zf-ink)] mb-2">
+                        <Network className="w-4 h-4 text-[var(--zf-muted)]" />
+                        Additional NICs
+                      </label>
+                      <div className="space-y-3">
+                        {extraNics.map((row, i) => (
+                          <div key={i} className="flex flex-wrap items-center gap-2 bg-white border border-[var(--zf-hairline)] rounded-lg p-3">
+                            <input
+                              type="text"
+                              value={row.name}
+                              onChange={(e) => updateNicRow(i, { name: e.target.value })}
+                              placeholder="Name"
+                              className="w-28 px-2.5 py-1.5 bg-white border border-[var(--zf-hairline)] rounded-md text-sm text-[var(--zf-ink)] focus:outline-none focus:border-[var(--zf-link)]/50"
+                            />
+                            <input
+                              type="text"
+                              value={row.network}
+                              onChange={(e) => updateNicRow(i, { network: e.target.value })}
+                              placeholder="Network"
+                              className="w-32 px-2.5 py-1.5 bg-white border border-[var(--zf-hairline)] rounded-md text-sm text-[var(--zf-ink)] focus:outline-none focus:border-[var(--zf-link)]/50"
+                            />
+                            <select
+                              value={row.networkType}
+                              onChange={(e) => updateNicRow(i, { networkType: e.target.value as NicRow['networkType'], networkTypeValue: '' })}
+                              className="px-2 py-1.5 bg-white border border-[var(--zf-hairline)] rounded-md text-sm text-[var(--zf-ink)]"
+                            >
+                              <option value="pod">Pod</option>
+                              <option value="bridge">Bridge</option>
+                              <option value="multus">Multus</option>
+                              <option value="sriov">SR-IOV</option>
+                            </select>
+                            {(row.networkType === 'multus' || row.networkType === 'sriov') && (
+                              <input
+                                type="text"
+                                value={row.networkTypeValue}
+                                onChange={(e) => updateNicRow(i, { networkTypeValue: e.target.value })}
+                                placeholder="Network attachment name"
+                                className="flex-1 min-w-[10rem] px-2.5 py-1.5 bg-white border border-[var(--zf-hairline)] rounded-md text-sm text-[var(--zf-ink)] focus:outline-none focus:border-[var(--zf-link)]/50"
+                              />
+                            )}
+                            <button
+                              type="button"
+                              onClick={() => removeNicRow(i)}
+                              className="p-1.5 rounded-md text-[var(--zf-muted)] hover:text-red-600 hover:bg-red-50 transition-colors"
+                              title="Remove"
+                            >
+                              <X className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                      <button
+                        type="button"
+                        onClick={addNicRow}
+                        className="mt-2 flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-white border border-[var(--zf-hairline)] text-[var(--zf-ink)] hover:border-[var(--zf-hairline)] transition-colors"
+                      >
+                        <Plus className="w-3.5 h-3.5" />
+                        Add NIC
+                      </button>
+                    </div>
                   </div>
                 )}
               </div>
@@ -1079,8 +1305,16 @@ export default function CreateVM() {
                 </div>
                 <div className={`flex justify-between gap-4 ${guestOs === 'linux' ? 'border-b border-[var(--zf-hairline)] pb-2' : ''}`}>
                   <dt className="text-[var(--zf-muted)]">Root disk</dt>
-                  <dd className="text-[var(--zf-ink)]">{diskGb} GB</dd>
+                  <dd className="text-[var(--zf-ink)]">
+                    {diskGb} GB{extraDisks.length ? ` + ${extraDisks.length} more` : ''}
+                  </dd>
                 </div>
+                {guestOs === 'linux' && extraNics.length > 0 && (
+                  <div className="flex justify-between gap-4 border-b border-[var(--zf-hairline)] pb-2">
+                    <dt className="text-[var(--zf-muted)]">Additional NICs</dt>
+                    <dd className="text-[var(--zf-ink)]">{extraNics.length}</dd>
+                  </div>
+                )}
                 {guestOs === 'linux' && (
                   <div className={`flex justify-between gap-4 ${networkMode === 'nat' && portForwards.length ? 'border-b border-[var(--zf-hairline)] pb-2' : ''}`}>
                     <dt className="text-[var(--zf-muted)]">Networking</dt>
