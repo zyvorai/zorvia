@@ -91,6 +91,7 @@ pub mod nlp_search;
 pub mod notifications;
 pub mod placement;
 pub mod power_schedule;
+pub mod warm_pool;
 pub mod recommendation;
 pub mod rook;
 pub mod search_history;

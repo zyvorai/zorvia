@@ -54,6 +54,7 @@ const Templates = lazy(() => import('./pages/Templates'))
 const Schedules = lazy(() => import('./pages/Schedules'))
 const Webhooks = lazy(() => import('./pages/Webhooks'))
 const Alerts = lazy(() => import('./pages/Alerts'))
+const WarmPools = lazy(() => import('./pages/WarmPools'))
 const AccessControl = lazy(() => import('./pages/AccessControl'))
 
 function ProtectedRoute({ children }: { children: ReactNode }) {
@@ -131,6 +132,7 @@ function ConsoleRoutes() {
             <Route path="schedules" element={<Schedules />} />
             <Route path="webhooks" element={<Webhooks />} />
             <Route path="alerts" element={<Alerts />} />
+            <Route path="warm-pools" element={<WarmPools />} />
             <Route path="storage" element={<RookStorage />} />
             <Route path="quotas" element={<Quotas />} />
             <Route path="compare" element={<VMCompare />} />

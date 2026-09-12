@@ -132,6 +132,10 @@ pub mod web {
     mod alert_handlers;
     use alert_handlers::*;
 
+    #[path = "warm_pool_handlers.rs"]
+    mod warm_pool_handlers;
+    use warm_pool_handlers::*;
+
     /// Simple sliding-window rate limiter state.
     struct RateLimiterState {
         /// Number of requests in the current window
@@ -704,6 +708,12 @@ pub mod web {
             .route("/alerts/rules/:id", delete(delete_alert_rule_handler))
             .route("/alerts/:id/resolve", post(resolve_alert_handler))
             .route("/alerts/:id/silence", post(silence_alert_handler))
+            .route(
+                "/warm-pools",
+                get(list_warm_pools_handler).post(create_warm_pool_handler),
+            )
+            .route("/warm-pools/:name", delete(delete_warm_pool_handler))
+            .route("/warm-pools/:name/claim", post(claim_warm_pool_handler))
             .route("/events", get(fabric_list_events))
             .route("/events/stream", get(fabric_events_stream))
             .route("/capabilities", get(fabric_capabilities))
@@ -813,6 +823,7 @@ pub mod web {
         spawn_backup_scheduler_loop(state.clone());
         spawn_power_schedule_loop(state.clone());
         spawn_alert_evaluation_loop(state.clone());
+        spawn_warm_pool_loop(state.clone());
         let app = build_router(state);
         let addr = format!("{}:{}", host, port);
 

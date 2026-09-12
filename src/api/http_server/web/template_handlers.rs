@@ -32,6 +32,25 @@ pub async fn get_template_handler(Path(name): Path<String>) -> impl IntoResponse
     }
 }
 
+/// Core of "create a VM from a template" -- shared by the manual deploy
+/// handler and `WarmPool` reconciliation (Phase 7 follow-up), so a
+/// pool-provisioned VM is built exactly the same way a manually deployed
+/// one is.
+pub(crate) async fn create_vm_from_template(
+    client: &crate::kube::KubeClient,
+    namespace: &str,
+    template_name: &str,
+    vm_name: &str,
+) -> anyhow::Result<()> {
+    let mut config = crate::templates::TEMPLATES
+        .get(template_name)
+        .ok_or_else(|| anyhow::anyhow!("No template named '{template_name}'"))?;
+    config.name = vm_name.to_string();
+    config.namespace = namespace.to_string();
+    client.create_vm(&config).await?;
+    Ok(())
+}
+
 #[derive(Debug, Deserialize)]
 pub struct DeployTemplateBody {
     pub vm_name: String,
@@ -45,10 +64,10 @@ pub async fn deploy_template_handler(
     Path(name): Path<String>,
     AxumJson(body): AxumJson<DeployTemplateBody>,
 ) -> impl IntoResponse {
-    let Some(mut config) = crate::templates::TEMPLATES.get(&name) else {
+    if crate::templates::TEMPLATES.get(&name).is_none() {
         let (st, j) = err_json(404, "NOT_FOUND", &format!("No template named '{name}'"));
         return (st, j).into_response();
-    };
+    }
     if body.vm_name.trim().is_empty() {
         let (st, j) = err_json(400, "INVALID_NAME", "vm_name is required");
         return (st, j).into_response();
@@ -59,10 +78,7 @@ pub async fn deploy_template_handler(
     let client = s.client();
     drop(s);
 
-    config.name = body.vm_name.clone();
-    config.namespace = namespace.clone();
-
-    let result = client.create_vm(&config).await;
+    let result = create_vm_from_template(&client, &namespace, &name, &body.vm_name).await;
     record_audit(
         &state,
         &headers,
@@ -70,7 +86,7 @@ pub async fn deploy_template_handler(
         "vm",
         &body.vm_name,
         result.is_ok(),
-        result.as_ref().err().map(|e| sanitize_error(e)),
+        result.as_ref().err().map(|e| e.to_string()),
     )
     .await;
     super::webhook_handlers::dispatch_webhook_event(
