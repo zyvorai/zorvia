@@ -53,7 +53,7 @@ describe('auth', () => {
 
     const result = await login({ username: 'admin', password: 'pass' })
 
-    expect(fetchMock).toHaveBeenCalledWith('/api/auth/login', {
+    expect(fetchMock).toHaveBeenCalledWith('/api/v1/auth/login', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ username: 'admin', password: 'pass' }),
@@ -63,20 +63,20 @@ describe('auth', () => {
 
   it('login throws on 401', async () => {
     const { login } = await import('../auth')
-    fetchMock.mockResolvedValue({ ok: false, status: 401 })
+    fetchMock.mockResolvedValue({ ok: false, status: 401, json: () => Promise.resolve(null) })
     await expect(login({ username: 'x', password: 'y' })).rejects.toThrow('Invalid username or password')
   })
 
   it('login throws generic error on other failures', async () => {
     const { login } = await import('../auth')
-    fetchMock.mockResolvedValue({ ok: false, status: 500 })
+    fetchMock.mockResolvedValue({ ok: false, status: 500, json: () => Promise.resolve(null) })
     await expect(login({ username: 'x', password: 'y' })).rejects.toThrow('Login failed')
   })
 
   it('getMe calls apiGet', async () => {
     const { getMe } = await import('../auth')
     await getMe()
-    expect(mockApiGet).toHaveBeenCalledWith('/api/auth/me')
+    expect(mockApiGet).toHaveBeenCalledWith('/api/v1/auth/me')
   })
 })
 

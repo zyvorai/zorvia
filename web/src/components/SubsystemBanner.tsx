@@ -3,9 +3,11 @@
 
 import ErrorBanner from './ErrorBanner'
 import { usePlatformInfo } from '../contexts/PlatformInfoContext'
-import type { Capabilities } from '../api/capabilities'
+import type { Capabilities, SubsystemStatus } from '../api/capabilities'
 
-type SubsystemKey = keyof Capabilities
+type SubsystemKey = {
+  [K in keyof Capabilities]-?: Capabilities[K] extends SubsystemStatus ? K : never
+}[keyof Capabilities]
 
 const phaseLabel: Record<string, string> = {
   off: 'not enabled on this host',

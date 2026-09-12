@@ -3,8 +3,11 @@
 //! DataVolumes — no full `kube::CustomResource` typing, since Rook's CRD
 //! schemas are large and this crate only needs a curated subset of fields.
 
-use anyhow::{bail, Result};
+use anyhow::Result;
+#[cfg(feature = "web")]
+use anyhow::bail;
 use kube::Client;
+#[cfg(feature = "web")]
 use serde::Deserialize;
 use serde_json::Value;
 
@@ -256,6 +259,7 @@ impl RookClient {
 /// resource path, covering the object kinds present in Rook's own
 /// `crds.yaml`/`common.yaml`/`operator.yaml`. Unknown kinds are reported
 /// back to the caller rather than silently skipped.
+#[cfg(feature = "web")]
 fn bootstrap_object_path(
     api_version: &str,
     kind: &str,
@@ -323,6 +327,7 @@ pub struct BootstrapReport {
     pub failed: Vec<(String, String)>,
 }
 
+#[cfg(feature = "web")]
 const BOOTSTRAP_MANIFESTS: &[&str] = &["crds.yaml", "common.yaml", "operator.yaml"];
 
 #[cfg(feature = "web")]
@@ -467,6 +472,7 @@ mod tests {
     use super::*;
 
     #[test]
+    #[cfg(feature = "web")]
     fn resolves_known_bootstrap_kinds() {
         let (path, namespaced) =
             bootstrap_object_path("v1", "Namespace", "rook-ceph", "rook-ceph").unwrap();
@@ -497,6 +503,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg(feature = "web")]
     fn unknown_kind_returns_none() {
         assert!(bootstrap_object_path("v1", "Frobnicator", "ns", "x").is_none());
     }

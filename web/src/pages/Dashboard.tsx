@@ -3,7 +3,7 @@
 
 import { useEffect, useState, useCallback } from 'react'
 import { listVMs, VM } from '../api/vm'
-import { Activity, Server, Cpu, Power, ArrowUpRight, Plus } from 'lucide-react'
+import { Activity, Server, Cpu, Power, ArrowUpRight } from 'lucide-react'
 import { useWebSocketContext } from '../contexts/WebSocketContext'
 import { useToastContext } from '../contexts/ToastContext'
 import { SkeletonDashboard } from '../components/Skeleton'

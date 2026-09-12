@@ -5,7 +5,11 @@
 // VNCViewer.tsx uses, rather than silencing it with a bare `declare module`.
 declare module '@novnc/novnc' {
   export default class RFB extends EventTarget {
-    constructor(target: HTMLElement, url: string, options?: { credentials?: { password?: string } })
+    constructor(
+      target: HTMLElement,
+      url: string,
+      options?: { credentials?: { password?: string }; wsProtocols?: string[] }
+    )
     scaleViewport: boolean
     clipViewport: boolean
     resizeSession: boolean

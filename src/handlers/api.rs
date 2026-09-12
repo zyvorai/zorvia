@@ -97,7 +97,9 @@ pub async fn handle_api_serve(
     let mut config = ApiConfig::new(port).with_host(&host);
 
     // Clone TLS paths before they are consumed by ApiConfig
+    #[cfg(feature = "web")]
     let tls_cert_path = tls_cert.clone();
+    #[cfg(feature = "web")]
     let tls_key_path = tls_key.clone();
 
     if tls {

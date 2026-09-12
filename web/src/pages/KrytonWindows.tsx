@@ -120,7 +120,7 @@ export default function KrytonWindows() {
         )}
       />
 
-      {error && <ErrorBanner message={error} onDismiss={() => setError(null)} />}
+      {error && <ErrorBanner title="Kryton error" headline={error} onDismiss={() => setError(null)} />}
 
       <div className="grid grid-cols-2 lg:grid-cols-5 gap-3">
         {[

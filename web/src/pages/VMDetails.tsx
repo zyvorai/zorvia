@@ -9,7 +9,7 @@ import { listSnapshots, createSnapshotWithRetry, deleteSnapshot, revertSnapshot,
 import { listAuditLogs, AuditLog } from '../api/audit'
 import {
   Play, Square, RotateCw, Trash2, Info, Activity, HardDrive,
-  Network, Camera, Terminal, Cpu, MemoryStick, Pause, Copy, Wifi,
+  Network, Camera, Terminal, Cpu, MemoryStick, Pause, Wifi,
   AlertCircle, Loader2, RefreshCw, Plus, Plug, Usb, Cloud, Settings, Wrench, Shield, MonitorPlay,
 } from 'lucide-react'
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts'
@@ -485,7 +485,7 @@ function MetricsTab({ vm }: { vm: VM }) {
                 width={40}
                 tickFormatter={(v) => `${v}%`}
               />
-              <Tooltip contentStyle={tooltipStyle} formatter={(v: number) => [`${v}%`, 'CPU']} />
+              <Tooltip contentStyle={tooltipStyle} formatter={(v) => [`${v}%`, 'CPU']} />
               <Area type="monotone" dataKey="cpu" stroke="var(--zf-link)" strokeWidth={1.5} fill="url(#cpuGrad)" dot={false} />
             </AreaChart>
           </ResponsiveContainer>
@@ -516,7 +516,7 @@ function MetricsTab({ vm }: { vm: VM }) {
                 width={40}
                 tickFormatter={(v) => `${v}%`}
               />
-              <Tooltip contentStyle={tooltipStyle} formatter={(v: number) => [`${v}%`, 'Memory']} />
+              <Tooltip contentStyle={tooltipStyle} formatter={(v) => [`${v}%`, 'Memory']} />
               <Area type="monotone" dataKey="memory" stroke="var(--zf-success)" strokeWidth={1.5} fill="url(#memGrad)" dot={false} />
             </AreaChart>
           </ResponsiveContainer>

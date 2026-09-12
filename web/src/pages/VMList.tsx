@@ -5,7 +5,7 @@ import { useEffect, useState, useMemo, useCallback, type MouseEvent } from 'reac
 import { Link, useNavigate } from 'react-router'
 import { listVMs, startVM, stopVM, deleteVM, VM } from '../api/vm'
 import { createBackup } from '../api/backup'
-import { Search, X, Tag, Layers, Monitor, LayoutGrid, List, Play, Square, Pause, Terminal, MoreVertical, Cpu, HardDrive, CheckSquare, Trash2, Archive } from 'lucide-react'
+import { Search, X, Tag, Layers, Monitor, LayoutGrid, List, Play, Square, MoreVertical, Cpu, HardDrive, CheckSquare, Trash2, Archive } from 'lucide-react'
 import VMCard from '../components/VMCard'
 import { getTagColor } from '../components/TagEditor'
 import { PageHeader, EmptyState, StatusBadge } from '../components/ui'
