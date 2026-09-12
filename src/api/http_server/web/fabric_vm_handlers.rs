@@ -754,6 +754,7 @@ pub async fn fabric_cloud_init(
 
 pub async fn fabric_clone_vm(
     State(state): State<SharedState>,
+    headers: HeaderMap,
     Path(source): Path<String>,
     AxumJson(body): AxumJson<CloneBody>,
 ) -> impl IntoResponse {
@@ -902,7 +903,18 @@ pub async fn fabric_clone_vm(
     }
 
     let config = builder.build();
-    match client.create_vm(&config).await {
+    let create_result = client.create_vm(&config).await;
+    record_audit(
+        &state,
+        &headers,
+        crate::audit_trail::AuditAction::Clone,
+        "vm",
+        &body.target_name,
+        create_result.is_ok(),
+        create_result.as_ref().err().map(|e| sanitize_error(e)),
+    )
+    .await;
+    match create_result {
         Ok(_) => {
             let mut ready = Vec::new();
             for dv in &pending_dvs {
@@ -944,6 +956,7 @@ pub async fn fabric_clone_vm(
 
 pub async fn fabric_create_snapshot(
     State(state): State<SharedState>,
+    headers: HeaderMap,
     Path(vm): Path<String>,
     AxumJson(body): AxumJson<CreateSnapshotBody>,
 ) -> impl IntoResponse {
@@ -962,7 +975,18 @@ pub async fn fabric_create_snapshot(
         cfg = cfg.with_description(d);
     }
     let manager = SnapshotManager::from_client(kube, namespace);
-    match manager.create_snapshot(&cfg).await {
+    let result = manager.create_snapshot(&cfg).await;
+    record_audit(
+        &state,
+        &headers,
+        crate::audit_trail::AuditAction::Snapshot,
+        "vm",
+        &vm,
+        result.is_ok(),
+        result.as_ref().err().map(|e| sanitize_error(e)),
+    )
+    .await;
+    match result {
         Ok(info) => (
             StatusCode::CREATED,
             Json(json!({
@@ -986,15 +1010,26 @@ pub async fn fabric_create_snapshot(
 
 pub async fn fabric_delete_snapshot(
     State(state): State<SharedState>,
+    headers: HeaderMap,
     Path((vm, id)): Path<(String, String)>,
 ) -> impl IntoResponse {
-    let _ = vm;
     let s = state.read().await;
     let namespace = s.namespace.clone();
     let kube = s.kube_client.client();
     drop(s);
     let manager = SnapshotManager::from_client(kube, namespace);
-    match manager.delete_snapshot(&id).await {
+    let result = manager.delete_snapshot(&id).await;
+    record_audit(
+        &state,
+        &headers,
+        crate::audit_trail::AuditAction::Delete,
+        "snapshot",
+        &format!("{vm}/{id}"),
+        result.is_ok(),
+        result.as_ref().err().map(|e| sanitize_error(e)),
+    )
+    .await;
+    match result {
         Ok(()) => StatusCode::NO_CONTENT.into_response(),
         Err(e) => {
             let (st, j) = err_json(500, "SNAPSHOT_DELETE_FAILED", &sanitize_error(&e));
@@ -1005,21 +1040,30 @@ pub async fn fabric_delete_snapshot(
 
 pub async fn fabric_revert_snapshot(
     State(state): State<SharedState>,
+    headers: HeaderMap,
     Path((vm, id)): Path<(String, String)>,
 ) -> impl IntoResponse {
     let s = state.read().await;
     let namespace = s.namespace.clone();
     drop(s);
-    match crate::snapshots::RestoreManager::new(&namespace).await {
-        Ok(rm) => match rm.restore_in_place(&vm, &id).await {
-            Ok(_) => StatusCode::NO_CONTENT.into_response(),
-            Err(e) => {
-                let (st, j) = err_json(500, "REVERT_FAILED", &sanitize_error(&e));
-                (st, j).into_response()
-            }
-        },
+    let result = match crate::snapshots::RestoreManager::new(&namespace).await {
+        Ok(rm) => rm.restore_in_place(&vm, &id).await.map_err(|e| e.to_string()),
+        Err(e) => Err(sanitize_error(&e)),
+    };
+    record_audit(
+        &state,
+        &headers,
+        crate::audit_trail::AuditAction::Restore,
+        "vm",
+        &vm,
+        result.is_ok(),
+        result.clone().err(),
+    )
+    .await;
+    match result {
+        Ok(_) => StatusCode::NO_CONTENT.into_response(),
         Err(e) => {
-            let (st, j) = err_json(500, "REVERT_FAILED", &sanitize_error(&e));
+            let (st, j) = err_json(500, "REVERT_FAILED", &e);
             (st, j).into_response()
         }
     }

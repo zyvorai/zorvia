@@ -103,6 +103,7 @@ pub struct CreateQuotaBody {
 
 pub async fn create_quota_handler(
     State(state): State<SharedState>,
+    headers: HeaderMap,
     AxumJson(body): AxumJson<CreateQuotaBody>,
 ) -> impl IntoResponse {
     if body.name.trim().is_empty() {
@@ -142,7 +143,18 @@ pub async fn create_quota_handler(
     };
 
     let api: Api<ResourceQuota> = Api::namespaced(client, &namespace);
-    match api.create(&PostParams::default(), &quota).await {
+    let result = api.create(&PostParams::default(), &quota).await;
+    record_audit(
+        &state,
+        &headers,
+        crate::audit_trail::AuditAction::Create,
+        "quota",
+        &body.name,
+        result.is_ok(),
+        result.as_ref().err().map(|e| sanitize_error(e)),
+    )
+    .await;
+    match result {
         Ok(created) => (StatusCode::CREATED, Json(to_summary(created))).into_response(),
         Err(e) => quota_error("create quota", e),
     }
@@ -150,6 +162,7 @@ pub async fn create_quota_handler(
 
 pub async fn delete_quota_handler(
     State(state): State<SharedState>,
+    headers: HeaderMap,
     Path((namespace, name)): Path<(String, String)>,
 ) -> impl IntoResponse {
     let s = state.read().await;
@@ -157,7 +170,18 @@ pub async fn delete_quota_handler(
     drop(s);
 
     let api: Api<ResourceQuota> = Api::namespaced(client, &namespace);
-    match api.delete(&name, &DeleteParams::default()).await {
+    let result = api.delete(&name, &DeleteParams::default()).await;
+    record_audit(
+        &state,
+        &headers,
+        crate::audit_trail::AuditAction::Delete,
+        "quota",
+        &name,
+        result.is_ok(),
+        result.as_ref().err().map(|e| sanitize_error(e)),
+    )
+    .await;
+    match result {
         Ok(_) => StatusCode::NO_CONTENT.into_response(),
         Err(e) => quota_error("delete quota", e),
     }

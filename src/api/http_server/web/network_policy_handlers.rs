@@ -152,6 +152,7 @@ fn ports_from(protocol: &Option<String>, port: &Option<u16>) -> Option<Vec<Netwo
 
 pub async fn create_network_policy_handler(
     State(state): State<SharedState>,
+    headers: HeaderMap,
     AxumJson(body): AxumJson<CreateNetworkPolicyBody>,
 ) -> impl IntoResponse {
     if body.name.trim().is_empty() {
@@ -216,7 +217,18 @@ pub async fn create_network_policy_handler(
     };
 
     let api: Api<NetworkPolicy> = Api::namespaced(client, &namespace);
-    match api.create(&PostParams::default(), &policy).await {
+    let result = api.create(&PostParams::default(), &policy).await;
+    record_audit(
+        &state,
+        &headers,
+        crate::audit_trail::AuditAction::Create,
+        "network-policy",
+        &body.name,
+        result.is_ok(),
+        result.as_ref().err().map(|e| sanitize_error(e)),
+    )
+    .await;
+    match result {
         Ok(created) => (StatusCode::CREATED, Json(policy_json(&created))).into_response(),
         Err(e) => np_error("create network policy", e),
     }
@@ -224,6 +236,7 @@ pub async fn create_network_policy_handler(
 
 pub async fn delete_network_policy_handler(
     State(state): State<SharedState>,
+    headers: HeaderMap,
     Path(name): Path<String>,
 ) -> impl IntoResponse {
     let s = state.read().await;
@@ -232,7 +245,18 @@ pub async fn delete_network_policy_handler(
     drop(s);
 
     let api: Api<NetworkPolicy> = Api::namespaced(client, &namespace);
-    match api.delete(&name, &DeleteParams::default()).await {
+    let result = api.delete(&name, &DeleteParams::default()).await;
+    record_audit(
+        &state,
+        &headers,
+        crate::audit_trail::AuditAction::Delete,
+        "network-policy",
+        &name,
+        result.is_ok(),
+        result.as_ref().err().map(|e| sanitize_error(e)),
+    )
+    .await;
+    match result {
         Ok(_) => StatusCode::NO_CONTENT.into_response(),
         Err(e) => np_error("delete network policy", e),
     }
