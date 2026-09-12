@@ -98,3 +98,53 @@ pub async fn fabric_cancel_migration(
         }
     }
 }
+
+/// Pre-flight readiness checks before starting a migration -- runs the real
+/// checks in `crate::migration::assistant::MigrationAssistant` (target node
+/// schedulability, VM running state, shared-vs-local storage), which existed
+/// with no caller anywhere in the codebase until now.
+#[derive(Debug, Deserialize)]
+pub struct ReadinessQuery {
+    /// Check a single VM; omit to check every VM in the server's namespace.
+    #[serde(default)]
+    pub vm: Option<String>,
+    #[serde(default)]
+    pub target_node: Option<String>,
+}
+
+pub async fn migration_readiness_handler(
+    State(state): State<SharedState>,
+    Query(params): Query<ReadinessQuery>,
+) -> impl IntoResponse {
+    let s = state.read().await;
+    let namespace = s.namespace.clone();
+    let client = s.client();
+    drop(s);
+
+    let vm_names = match params.vm {
+        Some(name) => vec![name],
+        None => match client.list_vms(&namespace).await {
+            Ok(vms) => vms
+                .into_iter()
+                .filter_map(|vm| vm.metadata.name)
+                .collect::<Vec<_>>(),
+            Err(e) => {
+                let (st, j) = err_json(500, "READINESS_FAILED", &sanitize_error(&e));
+                return (st, j).into_response();
+            }
+        },
+    };
+
+    if vm_names.is_empty() {
+        return Json(json!({ "checks": [] })).into_response();
+    }
+
+    let mut assistant = crate::migration::assistant::MigrationAssistant::new();
+    assistant.select_vms(vm_names);
+    if let Some(node) = params.target_node {
+        assistant.select_target(&node);
+    }
+    assistant.run_pre_checks(&namespace).await;
+
+    Json(json!({ "checks": assistant.pre_check_results })).into_response()
+}

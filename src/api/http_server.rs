@@ -482,6 +482,7 @@ pub mod web {
             .route("/vms/:name/migrations", get(fabric_list_vm_migrations))
             .route("/migrations/:id", get(fabric_get_migration))
             .route("/migrations/:id/cancel", post(fabric_cancel_migration))
+            .route("/migrations/readiness", get(migration_readiness_handler))
             // Rook-Ceph distributed storage
             .route("/storage/rook/bootstrap", post(rook_bootstrap))
             .route(

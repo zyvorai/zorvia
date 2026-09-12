@@ -47,3 +47,28 @@ export async function getMigration(id: string): Promise<MigrationStatus> {
 export async function cancelMigration(id: string): Promise<void> {
   await apiPostVoid(`${API_BASE}/migrations/${encodeURIComponent(id)}/cancel`)
 }
+
+/** Mirrors crate::migration::assistant::{CheckType, CheckStatus, CheckSeverity, PreCheckResult} exactly (unit enums serialize as their variant name). */
+export type ReadinessCheckType = 'Resource' | 'Network' | 'Storage' | 'Compatibility' | 'Health'
+export type ReadinessCheckStatus = 'Passed' | 'Warning' | 'Failed' | 'Skipped'
+export type ReadinessCheckSeverity = 'Required' | 'Recommended' | 'Optional'
+
+export interface ReadinessCheck {
+  check_name: string
+  check_type: ReadinessCheckType
+  status: ReadinessCheckStatus
+  severity: ReadinessCheckSeverity
+  message: string
+}
+
+/** Runs pre-flight migration checks. Omit `vm` to check every VM in the
+ * server's namespace; `targetNode` is optional (KubeVirt's scheduler picks
+ * a node automatically when starting a migration for real). */
+export async function getMigrationReadiness(vm?: string, targetNode?: string): Promise<ReadinessCheck[]> {
+  const params = new URLSearchParams()
+  if (vm) params.set('vm', vm)
+  if (targetNode) params.set('target_node', targetNode)
+  const qs = params.toString()
+  const { checks } = await apiGet<{ checks: ReadinessCheck[] }>(`${API_BASE}/migrations/readiness${qs ? `?${qs}` : ''}`)
+  return checks
+}
