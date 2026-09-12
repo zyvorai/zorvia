@@ -673,6 +673,7 @@ pub mod web {
             )
             .route("/templates", get(list_templates_handler))
             .route("/templates/:name", get(get_template_handler))
+            .route("/templates/:name/deploy", post(deploy_template_handler))
             .route(
                 "/schedules/power",
                 get(list_power_schedules_handler).post(create_power_schedule_handler),

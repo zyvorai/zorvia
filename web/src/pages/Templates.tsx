@@ -2,8 +2,8 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { useState, useEffect, useCallback } from 'react'
-import { Layers } from 'lucide-react'
-import { listTemplatesByFamily, getTemplate, TemplateDetail } from '../api/templates'
+import { Layers, Rocket, Loader2 } from 'lucide-react'
+import { listTemplatesByFamily, getTemplate, deployTemplate, TemplateDetail } from '../api/templates'
 import ErrorBanner from '../components/ErrorBanner'
 import { PageHeader, EmptyState } from '../components/ui'
 import { formatUserError } from '../utils/apiError'
@@ -19,6 +19,9 @@ export default function Templates() {
   const [loading, setLoading] = useState(true)
   const [detailLoading, setDetailLoading] = useState(false)
   const [loadError, setLoadError] = useState<string | null>(null)
+  const [vmName, setVmName] = useState('')
+  const [deploying, setDeploying] = useState(false)
+  const [deployError, setDeployError] = useState('')
 
   const fetchFamilies = useCallback(async () => {
     setLoading(true)
@@ -37,6 +40,7 @@ export default function Templates() {
 
   const handleSelect = async (name: string) => {
     setSelected(name)
+    setDeployError('')
     setDetailLoading(true)
     try {
       setDetail(await getTemplate(name))
@@ -47,13 +51,30 @@ export default function Templates() {
     }
   }
 
+  const handleDeploy = async () => {
+    if (!selected) return
+    if (!vmName.trim()) { setDeployError('VM name is required'); return }
+    setDeploying(true)
+    setDeployError('')
+    try {
+      await deployTemplate(selected, vmName.trim())
+      toast.success(`Deployed "${vmName}" from ${selected}`)
+      setVmName('')
+    } catch (err) {
+      setDeployError(formatUserError(err))
+      toastFailure(toast, 'Failed to deploy template', err)
+    } finally {
+      setDeploying(false)
+    }
+  }
+
   const familyNames = Object.keys(families).sort()
 
   return (
     <div className="space-y-6">
       <PageHeader
         title="VM Templates"
-        description="Curated OS presets — real CPU/memory/firmware/feature configs, browse-only for now"
+        description="Curated OS presets — real, bootable VM configs with a real container-disk image and cloud-init"
         onRefresh={fetchFamilies}
         refreshing={loading}
       />
@@ -111,6 +132,16 @@ export default function Templates() {
                     <pre className="text-[10px] bg-[var(--zf-canvas)] rounded-lg p-2 overflow-x-auto">{JSON.stringify(detail.firmware, null, 2)}</pre>
                   </div>
                 )}
+
+                <div className="pt-3 border-t border-[var(--zf-hairline)] space-y-2">
+                  <label className="block text-xs font-medium text-[var(--zf-muted)]">Deploy as</label>
+                  <input type="text" value={vmName} onChange={(e) => setVmName(e.target.value)} placeholder="my-new-vm" className="input-field text-sm w-full" />
+                  {deployError && <p className="text-xs text-red-600">{deployError}</p>}
+                  <button onClick={handleDeploy} disabled={deploying} className="zf-btn zf-btn-primary zf-btn-sm w-full">
+                    {deploying ? <Loader2 className="w-4 h-4 animate-spin" /> : <Rocket className="w-4 h-4" />}
+                    {deploying ? 'Deploying…' : 'Deploy VM'}
+                  </button>
+                </div>
               </div>
             ) : null}
           </div>

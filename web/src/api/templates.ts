@@ -1,7 +1,7 @@
 // Copyright 2026 Zyvor AI Labs · https://zyvor.dev
 // SPDX-License-Identifier: Apache-2.0
 
-import { apiGet } from './client'
+import { apiGet, apiPost } from './client'
 
 /** Mirrors src/api/http_server/web/template_handlers.rs, backed by the
  * real crate::templates::TEMPLATES catalog (~30 curated OS VMConfigs).
@@ -28,4 +28,11 @@ export async function listTemplatesByFamily(): Promise<Record<string, string[]>>
 
 export async function getTemplate(name: string): Promise<TemplateDetail> {
   return apiGet<TemplateDetail>(`${API_BASE}/templates/${encodeURIComponent(name)}`)
+}
+
+/** Deploys a template for real: each template is already a complete,
+ * bootable VM config (real container-disk image + cloud-init), so this
+ * just calls the same real create-VM path with the template's config. */
+export async function deployTemplate(templateName: string, vmName: string, start = true): Promise<{ vm_name: string; template: string }> {
+  return apiPost(`${API_BASE}/templates/${encodeURIComponent(templateName)}/deploy`, { vm_name: vmName, start })
 }
