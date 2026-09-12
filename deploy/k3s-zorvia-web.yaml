@@ -31,6 +31,19 @@ rules:
   - apiGroups: [""]
     resources: ["namespaces", "persistentvolumeclaims", "pods", "events"]
     verbs: ["get", "list", "watch"]
+  # Quotas feature: real ResourceQuota objects.
+  - apiGroups: [""]
+    resources: ["resourcequotas"]
+    verbs: ["get", "list", "watch", "create", "delete"]
+  # Placement Advisor / Capacity Planning / Zones: real Node allocatable
+  # capacity, cluster-scoped, read-only.
+  - apiGroups: [""]
+    resources: ["nodes"]
+    verbs: ["get", "list", "watch"]
+  # Network Policies feature.
+  - apiGroups: ["networking.k8s.io"]
+    resources: ["networkpolicies"]
+    verbs: ["get", "list", "watch", "create", "delete"]
   - apiGroups: ["storage.k8s.io"]
     resources: ["storageclasses"]
     verbs: ["get", "list", "watch"]

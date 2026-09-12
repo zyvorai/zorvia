@@ -61,6 +61,19 @@ rules:
   - apiGroups: [""]
     resources: ["services"]
     verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+  # Quotas feature (POST/DELETE /v1/quotas): real ResourceQuota objects.
+  - apiGroups: [""]
+    resources: ["resourcequotas"]
+    verbs: ["get", "list", "watch", "create", "delete"]
+  # Placement Advisor / Capacity Planning / Zones: real Node allocatable
+  # capacity, cluster-scoped, read-only.
+  - apiGroups: [""]
+    resources: ["nodes"]
+    verbs: ["get", "list", "watch"]
+  # Network Policies feature (POST/DELETE /network-policies).
+  - apiGroups: ["networking.k8s.io"]
+    resources: ["networkpolicies"]
+    verbs: ["get", "list", "watch", "create", "delete"]
   - apiGroups: ["storage.k8s.io"]
     resources: ["storageclasses"]
     verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
