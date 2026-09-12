@@ -243,6 +243,7 @@ impl WebhookPayload {
 }
 
 /// Webhook manager
+#[derive(Serialize, Deserialize)]
 pub struct WebhookManager {
     webhooks: HashMap<String, WebhookConfig>,
 }
@@ -251,6 +252,68 @@ impl WebhookManager {
     pub fn new() -> Self {
         Self {
             webhooks: HashMap::new(),
+        }
+    }
+
+    fn persistence_path() -> std::path::PathBuf {
+        dirs::data_dir()
+            .unwrap_or_else(|| std::path::PathBuf::from("/tmp"))
+            .join("zorvia")
+            .join("webhooks.json")
+    }
+
+    pub fn load() -> Self {
+        let path = Self::persistence_path();
+        if path.exists() {
+            match std::fs::read_to_string(&path) {
+                Ok(content) => match serde_json::from_str(&content) {
+                    Ok(manager) => return manager,
+                    Err(e) => log::warn!("Failed to parse webhooks: {}", e),
+                },
+                Err(e) => log::warn!("Failed to read webhooks: {}", e),
+            }
+        }
+        Self::new()
+    }
+
+    pub fn save(&self) -> anyhow::Result<()> {
+        let path = Self::persistence_path();
+        if let Some(parent) = path.parent() {
+            std::fs::create_dir_all(parent)?;
+        }
+        let content = serde_json::to_string_pretty(self)?;
+        std::fs::write(&path, content)?;
+        Ok(())
+    }
+
+    /// Delivers `payload` to every enabled webhook subscribed to `event`,
+    /// via a real HTTPS POST (`reqwest`), honoring each webhook's own
+    /// retry count/delay. The configured `secret`, if any, goes in an
+    /// `X-Zorvia-Webhook-Secret` header -- a shared-secret check, not an
+    /// HMAC body signature (this crate doesn't otherwise depend on `hmac`,
+    /// and adding it for this alone wasn't worth a new dependency).
+    /// Delivery stats are recorded and persisted either way.
+    #[cfg(feature = "web")]
+    pub async fn dispatch(&mut self, event: &WebhookEvent, payload: &WebhookPayload) {
+        let ids: Vec<String> = self
+            .webhooks_for_event(event)
+            .into_iter()
+            .map(|w| w.id.clone())
+            .collect();
+        if ids.is_empty() {
+            return;
+        }
+        for id in ids {
+            let Some(config) = self.webhooks.get(&id).cloned() else {
+                continue;
+            };
+            let success = deliver_with_retry(&config, payload).await;
+            if let Some(w) = self.webhooks.get_mut(&id) {
+                w.record_delivery(success);
+            }
+        }
+        if let Err(e) = self.save() {
+            log::warn!("Failed to persist webhook delivery stats: {}", e);
         }
     }
 
@@ -296,6 +359,51 @@ impl Default for WebhookManager {
     fn default() -> Self {
         Self::new()
     }
+}
+
+/// A single delivery attempt.
+#[cfg(feature = "web")]
+pub async fn deliver_once(config: &WebhookConfig, payload: &WebhookPayload) -> anyhow::Result<()> {
+    let client = reqwest::Client::builder()
+        .timeout(std::time::Duration::from_secs(config.timeout_secs))
+        .build()?;
+    let mut req = client.post(&config.url).json(payload);
+    if let Some(secret) = &config.secret {
+        req = req.header("X-Zorvia-Webhook-Secret", secret);
+    }
+    for (k, v) in &config.headers {
+        req = req.header(k, v);
+    }
+    let resp = req.send().await?;
+    if !resp.status().is_success() {
+        anyhow::bail!("webhook endpoint returned {}", resp.status());
+    }
+    Ok(())
+}
+
+/// Delivers with the webhook's own configured retry count/delay. Returns
+/// whether any attempt succeeded.
+#[cfg(feature = "web")]
+async fn deliver_with_retry(config: &WebhookConfig, payload: &WebhookPayload) -> bool {
+    let attempts = config.retry_count.max(1);
+    for attempt in 0..attempts {
+        match deliver_once(config, payload).await {
+            Ok(()) => return true,
+            Err(e) => {
+                log::warn!(
+                    "Webhook '{}' delivery attempt {}/{} failed: {e}",
+                    config.name,
+                    attempt + 1,
+                    attempts
+                );
+                if attempt + 1 < attempts {
+                    tokio::time::sleep(std::time::Duration::from_secs(config.retry_delay_secs))
+                        .await;
+                }
+            }
+        }
+    }
+    false
 }
 
 #[cfg(test)]

@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import type { LucideIcon } from 'lucide-react'
-import { Home, Server, Star, Camera, Plus, MonitorCog, ArrowRightLeft, Database, ShieldCheck, Gauge, GitCompare, UploadCloud, ListChecks, Radio, HeartPulse, Network, Save, Disc, Clock, Scale, ShieldAlert, HardDrive, Lock, ClipboardList, ShieldQuestion, DollarSign, MapPin, BarChart3, Lightbulb, Layers, CalendarClock, Cpu } from 'lucide-react'
+import { Home, Server, Star, Camera, Plus, MonitorCog, ArrowRightLeft, Database, ShieldCheck, Gauge, GitCompare, UploadCloud, ListChecks, Radio, HeartPulse, Network, Save, Disc, Clock, Scale, ShieldAlert, HardDrive, Lock, ClipboardList, ShieldQuestion, DollarSign, MapPin, BarChart3, Lightbulb, Layers, CalendarClock, Cpu, Webhook, Bell } from 'lucide-react'
 
 export interface NavItem {
   label: string
@@ -81,6 +81,8 @@ export const NAV_GROUPS: NavGroup[] = [
       { label: 'Optimizer', path: '/app/optimizer', icon: Lightbulb },
       { label: 'Templates', path: '/app/templates', icon: Layers },
       { label: 'Schedules', path: '/app/schedules', icon: CalendarClock },
+      { label: 'Webhooks', path: '/app/webhooks', icon: Webhook },
+      { label: 'Alerts', path: '/app/alerts', icon: Bell },
       { label: 'Storage', path: '/app/storage', icon: Database },
       { label: 'Quotas', path: '/app/quotas', icon: Gauge },
       { label: 'Compare', path: '/app/compare', icon: GitCompare },

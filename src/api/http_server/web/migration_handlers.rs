@@ -43,6 +43,12 @@ pub async fn fabric_migrate_vm(
         result.as_ref().err().map(|e| e.to_string()),
     )
     .await;
+    super::webhook_handlers::dispatch_webhook_event(
+        WebhookEvent::MigrationStarted,
+        &name,
+        result.is_ok(),
+    )
+    .await;
     match result {
         Ok(m) => (StatusCode::CREATED, Json(migration_json(&m))).into_response(),
         Err(e) => {

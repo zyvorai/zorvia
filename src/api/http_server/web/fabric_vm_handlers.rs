@@ -503,6 +503,12 @@ pub async fn fabric_create_vm(
         create_result.as_ref().err().map(|e| e.to_string()),
     )
     .await;
+    super::webhook_handlers::dispatch_webhook_event(
+        WebhookEvent::VMCreated,
+        &req.name,
+        create_result.is_ok(),
+    )
+    .await;
     match create_result {
         Ok(_vm) => {
             let start = req.start.unwrap_or(true);

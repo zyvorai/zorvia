@@ -5,6 +5,7 @@
 #[cfg(feature = "web")]
 pub mod web {
     use crate::api::{ApiResponse, HttpMethod, RequestContext};
+    use crate::api::webhooks::WebhookEvent;
     use crate::kube::KubeClient;
     use crate::tui::state::VmInfo;
     use axum::{
@@ -122,6 +123,14 @@ pub mod web {
     #[path = "power_schedule_handlers.rs"]
     mod power_schedule_handlers;
     use power_schedule_handlers::*;
+
+    #[path = "webhook_handlers.rs"]
+    mod webhook_handlers;
+    use webhook_handlers::*;
+
+    #[path = "alert_handlers.rs"]
+    mod alert_handlers;
+    use alert_handlers::*;
 
     /// Simple sliding-window rate limiter state.
     struct RateLimiterState {
@@ -680,6 +689,20 @@ pub mod web {
                 "/schedules/power/:name/disable",
                 post(disable_power_schedule_handler),
             )
+            .route(
+                "/webhooks",
+                get(list_webhooks_handler).post(create_webhook_handler),
+            )
+            .route("/webhooks/:id", delete(delete_webhook_handler))
+            .route("/webhooks/:id/test", post(test_webhook_handler))
+            .route("/alerts", get(list_alerts_handler))
+            .route(
+                "/alerts/rules",
+                get(list_alert_rules_handler).post(create_alert_rule_handler),
+            )
+            .route("/alerts/rules/:id", delete(delete_alert_rule_handler))
+            .route("/alerts/:id/resolve", post(resolve_alert_handler))
+            .route("/alerts/:id/silence", post(silence_alert_handler))
             .route("/events", get(fabric_list_events))
             .route("/events/stream", get(fabric_events_stream))
             .route("/capabilities", get(fabric_capabilities))
@@ -788,6 +811,7 @@ pub mod web {
         ));
         spawn_backup_scheduler_loop(state.clone());
         spawn_power_schedule_loop(state.clone());
+        spawn_alert_evaluation_loop(state.clone());
         let app = build_router(state);
         let addr = format!("{}:{}", host, port);
 
@@ -1168,6 +1192,8 @@ pub mod web {
             result.as_ref().err().map(|e| sanitize_error(e)),
         )
         .await;
+        webhook_handlers::dispatch_webhook_event(WebhookEvent::VMStarted, &name, result.is_ok())
+            .await;
         match result {
             Ok(_) => StatusCode::NO_CONTENT.into_response(),
             Err(e) => {
@@ -1197,6 +1223,8 @@ pub mod web {
             result.as_ref().err().map(|e| sanitize_error(e)),
         )
         .await;
+        webhook_handlers::dispatch_webhook_event(WebhookEvent::VMStopped, &name, result.is_ok())
+            .await;
         match result {
             Ok(_) => StatusCode::NO_CONTENT.into_response(),
             Err(e) => {
@@ -1226,6 +1254,8 @@ pub mod web {
             result.as_ref().err().map(|e| sanitize_error(e)),
         )
         .await;
+        webhook_handlers::dispatch_webhook_event(WebhookEvent::VMRestarted, &name, result.is_ok())
+            .await;
         match result {
             Ok(_) => StatusCode::NO_CONTENT.into_response(),
             Err(e) => {
@@ -1256,6 +1286,8 @@ pub mod web {
             result.as_ref().err().map(|e| sanitize_error(e)),
         )
         .await;
+        webhook_handlers::dispatch_webhook_event(WebhookEvent::VMDeleted, &name, result.is_ok())
+            .await;
         match result {
             Ok(_) => StatusCode::NO_CONTENT.into_response(),
             Err(e) => {

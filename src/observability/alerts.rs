@@ -212,6 +212,7 @@ impl Alert {
 }
 
 /// Alert manager
+#[derive(Serialize, Deserialize)]
 pub struct AlertManager {
     rules: Vec<AlertRule>,
     active_alerts: std::collections::VecDeque<Alert>,
@@ -311,6 +312,48 @@ impl AlertManager {
             .iter()
             .filter(|a| a.is_resolved())
             .count()
+    }
+
+    /// A currently-firing alert for this rule with a matching label (e.g.
+    /// `vm_name`), if one already exists -- lets the evaluation loop avoid
+    /// re-firing the same condition every tick.
+    pub fn find_firing(&self, rule_id: &str, label_key: &str, label_value: &str) -> Option<&Alert> {
+        self.active_alerts.iter().find(|a| {
+            a.rule_id == rule_id
+                && a.is_firing()
+                && a.labels.get(label_key).map(|v| v.as_str()) == Some(label_value)
+        })
+    }
+
+    fn persistence_path() -> std::path::PathBuf {
+        dirs::data_dir()
+            .unwrap_or_else(|| std::path::PathBuf::from("/tmp"))
+            .join("zorvia")
+            .join("alerts.json")
+    }
+
+    pub fn load() -> Self {
+        let path = Self::persistence_path();
+        if path.exists() {
+            match std::fs::read_to_string(&path) {
+                Ok(content) => match serde_json::from_str(&content) {
+                    Ok(manager) => return manager,
+                    Err(e) => log::warn!("Failed to parse alerts: {}", e),
+                },
+                Err(e) => log::warn!("Failed to read alerts: {}", e),
+            }
+        }
+        Self::new()
+    }
+
+    pub fn save(&self) -> anyhow::Result<()> {
+        let path = Self::persistence_path();
+        if let Some(parent) = path.parent() {
+            std::fs::create_dir_all(parent)?;
+        }
+        let content = serde_json::to_string_pretty(self)?;
+        std::fs::write(&path, content)?;
+        Ok(())
     }
 }
 
