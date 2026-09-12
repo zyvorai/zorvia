@@ -150,6 +150,13 @@ spec:
         app.kubernetes.io/component: api
     spec:
       serviceAccountName: zorvia
+      # The zorvia container runs as non-root (uid 10001) and needs to
+      # create/open a SQLite file on the auth-data PVC at /data -- without
+      # fsGroup, a freshly-provisioned PVC's mount point is root-owned and
+      # the container gets "unable to open database file" (errno 14) on
+      # first boot against a brand new volume.
+      securityContext:
+        fsGroup: 10001
       initContainers:
         - name: gen-cert
           image: alpine/openssl:3.3.2

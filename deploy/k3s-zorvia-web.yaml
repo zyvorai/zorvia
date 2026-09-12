@@ -69,6 +69,11 @@ spec:
         app.kubernetes.io/component: api
     spec:
       serviceAccountName: zorvia
+      # See deploy/k8s.yaml -- same non-root uid needs write access to
+      # /data (auth-data volume) regardless of whether it's an emptyDir or
+      # a PVC.
+      securityContext:
+        fsGroup: 10001
       initContainers:
         - name: gen-cert
           image: alpine/openssl:3.3.2
