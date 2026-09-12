@@ -36,6 +36,7 @@ const MigrationReadiness = lazy(() => import('./pages/MigrationReadiness'))
 const EventStream = lazy(() => import('./pages/EventStream'))
 const VMHealthCheck = lazy(() => import('./pages/VMHealthCheck'))
 const ServiceMap = lazy(() => import('./pages/ServiceMap'))
+const Backups = lazy(() => import('./pages/Backups'))
 const AccessControl = lazy(() => import('./pages/AccessControl'))
 
 function ProtectedRoute({ children }: { children: ReactNode }) {
@@ -95,6 +96,7 @@ function ConsoleRoutes() {
             <Route path="events" element={<EventStream />} />
             <Route path="health-check" element={<VMHealthCheck />} />
             <Route path="service-map" element={<ServiceMap />} />
+            <Route path="backups" element={<Backups />} />
             <Route path="storage" element={<RookStorage />} />
             <Route path="quotas" element={<Quotas />} />
             <Route path="compare" element={<VMCompare />} />

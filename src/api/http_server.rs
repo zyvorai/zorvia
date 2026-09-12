@@ -67,6 +67,10 @@ pub mod web {
     mod audit_handlers;
     use audit_handlers::*;
 
+    #[path = "backup_handlers.rs"]
+    mod backup_handlers;
+    use backup_handlers::*;
+
     /// Simple sliding-window rate limiter state.
     struct RateLimiterState {
         /// Number of requests in the current window
@@ -559,6 +563,11 @@ pub mod web {
             .route("/services/map", get(list_service_map_handler))
             .route("/audit/logs", get(list_audit_logs_handler))
             .route("/audit/stats", get(audit_stats_handler))
+            .route(
+                "/backups",
+                get(list_backups_handler).post(create_backup_handler),
+            )
+            .route("/backups/:id", delete(delete_backup_handler))
             .route("/events", get(fabric_list_events))
             .route("/events/stream", get(fabric_events_stream))
             .route("/capabilities", get(fabric_capabilities))
