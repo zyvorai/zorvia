@@ -99,6 +99,30 @@ pub mod web {
     mod security_dashboard_handlers;
     use security_dashboard_handlers::*;
 
+    #[path = "capacity_handlers.rs"]
+    mod capacity_handlers;
+    use capacity_handlers::*;
+
+    #[path = "zone_handlers.rs"]
+    mod zone_handlers;
+    use zone_handlers::*;
+
+    #[path = "analytics_handlers.rs"]
+    mod analytics_handlers;
+    use analytics_handlers::*;
+
+    #[path = "resource_optimizer_handlers.rs"]
+    mod resource_optimizer_handlers;
+    use resource_optimizer_handlers::*;
+
+    #[path = "template_handlers.rs"]
+    mod template_handlers;
+    use template_handlers::*;
+
+    #[path = "power_schedule_handlers.rs"]
+    mod power_schedule_handlers;
+    use power_schedule_handlers::*;
+
     /// Simple sliding-window rate limiter state.
     struct RateLimiterState {
         /// Number of requests in the current window
@@ -630,6 +654,32 @@ pub mod web {
                 post(compliance_dashboard_handler),
             )
             .route("/system/security", get(security_dashboard_handler))
+            .route("/capacity/overview", get(capacity_overview_handler))
+            .route("/capacity/fit", get(capacity_fit_handler))
+            .route("/zones", get(list_zones_handler))
+            .route("/analytics/top-vms", get(analytics_top_vms_handler))
+            .route(
+                "/optimization/recommendations",
+                get(resource_optimizer_handler),
+            )
+            .route("/templates", get(list_templates_handler))
+            .route("/templates/:name", get(get_template_handler))
+            .route(
+                "/schedules/power",
+                get(list_power_schedules_handler).post(create_power_schedule_handler),
+            )
+            .route(
+                "/schedules/power/:name",
+                delete(delete_power_schedule_handler),
+            )
+            .route(
+                "/schedules/power/:name/enable",
+                post(enable_power_schedule_handler),
+            )
+            .route(
+                "/schedules/power/:name/disable",
+                post(disable_power_schedule_handler),
+            )
             .route("/events", get(fabric_list_events))
             .route("/events/stream", get(fabric_events_stream))
             .route("/capabilities", get(fabric_capabilities))
@@ -737,6 +787,7 @@ pub mod web {
             WebState::new(namespace, rate_limit_per_minute).await?,
         ));
         spawn_backup_scheduler_loop(state.clone());
+        spawn_power_schedule_loop(state.clone());
         let app = build_router(state);
         let addr = format!("{}:{}", host, port);
 

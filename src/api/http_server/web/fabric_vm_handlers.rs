@@ -1019,6 +1019,48 @@ pub async fn fabric_revert_snapshot(
     }
 }
 
+/// Real per-VM usage numbers -- guest-agent reported stats, falling back to
+/// a Prometheus env-file sample when present. Shared by `fabric_vm_metrics`
+/// and the Analytics/ResourceOptimizer aggregation handlers so both read
+/// usage the exact same way instead of two slightly different code paths.
+pub(crate) async fn quick_vm_usage(
+    client: &crate::kube::KubeClient,
+    namespace: &str,
+    name: &str,
+) -> (f64, u64, u64, &'static str, crate::kube::guest_metrics::GuestMetrics) {
+    let osinfo = client
+        .get_vmi_subresource_json(namespace, name, "guestosinfo")
+        .await
+        .ok();
+    let fslist = client
+        .get_vmi_subresource_json(namespace, name, "filesystemlist")
+        .await
+        .ok();
+    let gm =
+        crate::kube::guest_metrics::metrics_from_guest_payloads(osinfo.as_ref(), fslist.as_ref());
+    let mut source = if gm.agent {
+        "guest-agent"
+    } else {
+        "kubevirt-status"
+    };
+    let mut cpu_usage = gm.cpu_usage;
+    let mut memory_usage = gm.memory_usage;
+    let mut disk_usage = gm.disk_usage;
+    if let Some((pcpu, pmem, pdisk)) = crate::kube::prom::samples_from_env_file(name) {
+        if pcpu > 0.0 || cpu_usage == 0.0 {
+            cpu_usage = pcpu;
+        }
+        if pmem > 0 {
+            memory_usage = pmem;
+        }
+        if pdisk > 0 {
+            disk_usage = pdisk;
+        }
+        source = "prometheus";
+    }
+    (cpu_usage, memory_usage, disk_usage, source, gm)
+}
+
 pub async fn fabric_vm_metrics(
     State(state): State<SharedState>,
     Path(name): Path<String>,
@@ -1067,36 +1109,8 @@ pub async fn fabric_vm_metrics(
         .and_then(|v| v.status.as_ref())
         .and_then(|st| st.node_name.clone());
 
-    let osinfo = client
-        .get_vmi_subresource_json(&namespace, &name, "guestosinfo")
-        .await
-        .ok();
-    let fslist = client
-        .get_vmi_subresource_json(&namespace, &name, "filesystemlist")
-        .await
-        .ok();
-    let gm =
-        crate::kube::guest_metrics::metrics_from_guest_payloads(osinfo.as_ref(), fslist.as_ref());
-    let mut source = if gm.agent {
-        "guest-agent"
-    } else {
-        "kubevirt-status"
-    };
-    let mut cpu_usage = gm.cpu_usage;
-    let mut memory_usage = gm.memory_usage;
-    let mut disk_usage = gm.disk_usage;
-    if let Some((pcpu, pmem, pdisk)) = crate::kube::prom::samples_from_env_file(&name) {
-        if pcpu > 0.0 || cpu_usage == 0.0 {
-            cpu_usage = pcpu;
-        }
-        if pmem > 0 {
-            memory_usage = pmem;
-        }
-        if pdisk > 0 {
-            disk_usage = pdisk;
-        }
-        source = "prometheus";
-    }
+    let (cpu_usage, memory_usage, disk_usage, source, gm) =
+        quick_vm_usage(&client, &namespace, &name).await;
     let point = crate::kube::prom::MetricsPoint {
         ts: chrono::Utc::now().to_rfc3339(),
         cpu_usage,

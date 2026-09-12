@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import type { LucideIcon } from 'lucide-react'
-import { Home, Server, Star, Camera, Plus, MonitorCog, ArrowRightLeft, Database, ShieldCheck, Gauge, GitCompare, UploadCloud, ListChecks, Radio, HeartPulse, Network, Save, Disc, Clock, Scale, ShieldAlert, HardDrive, Lock, ClipboardList, ShieldQuestion } from 'lucide-react'
+import { Home, Server, Star, Camera, Plus, MonitorCog, ArrowRightLeft, Database, ShieldCheck, Gauge, GitCompare, UploadCloud, ListChecks, Radio, HeartPulse, Network, Save, Disc, Clock, Scale, ShieldAlert, HardDrive, Lock, ClipboardList, ShieldQuestion, DollarSign, MapPin, BarChart3, Lightbulb, Layers, CalendarClock, Cpu } from 'lucide-react'
 
 export interface NavItem {
   label: string
@@ -74,6 +74,13 @@ export const NAV_GROUPS: NavGroup[] = [
       { label: 'Network Policies', path: '/app/network-policies', icon: Lock },
       { label: 'Compliance', path: '/app/compliance', icon: ClipboardList },
       { label: 'Security', path: '/app/security', icon: ShieldQuestion },
+      { label: 'Cost Estimator', path: '/app/cost-estimator', icon: DollarSign },
+      { label: 'Capacity', path: '/app/capacity', icon: Cpu },
+      { label: 'Zones', path: '/app/zones', icon: MapPin },
+      { label: 'Analytics', path: '/app/analytics', icon: BarChart3 },
+      { label: 'Optimizer', path: '/app/optimizer', icon: Lightbulb },
+      { label: 'Templates', path: '/app/templates', icon: Layers },
+      { label: 'Schedules', path: '/app/schedules', icon: CalendarClock },
       { label: 'Storage', path: '/app/storage', icon: Database },
       { label: 'Quotas', path: '/app/quotas', icon: Gauge },
       { label: 'Compare', path: '/app/compare', icon: GitCompare },

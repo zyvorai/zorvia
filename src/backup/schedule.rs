@@ -63,8 +63,17 @@ impl BackupSchedule {
         if !self.enabled {
             return None;
         }
+        self.schedule_type.next_run(from)
+    }
+}
 
-        match &self.schedule_type {
+impl ScheduleType {
+    /// Next time this schedule type fires from `from` -- shared by
+    /// `BackupSchedule` and `crate::power_schedule::PowerSchedule` so both
+    /// use identical, already-tested next-run math
+    /// (`crate::utils::schedule`), not two copies of it.
+    pub fn next_run(&self, from: DateTime<Utc>) -> Option<DateTime<Utc>> {
+        match self {
             ScheduleType::Hourly { minute } => {
                 Some(crate::utils::schedule::next_hourly(from, *minute))
             }

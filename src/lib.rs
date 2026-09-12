@@ -90,6 +90,7 @@ pub mod multi_cluster;
 pub mod nlp_search;
 pub mod notifications;
 pub mod placement;
+pub mod power_schedule;
 pub mod recommendation;
 pub mod rook;
 pub mod search_history;

@@ -47,7 +47,7 @@ fn vm_memory_gib(vm: &crate::kube::types::VirtualMachine) -> f64 {
 /// Builds the real node/workload snapshot the advisor scores against: real
 /// `Node` allocatable capacity + real per-node used CPU/memory computed by
 /// summing the VMs actually scheduled there (via each VM's VMI status).
-async fn build_snapshot(
+pub(crate) async fn build_snapshot(
     client: &crate::kube::KubeClient,
     namespace: &str,
 ) -> anyhow::Result<(Vec<NodeSnapshot>, Vec<WorkloadRequirements>)> {

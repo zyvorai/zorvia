@@ -45,6 +45,13 @@ const StorageVolumes = lazy(() => import('./pages/Storage'))
 const NetworkPolicies = lazy(() => import('./pages/NetworkPolicies'))
 const ComplianceDashboard = lazy(() => import('./pages/ComplianceDashboard'))
 const SecurityDashboard = lazy(() => import('./pages/SecurityDashboard'))
+const CostEstimator = lazy(() => import('./pages/CostEstimator'))
+const CapacityPlanning = lazy(() => import('./pages/CapacityPlanning'))
+const Zones = lazy(() => import('./pages/Zones'))
+const Analytics = lazy(() => import('./pages/Analytics'))
+const ResourceOptimizer = lazy(() => import('./pages/ResourceOptimizer'))
+const Templates = lazy(() => import('./pages/Templates'))
+const Schedules = lazy(() => import('./pages/Schedules'))
 const AccessControl = lazy(() => import('./pages/AccessControl'))
 
 function ProtectedRoute({ children }: { children: ReactNode }) {
@@ -113,6 +120,13 @@ function ConsoleRoutes() {
             <Route path="network-policies" element={<NetworkPolicies />} />
             <Route path="compliance" element={<ComplianceDashboard />} />
             <Route path="security" element={<SecurityDashboard />} />
+            <Route path="cost-estimator" element={<CostEstimator />} />
+            <Route path="capacity" element={<CapacityPlanning />} />
+            <Route path="zones" element={<Zones />} />
+            <Route path="analytics" element={<Analytics />} />
+            <Route path="optimizer" element={<ResourceOptimizer />} />
+            <Route path="templates" element={<Templates />} />
+            <Route path="schedules" element={<Schedules />} />
             <Route path="storage" element={<RookStorage />} />
             <Route path="quotas" element={<Quotas />} />
             <Route path="compare" element={<VMCompare />} />
