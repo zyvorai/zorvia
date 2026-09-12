@@ -63,6 +63,10 @@ pub mod web {
     mod service_map_handlers;
     use service_map_handlers::*;
 
+    #[path = "audit_handlers.rs"]
+    mod audit_handlers;
+    use audit_handlers::*;
+
     /// Simple sliding-window rate limiter state.
     struct RateLimiterState {
         /// Number of requests in the current window
@@ -131,12 +135,15 @@ pub mod web {
         }
     }
 
+    pub type SharedAuditTrail = Arc<RwLock<crate::audit_trail::AuditTrail>>;
+
     pub struct WebState {
         pub namespace: String,
         pub kube_client: KubeClient,
         pub api_key: Option<String>,
         pub auth: crate::api::auth::SharedAuth,
         pub kryton: Option<crate::kryton::Client>,
+        pub audit: SharedAuditTrail,
         rate_limiter: RateLimiterState,
     }
 
@@ -165,6 +172,7 @@ pub mod web {
                 api_key,
                 auth,
                 kryton,
+                audit: Arc::new(RwLock::new(crate::audit_trail::AuditTrail::default())),
                 rate_limiter: RateLimiterState::new(rate_limit_per_minute, 60),
             })
         }
@@ -549,6 +557,8 @@ pub mod web {
             )
             .route("/snapshots", get(fabric_list_snapshots))
             .route("/services/map", get(list_service_map_handler))
+            .route("/audit/logs", get(list_audit_logs_handler))
+            .route("/audit/stats", get(audit_stats_handler))
             .route("/events", get(fabric_list_events))
             .route("/events/stream", get(fabric_events_stream))
             .route("/capabilities", get(fabric_capabilities))
@@ -989,12 +999,25 @@ pub mod web {
 
     async fn fabric_start_vm(
         State(state): State<SharedState>,
+        headers: HeaderMap,
         Path(name): Path<String>,
     ) -> impl IntoResponse {
         let s = state.read().await;
         let namespace = s.namespace.clone();
         let client = s.client();
-        match client.start_vm(&namespace, &name).await {
+        drop(s);
+        let result = client.start_vm(&namespace, &name).await;
+        record_audit(
+            &state,
+            &headers,
+            crate::audit_trail::AuditAction::Start,
+            "vm",
+            &name,
+            result.is_ok(),
+            result.as_ref().err().map(|e| sanitize_error(e)),
+        )
+        .await;
+        match result {
             Ok(_) => StatusCode::NO_CONTENT.into_response(),
             Err(e) => {
                 let (st, j) = err_json(500, "START_FAILED", &sanitize_error(&e));
@@ -1005,12 +1028,25 @@ pub mod web {
 
     async fn fabric_stop_vm(
         State(state): State<SharedState>,
+        headers: HeaderMap,
         Path(name): Path<String>,
     ) -> impl IntoResponse {
         let s = state.read().await;
         let namespace = s.namespace.clone();
         let client = s.client();
-        match client.stop_vm(&namespace, &name).await {
+        drop(s);
+        let result = client.stop_vm(&namespace, &name).await;
+        record_audit(
+            &state,
+            &headers,
+            crate::audit_trail::AuditAction::Stop,
+            "vm",
+            &name,
+            result.is_ok(),
+            result.as_ref().err().map(|e| sanitize_error(e)),
+        )
+        .await;
+        match result {
             Ok(_) => StatusCode::NO_CONTENT.into_response(),
             Err(e) => {
                 let (st, j) = err_json(500, "STOP_FAILED", &sanitize_error(&e));
@@ -1021,12 +1057,25 @@ pub mod web {
 
     async fn fabric_restart_vm(
         State(state): State<SharedState>,
+        headers: HeaderMap,
         Path(name): Path<String>,
     ) -> impl IntoResponse {
         let s = state.read().await;
         let namespace = s.namespace.clone();
         let client = s.client();
-        match client.restart_vm(&namespace, &name).await {
+        drop(s);
+        let result = client.restart_vm(&namespace, &name).await;
+        record_audit(
+            &state,
+            &headers,
+            crate::audit_trail::AuditAction::Restart,
+            "vm",
+            &name,
+            result.is_ok(),
+            result.as_ref().err().map(|e| sanitize_error(e)),
+        )
+        .await;
+        match result {
             Ok(_) => StatusCode::NO_CONTENT.into_response(),
             Err(e) => {
                 let (st, j) = err_json(500, "RESTART_FAILED", &sanitize_error(&e));
@@ -1037,13 +1086,26 @@ pub mod web {
 
     async fn fabric_delete_vm(
         State(state): State<SharedState>,
+        headers: HeaderMap,
         Path(name): Path<String>,
     ) -> impl IntoResponse {
         let s = state.read().await;
         let namespace = s.namespace.clone();
         let client = s.client();
+        drop(s);
         let _ = client.delete_vm_port_forwards(&namespace, &name).await;
-        match client.delete_vm(&namespace, &name).await {
+        let result = client.delete_vm(&namespace, &name).await;
+        record_audit(
+            &state,
+            &headers,
+            crate::audit_trail::AuditAction::Delete,
+            "vm",
+            &name,
+            result.is_ok(),
+            result.as_ref().err().map(|e| sanitize_error(e)),
+        )
+        .await;
+        match result {
             Ok(_) => StatusCode::NO_CONTENT.into_response(),
             Err(e) => {
                 let (st, j) = err_json(500, "DELETE_FAILED", &sanitize_error(&e));
@@ -1855,6 +1917,60 @@ pub mod web {
             StatusCode::from_u16(status).unwrap_or(StatusCode::INTERNAL_SERVER_ERROR),
             Json(value),
         )
+    }
+
+    /// Best-effort caller identity for audit entries -- decodes the same
+    /// Bearer token `auth_middleware` already validated, so this never
+    /// fails a request on its own account.
+    fn audit_username(headers: &HeaderMap, auth: &crate::api::auth::SharedAuth) -> String {
+        if let Some(token) = headers
+            .get(header::AUTHORIZATION)
+            .and_then(|v| v.to_str().ok())
+            .and_then(|v| v.strip_prefix("Bearer "))
+        {
+            if let Some(claims) = auth.validate_bearer(token) {
+                return claims.username;
+            }
+            if auth.api_key_ok(token) {
+                return "api-key".to_string();
+            }
+        }
+        "unknown".to_string()
+    }
+
+    /// Records one audit entry. `crate::audit_trail::AuditTrail` had real
+    /// query/stats logic with zero callers anywhere in the codebase until
+    /// this -- every mutating VM handler wired here closes that gap for
+    /// the actions VMDetails.tsx's activity panel actually shows
+    /// (create/start/stop/restart/delete/migrate).
+    async fn record_audit(
+        state: &SharedState,
+        headers: &HeaderMap,
+        action: crate::audit_trail::AuditAction,
+        resource_type: &str,
+        resource_name: &str,
+        success: bool,
+        message: Option<String>,
+    ) {
+        let s = state.read().await;
+        let user = audit_username(headers, &s.auth);
+        let namespace = s.namespace.clone();
+        let audit = s.audit.clone();
+        drop(s);
+        let entry = crate::audit_trail::AuditEntry {
+            id: crate::utils::generate_id("audit", resource_name),
+            timestamp: chrono::Utc::now(),
+            user,
+            action,
+            resource_type: resource_type.to_string(),
+            resource_name: resource_name.to_string(),
+            namespace,
+            details: message.map(serde_json::Value::String).unwrap_or(serde_json::Value::Null),
+            ip_address: String::new(),
+            success,
+            severity: crate::audit_trail::AuditSeverity::Info,
+        };
+        audit.write().await.record(entry);
     }
 
     fn parse_memory(s: &str) -> u64 {

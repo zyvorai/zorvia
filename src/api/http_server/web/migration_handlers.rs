@@ -25,13 +25,25 @@ fn migration_json(m: &crate::kube::types::VirtualMachineInstanceMigration) -> se
 
 pub async fn fabric_migrate_vm(
     State(state): State<SharedState>,
+    headers: HeaderMap,
     Path(name): Path<String>,
 ) -> impl IntoResponse {
     let s = state.read().await;
     let namespace = s.namespace.clone();
     let client = s.client();
     drop(s);
-    match client.migrate_vm(&namespace, &name).await {
+    let result = client.migrate_vm(&namespace, &name).await;
+    record_audit(
+        &state,
+        &headers,
+        crate::audit_trail::AuditAction::Migrate,
+        "vm",
+        &name,
+        result.is_ok(),
+        result.as_ref().err().map(|e| e.to_string()),
+    )
+    .await;
+    match result {
         Ok(m) => (StatusCode::CREATED, Json(migration_json(&m))).into_response(),
         Err(e) => {
             // classify_migration_error is the sanitizer here; it needs the

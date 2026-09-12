@@ -362,6 +362,7 @@ pub async fn fabric_start_download(
 
 pub async fn fabric_create_vm(
     State(state): State<SharedState>,
+    headers: HeaderMap,
     AxumJson(req): AxumJson<FabricCreateVmRequest>,
 ) -> impl IntoResponse {
     let s = state.read().await;
@@ -491,7 +492,18 @@ pub async fn fabric_create_vm(
         return (st, j).into_response();
     }
 
-    match client.create_vm(&config).await {
+    let create_result = client.create_vm(&config).await;
+    record_audit(
+        &state,
+        &headers,
+        crate::audit_trail::AuditAction::Create,
+        "vm",
+        &req.name,
+        create_result.is_ok(),
+        create_result.as_ref().err().map(|e| e.to_string()),
+    )
+    .await;
+    match create_result {
         Ok(_vm) => {
             let start = req.start.unwrap_or(true);
             if start {
