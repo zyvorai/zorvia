@@ -87,6 +87,18 @@ pub mod web {
     mod storage_handlers;
     use storage_handlers::*;
 
+    #[path = "network_policy_handlers.rs"]
+    mod network_policy_handlers;
+    use network_policy_handlers::*;
+
+    #[path = "compliance_handlers.rs"]
+    mod compliance_handlers;
+    use compliance_handlers::*;
+
+    #[path = "security_dashboard_handlers.rs"]
+    mod security_dashboard_handlers;
+    use security_dashboard_handlers::*;
+
     /// Simple sliding-window rate limiter state.
     struct RateLimiterState {
         /// Number of requests in the current window
@@ -604,6 +616,20 @@ pub mod web {
                 post(disable_backup_policy_handler),
             )
             .route("/storage/volumes", get(list_storage_volumes_handler))
+            .route(
+                "/network-policies",
+                get(list_network_policies_handler).post(create_network_policy_handler),
+            )
+            .route(
+                "/network-policies/:name",
+                delete(delete_network_policy_handler),
+            )
+            .route("/system/compliance", get(compliance_dashboard_handler))
+            .route(
+                "/system/compliance/scan",
+                post(compliance_dashboard_handler),
+            )
+            .route("/system/security", get(security_dashboard_handler))
             .route("/events", get(fabric_list_events))
             .route("/events/stream", get(fabric_events_stream))
             .route("/capabilities", get(fabric_capabilities))
@@ -745,7 +771,35 @@ pub mod web {
         Json(body): Json<crate::api::auth::handlers::LoginRequest>,
     ) -> impl IntoResponse {
         let auth = auth_shared(&state).await;
-        crate::api::auth::login_handler(axum::extract::State(auth), Json(body)).await
+        let username = body.username.clone();
+        let response = crate::api::auth::login_handler(axum::extract::State(auth), Json(body))
+            .await
+            .into_response();
+        let success = response.status().is_success();
+
+        // Real login attempts, feeding the SecurityDashboard's real
+        // failed-login widget -- built directly rather than via
+        // record_audit(), which derives its `user` from an already-issued
+        // Bearer token that doesn't exist yet at login time.
+        let s = state.read().await;
+        let namespace = s.namespace.clone();
+        let audit = s.audit.clone();
+        drop(s);
+        audit.write().await.record(crate::audit_trail::AuditEntry {
+            id: crate::utils::generate_id("audit", &username),
+            timestamp: chrono::Utc::now(),
+            user: username,
+            action: crate::audit_trail::AuditAction::Login,
+            resource_type: "auth".to_string(),
+            resource_name: "login".to_string(),
+            namespace,
+            details: serde_json::Value::Null,
+            ip_address: String::new(),
+            success,
+            severity: crate::audit_trail::AuditSeverity::Medium,
+        });
+
+        response
     }
 
     async fn auth_me(State(state): State<SharedState>, headers: HeaderMap) -> impl IntoResponse {

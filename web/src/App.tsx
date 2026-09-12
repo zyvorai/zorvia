@@ -42,6 +42,9 @@ const BackupScheduler = lazy(() => import('./pages/BackupScheduler'))
 const PlacementAdvisor = lazy(() => import('./pages/PlacementAdvisor'))
 const HaPolicy = lazy(() => import('./pages/HaPolicy'))
 const StorageVolumes = lazy(() => import('./pages/Storage'))
+const NetworkPolicies = lazy(() => import('./pages/NetworkPolicies'))
+const ComplianceDashboard = lazy(() => import('./pages/ComplianceDashboard'))
+const SecurityDashboard = lazy(() => import('./pages/SecurityDashboard'))
 const AccessControl = lazy(() => import('./pages/AccessControl'))
 
 function ProtectedRoute({ children }: { children: ReactNode }) {
@@ -107,6 +110,9 @@ function ConsoleRoutes() {
             <Route path="placement" element={<PlacementAdvisor />} />
             <Route path="ha-policy" element={<HaPolicy />} />
             <Route path="volumes" element={<StorageVolumes />} />
+            <Route path="network-policies" element={<NetworkPolicies />} />
+            <Route path="compliance" element={<ComplianceDashboard />} />
+            <Route path="security" element={<SecurityDashboard />} />
             <Route path="storage" element={<RookStorage />} />
             <Route path="quotas" element={<Quotas />} />
             <Route path="compare" element={<VMCompare />} />
