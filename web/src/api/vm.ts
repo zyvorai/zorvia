@@ -199,6 +199,38 @@ export async function getMetrics(name: string): Promise<VMMetrics> {
   return apiGet<VMMetrics>(`${API_BASE}/vms/${name}/metrics`)
 }
 
+/** Mirrors crate::guest_insight::GuestAgentState (kebab-case on the wire). */
+export type GuestAgentState = 'connected' | 'not-detected' | 'not-running' | 'unknown'
+
+export interface GuestInterfaceInsight {
+  name?: string
+  guest_name?: string
+  mac?: string
+  primary_ip?: string
+  ip_addresses: string[]
+}
+
+/** Mirrors crate::guest_insight::GuestInsightReport -- QEMU Guest Agent
+ * status derived from KubeVirt VMI status, no guest shell access needed. */
+export interface GuestInsightReport {
+  vm: string
+  namespace: string
+  phase: string
+  node?: string
+  agent_state: GuestAgentState
+  readiness_score: number
+  os_name?: string
+  os_id?: string
+  os_version?: string
+  kernel_release?: string
+  interfaces: GuestInterfaceInsight[]
+  recommendations: string[]
+}
+
+export async function getGuestInsight(name: string): Promise<GuestInsightReport> {
+  return apiGet<GuestInsightReport>(`${API_BASE}/vms/${name}/guest-insight`)
+}
+
 export interface VMLogEntry {
   timestamp: string
   hostname: string

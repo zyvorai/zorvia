@@ -33,6 +33,8 @@ const Quotas = lazy(() => import('./pages/Quotas'))
 const VMCompare = lazy(() => import('./pages/VMCompare'))
 const BatchImport = lazy(() => import('./pages/BatchImport'))
 const MigrationReadiness = lazy(() => import('./pages/MigrationReadiness'))
+const EventStream = lazy(() => import('./pages/EventStream'))
+const VMHealthCheck = lazy(() => import('./pages/VMHealthCheck'))
 const AccessControl = lazy(() => import('./pages/AccessControl'))
 
 function ProtectedRoute({ children }: { children: ReactNode }) {
@@ -89,6 +91,8 @@ function ConsoleRoutes() {
             <Route path="snapshots" element={<Snapshots />} />
             <Route path="migrations" element={<Migrations />} />
             <Route path="migrations/readiness" element={<MigrationReadiness />} />
+            <Route path="events" element={<EventStream />} />
+            <Route path="health-check" element={<VMHealthCheck />} />
             <Route path="storage" element={<RookStorage />} />
             <Route path="quotas" element={<Quotas />} />
             <Route path="compare" element={<VMCompare />} />
