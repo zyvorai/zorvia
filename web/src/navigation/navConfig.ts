@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import type { LucideIcon } from 'lucide-react'
-import { Home, Server, Star, Camera, Plus, MonitorCog, ArrowRightLeft, Database, ShieldCheck, Gauge, GitCompare, UploadCloud, ListChecks, Radio, HeartPulse, Network, Save } from 'lucide-react'
+import { Home, Server, Star, Camera, Plus, MonitorCog, ArrowRightLeft, Database, ShieldCheck, Gauge, GitCompare, UploadCloud, ListChecks, Radio, HeartPulse, Network, Save, Disc, Clock, Scale, ShieldAlert, HardDrive } from 'lucide-react'
 
 export interface NavItem {
   label: string
@@ -66,6 +66,11 @@ export const NAV_GROUPS: NavGroup[] = [
       { label: 'Health Check', path: '/app/health-check', icon: HeartPulse },
       { label: 'Service Map', path: '/app/service-map', icon: Network },
       { label: 'Backups', path: '/app/backups', icon: Save },
+      { label: 'Disk Images', path: '/app/disk-images', icon: Disc },
+      { label: 'Backup Scheduler', path: '/app/backup-scheduler', icon: Clock },
+      { label: 'Placement Advisor', path: '/app/placement', icon: Scale },
+      { label: 'HA Policy', path: '/app/ha-policy', icon: ShieldAlert },
+      { label: 'Volumes', path: '/app/volumes', icon: HardDrive },
       { label: 'Storage', path: '/app/storage', icon: Database },
       { label: 'Quotas', path: '/app/quotas', icon: Gauge },
       { label: 'Compare', path: '/app/compare', icon: GitCompare },

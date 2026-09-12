@@ -45,16 +45,37 @@ export interface BackupJob {
   error?: string
 }
 
+/** Mirrors the backend's real, disk-persisted `crate::backup::schedule::BackupSchedule`
+ * (src/api/http_server/web/backup_scheduler_handlers.rs) -- `vm_names` lists
+ * exact VM names (empty means "every VM in the namespace"), not tags. */
 export interface BackupPolicy {
   id: string
   name: string
-  vm_tags?: string[]
-  schedule_type: 'daily' | 'weekly' | 'monthly'
+  vm_names: string[]
+  schedule_type: 'hourly' | 'daily' | 'weekly' | 'monthly'
   backup_type: 'full' | 'incremental'
-  retention_days: number
+  retention_days: number | null
   enabled: boolean
-  last_run?: string
-  next_run?: string
+  last_run?: string | null
+  next_run?: string | null
+}
+
+export interface CreateBackupPolicyRequest {
+  name: string
+  schedule_type: 'hourly' | 'daily' | 'weekly' | 'monthly'
+  /** 0-23, defaults to 2 (2am). Ignored for "hourly". */
+  hour?: number
+  /** 0-59, defaults to 0. */
+  minute?: number
+  /** Required for "weekly", e.g. "sunday". */
+  weekday?: string
+  /** Required for "monthly", 1-31. */
+  day_of_month?: number
+  /** Exact VM names; omit/empty for every VM in the namespace. */
+  vm_names?: string[]
+  backup_type?: 'full' | 'incremental'
+  retention_days?: number
+  enabled?: boolean
 }
 
 const API_BASE = '/api'
@@ -92,7 +113,7 @@ export async function listBackupPolicies(): Promise<BackupPolicy[]> {
   return apiGet<BackupPolicy[]>(`${API_BASE}/backups/policies`)
 }
 
-export async function createBackupPolicy(policy: Omit<BackupPolicy, 'id' | 'last_run' | 'next_run'>): Promise<BackupPolicy> {
+export async function createBackupPolicy(policy: CreateBackupPolicyRequest): Promise<BackupPolicy> {
   return apiPost<BackupPolicy>(`${API_BASE}/backups/policies`, policy)
 }
 

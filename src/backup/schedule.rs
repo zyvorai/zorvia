@@ -12,6 +12,16 @@ pub struct BackupSchedule {
     pub enabled: bool,
     pub next_run: Option<DateTime<Utc>>,
     pub last_run: Option<DateTime<Utc>>,
+    /// "full" or "incremental" -- passed through to the backup engine as-is;
+    /// there is no incremental engine today, so every run is effectively full.
+    #[serde(default = "default_backup_type")]
+    pub backup_type: String,
+    #[serde(default)]
+    pub retention_days: Option<u32>,
+}
+
+fn default_backup_type() -> String {
+    "full".to_string()
 }
 
 impl BackupSchedule {
@@ -23,11 +33,23 @@ impl BackupSchedule {
             enabled: true,
             next_run: None,
             last_run: None,
+            backup_type: default_backup_type(),
+            retention_days: None,
         }
     }
 
     pub fn with_selector(mut self, selector: VMSelector) -> Self {
         self.vm_selector = selector;
+        self
+    }
+
+    pub fn with_backup_type(mut self, backup_type: impl Into<String>) -> Self {
+        self.backup_type = backup_type.into();
+        self
+    }
+
+    pub fn with_retention_days(mut self, days: u32) -> Self {
+        self.retention_days = Some(days);
         self
     }
 
@@ -196,6 +218,11 @@ impl ScheduleManager {
 
     pub fn get_schedule(&self, name: &str) -> Option<&BackupSchedule> {
         self.schedules.iter().find(|s| s.name == name)
+    }
+
+    /// All schedules regardless of enabled state.
+    pub fn all(&self) -> &[BackupSchedule] {
+        &self.schedules
     }
 
     /// Get schedules due to run

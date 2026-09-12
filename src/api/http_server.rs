@@ -71,6 +71,22 @@ pub mod web {
     mod backup_handlers;
     use backup_handlers::*;
 
+    #[path = "placement_handlers.rs"]
+    mod placement_handlers;
+    use placement_handlers::*;
+
+    #[path = "ha_handlers.rs"]
+    mod ha_handlers;
+    use ha_handlers::*;
+
+    #[path = "backup_scheduler_handlers.rs"]
+    mod backup_scheduler_handlers;
+    use backup_scheduler_handlers::*;
+
+    #[path = "storage_handlers.rs"]
+    mod storage_handlers;
+    use storage_handlers::*;
+
     /// Simple sliding-window rate limiter state.
     struct RateLimiterState {
         /// Number of requests in the current window
@@ -568,6 +584,26 @@ pub mod web {
                 get(list_backups_handler).post(create_backup_handler),
             )
             .route("/backups/:id", delete(delete_backup_handler))
+            .route("/placement/rebalance", get(placement_rebalance_handler))
+            .route("/placement/:vm", get(placement_recommend_handler))
+            .route(
+                "/vms/:name/ha",
+                get(get_ha_policy_handler).put(set_ha_policy_handler),
+            )
+            .route(
+                "/backups/policies",
+                get(list_backup_policies_handler).post(create_backup_policy_handler),
+            )
+            .route("/backups/policies/:name", delete(delete_backup_policy_handler))
+            .route(
+                "/backups/policies/:name/enable",
+                post(enable_backup_policy_handler),
+            )
+            .route(
+                "/backups/policies/:name/disable",
+                post(disable_backup_policy_handler),
+            )
+            .route("/storage/volumes", get(list_storage_volumes_handler))
             .route("/events", get(fabric_list_events))
             .route("/events/stream", get(fabric_events_stream))
             .route("/capabilities", get(fabric_capabilities))
@@ -674,6 +710,7 @@ pub mod web {
         let state = Arc::new(RwLock::new(
             WebState::new(namespace, rate_limit_per_minute).await?,
         ));
+        spawn_backup_scheduler_loop(state.clone());
         let app = build_router(state);
         let addr = format!("{}:{}", host, port);
 

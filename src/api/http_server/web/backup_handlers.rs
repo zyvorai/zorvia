@@ -109,6 +109,34 @@ pub async fn list_backups_handler(
     }
 }
 
+/// Core of "create a backup" -- shared by the manual `POST /backups` handler
+/// and `BackupScheduler`'s execution loop, so a scheduled run does exactly
+/// what a manual one does.
+pub(crate) async fn run_backup(
+    namespace: &str,
+    vm_name: &str,
+    backup_type: &str,
+    retention_days: Option<u32>,
+    description: Option<String>,
+) -> anyhow::Result<SnapshotInfo> {
+    let manager = SnapshotManager::new(namespace).await?;
+    let backup_name = format!(
+        "backup-{}-{}",
+        vm_name,
+        chrono::Utc::now().format("%Y%m%d%H%M%S")
+    );
+    let mut config = SnapshotConfig::new(vm_name, &backup_name)
+        .with_label("zorvia.io/backup", "true")
+        .with_label("zorvia.io/backup-type", backup_type);
+    if let Some(days) = retention_days {
+        config = config.with_label(LABEL_RETENTION_DAYS, days.to_string());
+    }
+    if let Some(desc) = description {
+        config = config.with_description(desc);
+    }
+    manager.create_snapshot(&config).await
+}
+
 #[derive(Debug, Deserialize)]
 pub struct CreateBackupBody {
     pub vm_name: String,
@@ -132,30 +160,15 @@ pub async fn create_backup_handler(
     let namespace = s.namespace.clone();
     drop(s);
 
-    let manager = match SnapshotManager::new(&namespace).await {
-        Ok(m) => m,
-        Err(e) => return backup_error("connect to cluster", e),
-    };
-
-    let backup_name = format!(
-        "backup-{}-{}",
-        body.vm_name,
-        chrono::Utc::now().format("%Y%m%d%H%M%S")
-    );
-    let mut config = SnapshotConfig::new(&body.vm_name, &backup_name)
-        .with_label("zorvia.io/backup", "true")
-        .with_label(
-            "zorvia.io/backup-type",
-            body.backup_type.as_deref().unwrap_or("full"),
-        );
-    if let Some(days) = body.retention_days {
-        config = config.with_label(LABEL_RETENTION_DAYS, days.to_string());
-    }
-    if let Some(desc) = body.description {
-        config = config.with_description(desc);
-    }
-
-    match manager.create_snapshot(&config).await {
+    match run_backup(
+        &namespace,
+        &body.vm_name,
+        body.backup_type.as_deref().unwrap_or("full"),
+        body.retention_days,
+        body.description,
+    )
+    .await
+    {
         Ok(info) => (StatusCode::CREATED, Json(backup_job_json(&info))).into_response(),
         Err(e) => backup_error("create backup", e),
     }

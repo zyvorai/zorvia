@@ -1,7 +1,7 @@
 // Copyright 2026 Zyvor AI Labs · https://zyvor.dev
 // SPDX-License-Identifier: Apache-2.0
 
-import { apiGet, apiPost, apiPostVoid, apiPutVoid, apiDelete } from './client'
+import { apiGet, apiPost, apiPostVoid, apiPut, apiPutVoid, apiDelete } from './client'
 
 export interface PortForwardSpec {
   host_port: number
@@ -229,6 +229,24 @@ export interface GuestInsightReport {
 
 export async function getGuestInsight(name: string): Promise<GuestInsightReport> {
   return apiGet<GuestInsightReport>(`${API_BASE}/vms/${name}/guest-insight`)
+}
+
+/** KubeVirt's real `spec.template.spec.evictionStrategy` values -- there is
+ * no vSphere-style lockstep fault tolerance on this platform; this is the
+ * real, honest equivalent: what happens to the VM when its node drains. */
+export type EvictionStrategy = 'LiveMigrate' | 'LiveMigrateIfPossible' | 'External' | 'None'
+
+export interface HaPolicy {
+  vm_name: string
+  eviction_strategy: EvictionStrategy | null
+}
+
+export async function getHaPolicy(name: string): Promise<HaPolicy> {
+  return apiGet<HaPolicy>(`${API_BASE}/vms/${name}/ha`)
+}
+
+export async function setHaPolicy(name: string, strategy: EvictionStrategy | null): Promise<HaPolicy> {
+  return apiPut<HaPolicy>(`${API_BASE}/vms/${name}/ha`, { eviction_strategy: strategy })
 }
 
 export interface VMLogEntry {

@@ -37,6 +37,11 @@ const EventStream = lazy(() => import('./pages/EventStream'))
 const VMHealthCheck = lazy(() => import('./pages/VMHealthCheck'))
 const ServiceMap = lazy(() => import('./pages/ServiceMap'))
 const Backups = lazy(() => import('./pages/Backups'))
+const DiskImages = lazy(() => import('./pages/DiskImages'))
+const BackupScheduler = lazy(() => import('./pages/BackupScheduler'))
+const PlacementAdvisor = lazy(() => import('./pages/PlacementAdvisor'))
+const HaPolicy = lazy(() => import('./pages/HaPolicy'))
+const StorageVolumes = lazy(() => import('./pages/Storage'))
 const AccessControl = lazy(() => import('./pages/AccessControl'))
 
 function ProtectedRoute({ children }: { children: ReactNode }) {
@@ -97,6 +102,11 @@ function ConsoleRoutes() {
             <Route path="health-check" element={<VMHealthCheck />} />
             <Route path="service-map" element={<ServiceMap />} />
             <Route path="backups" element={<Backups />} />
+            <Route path="disk-images" element={<DiskImages />} />
+            <Route path="backup-scheduler" element={<BackupScheduler />} />
+            <Route path="placement" element={<PlacementAdvisor />} />
+            <Route path="ha-policy" element={<HaPolicy />} />
+            <Route path="volumes" element={<StorageVolumes />} />
             <Route path="storage" element={<RookStorage />} />
             <Route path="quotas" element={<Quotas />} />
             <Route path="compare" element={<VMCompare />} />
