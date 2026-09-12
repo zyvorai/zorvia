@@ -59,6 +59,10 @@ pub mod web {
     mod quota_handlers;
     use quota_handlers::*;
 
+    #[path = "service_map_handlers.rs"]
+    mod service_map_handlers;
+    use service_map_handlers::*;
+
     /// Simple sliding-window rate limiter state.
     struct RateLimiterState {
         /// Number of requests in the current window
@@ -544,6 +548,7 @@ pub mod web {
                 post(fabric_revert_snapshot),
             )
             .route("/snapshots", get(fabric_list_snapshots))
+            .route("/services/map", get(list_service_map_handler))
             .route("/events", get(fabric_list_events))
             .route("/events/stream", get(fabric_events_stream))
             .route("/capabilities", get(fabric_capabilities))

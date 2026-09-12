@@ -35,6 +35,7 @@ const BatchImport = lazy(() => import('./pages/BatchImport'))
 const MigrationReadiness = lazy(() => import('./pages/MigrationReadiness'))
 const EventStream = lazy(() => import('./pages/EventStream'))
 const VMHealthCheck = lazy(() => import('./pages/VMHealthCheck'))
+const ServiceMap = lazy(() => import('./pages/ServiceMap'))
 const AccessControl = lazy(() => import('./pages/AccessControl'))
 
 function ProtectedRoute({ children }: { children: ReactNode }) {
@@ -93,6 +94,7 @@ function ConsoleRoutes() {
             <Route path="migrations/readiness" element={<MigrationReadiness />} />
             <Route path="events" element={<EventStream />} />
             <Route path="health-check" element={<VMHealthCheck />} />
+            <Route path="service-map" element={<ServiceMap />} />
             <Route path="storage" element={<RookStorage />} />
             <Route path="quotas" element={<Quotas />} />
             <Route path="compare" element={<VMCompare />} />

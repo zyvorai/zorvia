@@ -206,7 +206,7 @@ impl KubeClient {
     }
 }
 
-fn expose_host() -> String {
+pub(crate) fn expose_host() -> String {
     std::env::var("ZORVIA_EXPOSE_HOST")
         .or_else(|_| std::env::var("HOST"))
         .unwrap_or_else(|_| "127.0.0.1".into())

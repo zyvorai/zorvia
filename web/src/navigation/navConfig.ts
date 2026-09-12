@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import type { LucideIcon } from 'lucide-react'
-import { Home, Server, Star, Camera, Plus, MonitorCog, ArrowRightLeft, Database, ShieldCheck, Gauge, GitCompare, UploadCloud, ListChecks, Radio, HeartPulse } from 'lucide-react'
+import { Home, Server, Star, Camera, Plus, MonitorCog, ArrowRightLeft, Database, ShieldCheck, Gauge, GitCompare, UploadCloud, ListChecks, Radio, HeartPulse, Network } from 'lucide-react'
 
 export interface NavItem {
   label: string
@@ -64,6 +64,7 @@ export const NAV_GROUPS: NavGroup[] = [
       { label: 'Migration Readiness', path: '/app/migrations/readiness', icon: ListChecks },
       { label: 'Event Stream', path: '/app/events', icon: Radio },
       { label: 'Health Check', path: '/app/health-check', icon: HeartPulse },
+      { label: 'Service Map', path: '/app/service-map', icon: Network },
       { label: 'Storage', path: '/app/storage', icon: Database },
       { label: 'Quotas', path: '/app/quotas', icon: Gauge },
       { label: 'Compare', path: '/app/compare', icon: GitCompare },
