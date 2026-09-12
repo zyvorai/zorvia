@@ -29,6 +29,7 @@ const FavoriteVMs = lazy(() => import('./pages/FavoriteVMs'))
 const KrytonWindows = lazy(() => import('./pages/KrytonWindows'))
 const Migrations = lazy(() => import('./pages/Migrations'))
 const RookStorage = lazy(() => import('./pages/RookStorage'))
+const Quotas = lazy(() => import('./pages/Quotas'))
 const AccessControl = lazy(() => import('./pages/AccessControl'))
 
 function ProtectedRoute({ children }: { children: ReactNode }) {
@@ -85,6 +86,7 @@ function ConsoleRoutes() {
             <Route path="snapshots" element={<Snapshots />} />
             <Route path="migrations" element={<Migrations />} />
             <Route path="storage" element={<RookStorage />} />
+            <Route path="quotas" element={<Quotas />} />
             <Route path="windows" element={<KrytonWindows />} />
             <Route path="access-control" element={<AdminRoute><AccessControl /></AdminRoute>} />
             <Route path="*" element={<Navigate to="/app" replace />} />

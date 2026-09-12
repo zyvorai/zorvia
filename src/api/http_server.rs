@@ -55,6 +55,10 @@ pub mod web {
     mod drift_handlers;
     use drift_handlers::*;
 
+    #[path = "quota_handlers.rs"]
+    mod quota_handlers;
+    use quota_handlers::*;
+
     /// Simple sliding-window rate limiter state.
     struct RateLimiterState {
         /// Number of requests in the current window
@@ -560,6 +564,11 @@ pub mod web {
             .route("/v1/events", get(list_events_handler))
             .route("/v1/events/recent", get(recent_events_handler))
             .route("/v1/dashboard/overview", get(dashboard_overview_handler))
+            .route(
+                "/v1/quotas",
+                get(list_quotas_handler).post(create_quota_handler),
+            )
+            .route("/v1/quotas/:ns/:name", delete(delete_quota_handler))
             // Kryton Windows control plane (server-side token; Zorvia auth at edge)
             .route("/v1/kryton/status", get(kryton_status))
             .route("/v1/kryton/capabilities", get(kryton_capabilities))
