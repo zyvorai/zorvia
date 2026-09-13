@@ -19,16 +19,16 @@ import { useToastContext } from '../contexts/ToastContext'
 import { useConfirm } from '../hooks/useConfirm'
 import ConfirmDialog from '../components/ConfirmDialog'
 import ErrorBanner from '../components/ErrorBanner'
-import { PageHeader, EmptyState } from '../components/ui'
+import { PageHeader, EmptyState, DataTable } from '../components/ui'
 import { formatUserError } from '../utils/apiError'
 import { toastFailure } from '../utils/toastError'
 import { hintsForError } from '../utils/daemonHints'
 
 function severityBadge(s: string): string {
   switch (s) {
-    case 'critical': return 'text-red-700 bg-red-50 border-red-200'
-    case 'warning': return 'text-amber-800 bg-amber-50 border-amber-200'
-    default: return 'text-[var(--zf-link)] bg-blue-50 border-blue-100'
+    case 'critical': return 'text-[var(--zf-danger)] bg-[var(--zf-danger)]/10 border-[var(--zf-danger)]/25'
+    case 'warning': return 'text-[var(--zf-warning)] bg-[var(--zf-warning)]/10 border-[var(--zf-warning)]/25'
+    default: return 'text-[var(--zf-link)] bg-[var(--zf-link)]/10 border-[var(--zf-link)]/25'
   }
 }
 
@@ -153,7 +153,7 @@ export default function Alerts() {
 
       <div className="flex bg-[var(--zf-canvas)] rounded-lg p-0.5 w-fit">
         {(['active', 'rules'] as const).map(t => (
-          <button key={t} onClick={() => setTab(t)} className={`px-3 py-1.5 rounded text-sm capitalize transition ${tab === t ? 'bg-white text-[var(--zf-ink)] shadow-sm' : 'text-[var(--zf-muted)]'}`}>
+          <button key={t} onClick={() => setTab(t)} className={`px-3 py-1.5 rounded text-sm capitalize transition ${tab === t ? 'bg-[var(--zf-surface)] text-[var(--zf-ink)] shadow-sm' : 'text-[var(--zf-muted)]'}`}>
             {t === 'active' ? `Active (${alerts.length})` : `Rules (${rules.length})`}
           </button>
         ))}
@@ -223,7 +223,7 @@ export default function Alerts() {
                   </>
                 )}
               </div>
-              {createError && <p className="text-sm text-red-600">{createError}</p>}
+              {createError && <p className="text-sm text-[var(--zf-danger)]">{createError}</p>}
               <div className="flex gap-2">
                 <button onClick={handleCreate} disabled={creating} className="zf-btn zf-btn-primary zf-btn-sm">
                   {creating ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
@@ -247,10 +247,10 @@ export default function Alerts() {
                       <div className="text-[10px] text-[var(--zf-muted)] mt-0.5">{a.rule_name} · started {new Date(a.started_at).toLocaleString()}</div>
                     </div>
                     <div className="flex items-center gap-1 shrink-0">
-                      <button onClick={() => handleResolve(a)} disabled={busyId === a.id} className="p-1.5 text-[var(--zf-muted)] hover:text-emerald-600 hover:bg-emerald-500/10 rounded-lg transition-colors disabled:opacity-50" title="Resolve">
+                      <button onClick={() => handleResolve(a)} disabled={busyId === a.id} className="p-1.5 text-[var(--zf-muted)] hover:text-[var(--zf-success)] hover:bg-[var(--zf-success)]/10 rounded-lg transition-colors disabled:opacity-50" title="Resolve">
                         <CheckCircle className="w-4 h-4" />
                       </button>
-                      <button onClick={() => handleSilence(a)} disabled={busyId === a.id} className="p-1.5 text-[var(--zf-muted)] hover:text-[var(--zf-ink)] hover:bg-black/[0.04] rounded-lg transition-colors disabled:opacity-50" title="Silence">
+                      <button onClick={() => handleSilence(a)} disabled={busyId === a.id} className="p-1.5 text-[var(--zf-muted)] hover:text-[var(--zf-ink)] hover:bg-[var(--zf-hover-tint)] rounded-lg transition-colors disabled:opacity-50" title="Silence">
                         <BellOff className="w-4 h-4" />
                       </button>
                     </div>
@@ -258,32 +258,33 @@ export default function Alerts() {
                 ))}
               </div>
             )
-          ) : rules.length === 0 ? (
-            <EmptyState icon={<Bell className="w-8 h-8" />} title="No alert rules" description="Create one to get notified when a VM breaches a threshold." />
           ) : (
             <div className="bg-[var(--zf-surface)] rounded-xl border border-[var(--zf-hairline)] overflow-hidden">
-              <table className="w-full text-sm">
-                <thead><tr className="border-b border-[var(--zf-hairline)]">
-                  <th className="text-left px-5 py-3 text-xs font-medium text-[var(--zf-muted)] uppercase tracking-wider">Name</th>
-                  <th className="text-left px-5 py-3 text-xs font-medium text-[var(--zf-muted)] uppercase tracking-wider">Severity</th>
-                  <th className="text-left px-5 py-3 text-xs font-medium text-[var(--zf-muted)] uppercase tracking-wider">Condition</th>
-                  <th className="text-right px-5 py-3 text-xs font-medium text-[var(--zf-muted)] uppercase tracking-wider">Actions</th>
-                </tr></thead>
-                <tbody className="divide-y divide-[var(--zf-hairline)]/30">
-                  {rules.map(r => (
-                    <tr key={r.id} className="hover:bg-black/[0.04] transition-colors">
-                      <td className="px-5 py-3 font-medium text-[var(--zf-ink)]">{r.name}</td>
-                      <td className="px-5 py-3"><span className={`px-2 py-0.5 rounded-full text-xs font-medium border ${severityBadge(r.severity)}`}>{r.severity}</span></td>
-                      <td className="px-5 py-3 text-xs text-[var(--zf-muted)] font-mono">{JSON.stringify(r.condition)}</td>
-                      <td className="px-5 py-3 text-right">
-                        <button onClick={() => handleDeleteRule(r)} disabled={busyId === r.id} className="p-1.5 text-[var(--zf-muted)] hover:text-red-600 hover:bg-red-500/10 rounded-lg transition-colors disabled:opacity-50" title="Delete">
-                          <Trash2 className="w-4 h-4" />
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+              <DataTable
+                columns={[
+                  { key: 'name', header: 'Name', className: 'px-5', render: (r) => <span className="font-medium text-[var(--zf-ink)]">{r.name}</span> },
+                  {
+                    key: 'severity',
+                    header: 'Severity',
+                    render: (r) => <span className={`px-2 py-0.5 rounded-full text-xs font-medium border ${severityBadge(r.severity)}`}>{r.severity}</span>,
+                  },
+                  { key: 'condition', header: 'Condition', render: (r) => <span className="text-xs text-[var(--zf-muted)] font-mono">{JSON.stringify(r.condition)}</span> },
+                  {
+                    key: 'actions',
+                    header: 'Actions',
+                    className: 'text-right',
+                    render: (r) => (
+                      <button onClick={() => handleDeleteRule(r)} disabled={busyId === r.id} className="p-1.5 text-[var(--zf-muted)] hover:text-[var(--zf-danger)] hover:bg-[var(--zf-danger)]/10 rounded-lg transition-colors disabled:opacity-50" title="Delete">
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    ),
+                  },
+                ]}
+                rows={rules}
+                getRowKey={(r) => r.id}
+                bordered={false}
+                emptyState={<EmptyState icon={<Bell className="w-8 h-8" />} title="No alert rules" description="Create one to get notified when a VM breaches a threshold." />}
+              />
             </div>
           )}
         </>
