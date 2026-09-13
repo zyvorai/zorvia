@@ -34,6 +34,10 @@
   --zf-focus-tint: rgba(0, 0, 0, 0.06);
   --zf-nav-surface: rgba(251, 251, 253, 0.72);
   --zf-nav-border: rgba(0, 0, 0, 0.08);
+  /* zyvor-premium-login.css reads this with an -apple-system-only fallback;
+     define it here so the sign-in page also leads with the self-hosted
+     Inter Variable instead of silently skipping straight to the fallback. */
+  --font-display: 'Inter Variable', -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Helvetica Neue', sans-serif;
   color-scheme: light;
 }
 
@@ -77,9 +81,13 @@ html {
 
 body {
   margin: 0;
-  /* Same stack as apple.com/airpods — SF Pro on Apple platforms */
-  font-family: 'SF Pro Text', 'SF Pro Display', -apple-system, BlinkMacSystemFont, 'Helvetica Neue',
-    Helvetica, Arial, sans-serif;
+  /* Inter (self-hosted via @fontsource-variable/inter, imported in main.tsx) leads
+     because SF Pro isn't a legally shippable web font -- non-Apple OSes would
+     otherwise silently fall through to Helvetica/system-sans. Inter's metrics
+     (x-height, tabular figures) are close enough to San Francisco's to read as
+     Apple-adjacent everywhere, while Apple platforms still get -apple-system. */
+  font-family: 'Inter Variable', -apple-system, 'SF Pro Text', 'SF Pro Display', BlinkMacSystemFont,
+    'Helvetica Neue', Helvetica, Arial, sans-serif;
   font-size: 17px;
   line-height: 1.47059;
   font-weight: 400;

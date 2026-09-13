@@ -5,6 +5,7 @@ import React from 'react'
 import ReactDOM from 'react-dom/client'
 import App from './App'
 import { reloadOnceForChunkError } from './utils/chunkReload'
+import '@fontsource-variable/inter'
 import './styles/main.css'
 
 // Vite fires this for a failed modulepreload -- same stale-deploy cause as the
