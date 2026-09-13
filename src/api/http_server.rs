@@ -1136,6 +1136,7 @@ pub mod web {
             "memory": memory,
             "image": info.disk,
             "ip": ip,
+            "tags": info.tags,
         })
     }
 

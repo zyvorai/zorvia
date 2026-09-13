@@ -82,6 +82,9 @@ pub struct VmInfo {
     pub disk: String,
     pub ip: String,
     pub node: String,
+    /// Freeform tag names read back from `tag.zorvia.io/<name>` labels --
+    /// see `crate::vcenter_ops::inventory::TAG_PREFIX`.
+    pub tags: Vec<String>,
 }
 
 impl VmInfo {
@@ -196,6 +199,20 @@ impl VmInfo {
         // IP is not available in VM spec/status - needs VMI status
         let ip = "N/A".to_string();
 
+        let tags = vm
+            .metadata
+            .labels
+            .as_ref()
+            .map(|labels| {
+                crate::vcenter_ops::inventory::extract_prefixed(
+                    labels,
+                    crate::vcenter_ops::inventory::TAG_PREFIX,
+                )
+                .into_keys()
+                .collect()
+            })
+            .unwrap_or_default();
+
         Self {
             name,
             status,
@@ -206,6 +223,7 @@ impl VmInfo {
             disk,
             ip,
             node,
+            tags,
         }
     }
 
