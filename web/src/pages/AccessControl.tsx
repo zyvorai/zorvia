@@ -9,7 +9,7 @@ import { useConfirm } from '../hooks/useConfirm'
 import { useAuth } from '../contexts/AuthContext'
 import ConfirmDialog from '../components/ConfirmDialog'
 import ErrorBanner from '../components/ErrorBanner'
-import { PageHeader } from '../components/ui'
+import { PageHeader, EmptyState, DataTable } from '../components/ui'
 import { formatUserError } from '../utils/apiError'
 import { toastFailure } from '../utils/toastError'
 import { hintsForError } from '../utils/daemonHints'
@@ -18,9 +18,9 @@ const ROLES: UserRole[] = ['admin', 'user', 'viewer']
 
 function roleBadge(role: string): string {
   switch (role?.toLowerCase()) {
-    case 'admin': return 'text-red-700 bg-red-50 border-red-200'
-    case 'user': return 'text-amber-800 bg-amber-50 border-amber-200'
-    case 'viewer': return 'text-emerald-700 bg-emerald-50 border-emerald-200'
+    case 'admin': return 'text-[var(--zf-danger)] bg-[var(--zf-danger)]/10 border-[var(--zf-danger)]/25'
+    case 'user': return 'text-[var(--zf-warning)] bg-[var(--zf-warning)]/10 border-[var(--zf-warning)]/25'
+    case 'viewer': return 'text-[var(--zf-success)] bg-[var(--zf-success)]/10 border-[var(--zf-success)]/25'
     default: return 'text-[var(--zf-muted)] bg-[var(--zf-canvas)] border-[var(--zf-hairline)]'
   }
 }
@@ -138,18 +138,18 @@ export default function AccessControl() {
       ) : !loadError ? (
         <>
 
-      {addSuccess && <div className="bg-emerald-50 border border-emerald-200 rounded-xl px-4 py-3 text-sm text-emerald-700 flex items-center gap-2"><CheckCircle className="w-4 h-4" />{addSuccess}</div>}
+      {addSuccess && <div className="bg-[var(--zf-success)]/10 border border-[var(--zf-success)]/25 rounded-xl px-4 py-3 text-sm text-[var(--zf-success)] flex items-center gap-2"><CheckCircle className="w-4 h-4" />{addSuccess}</div>}
 
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-        <div className="stat-card-blue rounded-xl border border-[var(--zf-hairline)] px-4 py-3 card-glow transition-all hover:scale-[1.02]">
+        <div className="stat-card-blue rounded-xl border border-[var(--zf-hairline)] px-4 py-3 transition-all hover:scale-[1.02]">
           <div className="text-2xl font-bold text-[var(--zf-ink)]">{adminCount}</div>
           <div className="text-xs text-[var(--zf-muted)] mt-1">Admins</div>
         </div>
-        <div className="stat-card-cyan rounded-xl border border-[var(--zf-hairline)] px-4 py-3 card-glow-cyan transition-all hover:scale-[1.02]">
+        <div className="stat-card-cyan rounded-xl border border-[var(--zf-hairline)] px-4 py-3 transition-all hover:scale-[1.02]">
           <div className="text-2xl font-bold text-[var(--zf-ink)]">{userCount}</div>
           <div className="text-xs text-[var(--zf-muted)] mt-1">Users</div>
         </div>
-        <div className="stat-card-green rounded-xl border border-[var(--zf-hairline)] px-4 py-3 card-glow-green transition-all hover:scale-[1.02]">
+        <div className="stat-card-green rounded-xl border border-[var(--zf-hairline)] px-4 py-3 transition-all hover:scale-[1.02]">
           <div className="text-2xl font-bold text-[var(--zf-ink)]">{viewerCount}</div>
           <div className="text-xs text-[var(--zf-muted)] mt-1">Viewers</div>
         </div>
@@ -164,12 +164,12 @@ export default function AccessControl() {
             <div><label className="block text-xs font-medium text-[var(--zf-muted)] mb-1.5">Role</label>
               <div className="flex gap-2">
                 {ROLES.map(r => (
-                  <button key={r} onClick={() => setNewRole(r)} className={`px-3 py-1.5 text-xs font-medium rounded-lg border transition-colors capitalize ${newRole === r ? 'bg-[var(--zf-link)] text-white border-[var(--zf-link)]' : 'text-[var(--zf-muted)] bg-white border-[var(--zf-hairline)] hover:border-[var(--zf-ink)]'}`}>{r}</button>
+                  <button key={r} onClick={() => setNewRole(r)} className={`px-3 py-1.5 text-xs font-medium rounded-lg border transition-colors capitalize ${newRole === r ? 'bg-[var(--zf-link)] text-white border-[var(--zf-link)]' : 'text-[var(--zf-muted)] bg-[var(--zf-surface)] border-[var(--zf-hairline)] hover:border-[var(--zf-ink)]'}`}>{r}</button>
                 ))}
               </div>
             </div>
           </div>
-          {addError && <p className="text-sm text-red-600">{addError}</p>}
+          {addError && <p className="text-sm text-[var(--zf-danger)]">{addError}</p>}
           <div className="flex gap-2">
             <button onClick={handleAdd} disabled={adding} className="zf-btn zf-btn-primary zf-btn-sm">{adding ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}{adding ? 'Adding...' : 'Add'}</button>
             <button onClick={() => { setShowAdd(false); setAddError('') }} className="zf-btn zf-btn-ghost zf-btn-sm">Cancel</button>
@@ -177,44 +177,56 @@ export default function AccessControl() {
         </div>
       )}
 
-      {users.length === 0 ? (
-        <div className="bg-[var(--zf-surface)] rounded-xl p-10 border border-[var(--zf-hairline)] text-center text-[var(--zf-muted)]"><Users className="w-10 h-10 mx-auto mb-3 opacity-50" /><p className="text-sm">No users configured</p></div>
-      ) : (
-        <div className="bg-[var(--zf-surface)] rounded-xl border border-[var(--zf-hairline)] overflow-hidden">
-          <table className="w-full text-sm">
-            <thead><tr className="border-b border-[var(--zf-hairline)]">
-              <th className="text-left px-5 py-3 text-xs font-medium text-[var(--zf-muted)] uppercase tracking-wider">User</th>
-              <th className="text-left px-5 py-3 text-xs font-medium text-[var(--zf-muted)] uppercase tracking-wider">Role</th>
-              <th className="text-left px-5 py-3 text-xs font-medium text-[var(--zf-muted)] uppercase tracking-wider">Status</th>
-              <th className="text-left px-5 py-3 text-xs font-medium text-[var(--zf-muted)] uppercase tracking-wider">Created</th>
-              <th className="text-left px-5 py-3 text-xs font-medium text-[var(--zf-muted)] uppercase tracking-wider">Last Login</th>
-              <th className="text-right px-5 py-3 text-xs font-medium text-[var(--zf-muted)] uppercase tracking-wider">Actions</th>
-            </tr></thead>
-            <tbody className="divide-y divide-[var(--zf-hairline)]/30">
-              {users.map(user => {
+      <div className="bg-[var(--zf-surface)] rounded-xl border border-[var(--zf-hairline)] overflow-hidden">
+        <DataTable
+          columns={[
+            {
+              key: 'user',
+              header: 'User',
+              className: 'px-5',
+              render: (user) => {
                 const isSelf = currentUser?.id === user.id
                 return (
-                <tr key={user.id} className="hover:bg-black/[0.04] transition-colors">
-                  <td className="px-5 py-3"><div className="flex items-center gap-3"><div className="w-8 h-8 rounded-full bg-[var(--zf-ink)] flex items-center justify-center text-xs font-bold text-white uppercase">{user.username.charAt(0)}</div><span className="text-[var(--zf-ink)] font-medium">{user.username}</span>{isSelf && <span className="text-[10px] text-[var(--zf-muted)]">(you)</span>}</div></td>
-                  <td className="px-5 py-3"><span className={`px-2.5 py-0.5 rounded-full text-xs font-medium border capitalize ${roleBadge(user.role)}`}>{user.role}</span></td>
-                  <td className="px-5 py-3">
-                    <button onClick={() => handleToggle(user.id, user.enabled)} disabled={togglingId === user.id} className="flex items-center gap-1.5 disabled:opacity-50" aria-label={`${user.enabled ? 'Disable' : 'Enable'} user ${user.username}`}>
-                      <div className={`relative w-8 h-4 rounded-full transition-colors ${user.enabled ? 'bg-emerald-500' : 'bg-[var(--zf-hairline)]'}`} role="switch" aria-checked={user.enabled}><div className={`absolute top-0.5 w-3.5 h-3.5 rounded-full bg-white transition-transform ${user.enabled ? 'translate-x-4' : 'translate-x-0.5'}`} /></div>
-                      <span className={`text-xs ${user.enabled ? 'text-emerald-700' : 'text-[var(--zf-muted)]'}`}>{user.enabled ? 'Active' : 'Disabled'}</span>
-                    </button>
-                  </td>
-                  <td className="px-5 py-3 text-xs text-[var(--zf-muted)]">{user.created ? new Date(user.created).toLocaleDateString() : '-'}</td>
-                  <td className="px-5 py-3 text-xs text-[var(--zf-muted)]">{user.last_login ? new Date(user.last_login).toLocaleString() : 'Never'}</td>
-                  <td className="px-5 py-3 text-right">
-                    <button onClick={() => handleDelete(user.id, user.username)} className="p-1.5 text-[var(--zf-muted)] hover:text-red-600 hover:bg-red-500/10 rounded-lg transition-colors" title="Delete user"><Trash2 className="w-4 h-4" /></button>
-                  </td>
-                </tr>
+                  <div className="flex items-center gap-3">
+                    <div className="w-8 h-8 rounded-full bg-[var(--zf-ink)] flex items-center justify-center text-xs font-bold text-[var(--zf-canvas)] uppercase">{user.username.charAt(0)}</div>
+                    <span className="text-[var(--zf-ink)] font-medium">{user.username}</span>
+                    {isSelf && <span className="text-[10px] text-[var(--zf-muted)]">(you)</span>}
+                  </div>
                 )
-              })}
-            </tbody>
-          </table>
-        </div>
-      )}
+              },
+            },
+            {
+              key: 'role',
+              header: 'Role',
+              render: (user) => <span className={`px-2.5 py-0.5 rounded-full text-xs font-medium border capitalize ${roleBadge(user.role)}`}>{user.role}</span>,
+            },
+            {
+              key: 'status',
+              header: 'Status',
+              render: (user) => (
+                <button onClick={() => handleToggle(user.id, user.enabled)} disabled={togglingId === user.id} className="flex items-center gap-1.5 disabled:opacity-50" aria-label={`${user.enabled ? 'Disable' : 'Enable'} user ${user.username}`}>
+                  <div className={`relative w-8 h-4 rounded-full transition-colors ${user.enabled ? 'bg-[var(--zf-success)]' : 'bg-[var(--zf-hairline)]'}`} role="switch" aria-checked={user.enabled}><div className={`absolute top-0.5 w-3.5 h-3.5 rounded-full bg-white transition-transform ${user.enabled ? 'translate-x-4' : 'translate-x-0.5'}`} /></div>
+                  <span className={`text-xs ${user.enabled ? 'text-[var(--zf-success)]' : 'text-[var(--zf-muted)]'}`}>{user.enabled ? 'Active' : 'Disabled'}</span>
+                </button>
+              ),
+            },
+            { key: 'created', header: 'Created', render: (user) => <span className="text-xs text-[var(--zf-muted)]">{user.created ? new Date(user.created).toLocaleDateString() : '-'}</span> },
+            { key: 'last_login', header: 'Last Login', render: (user) => <span className="text-xs text-[var(--zf-muted)]">{user.last_login ? new Date(user.last_login).toLocaleString() : 'Never'}</span> },
+            {
+              key: 'actions',
+              header: 'Actions',
+              className: 'text-right',
+              render: (user) => (
+                <button onClick={() => handleDelete(user.id, user.username)} className="p-1.5 text-[var(--zf-muted)] hover:text-[var(--zf-danger)] hover:bg-[var(--zf-danger)]/10 rounded-lg transition-colors" title="Delete user"><Trash2 className="w-4 h-4" /></button>
+              ),
+            },
+          ]}
+          rows={users}
+          getRowKey={(user) => user.id}
+          bordered={false}
+          emptyState={<EmptyState icon={<Users className="w-10 h-10" />} title="No users configured" />}
+        />
+      </div>
         </>
       ) : null}
 
