@@ -42,6 +42,8 @@ interface DataTableProps<T> {
    * (e.g. a fixed-height `overflow-y: auto` box), not the default wrapper.
    */
   stickyHeader?: boolean
+  /** Renders the default bg/border/rounded-corner wrapper. Set false when embedding inside a caller-owned card (e.g. one with its own header). Default true. */
+  bordered?: boolean
   className?: string
 }
 
@@ -61,6 +63,7 @@ export function DataTable<T>({
   skeletonRows = 5,
   emptyState,
   stickyHeader = false,
+  bordered = true,
   className = '',
 }: DataTableProps<T>) {
   const [sort, setSort] = useState<{ key: string; direction: SortDirection } | null>(null)
@@ -95,7 +98,7 @@ export function DataTable<T>({
 
   if (rows.length === 0 && emptyState) {
     return (
-      <div className={`bg-[var(--zf-canvas)] rounded-xl border border-[var(--zf-hairline)] ${className}`}>
+      <div className={bordered ? `bg-[var(--zf-canvas)] rounded-xl border border-[var(--zf-hairline)] ${className}` : className}>
         {emptyState}
       </div>
     )
@@ -104,7 +107,7 @@ export function DataTable<T>({
   const allSelected = selectable && rows.length > 0 && rows.every((r) => selectedKeys!.has(getRowKey(r)))
 
   return (
-    <div className={`bg-[var(--zf-canvas)] rounded-xl border border-[var(--zf-hairline)] overflow-hidden ${className}`}>
+    <div className={bordered ? `bg-[var(--zf-canvas)] rounded-xl border border-[var(--zf-hairline)] overflow-hidden ${className}` : className}>
       <table className="w-full text-sm">
         <thead>
           <tr className={`text-left text-xs font-medium text-[var(--zf-muted)] uppercase tracking-wider ${stickyHeader ? 'zf-table-header-row' : ''}`}>

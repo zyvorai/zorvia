@@ -7,7 +7,7 @@ import { Activity, Server, Cpu, Power, ArrowUpRight } from 'lucide-react'
 import { useWebSocketContext } from '../contexts/WebSocketContext'
 import { useToastContext } from '../contexts/ToastContext'
 import { SkeletonDashboard } from '../components/Skeleton'
-import { StatusBadge } from '../components/ui'
+import { StatusBadge, DataTable, type DataTableColumn } from '../components/ui'
 import { Link } from 'react-router'
 import ErrorBanner from '../components/ErrorBanner'
 import { formatUserError } from '../utils/apiError'
@@ -17,6 +17,30 @@ import { GettingStarted } from '../components/GettingStarted'
 import { FabricGraphic } from '../components/FabricGraphic'
 import { RadialGauge } from '../components/RadialGauge'
 import { useCountUp } from '../hooks/useCountUp'
+
+const recentVMColumns: DataTableColumn<VM>[] = [
+  {
+    key: 'name',
+    header: 'Name',
+    render: (vm) => (
+      <Link to={`/app/vms/${vm.name}`} className="font-medium text-[var(--zf-ink)] hover:text-[var(--zf-link)] transition-colors">
+        {vm.name}
+      </Link>
+    ),
+  },
+  { key: 'status', header: 'Status', render: (vm) => <StatusBadge status={vm.state} /> },
+  { key: 'cpu', header: 'CPU', render: (vm) => <span className="text-[var(--zf-muted)] tabular-nums">{vm.cpus} vCPU</span> },
+  {
+    key: 'memory',
+    header: 'Memory',
+    render: (vm) => (
+      <span className="text-[var(--zf-muted)] tabular-nums">
+        {vm.memory >= 1024 ? `${(vm.memory / 1024).toFixed(1)} GB` : `${vm.memory} MB`}
+      </span>
+    ),
+  },
+  { key: 'ip', header: 'IP', render: (vm) => <span className="text-[var(--zf-muted)] font-mono text-xs">{vm.ip || '-'}</span> },
+]
 
 export default function Dashboard() {
   const [vms, setVMs] = useState<VM[]>([])
@@ -168,7 +192,7 @@ export default function Dashboard() {
             <div className="icon-tile icon-tile-md">
               <Activity className="h-5 w-5 text-[var(--zf-ink)]" />
             </div>
-            <span className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700">
+            <span className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-[var(--zf-success)]/10 text-[var(--zf-success)]">
               {stats.total > 0 ? `${Math.round((stats.running / stats.total) * 100)}%` : '0%'}
             </span>
           </div>
@@ -181,7 +205,7 @@ export default function Dashboard() {
             <div className="icon-tile icon-tile-md">
               <Power className="h-5 w-5 text-[var(--zf-ink)]" />
             </div>
-            <span className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-red-50 text-red-700">
+            <span className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-[var(--zf-danger)]/10 text-[var(--zf-danger)]">
               stopped
             </span>
           </div>
@@ -231,51 +255,7 @@ export default function Dashboard() {
               </Link>
             </div>
           </div>
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b border-[var(--zf-hairline)]">
-                  <th className="text-left px-5 py-3 text-xs font-medium text-[var(--zf-muted)] uppercase tracking-wider">
-                    Name
-                  </th>
-                  <th className="text-left px-4 py-3 text-xs font-medium text-[var(--zf-muted)] uppercase tracking-wider">
-                    Status
-                  </th>
-                  <th className="text-left px-4 py-3 text-xs font-medium text-[var(--zf-muted)] uppercase tracking-wider">
-                    CPU
-                  </th>
-                  <th className="text-left px-4 py-3 text-xs font-medium text-[var(--zf-muted)] uppercase tracking-wider">
-                    Memory
-                  </th>
-                  <th className="text-left px-4 py-3 text-xs font-medium text-[var(--zf-muted)] uppercase tracking-wider">
-                    IP
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-[var(--zf-hairline)]/30">
-                {vms.slice(0, 8).map((vm) => (
-                  <tr key={vm.name} className="table-row-hover transition-colors">
-                    <td className="px-5 py-3">
-                      <Link
-                        to={`/app/vms/${vm.name}`}
-                        className="font-medium text-[var(--zf-ink)] hover:text-[var(--zf-link)] transition-colors"
-                      >
-                        {vm.name}
-                      </Link>
-                    </td>
-                    <td className="px-4 py-3">
-                      <StatusBadge status={vm.state} />
-                    </td>
-                    <td className="px-4 py-3 text-[var(--zf-muted)] tabular-nums">{vm.cpus} vCPU</td>
-                    <td className="px-4 py-3 text-[var(--zf-muted)] tabular-nums">
-                      {vm.memory >= 1024 ? `${(vm.memory / 1024).toFixed(1)} GB` : `${vm.memory} MB`}
-                    </td>
-                    <td className="px-4 py-3 text-[var(--zf-muted)] font-mono text-xs">{vm.ip || '-'}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+          <DataTable columns={recentVMColumns} rows={vms.slice(0, 8)} getRowKey={(vm) => vm.name} bordered={false} />
         </div>
       )}
     </div>
