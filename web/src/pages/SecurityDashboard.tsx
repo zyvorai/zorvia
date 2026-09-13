@@ -5,28 +5,28 @@ import { useState, useEffect, useCallback } from 'react'
 import { getSecuritySummary, SecuritySummary } from '../api/security'
 import { useToastContext } from '../contexts/ToastContext'
 import ErrorBanner from '../components/ErrorBanner'
-import { PageHeader } from '../components/ui'
+import { PageHeader, DataTable } from '../components/ui'
 import { formatUserError } from '../utils/apiError'
 import { toastFailure } from '../utils/toastError'
 import { hintsForError } from '../utils/daemonHints'
 
 function severityColor(severity: string): string {
   const s = (severity || '').toLowerCase()
-  if (s === 'critical') return 'bg-red-50 text-red-700 border border-red-200'
-  if (s === 'warning') return 'bg-amber-50 text-amber-800 border border-amber-200'
-  return 'bg-blue-50 text-[var(--zf-link)] border border-blue-100'
+  if (s === 'critical') return 'bg-[var(--zf-danger)]/10 text-[var(--zf-danger)] border border-[var(--zf-danger)]/25'
+  if (s === 'warning') return 'bg-[var(--zf-warning)]/10 text-[var(--zf-warning)] border border-[var(--zf-warning)]/25'
+  return 'bg-[var(--zf-link)]/10 text-[var(--zf-link)] border border-[var(--zf-link)]/25'
 }
 
 function riskColor(score: number): string {
-  if (score >= 80) return 'text-emerald-600'
-  if (score >= 50) return 'text-amber-600'
-  return 'text-red-600'
+  if (score >= 80) return 'text-[var(--zf-success)]'
+  if (score >= 50) return 'text-[var(--zf-warning)]'
+  return 'text-[var(--zf-danger)]'
 }
 
 function riskBorder(score: number): string {
-  if (score >= 80) return 'border-emerald-500'
-  if (score >= 50) return 'border-amber-500'
-  return 'border-red-500'
+  if (score >= 80) return 'border-[var(--zf-success)]'
+  if (score >= 50) return 'border-[var(--zf-warning)]'
+  return 'border-[var(--zf-danger)]'
 }
 
 export default function SecurityDashboard() {
@@ -82,17 +82,17 @@ export default function SecurityDashboard() {
         <>
           <div className="grid grid-cols-1 lg:grid-cols-4 gap-3">
             <div className="bg-[var(--zf-surface)] rounded-xl border border-[var(--zf-hairline)] p-6 flex flex-col items-center justify-center">
-              <div className={`w-24 h-24 rounded-full flex items-center justify-center bg-white border-4 ${riskBorder(riskScore)}`}>
+              <div className={`w-24 h-24 rounded-full flex items-center justify-center bg-[var(--zf-surface)] border-4 ${riskBorder(riskScore)}`}>
                 <span className={`text-3xl font-bold ${riskColor(riskScore)}`}>{riskScore}</span>
               </div>
               <span className="text-xs text-[var(--zf-muted)] mt-2">Risk Score (heuristic)</span>
             </div>
             <div className="bg-[var(--zf-surface)] rounded-xl border border-[var(--zf-hairline)] px-4 py-3 flex flex-col justify-center">
-              <div className="text-2xl font-bold text-red-600">{alerts.filter(a => a.severity === 'critical').length}</div>
+              <div className="text-2xl font-bold text-[var(--zf-danger)]">{alerts.filter(a => a.severity === 'critical').length}</div>
               <div className="text-xs text-[var(--zf-muted)] mt-1">Critical Alerts</div>
             </div>
             <div className="bg-[var(--zf-surface)] rounded-xl border border-[var(--zf-hairline)] px-4 py-3 flex flex-col justify-center">
-              <div className="text-2xl font-bold text-amber-600">{alerts.filter(a => a.severity === 'warning').length}</div>
+              <div className="text-2xl font-bold text-[var(--zf-warning)]">{alerts.filter(a => a.severity === 'warning').length}</div>
               <div className="text-xs text-[var(--zf-muted)] mt-1">Warnings</div>
             </div>
             <div className="bg-[var(--zf-surface)] rounded-xl border border-[var(--zf-hairline)] px-4 py-3 flex flex-col justify-center">
@@ -126,20 +126,15 @@ export default function SecurityDashboard() {
           {failedLogins.length > 0 && (
             <div className="bg-[var(--zf-surface)] rounded-xl border border-[var(--zf-hairline)] overflow-hidden">
               <div className="px-5 py-4 border-b border-[var(--zf-hairline)]"><h3 className="text-sm font-semibold text-[var(--zf-ink)]">Failed Logins</h3></div>
-              <table className="w-full text-sm">
-                <thead><tr className="border-b border-[var(--zf-hairline)]">
-                  <th className="text-left px-5 py-2 text-xs font-medium text-[var(--zf-muted)] uppercase tracking-wider">Time</th>
-                  <th className="text-left px-5 py-2 text-xs font-medium text-[var(--zf-muted)] uppercase tracking-wider">User</th>
-                </tr></thead>
-                <tbody className="divide-y divide-[var(--zf-hairline)]/30">
-                  {failedLogins.map((login, i) => (
-                    <tr key={i}>
-                      <td className="px-5 py-2 text-xs text-[var(--zf-muted)]">{new Date(login.timestamp).toLocaleString()}</td>
-                      <td className="px-5 py-2 text-xs text-[var(--zf-ink)]">{login.user}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+              <DataTable
+                columns={[
+                  { key: 'time', header: 'Time', className: 'px-5', render: (login) => <span className="text-xs text-[var(--zf-muted)]">{new Date(login.timestamp).toLocaleString()}</span> },
+                  { key: 'user', header: 'User', render: (login) => <span className="text-xs text-[var(--zf-ink)]">{login.user}</span> },
+                ]}
+                rows={failedLogins}
+                getRowKey={(login) => `${login.timestamp}-${login.user}`}
+                bordered={false}
+              />
             </div>
           )}
 
@@ -151,22 +146,16 @@ export default function SecurityDashboard() {
             {listeningPorts.length === 0 ? (
               <div className="p-8 text-center text-sm text-[var(--zf-muted)]">No VM has an exposed port right now</div>
             ) : (
-              <table className="w-full text-sm">
-                <thead><tr className="border-b border-[var(--zf-hairline)]">
-                  <th className="text-left px-5 py-2 text-xs font-medium text-[var(--zf-muted)] uppercase tracking-wider">Port</th>
-                  <th className="text-left px-5 py-2 text-xs font-medium text-[var(--zf-muted)] uppercase tracking-wider">Protocol</th>
-                  <th className="text-left px-5 py-2 text-xs font-medium text-[var(--zf-muted)] uppercase tracking-wider">VM</th>
-                </tr></thead>
-                <tbody className="divide-y divide-[var(--zf-hairline)]/30">
-                  {listeningPorts.map((port, i) => (
-                    <tr key={i}>
-                      <td className="px-5 py-2 text-xs text-[var(--zf-ink)] font-mono">{port.port ?? '—'}</td>
-                      <td className="px-5 py-2 text-xs text-[var(--zf-ink)] uppercase">{port.protocol}</td>
-                      <td className="px-5 py-2 text-xs text-[var(--zf-muted)]">{port.vm_name || '—'}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+              <DataTable
+                columns={[
+                  { key: 'port', header: 'Port', className: 'px-5', render: (port) => <span className="text-xs text-[var(--zf-ink)] font-mono">{port.port ?? '—'}</span> },
+                  { key: 'protocol', header: 'Protocol', render: (port) => <span className="text-xs text-[var(--zf-ink)] uppercase">{port.protocol}</span> },
+                  { key: 'vm', header: 'VM', render: (port) => <span className="text-xs text-[var(--zf-muted)]">{port.vm_name || '—'}</span> },
+                ]}
+                rows={listeningPorts}
+                getRowKey={(port) => `${port.port}-${port.protocol}-${port.vm_name}`}
+                bordered={false}
+              />
             )}
           </div>
         </>
