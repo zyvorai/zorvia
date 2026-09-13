@@ -5,7 +5,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { GitCompare, Check, X } from 'lucide-react'
 import { listVMs, getVM, VM } from '../api/vm'
 import ErrorBanner from '../components/ErrorBanner'
-import { PageHeader, EmptyState } from '../components/ui'
+import { PageHeader, EmptyState, DataTable } from '../components/ui'
 import { formatUserError } from '../utils/apiError'
 import { toastFailure } from '../utils/toastError'
 import { useToastContext } from '../contexts/ToastContext'
@@ -128,7 +128,7 @@ export default function VMCompare() {
               </button>
             </div>
             {sourceName && targetName && sourceName === targetName && (
-              <p className="text-xs text-amber-700 mt-2">Pick two different VMs to compare.</p>
+              <p className="text-xs text-[var(--zf-warning)] mt-2">Pick two different VMs to compare.</p>
             )}
           </div>
 
@@ -141,26 +141,23 @@ export default function VMCompare() {
               <div className="px-5 py-3 border-b border-[var(--zf-hairline)] text-xs text-[var(--zf-muted)]">
                 {diffCount === 0 ? 'All fields match' : `${diffCount} field${diffCount !== 1 ? 's' : ''} differ`}
               </div>
-              <table className="w-full text-sm">
-                <thead><tr className="border-b border-[var(--zf-hairline)]">
-                  <th className="text-left px-5 py-3 text-xs font-medium text-[var(--zf-muted)] uppercase tracking-wider">Field</th>
-                  <th className="text-left px-5 py-3 text-xs font-medium text-[var(--zf-muted)] uppercase tracking-wider">{sourceName}</th>
-                  <th className="text-left px-5 py-3 text-xs font-medium text-[var(--zf-muted)] uppercase tracking-wider">{targetName}</th>
-                  <th className="text-center px-5 py-3 text-xs font-medium text-[var(--zf-muted)] uppercase tracking-wider">Match</th>
-                </tr></thead>
-                <tbody className="divide-y divide-[var(--zf-hairline)]/30">
-                  {rows.map(r => (
-                    <tr key={r.label} className={!r.match ? 'bg-amber-50/40' : undefined}>
-                      <td className="px-5 py-3 font-medium text-[var(--zf-ink)]">{r.label}</td>
-                      <td className="px-5 py-3 text-[var(--zf-muted)] font-mono text-xs">{r.source}</td>
-                      <td className="px-5 py-3 text-[var(--zf-muted)] font-mono text-xs">{r.target}</td>
-                      <td className="px-5 py-3 text-center">
-                        {r.match ? <Check className="w-4 h-4 text-emerald-600 inline" /> : <X className="w-4 h-4 text-amber-600 inline" />}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+              <DataTable
+                columns={[
+                  { key: 'field', header: 'Field', className: 'px-5', render: (r) => <span className="font-medium text-[var(--zf-ink)]">{r.label}</span> },
+                  { key: 'source', header: sourceName, render: (r) => <span className="text-[var(--zf-muted)] font-mono text-xs">{r.source}</span> },
+                  { key: 'target', header: targetName, render: (r) => <span className="text-[var(--zf-muted)] font-mono text-xs">{r.target}</span> },
+                  {
+                    key: 'match',
+                    header: 'Match',
+                    className: 'text-center',
+                    render: (r) => (r.match ? <Check className="w-4 h-4 text-[var(--zf-success)] inline" /> : <X className="w-4 h-4 text-[var(--zf-warning)] inline" />),
+                  },
+                ]}
+                rows={rows}
+                getRowKey={(r) => r.label}
+                bordered={false}
+                rowClassName={(r) => (!r.match ? 'bg-[var(--zf-warning)]/10' : '')}
+              />
             </div>
           )}
         </>
