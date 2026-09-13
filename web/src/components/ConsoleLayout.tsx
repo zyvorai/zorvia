@@ -6,7 +6,7 @@ import { Link, NavLink, useNavigate } from 'react-router'
 import { LogOut, Menu, PanelLeftClose, PanelLeftOpen, Search, X } from 'lucide-react'
 import { useAuth } from '../contexts/AuthContext'
 import { usePermissions } from '../hooks/usePermissions'
-import { NAV_GROUPS, flattenNavGroup } from '../navigation/navConfig'
+import { NAV_GROUPS, navDropdownSections } from '../navigation/navConfig'
 import ConnectionStatus from './ConnectionStatus'
 import CommandPalette from './CommandPalette'
 import Breadcrumb from './Breadcrumb'
@@ -157,32 +157,37 @@ export default function ConsoleLayout({ children }: { children: ReactNode }) {
             {collapsed ? <PanelLeftOpen className="w-3.5 h-3.5" /> : <PanelLeftClose className="w-3.5 h-3.5" />}
             {!collapsed && <span>Collapse</span>}
           </button>
-          {NAV_GROUPS.map((group) => {
-            const items = flattenNavGroup(group).filter((item) => !item.adminOnly || canAdmin)
-            return (
-              <div key={group.name} className="console-sidebar-group">
-                {!collapsed && <div className="console-sidebar-label">{group.compact}</div>}
-                {items.map((item) => {
-                  const Icon = item.icon
-                  return (
-                    <NavLink
-                      key={item.path}
-                      to={item.path}
-                      end={item.path === '/app'}
-                      title={collapsed ? item.label : undefined}
-                      className={({ isActive }) =>
-                        `console-nav-link${isActive ? ' active' : ''}`
-                      }
-                      onClick={() => setMobileNav(false)}
-                    >
-                      <Icon className="w-3.5 h-3.5 shrink-0" />
-                      {!collapsed && <span className="truncate">{item.label}</span>}
-                    </NavLink>
-                  )
-                })}
-              </div>
-            )
-          })}
+          {NAV_GROUPS.flatMap((group) =>
+            navDropdownSections(group).map((section) => {
+              const items = section.items.filter((item) => !item.adminOnly || canAdmin)
+              if (items.length === 0) return null
+              return (
+                <div key={section.label || group.name} className="console-sidebar-group">
+                  {!collapsed && (
+                    <div className="console-sidebar-label">{section.label || group.compact}</div>
+                  )}
+                  {items.map((item) => {
+                    const Icon = item.icon
+                    return (
+                      <NavLink
+                        key={item.path}
+                        to={item.path}
+                        end={item.path === '/app'}
+                        title={collapsed ? item.label : undefined}
+                        className={({ isActive }) =>
+                          `console-nav-link${isActive ? ' active' : ''}`
+                        }
+                        onClick={() => setMobileNav(false)}
+                      >
+                        <Icon className="w-3.5 h-3.5 shrink-0" />
+                        {!collapsed && <span className="truncate">{item.label}</span>}
+                      </NavLink>
+                    )
+                  })}
+                </div>
+              )
+            }),
+          )}
         </aside>
 
         <main id="main-content" className="console-main" role="main">

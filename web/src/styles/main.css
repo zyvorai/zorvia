@@ -28,6 +28,7 @@
     0 32px 64px -16px rgba(0, 0, 0, 0.12);
   --layout-max-width: 61.25rem;
   --console-sidebar: 15.5rem;
+  --console-topbar-height: 52px;
   /* Subtle press/hover/focus tints — swap polarity per theme (darken on light, lighten on dark) */
   --zf-hover-tint: rgba(0, 0, 0, 0.04);
   --zf-active-tint: rgba(0, 0, 0, 0.06);
@@ -741,14 +742,16 @@ a:hover {
   position: sticky;
   top: 0;
   z-index: 30;
-  height: 52px;
+  height: var(--console-topbar-height);
   display: flex;
   align-items: center;
   gap: 16px;
   padding: 0 20px;
   background: var(--zf-nav-surface);
-  backdrop-filter: saturate(180%) blur(16px);
-  border-bottom: 1px solid var(--zf-hairline);
+  /* Same glass recipe as .mkt-nav, applied consistently to the console shell. */
+  backdrop-filter: saturate(180%) blur(20px);
+  -webkit-backdrop-filter: saturate(180%) blur(20px);
+  border-bottom: 1px solid var(--zf-nav-border);
 }
 .console-brand {
   display: inline-flex;
