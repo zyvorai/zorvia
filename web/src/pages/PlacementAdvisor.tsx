@@ -6,7 +6,7 @@ import { Scale, Check, X } from 'lucide-react'
 import { getPlacementRecommendation, getRebalanceSuggestions, PlacementRecommendation, RebalanceMove } from '../api/placement'
 import { listVMs, VM } from '../api/vm'
 import ErrorBanner from '../components/ErrorBanner'
-import { PageHeader, EmptyState } from '../components/ui'
+import { PageHeader, EmptyState, DataTable } from '../components/ui'
 import { formatUserError } from '../utils/apiError'
 import { toastFailure } from '../utils/toastError'
 import { hintsForError } from '../utils/daemonHints'
@@ -90,31 +90,28 @@ export default function PlacementAdvisor() {
               </button>
             </div>
 
-            {recError && <p className="text-sm text-red-600 mt-3">{recError}</p>}
+            {recError && <p className="text-sm text-[var(--zf-danger)] mt-3">{recError}</p>}
 
             {recommendation && (
               <div className="mt-4 space-y-2">
                 <p className="text-sm text-[var(--zf-muted)]">
                   Best node: <span className="font-semibold text-[var(--zf-ink)]">{recommendation.selected_node ?? 'none eligible'}</span>
                 </p>
-                <table className="w-full text-sm">
-                  <thead><tr className="border-b border-[var(--zf-hairline)]">
-                    <th className="text-left py-2 text-xs font-medium text-[var(--zf-muted)] uppercase tracking-wider">Node</th>
-                    <th className="text-left py-2 text-xs font-medium text-[var(--zf-muted)] uppercase tracking-wider">Eligible</th>
-                    <th className="text-left py-2 text-xs font-medium text-[var(--zf-muted)] uppercase tracking-wider">Score</th>
-                    <th className="text-left py-2 text-xs font-medium text-[var(--zf-muted)] uppercase tracking-wider">Reasons</th>
-                  </tr></thead>
-                  <tbody className="divide-y divide-[var(--zf-hairline)]/30">
-                    {recommendation.candidates.map(c => (
-                      <tr key={c.node}>
-                        <td className="py-2 font-medium text-[var(--zf-ink)]">{c.node}</td>
-                        <td className="py-2">{c.eligible ? <Check className="w-4 h-4 text-emerald-600" /> : <X className="w-4 h-4 text-red-600" />}</td>
-                        <td className="py-2 text-[var(--zf-muted)]">{c.score.toFixed(1)}</td>
-                        <td className="py-2 text-xs text-[var(--zf-muted)]">{c.reasons.join('; ')}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+                <DataTable
+                  columns={[
+                    { key: 'node', header: 'Node', render: (c) => <span className="font-medium text-[var(--zf-ink)]">{c.node}</span> },
+                    {
+                      key: 'eligible',
+                      header: 'Eligible',
+                      render: (c) => (c.eligible ? <Check className="w-4 h-4 text-[var(--zf-success)]" /> : <X className="w-4 h-4 text-[var(--zf-danger)]" />),
+                    },
+                    { key: 'score', header: 'Score', render: (c) => <span className="text-[var(--zf-muted)]">{c.score.toFixed(1)}</span> },
+                    { key: 'reasons', header: 'Reasons', render: (c) => <span className="text-xs text-[var(--zf-muted)]">{c.reasons.join('; ')}</span> },
+                  ]}
+                  rows={recommendation.candidates}
+                  getRowKey={(c) => c.node}
+                  bordered={false}
+                />
               </div>
             )}
           </div>
@@ -125,24 +122,17 @@ export default function PlacementAdvisor() {
               <EmptyState icon={<Scale className="w-8 h-8" />} title="Cluster is balanced" description="No VM is on a node significantly more loaded than the cluster average." />
             ) : (
               <div className="bg-[var(--zf-surface)] rounded-xl border border-[var(--zf-hairline)] overflow-hidden">
-                <table className="w-full text-sm">
-                  <thead><tr className="border-b border-[var(--zf-hairline)]">
-                    <th className="text-left px-5 py-3 text-xs font-medium text-[var(--zf-muted)] uppercase tracking-wider">VM</th>
-                    <th className="text-left px-5 py-3 text-xs font-medium text-[var(--zf-muted)] uppercase tracking-wider">From</th>
-                    <th className="text-left px-5 py-3 text-xs font-medium text-[var(--zf-muted)] uppercase tracking-wider">To</th>
-                    <th className="text-left px-5 py-3 text-xs font-medium text-[var(--zf-muted)] uppercase tracking-wider">Reason</th>
-                  </tr></thead>
-                  <tbody className="divide-y divide-[var(--zf-hairline)]/30">
-                    {moves.map((m, idx) => (
-                      <tr key={idx} className="hover:bg-black/[0.04] transition-colors">
-                        <td className="px-5 py-3 font-medium text-[var(--zf-ink)]">{m.workload}</td>
-                        <td className="px-5 py-3 font-mono text-xs text-[var(--zf-muted)]">{m.from_node}</td>
-                        <td className="px-5 py-3 font-mono text-xs text-[var(--zf-muted)]">{m.to_node}</td>
-                        <td className="px-5 py-3 text-xs text-[var(--zf-muted)]">{m.reason}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+                <DataTable
+                  columns={[
+                    { key: 'vm', header: 'VM', className: 'px-5', render: (m) => <span className="font-medium text-[var(--zf-ink)]">{m.workload}</span> },
+                    { key: 'from', header: 'From', render: (m) => <span className="font-mono text-xs text-[var(--zf-muted)]">{m.from_node}</span> },
+                    { key: 'to', header: 'To', render: (m) => <span className="font-mono text-xs text-[var(--zf-muted)]">{m.to_node}</span> },
+                    { key: 'reason', header: 'Reason', render: (m) => <span className="text-xs text-[var(--zf-muted)]">{m.reason}</span> },
+                  ]}
+                  rows={moves}
+                  getRowKey={(m) => `${m.workload}-${m.from_node}-${m.to_node}`}
+                  bordered={false}
+                />
               </div>
             )}
           </div>
