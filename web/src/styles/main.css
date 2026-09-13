@@ -19,6 +19,13 @@
   --zf-warning: #ff9f0a;
   --zf-radius: 12px;
   --zf-radius-sm: 8px;
+  /* Three-layer "elevated glass" shadow stack, extracted from .signin-card
+     so any surface that wants that same premium elevation (command palette,
+     future modals) references one token instead of re-deriving the values. */
+  --zf-shadow-elevated:
+    0 1px 1px rgba(0, 0, 0, 0.02),
+    0 4px 12px rgba(0, 0, 0, 0.04),
+    0 32px 64px -16px rgba(0, 0, 0, 0.12);
   --layout-max-width: 61.25rem;
   --console-sidebar: 15.5rem;
   /* Subtle press/hover/focus tints — swap polarity per theme (darken on light, lighten on dark) */
@@ -1120,10 +1127,7 @@ textarea.input-field {
   padding: 44px 36px 36px;
   position: relative;
   z-index: 1;
-  box-shadow:
-    0 1px 1px rgba(0, 0, 0, 0.02),
-    0 4px 12px rgba(0, 0, 0, 0.04),
-    0 32px 64px -16px rgba(0, 0, 0, 0.12);
+  box-shadow: var(--zf-shadow-elevated);
 }
 .signin-card h1 {
   font-size: 30px;

@@ -7,37 +7,41 @@ interface StatusBadgeProps {
   title?: string
 }
 
+const SUCCESS = 'text-[var(--zf-success)] bg-[var(--zf-success)]/10 border-[var(--zf-success)]/25'
+const DANGER = 'text-[var(--zf-danger)] bg-[var(--zf-danger)]/10 border-[var(--zf-danger)]/25'
+const WARNING = 'text-[var(--zf-warning)] bg-[var(--zf-warning)]/10 border-[var(--zf-warning)]/25'
+
 const statusStyles: Record<string, string> = {
-  running: 'text-emerald-700 bg-emerald-50 border-emerald-200',
-  active: 'text-emerald-700 bg-emerald-50 border-emerald-200',
-  enabled: 'text-emerald-700 bg-emerald-50 border-emerald-200',
-  healthy: 'text-emerald-700 bg-emerald-50 border-emerald-200',
-  completed: 'text-emerald-700 bg-emerald-50 border-emerald-200',
-  success: 'text-emerald-700 bg-emerald-50 border-emerald-200',
-  stopped: 'text-red-700 bg-red-50 border-red-200',
-  failed: 'text-red-700 bg-red-50 border-red-200',
-  error: 'text-red-700 bg-red-50 border-red-200',
-  disabled: 'text-red-700 bg-red-50 border-red-200',
-  paused: 'text-amber-800 bg-amber-50 border-amber-200',
-  warning: 'text-amber-800 bg-amber-50 border-amber-200',
-  pending: 'text-amber-800 bg-amber-50 border-amber-200',
+  running: SUCCESS,
+  active: SUCCESS,
+  enabled: SUCCESS,
+  healthy: SUCCESS,
+  completed: SUCCESS,
+  success: SUCCESS,
+  stopped: DANGER,
+  failed: DANGER,
+  error: DANGER,
+  disabled: DANGER,
+  paused: WARNING,
+  warning: WARNING,
+  pending: WARNING,
   unknown: 'text-[var(--zf-muted)] bg-[var(--zf-canvas)] border-[var(--zf-hairline)]',
 }
 
 const dotColors: Record<string, string> = {
-  running: 'bg-emerald-500',
-  active: 'bg-emerald-500',
-  enabled: 'bg-emerald-500',
-  healthy: 'bg-emerald-500',
-  completed: 'bg-emerald-500',
-  success: 'bg-emerald-500',
-  stopped: 'bg-red-500',
-  failed: 'bg-red-500',
-  error: 'bg-red-500',
-  disabled: 'bg-red-500',
-  paused: 'bg-amber-500',
-  warning: 'bg-amber-500',
-  pending: 'bg-amber-500',
+  running: 'bg-[var(--zf-success)]',
+  active: 'bg-[var(--zf-success)]',
+  enabled: 'bg-[var(--zf-success)]',
+  healthy: 'bg-[var(--zf-success)]',
+  completed: 'bg-[var(--zf-success)]',
+  success: 'bg-[var(--zf-success)]',
+  stopped: 'bg-[var(--zf-danger)]',
+  failed: 'bg-[var(--zf-danger)]',
+  error: 'bg-[var(--zf-danger)]',
+  disabled: 'bg-[var(--zf-danger)]',
+  paused: 'bg-[var(--zf-warning)]',
+  warning: 'bg-[var(--zf-warning)]',
+  pending: 'bg-[var(--zf-warning)]',
   unknown: 'bg-[var(--zf-muted)]',
 }
 
