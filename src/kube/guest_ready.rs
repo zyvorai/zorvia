@@ -119,6 +119,7 @@ mod tests {
                 version: Some("24.04".into()),
                 kernel_release: None,
             }),
+            ..Default::default()
         }
     }
 

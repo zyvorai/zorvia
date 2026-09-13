@@ -9,7 +9,24 @@
 
 use super::*;
 use axum::extract::Json as AxumJson;
+use crate::kube::HotplugOutcome;
 use serde_json::json;
+
+/// Merge the live-convergence outcome of a CPU/memory hotplug into the VM's
+/// JSON representation, so the caller can tell "accepted" from "actually
+/// applied" -- see `HotplugOutcome`.
+fn with_hotplug_outcome(mut vm_json: serde_json::Value, outcome: HotplugOutcome) -> axum::response::Response {
+    let (status, converged, restart_required) = match outcome {
+        HotplugOutcome::Converged => (StatusCode::OK, true, false),
+        HotplugOutcome::RestartRequired => (StatusCode::ACCEPTED, false, true),
+        HotplugOutcome::Pending => (StatusCode::ACCEPTED, false, false),
+    };
+    if let Some(obj) = vm_json.as_object_mut() {
+        obj.insert("hotplug_converged".to_string(), json!(converged));
+        obj.insert("restart_required".to_string(), json!(restart_required));
+    }
+    (status, Json(vm_json)).into_response()
+}
 
 #[derive(Debug, Deserialize)]
 pub struct HotplugCpuBody {
@@ -66,7 +83,10 @@ pub async fn fabric_hotplug_cpu(
     let client = s.client();
     drop(s);
     match client.hotplug_cpu(&namespace, &name, body.count).await {
-        Ok(vm) => Json(fabric_vm_json(&VmInfo::from_vm_with_ip(&vm, None))).into_response(),
+        Ok((vm, outcome)) => {
+            let vm_json = fabric_vm_json(&VmInfo::from_vm_with_ip(&vm, None));
+            with_hotplug_outcome(vm_json, outcome)
+        }
         Err(e) => hotplug_error_response("hotplug CPU", e),
     }
 }
@@ -103,7 +123,10 @@ pub async fn fabric_hotplug_memory(
     };
 
     match client.hotplug_memory(&namespace, &name, &target).await {
-        Ok(vm) => Json(fabric_vm_json(&VmInfo::from_vm_with_ip(&vm, None))).into_response(),
+        Ok((vm, outcome)) => {
+            let vm_json = fabric_vm_json(&VmInfo::from_vm_with_ip(&vm, None));
+            with_hotplug_outcome(vm_json, outcome)
+        }
         Err(e) => hotplug_error_response("hotplug memory", e),
     }
 }

@@ -24,6 +24,25 @@ pub use converter::vm_config_to_kubevirt;
 pub use status::{ResourceSummary, VMStatus};
 pub use types::*;
 
+/// Outcome of waiting for KubeVirt to actually apply a hotplug patch live.
+/// A successful merge-patch only means "the API server accepted my desired
+/// spec" -- KubeVirt's live-update reconciliation is asynchronous, so that
+/// is not the same thing as "the guest is now running with it."
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum HotplugOutcome {
+    /// The VMI's live status now matches the requested value.
+    Converged,
+    /// KubeVirt raised a `RestartRequired` condition on the VM -- the
+    /// desired spec is staged but only takes effect on the VM's next
+    /// restart, not live.
+    RestartRequired,
+    /// Neither happened within the poll window; KubeVirt may still be
+    /// reconciling, or the cluster's `liveUpdateConfiguration` may not be
+    /// set (see the `KubeVirt` CR's `.spec.configuration`), in which case
+    /// it never will.
+    Pending,
+}
+
 /// Kubernetes client for managing KubeVirt VMs
 #[derive(Clone)]
 pub struct KubeClient {
@@ -413,12 +432,16 @@ impl KubeClient {
     /// threads are fixed at VM-create time, so this solves for a new socket
     /// count and patches `spec.template.spec.domain.cpu.sockets`. Requires
     /// `cpu.maxSockets` to have been declared when the VM was created.
+    ///
+    /// Returns the outcome of waiting (bounded) for KubeVirt to actually
+    /// converge the live VMI to this topology, not just accept the patch --
+    /// see `HotplugOutcome`.
     pub async fn hotplug_cpu(
         &self,
         namespace: &str,
         name: &str,
         target_vcpus: u32,
-    ) -> Result<VirtualMachine> {
+    ) -> Result<(VirtualMachine, HotplugOutcome)> {
         let vm = self.get_vm(namespace, name).await?;
         let cpu = vm
             .spec
@@ -449,18 +472,33 @@ impl KubeClient {
             "spec": { "template": { "spec": { "domain": { "cpu": { "sockets": new_sockets } } } } }
         });
         let pp = PatchParams::default();
-        Ok(vms.patch(name, &pp, &Patch::Merge(&patch)).await?)
+        let patched = vms.patch(name, &pp, &Patch::Merge(&patch)).await?;
+
+        let outcome = self
+            .poll_hotplug_convergence(namespace, name, |vmi| {
+                vmi.status
+                    .as_ref()
+                    .and_then(|s| s.current_cpu_topology.as_ref())
+                    .and_then(|t| t.sockets)
+                    == Some(new_sockets)
+            })
+            .await;
+        Ok((patched, outcome))
     }
 
     /// Hotplug memory: `target_guest` is an absolute Quantity string (e.g.
     /// "6Gi"). Requires `memory.maxGuest` to have been declared when the VM
     /// was created; rejects targets exceeding that ceiling.
+    ///
+    /// Returns the outcome of waiting (bounded) for KubeVirt to actually
+    /// converge the live VMI to this amount, not just accept the patch --
+    /// see `HotplugOutcome`.
     pub async fn hotplug_memory(
         &self,
         namespace: &str,
         name: &str,
         target_guest: &str,
-    ) -> Result<VirtualMachine> {
+    ) -> Result<(VirtualMachine, HotplugOutcome)> {
         let vm = self.get_vm(namespace, name).await?;
         let memory = vm
             .spec
@@ -491,7 +529,59 @@ impl KubeClient {
             "spec": { "template": { "spec": { "domain": { "memory": { "guest": target_guest } } } } }
         });
         let pp = PatchParams::default();
-        Ok(vms.patch(name, &pp, &Patch::Merge(&patch)).await?)
+        let patched = vms.patch(name, &pp, &Patch::Merge(&patch)).await?;
+
+        let outcome = self
+            .poll_hotplug_convergence(namespace, name, |vmi| {
+                vmi.status
+                    .as_ref()
+                    .and_then(|s| s.memory.as_ref())
+                    .and_then(|m| m.guest_current.as_deref())
+                    .and_then(crate::storage::parse_size_to_bytes)
+                    == Some(target_bytes)
+            })
+            .await;
+        Ok((patched, outcome))
+    }
+
+    /// Poll (bounded, ~10s) for a hotplug patch to either converge live on
+    /// the VMI (per `converged`) or surface a `RestartRequired` condition on
+    /// the VM -- KubeVirt live-update reconciliation is asynchronous, so
+    /// neither is guaranteed to have happened by the time the patch call
+    /// above returns.
+    async fn poll_hotplug_convergence(
+        &self,
+        namespace: &str,
+        name: &str,
+        converged: impl Fn(&VirtualMachineInstance) -> bool,
+    ) -> HotplugOutcome {
+        const POLL_INTERVAL: std::time::Duration = std::time::Duration::from_millis(1000);
+        const POLL_ATTEMPTS: u32 = 10;
+        for attempt in 0..POLL_ATTEMPTS {
+            if let Ok(vmi) = self.get_vmi(namespace, name).await {
+                if converged(&vmi) {
+                    return HotplugOutcome::Converged;
+                }
+            }
+            if let Ok(vm) = self.get_vm(namespace, name).await {
+                let restart_required = vm
+                    .status
+                    .as_ref()
+                    .and_then(|s| s.conditions.as_ref())
+                    .is_some_and(|conds| {
+                        conds
+                            .iter()
+                            .any(|c| c.type_ == "RestartRequired" && c.status == "True")
+                    });
+                if restart_required {
+                    return HotplugOutcome::RestartRequired;
+                }
+            }
+            if attempt + 1 < POLL_ATTEMPTS {
+                tokio::time::sleep(POLL_INTERVAL).await;
+            }
+        }
+        HotplugOutcome::Pending
     }
 
     /// Rewrite the `cloudinitdisk` volume's `cloudInitNoCloud.userData` on

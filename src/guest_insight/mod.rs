@@ -224,6 +224,7 @@ mod tests {
                 version: Some("24.04".to_string()),
                 kernel_release: Some("6.8.0".to_string()),
             }),
+            ..Default::default()
         }
     }
 

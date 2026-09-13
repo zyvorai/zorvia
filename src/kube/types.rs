@@ -596,7 +596,7 @@ pub struct VmiSpec {
     pub extra: BTreeMap<String, serde_json::Value>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct VirtualMachineInstanceStatus {
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -613,6 +613,38 @@ pub struct VirtualMachineInstanceStatus {
         default
     )]
     pub guest_os_info: Option<GuestOsInfo>,
+    /// Live CPU topology as currently applied to the running guest -- only
+    /// populated once KubeVirt has actually converged a CPU hotplug, as
+    /// opposed to `spec.domain.cpu`, which reflects the *desired* topology
+    /// as soon as the patch is accepted.
+    #[serde(
+        rename = "currentCPUTopology",
+        skip_serializing_if = "Option::is_none",
+        default
+    )]
+    pub current_cpu_topology: Option<CPUTopology>,
+    /// Live memory status; `guest_current` mirrors `spec.domain.memory.guest`
+    /// once a memory hotplug has actually converged.
+    #[serde(skip_serializing_if = "Option::is_none", default)]
+    pub memory: Option<VmiMemoryStatus>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct CPUTopology {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub sockets: Option<u32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub cores: Option<u32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub threads: Option<u32>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct VmiMemoryStatus {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub guest_current: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
@@ -767,6 +799,7 @@ mod tests {
                 version: Some("22.04".to_string()),
                 kernel_release: Some("5.15.0".to_string()),
             }),
+            ..Default::default()
         };
 
         let json = serde_json::to_value(&status).unwrap();
@@ -831,6 +864,7 @@ mod tests {
             node_name: None,
             interfaces: vec![],
             guest_os_info: None,
+            ..Default::default()
         };
 
         let json = serde_json::to_value(&status).unwrap();
@@ -875,6 +909,7 @@ mod tests {
                 },
             ],
             guest_os_info: None,
+            ..Default::default()
         };
 
         // Should return the first interface's IP
@@ -904,6 +939,7 @@ mod tests {
                 },
             ],
             guest_os_info: None,
+            ..Default::default()
         };
 
         // Should skip empty string and return the second IP
@@ -918,6 +954,7 @@ mod tests {
             node_name: None,
             interfaces: vec![],
             guest_os_info: None,
+            ..Default::default()
         };
 
         assert_eq!(extract_first_ip(&status), None);
@@ -937,6 +974,7 @@ mod tests {
                 interface_name: None,
             }],
             guest_os_info: None,
+            ..Default::default()
         };
 
         assert_eq!(extract_first_ip(&status), None);
