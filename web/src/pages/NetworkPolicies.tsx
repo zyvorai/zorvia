@@ -9,7 +9,7 @@ import { useToastContext } from '../contexts/ToastContext'
 import { useConfirm } from '../hooks/useConfirm'
 import ConfirmDialog from '../components/ConfirmDialog'
 import ErrorBanner from '../components/ErrorBanner'
-import { PageHeader, EmptyState } from '../components/ui'
+import { PageHeader, EmptyState, DataTable } from '../components/ui'
 import { formatUserError } from '../utils/apiError'
 import { toastFailure } from '../utils/toastError'
 import { hintsForError } from '../utils/daemonHints'
@@ -139,7 +139,7 @@ export default function NetworkPolicies() {
                 </div>
               </div>
               <p className="text-xs text-[var(--zf-muted)]">Leaving both ingress fields empty creates a default-deny policy for the selected scope.</p>
-              {createError && <p className="text-sm text-red-600">{createError}</p>}
+              {createError && <p className="text-sm text-[var(--zf-danger)]">{createError}</p>}
               <div className="flex gap-2">
                 <button onClick={handleCreate} disabled={creating} className="zf-btn zf-btn-primary zf-btn-sm">
                   {creating ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
@@ -150,36 +150,32 @@ export default function NetworkPolicies() {
             </div>
           )}
 
-          {policies.length === 0 ? (
-            <EmptyState icon={<ShieldCheck className="w-8 h-8" />} title="No network policies" description="Create one to restrict ingress/egress traffic for a VM or the whole namespace." />
-          ) : (
-            <div className="bg-[var(--zf-surface)] rounded-xl border border-[var(--zf-hairline)] overflow-hidden">
-              <table className="w-full text-sm">
-                <thead><tr className="border-b border-[var(--zf-hairline)]">
-                  <th className="text-left px-5 py-3 text-xs font-medium text-[var(--zf-muted)] uppercase tracking-wider">Name</th>
-                  <th className="text-left px-5 py-3 text-xs font-medium text-[var(--zf-muted)] uppercase tracking-wider">Applies To</th>
-                  <th className="text-left px-5 py-3 text-xs font-medium text-[var(--zf-muted)] uppercase tracking-wider">Ingress</th>
-                  <th className="text-left px-5 py-3 text-xs font-medium text-[var(--zf-muted)] uppercase tracking-wider">Egress</th>
-                  <th className="text-right px-5 py-3 text-xs font-medium text-[var(--zf-muted)] uppercase tracking-wider">Actions</th>
-                </tr></thead>
-                <tbody className="divide-y divide-[var(--zf-hairline)]/30">
-                  {policies.map(p => (
-                    <tr key={p.name} className="hover:bg-black/[0.04] transition-colors">
-                      <td className="px-5 py-3 font-medium text-[var(--zf-ink)]">{p.name}</td>
-                      <td className="px-5 py-3 text-[var(--zf-muted)]">{p.vm_name || 'Every pod'}</td>
-                      <td className="px-5 py-3 text-xs text-[var(--zf-muted)]">{ruleSummary(p.ingress)}</td>
-                      <td className="px-5 py-3 text-xs text-[var(--zf-muted)]">{ruleSummary(p.egress)}</td>
-                      <td className="px-5 py-3 text-right">
-                        <button onClick={() => handleDelete(p)} disabled={deletingName === p.name} className="p-1.5 text-[var(--zf-muted)] hover:text-red-600 hover:bg-red-500/10 rounded-lg transition-colors disabled:opacity-50" title="Delete policy">
-                          {deletingName === p.name ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
+          <div className="bg-[var(--zf-surface)] rounded-xl border border-[var(--zf-hairline)] overflow-hidden">
+            <DataTable
+              columns={[
+                { key: 'name', header: 'Name', className: 'px-5', render: (p) => <span className="font-medium text-[var(--zf-ink)]">{p.name}</span> },
+                { key: 'applies_to', header: 'Applies To', render: (p) => <span className="text-[var(--zf-muted)]">{p.vm_name || 'Every pod'}</span> },
+                { key: 'ingress', header: 'Ingress', render: (p) => <span className="text-xs text-[var(--zf-muted)]">{ruleSummary(p.ingress)}</span> },
+                { key: 'egress', header: 'Egress', render: (p) => <span className="text-xs text-[var(--zf-muted)]">{ruleSummary(p.egress)}</span> },
+                {
+                  key: 'actions',
+                  header: 'Actions',
+                  className: 'text-right',
+                  render: (p) => (
+                    <button onClick={() => handleDelete(p)} disabled={deletingName === p.name} className="p-1.5 text-[var(--zf-muted)] hover:text-[var(--zf-danger)] hover:bg-[var(--zf-danger)]/10 rounded-lg transition-colors disabled:opacity-50" title="Delete policy">
+                      {deletingName === p.name ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
+                    </button>
+                  ),
+                },
+              ]}
+              rows={policies}
+              getRowKey={(p) => p.name}
+              bordered={false}
+              emptyState={
+                <EmptyState icon={<ShieldCheck className="w-8 h-8" />} title="No network policies" description="Create one to restrict ingress/egress traffic for a VM or the whole namespace." />
+              }
+            />
+          </div>
         </>
       ) : null}
 
