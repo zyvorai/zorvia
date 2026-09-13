@@ -11,23 +11,23 @@ interface MetricChartProps {
 
 export default function MetricChart({ title, data, color = '#3b82f6' }: MetricChartProps) {
   return (
-    <div className="bg-[#f5f5f7] rounded-lg p-6 border border-[#d2d2d7]">
-      <h3 className="text-lg font-semibold mb-4">{title}</h3>
+    <div className="bg-[var(--zf-canvas)] rounded-lg p-6 border border-[var(--zf-hairline)]">
+      <h3 className="text-lg font-semibold text-[var(--zf-ink)] mb-4">{title}</h3>
       <ResponsiveContainer width="100%" height={200}>
         <LineChart data={data}>
-          <CartesianGrid strokeDasharray="3 3" stroke="#d2d2d7" />
-          <XAxis dataKey="time" stroke="#6e6e73" />
-          <YAxis stroke="#6e6e73" />
+          <CartesianGrid strokeDasharray="3 3" stroke="var(--zf-hairline)" />
+          <XAxis dataKey="time" stroke="var(--zf-muted)" />
+          <YAxis stroke="var(--zf-muted)" />
           <Tooltip
             contentStyle={{
-              backgroundColor: '#ffffff',
-              border: '1px solid #d2d2d7',
+              backgroundColor: 'var(--zf-surface)',
+              border: '1px solid var(--zf-hairline)',
               borderRadius: '0.5rem',
-              color: '#1d1d1f',
+              color: 'var(--zf-ink)',
               fontFamily: 'SF Pro Text, -apple-system, BlinkMacSystemFont, Helvetica Neue, Helvetica, Arial, sans-serif',
             }}
           />
-          <Line type="monotone" dataKey="value" stroke={color === '#3b82f6' ? '#0066cc' : color} strokeWidth={2} dot={false} />
+          <Line type="monotone" dataKey="value" stroke={color === '#3b82f6' ? 'var(--zf-link)' : color} strokeWidth={2} dot={false} />
         </LineChart>
       </ResponsiveContainer>
     </div>

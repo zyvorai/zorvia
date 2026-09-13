@@ -45,9 +45,9 @@ export default function CopyButton({
         onClick={handleClick}
         aria-label={`Copy ${text}`}
         title="Copy to clipboard"
-        className={`inline-flex items-center justify-center p-1 rounded text-[#6e6e73] hover:text-[#1d1d1f] hover:bg-black/[0.04] transition-colors ${className}`}
+        className={`inline-flex items-center justify-center p-1 rounded text-[var(--zf-muted)] hover:text-[var(--zf-ink)] hover:bg-[var(--zf-hover-tint)] transition-colors ${className}`}
       >
-        {copied ? <Check className="w-3.5 h-3.5 text-emerald-600" /> : <Copy className="w-3.5 h-3.5" />}
+        {copied ? <Check className="w-3.5 h-3.5 text-[var(--zf-success)]" /> : <Copy className="w-3.5 h-3.5" />}
       </button>
     )
   }
@@ -56,9 +56,9 @@ export default function CopyButton({
     <button
       type="button"
       onClick={handleClick}
-      className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg border border-[#d2d2d7] text-[#1d1d1f] hover:bg-white text-xs transition ${className}`}
+      className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg border border-[var(--zf-hairline)] text-[var(--zf-ink)] hover:bg-[var(--zf-hover-tint)] text-xs transition ${className}`}
     >
-      {copied ? <Check className="w-3.5 h-3.5 text-emerald-600" /> : <Copy className="w-3.5 h-3.5" />}
+      {copied ? <Check className="w-3.5 h-3.5 text-[var(--zf-success)]" /> : <Copy className="w-3.5 h-3.5" />}
       {label}
     </button>
   )
