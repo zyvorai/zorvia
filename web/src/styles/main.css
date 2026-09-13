@@ -1122,7 +1122,8 @@ textarea.input-field {
   .animate-fade-in,
   .animate-slide-in,
   .animate-pulse-dot,
-  .animate-ping {
+  .animate-ping,
+  .animate-pulse {
     animation: none;
   }
 }
