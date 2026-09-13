@@ -99,7 +99,7 @@ export default function Templates() {
                 <div className="p-3 flex flex-wrap gap-2">
                   {families[family].map(name => (
                     <button key={name} onClick={() => handleSelect(name)}
-                      className={`px-3 py-1.5 text-xs font-medium rounded-lg border transition-colors ${selected === name ? 'bg-[var(--zf-link)] text-white border-[var(--zf-link)]' : 'text-[var(--zf-muted)] bg-white border-[var(--zf-hairline)] hover:border-[var(--zf-ink)]'}`}>
+                      className={`px-3 py-1.5 text-xs font-medium rounded-lg border transition-colors ${selected === name ? 'bg-[var(--zf-link)] text-white border-[var(--zf-link)]' : 'text-[var(--zf-muted)] bg-[var(--zf-surface)] border-[var(--zf-hairline)] hover:border-[var(--zf-ink)]'}`}>
                       {name}
                     </button>
                   ))}
@@ -136,7 +136,7 @@ export default function Templates() {
                 <div className="pt-3 border-t border-[var(--zf-hairline)] space-y-2">
                   <label className="block text-xs font-medium text-[var(--zf-muted)]">Deploy as</label>
                   <input type="text" value={vmName} onChange={(e) => setVmName(e.target.value)} placeholder="my-new-vm" className="input-field text-sm w-full" />
-                  {deployError && <p className="text-xs text-red-600">{deployError}</p>}
+                  {deployError && <p className="text-xs text-[var(--zf-danger)]">{deployError}</p>}
                   <button onClick={handleDeploy} disabled={deploying} className="zf-btn zf-btn-primary zf-btn-sm w-full">
                     {deploying ? <Loader2 className="w-4 h-4 animate-spin" /> : <Rocket className="w-4 h-4" />}
                     {deploying ? 'Deploying…' : 'Deploy VM'}
