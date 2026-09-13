@@ -5,7 +5,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { HardDrive } from 'lucide-react'
 import { listStorageVolumes, StorageVolume } from '../api/storage'
 import ErrorBanner from '../components/ErrorBanner'
-import { PageHeader, EmptyState } from '../components/ui'
+import { PageHeader, EmptyState, DataTable } from '../components/ui'
 import { formatUserError } from '../utils/apiError'
 import { toastFailure } from '../utils/toastError'
 import { hintsForError } from '../utils/daemonHints'
@@ -13,9 +13,9 @@ import { useToastContext } from '../contexts/ToastContext'
 
 function statusBadge(status: string): string {
   switch (status.toLowerCase()) {
-    case 'bound': return 'text-emerald-700 bg-emerald-50 border-emerald-200'
-    case 'pending': return 'text-amber-800 bg-amber-50 border-amber-200'
-    case 'lost': return 'text-red-700 bg-red-50 border-red-200'
+    case 'bound': return 'text-[var(--zf-success)] bg-[var(--zf-success)]/10 border-[var(--zf-success)]/25'
+    case 'pending': return 'text-[var(--zf-warning)] bg-[var(--zf-warning)]/10 border-[var(--zf-warning)]/25'
+    case 'lost': return 'text-[var(--zf-danger)] bg-[var(--zf-danger)]/10 border-[var(--zf-danger)]/25'
     default: return 'text-[var(--zf-muted)] bg-[var(--zf-canvas)] border-[var(--zf-hairline)]'
   }
 }
@@ -63,26 +63,26 @@ export default function Storage() {
         <EmptyState icon={<HardDrive className="w-8 h-8" />} title="No volumes found" description="PersistentVolumeClaims created by VM disks will appear here." />
       ) : !loadError ? (
         <div className="bg-[var(--zf-surface)] rounded-xl border border-[var(--zf-hairline)] overflow-hidden">
-          <table className="w-full text-sm">
-            <thead><tr className="border-b border-[var(--zf-hairline)]">
-              <th className="text-left px-5 py-3 text-xs font-medium text-[var(--zf-muted)] uppercase tracking-wider">Name</th>
-              <th className="text-left px-5 py-3 text-xs font-medium text-[var(--zf-muted)] uppercase tracking-wider">Status</th>
-              <th className="text-left px-5 py-3 text-xs font-medium text-[var(--zf-muted)] uppercase tracking-wider">Capacity</th>
-              <th className="text-left px-5 py-3 text-xs font-medium text-[var(--zf-muted)] uppercase tracking-wider">Storage Class</th>
-              <th className="text-left px-5 py-3 text-xs font-medium text-[var(--zf-muted)] uppercase tracking-wider">Attached VMs</th>
-            </tr></thead>
-            <tbody className="divide-y divide-[var(--zf-hairline)]/30">
-              {volumes.map(v => (
-                <tr key={v.name} className="hover:bg-black/[0.04] transition-colors">
-                  <td className="px-5 py-3 font-mono text-xs text-[var(--zf-ink)]">{v.name}</td>
-                  <td className="px-5 py-3"><span className={`px-2.5 py-0.5 rounded-full text-xs font-medium border ${statusBadge(v.status)}`}>{v.status}</span></td>
-                  <td className="px-5 py-3 text-[var(--zf-muted)]">{v.capacity || '—'}</td>
-                  <td className="px-5 py-3 text-[var(--zf-muted)]">{v.storage_class || '—'}</td>
-                  <td className="px-5 py-3 text-[var(--zf-muted)]">{v.attached_vms.length > 0 ? v.attached_vms.join(', ') : '—'}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+          <DataTable
+            columns={[
+              { key: 'name', header: 'Name', className: 'px-5', render: (v) => <span className="font-mono text-xs text-[var(--zf-ink)]">{v.name}</span> },
+              {
+                key: 'status',
+                header: 'Status',
+                render: (v) => <span className={`px-2.5 py-0.5 rounded-full text-xs font-medium border ${statusBadge(v.status)}`}>{v.status}</span>,
+              },
+              { key: 'capacity', header: 'Capacity', render: (v) => <span className="text-[var(--zf-muted)]">{v.capacity || '—'}</span> },
+              { key: 'storage_class', header: 'Storage Class', render: (v) => <span className="text-[var(--zf-muted)]">{v.storage_class || '—'}</span> },
+              {
+                key: 'attached_vms',
+                header: 'Attached VMs',
+                render: (v) => <span className="text-[var(--zf-muted)]">{v.attached_vms.length > 0 ? v.attached_vms.join(', ') : '—'}</span>,
+              },
+            ]}
+            rows={volumes}
+            getRowKey={(v) => v.name}
+            bordered={false}
+          />
         </div>
       ) : null}
     </div>
