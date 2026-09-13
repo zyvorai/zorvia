@@ -61,7 +61,7 @@ export default function Analytics() {
 
       <div className="flex gap-2">
         {(Object.keys(METRIC_LABEL) as Metric[]).map(m => (
-          <button key={m} onClick={() => setMetric(m)} className={`px-3 py-1.5 text-xs font-medium rounded-lg border transition-colors ${metric === m ? 'bg-[var(--zf-link)] text-white border-[var(--zf-link)]' : 'text-[var(--zf-muted)] bg-white border-[var(--zf-hairline)] hover:border-[var(--zf-ink)]'}`}>
+          <button key={m} onClick={() => setMetric(m)} className={`px-3 py-1.5 text-xs font-medium rounded-lg border transition-colors ${metric === m ? 'bg-[var(--zf-link)] text-white border-[var(--zf-link)]' : 'text-[var(--zf-muted)] bg-[var(--zf-surface)] border-[var(--zf-hairline)] hover:border-[var(--zf-ink)]'}`}>
             {METRIC_LABEL[m]}
           </button>
         ))}

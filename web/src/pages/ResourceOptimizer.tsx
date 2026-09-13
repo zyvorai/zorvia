@@ -13,9 +13,9 @@ import { useToastContext } from '../contexts/ToastContext'
 
 function priorityBadge(p: string): string {
   switch (p) {
-    case 'Critical': return 'text-red-700 bg-red-50 border-red-200'
-    case 'High': return 'text-amber-800 bg-amber-50 border-amber-200'
-    case 'Medium': return 'text-[var(--zf-link)] bg-blue-50 border-blue-100'
+    case 'Critical': return 'text-[var(--zf-danger)] bg-[var(--zf-danger)]/10 border-[var(--zf-danger)]/25'
+    case 'High': return 'text-[var(--zf-warning)] bg-[var(--zf-warning)]/10 border-[var(--zf-warning)]/25'
+    case 'Medium': return 'text-[var(--zf-link)] bg-[var(--zf-link)]/10 border-[var(--zf-link)]/25'
     default: return 'text-[var(--zf-muted)] bg-[var(--zf-canvas)] border-[var(--zf-hairline)]'
   }
 }
@@ -79,7 +79,7 @@ export default function ResourceOptimizer() {
                   </ul>
                 </div>
                 <div className="text-right shrink-0">
-                  <div className="text-sm font-semibold text-emerald-600">${rec.potential_savings.toFixed(0)}/mo</div>
+                  <div className="text-sm font-semibold text-[var(--zf-success)]">${rec.potential_savings.toFixed(0)}/mo</div>
                   <div className="text-[10px] text-[var(--zf-muted)]">est. {rec.savings_percent.toFixed(0)}% savings</div>
                 </div>
               </div>
