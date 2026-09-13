@@ -16,10 +16,10 @@ import { hintsForError } from '../utils/daemonHints'
 
 function statusBadge(status: string): string {
   switch (status) {
-    case 'ready': return 'text-emerald-700 bg-emerald-50 border-emerald-200'
-    case 'claimed': return 'text-[var(--zf-link)] bg-blue-50 border-blue-100'
-    case 'failed': return 'text-red-700 bg-red-50 border-red-200'
-    default: return 'text-amber-800 bg-amber-50 border-amber-200'
+    case 'ready': return 'text-[var(--zf-success)] bg-[var(--zf-success)]/10 border-[var(--zf-success)]/25'
+    case 'claimed': return 'text-[var(--zf-link)] bg-[var(--zf-link)]/10 border-[var(--zf-link)]/25'
+    case 'failed': return 'text-[var(--zf-danger)] bg-[var(--zf-danger)]/10 border-[var(--zf-danger)]/25'
+    default: return 'text-[var(--zf-warning)] bg-[var(--zf-warning)]/10 border-[var(--zf-warning)]/25'
   }
 }
 
@@ -147,7 +147,7 @@ export default function WarmPools() {
                   <input type="number" min={1} max={20} value={size} onChange={(e) => setSize(e.target.value)} className="input-field text-sm w-full" />
                 </div>
               </div>
-              {createError && <p className="text-sm text-red-600">{createError}</p>}
+              {createError && <p className="text-sm text-[var(--zf-danger)]">{createError}</p>}
               <div className="flex gap-2">
                 <button onClick={handleCreate} disabled={creating} className="zf-btn zf-btn-primary zf-btn-sm">
                   {creating ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
@@ -174,7 +174,7 @@ export default function WarmPools() {
                         {busyName === pool.name ? <Loader2 className="w-4 h-4 animate-spin" /> : <Zap className="w-4 h-4" />}
                         Claim
                       </button>
-                      <button onClick={() => handleDelete(pool)} disabled={busyName === pool.name} className="p-1.5 text-[var(--zf-muted)] hover:text-red-600 hover:bg-red-500/10 rounded-lg transition-colors disabled:opacity-50" title="Delete pool">
+                      <button onClick={() => handleDelete(pool)} disabled={busyName === pool.name} className="p-1.5 text-[var(--zf-muted)] hover:text-[var(--zf-danger)] hover:bg-[var(--zf-danger)]/10 rounded-lg transition-colors disabled:opacity-50" title="Delete pool">
                         <Trash2 className="w-4 h-4" />
                       </button>
                     </div>
