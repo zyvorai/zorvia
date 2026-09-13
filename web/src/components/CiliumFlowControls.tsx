@@ -59,12 +59,12 @@ export default function CiliumFlowControls({
   }
 
   return (
-    <div className="bg-white rounded-xl border border-[#d2d2d7] p-4 space-y-3">
+    <div className="bg-[var(--zf-surface)] rounded-xl border border-[var(--zf-hairline)] p-4 space-y-3">
       <div>
-        <p className="text-xs font-medium text-[#6e6e73] uppercase tracking-wide">
+        <p className="text-xs font-medium text-[var(--zf-muted)] uppercase tracking-wide">
           Packet-flow control
         </p>
-        <p className="text-xs text-[#6e6e73]">
+        <p className="text-xs text-[var(--zf-muted)]">
           Cilium-style Guard / Audit / Open on FluxVM edge policy. Does not write Cilium maps.
         </p>
       </div>
@@ -79,11 +79,11 @@ export default function CiliumFlowControls({
             className={`px-3 py-1.5 text-sm rounded-lg border ${
               mode === m.id
                 ? m.id === 'guard'
-                  ? 'bg-red-50 text-red-800 border-red-200'
+                  ? 'bg-[var(--zf-danger)]/10 text-[var(--zf-danger)] border-[var(--zf-danger)]/25'
                   : m.id === 'audit'
-                    ? 'bg-amber-50 text-amber-900 border-amber-200'
-                    : 'bg-emerald-50 text-emerald-800 border-emerald-200'
-                : 'bg-white border-[#d2d2d7] text-[#1d1d1f]'
+                    ? 'bg-[var(--zf-warning)]/10 text-[var(--zf-warning)] border-[var(--zf-warning)]/25'
+                    : 'bg-[var(--zf-success)]/10 text-[var(--zf-success)] border-[var(--zf-success)]/25'
+                : 'bg-[var(--zf-surface)] border-[var(--zf-hairline)] text-[var(--zf-ink)]'
             }`}
           >
             {m.label}
@@ -93,27 +93,27 @@ export default function CiliumFlowControls({
           type="button"
           disabled={disabled || busy}
           onClick={() => void run('invert')}
-          className="px-3 py-1.5 text-sm rounded-lg border border-[#d2d2d7] bg-white"
+          className="px-3 py-1.5 text-sm rounded-lg border border-[var(--zf-hairline)] bg-[var(--zf-surface)] text-[var(--zf-ink)]"
           title="Swap allow/deny CIDRs and flip default allow"
         >
           Invert
         </button>
       </div>
       <div className="flex flex-wrap gap-2 items-end">
-        <label className="text-xs text-[#6e6e73]">
+        <label className="text-xs text-[var(--zf-muted)]">
           CIDR / host
           <input
-            className="mt-1 block bg-white border border-[#d2d2d7] rounded-lg px-2 py-1 text-sm"
+            className="mt-1 block bg-[var(--zf-surface)] border border-[var(--zf-hairline)] rounded-lg px-2 py-1 text-sm text-[var(--zf-ink)]"
             value={cidr}
             disabled={disabled}
             placeholder="1.1.1.1 or 10.0.0.0/8"
             onChange={(e) => setCidr(e.target.value)}
           />
         </label>
-        <label className="text-xs text-[#6e6e73]">
+        <label className="text-xs text-[var(--zf-muted)]">
           Port
           <input
-            className="mt-1 block bg-white border border-[#d2d2d7] rounded-lg px-2 py-1 text-sm"
+            className="mt-1 block bg-[var(--zf-surface)] border border-[var(--zf-hairline)] rounded-lg px-2 py-1 text-sm text-[var(--zf-ink)]"
             value={port}
             disabled={disabled}
             placeholder="tcp/443"
@@ -124,7 +124,7 @@ export default function CiliumFlowControls({
           type="button"
           disabled={disabled || busy || !cidr.trim()}
           onClick={() => void run('block', { cidr: cidr.trim() })}
-          className="px-3 py-1.5 text-sm rounded-lg border border-red-200 bg-red-50 text-red-800"
+          className="px-3 py-1.5 text-sm rounded-lg border border-[var(--zf-danger)]/25 bg-[var(--zf-danger)]/10 text-[var(--zf-danger)]"
         >
           Block
         </button>
@@ -132,7 +132,7 @@ export default function CiliumFlowControls({
           type="button"
           disabled={disabled || busy || !cidr.trim()}
           onClick={() => void run('allow', { cidr: cidr.trim(), port: port.trim() || undefined })}
-          className="px-3 py-1.5 text-sm rounded-lg border border-emerald-200 bg-emerald-50 text-emerald-800"
+          className="px-3 py-1.5 text-sm rounded-lg border border-[var(--zf-success)]/25 bg-[var(--zf-success)]/10 text-[var(--zf-success)]"
         >
           Allow
         </button>
@@ -144,7 +144,7 @@ export default function CiliumFlowControls({
               key={t.id}
               type="button"
               disabled={disabled}
-              className="text-xs px-2 py-1 rounded-lg border border-[#d2d2d7] bg-[#f5f5f7]"
+              className="text-xs px-2 py-1 rounded-lg border border-[var(--zf-hairline)] bg-[var(--zf-canvas)] text-[var(--zf-ink)]"
               onClick={() => onTemplate(t.id)}
             >
               {t.label}
@@ -156,19 +156,19 @@ export default function CiliumFlowControls({
         <>
           <div className="flex flex-wrap gap-2 items-end">
             <input
-              className="bg-white border border-[#d2d2d7] rounded-lg px-2 py-1 text-sm"
+              className="bg-[var(--zf-surface)] border border-[var(--zf-hairline)] rounded-lg px-2 py-1 text-sm text-[var(--zf-ink)]"
               value={dest}
               onChange={(e) => setDest(e.target.value)}
               placeholder="explain dest"
             />
             <input
-              className="bg-white border border-[#d2d2d7] rounded-lg px-2 py-1 text-sm w-20"
+              className="bg-[var(--zf-surface)] border border-[var(--zf-hairline)] rounded-lg px-2 py-1 text-sm w-20 text-[var(--zf-ink)]"
               value={dport}
               onChange={(e) => setDport(e.target.value)}
             />
             <button
               type="button"
-              className="px-3 py-1.5 text-sm rounded-lg border border-[#d2d2d7]"
+              className="px-3 py-1.5 text-sm rounded-lg border border-[var(--zf-hairline)] text-[var(--zf-ink)]"
               onClick={async () => {
                 setBusy(true)
                 try {
@@ -185,7 +185,7 @@ export default function CiliumFlowControls({
             </button>
             <button
               type="button"
-              className="px-3 py-1.5 text-sm rounded-lg border border-amber-200 bg-amber-50"
+              className="px-3 py-1.5 text-sm rounded-lg border border-[var(--zf-warning)]/25 bg-[var(--zf-warning)]/10 text-[var(--zf-ink)]"
               onClick={async () => {
                 setBusy(true)
                 try {
@@ -201,11 +201,11 @@ export default function CiliumFlowControls({
               Dry-run Guard
             </button>
           </div>
-          {explainOut && <p className="text-xs font-mono text-[#1d1d1f]">{explainOut}</p>}
-          {dryOut && <p className="text-xs font-mono text-[#92640a]">{dryOut}</p>}
+          {explainOut && <p className="text-xs font-mono text-[var(--zf-ink)]">{explainOut}</p>}
+          {dryOut && <p className="text-xs font-mono text-[var(--zf-warning)]">{dryOut}</p>}
         </>
       )}
-      <p className="text-xs text-[#6e6e73]">
+      <p className="text-xs text-[var(--zf-muted)]">
         Mode: <strong>{mode}</strong>
         {policy.audit_mode ? ' · audit' : ''}
         {policy.default_allow ? ' · default-allow' : ' · default-deny'}

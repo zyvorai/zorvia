@@ -27,14 +27,15 @@ export default function PacketFlowPanel({ views, loading, emptyHint, onReload, o
   return (
     <div
       className={`rounded-xl border overflow-hidden ${
-        dark ? 'bg-[#0b1020] border-[#243056] text-[#e8eefc]' : 'bg-white border-[#d2d2d7] text-[#1d1d1f]'
+        dark ? 'border-[#243056] text-[#e8eefc]' : 'bg-[var(--zf-surface)] border-[var(--zf-hairline)] text-[var(--zf-ink)]'
       }`}
+      style={dark ? { background: '#0b1020' } : undefined}
     >
-      <div className={`flex flex-wrap gap-2 items-center p-3 border-b ${dark ? 'border-[#243056]' : 'border-[#d2d2d7]'}`}>
+      <div className={`flex flex-wrap gap-2 items-center p-3 border-b ${dark ? 'border-[#243056]' : 'border-[var(--zf-hairline)]'}`}>
         <label className="text-xs">
           Theme
           <select
-            className={`ml-1 rounded border px-2 py-1 text-sm ${dark ? 'bg-[#121a30] border-[#243056]' : 'bg-white border-[#d2d2d7]'}`}
+            className={`ml-1 rounded border px-2 py-1 text-sm ${dark ? 'bg-[#121a30] border-[#243056]' : 'bg-[var(--zf-surface)] border-[var(--zf-hairline)]'}`}
             value={theme}
             onChange={(e) => setTheme(e.target.value as FlowTheme)}
           >
@@ -45,7 +46,7 @@ export default function PacketFlowPanel({ views, loading, emptyHint, onReload, o
         <label className="text-xs">
           Verdict
           <select
-            className={`ml-1 rounded border px-2 py-1 text-sm ${dark ? 'bg-[#121a30] border-[#243056]' : 'bg-white border-[#d2d2d7]'}`}
+            className={`ml-1 rounded border px-2 py-1 text-sm ${dark ? 'bg-[#121a30] border-[#243056]' : 'bg-[var(--zf-surface)] border-[var(--zf-hairline)]'}`}
             value={verdict}
             onChange={(e) => setVerdict(e.target.value)}
           >
@@ -58,7 +59,7 @@ export default function PacketFlowPanel({ views, loading, emptyHint, onReload, o
         <label className="text-xs">
           Proto
           <select
-            className={`ml-1 rounded border px-2 py-1 text-sm ${dark ? 'bg-[#121a30] border-[#243056]' : 'bg-white border-[#d2d2d7]'}`}
+            className={`ml-1 rounded border px-2 py-1 text-sm ${dark ? 'bg-[#121a30] border-[#243056]' : 'bg-[var(--zf-surface)] border-[var(--zf-hairline)]'}`}
             value={protocol}
             onChange={(e) => setProtocol(e.target.value)}
           >
@@ -71,7 +72,7 @@ export default function PacketFlowPanel({ views, loading, emptyHint, onReload, o
         <label className="text-xs">
           Detail
           <select
-            className={`ml-1 rounded border px-2 py-1 text-sm ${dark ? 'bg-[#121a30] border-[#243056]' : 'bg-white border-[#d2d2d7]'}`}
+            className={`ml-1 rounded border px-2 py-1 text-sm ${dark ? 'bg-[#121a30] border-[#243056]' : 'bg-[var(--zf-surface)] border-[var(--zf-hairline)]'}`}
             value={detail}
             onChange={(e) => setDetail(e.target.value as 'path' | 'table')}
           >
@@ -83,7 +84,7 @@ export default function PacketFlowPanel({ views, loading, emptyHint, onReload, o
           <button
             type="button"
             onClick={onReload}
-            className={`ml-auto text-sm px-3 py-1 rounded border ${dark ? 'border-[#243056]' : 'border-[#d2d2d7]'}`}
+            className={`ml-auto text-sm px-3 py-1 rounded border ${dark ? 'border-[#243056]' : 'border-[var(--zf-hairline)]'}`}
           >
             Reload
           </button>
@@ -97,7 +98,7 @@ export default function PacketFlowPanel({ views, loading, emptyHint, onReload, o
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
-              <tr className={`text-left text-xs uppercase ${dark ? 'text-[#8b9bb8]' : 'text-[#6e6e73]'}`}>
+              <tr className={`text-left text-xs uppercase ${dark ? 'text-[#8b9bb8]' : 'text-[var(--zf-muted)]'}`}>
                 <th className="py-2 px-3">Verdict</th>
                 <th className="py-2 px-3">Dir</th>
                 <th className="py-2 px-3">Tuple / path</th>
@@ -109,7 +110,7 @@ export default function PacketFlowPanel({ views, loading, emptyHint, onReload, o
             </thead>
             <tbody>
               {filtered.map((f, i) => (
-                <tr key={`${f.summary}-${i}`} className={dark ? 'border-t border-[#243056]' : 'border-t border-[#d2d2d7]'}>
+                <tr key={`${f.summary}-${i}`} className={dark ? 'border-t border-[#243056]' : 'border-t border-[var(--zf-hairline)]'}>
                   <td className={`py-2 px-3 ${verdictClass(f.verdict, theme)}`}>{f.verdict}</td>
                   <td className="py-2 px-3">{f.direction}</td>
                   <td className="py-2 px-3 font-mono text-xs">
@@ -119,7 +120,7 @@ export default function PacketFlowPanel({ views, loading, emptyHint, onReload, o
                       <div className={verdictClass('DROPPED', theme)}>drop_reason={f.dropReason}</div>
                     )}
                     {detail === 'path' && (
-                      <div className={`mt-2 whitespace-pre-wrap ${dark ? 'text-[#60a5fa]' : 'text-[#155eef]'}`}>
+                      <div className={`mt-2 whitespace-pre-wrap ${dark ? 'text-[#60a5fa]' : 'text-[var(--zf-link)]'}`}>
                         {f.hops.map((h, idx) => {
                           const last = idx === f.hops.length - 1
                           return `${last ? '└─' : '├─'} [${h.index}] ${h.name} (${h.role})  ${h.detail}${last ? '' : '\n│'}`
@@ -141,7 +142,7 @@ export default function PacketFlowPanel({ views, loading, emptyHint, onReload, o
                     <td className="py-2 px-3">
                       <button
                         type="button"
-                        className="text-xs px-2 py-1 rounded border border-red-200 bg-red-50 text-red-800"
+                        className="text-xs px-2 py-1 rounded border border-[var(--zf-danger)]/25 bg-[var(--zf-danger)]/10 text-[var(--zf-danger)]"
                         onClick={() => onBlockDest(f.destinationIp, f.destinationPort, f.protocol)}
                       >
                         Block
