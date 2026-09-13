@@ -5,7 +5,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { ShieldAlert, Loader2 } from 'lucide-react'
 import { listVMs, getHaPolicy, setHaPolicy, VM, EvictionStrategy } from '../api/vm'
 import ErrorBanner from '../components/ErrorBanner'
-import { PageHeader } from '../components/ui'
+import { PageHeader, EmptyState, DataTable } from '../components/ui'
 import { formatUserError } from '../utils/apiError'
 import { toastFailure } from '../utils/toastError'
 import { hintsForError } from '../utils/daemonHints'
@@ -81,45 +81,43 @@ export default function HaPolicy() {
           Loading…
         </div>
       ) : !loadError ? (
-        rows.length === 0 ? (
-          <div className="bg-[var(--zf-surface)] rounded-xl p-10 border border-[var(--zf-hairline)] text-center text-[var(--zf-muted)]">
-            <ShieldAlert className="w-10 h-10 mx-auto mb-3 opacity-50" />
-            <p className="text-sm">No VMs to configure</p>
-          </div>
-        ) : (
-          <div className="bg-[var(--zf-surface)] rounded-xl border border-[var(--zf-hairline)] overflow-hidden">
-            <table className="w-full text-sm">
-              <thead><tr className="border-b border-[var(--zf-hairline)]">
-                <th className="text-left px-5 py-3 text-xs font-medium text-[var(--zf-muted)] uppercase tracking-wider">VM</th>
-                <th className="text-left px-5 py-3 text-xs font-medium text-[var(--zf-muted)] uppercase tracking-wider">Eviction Strategy</th>
-                <th className="text-left px-5 py-3 text-xs font-medium text-[var(--zf-muted)] uppercase tracking-wider">What it means</th>
-              </tr></thead>
-              <tbody className="divide-y divide-[var(--zf-hairline)]/30">
-                {rows.map(row => (
-                  <tr key={row.vm.name} className="hover:bg-black/[0.04] transition-colors">
-                    <td className="px-5 py-3 font-medium text-[var(--zf-ink)]">{row.vm.name}</td>
-                    <td className="px-5 py-3">
-                      <div className="flex items-center gap-2">
-                        <select
-                          value={row.strategy ?? ''}
-                          onChange={(e) => handleChange(row.vm.name, (e.target.value || null) as EvictionStrategy | null)}
-                          disabled={row.saving || row.strategy === undefined}
-                          className="input-field text-sm"
-                        >
-                          {STRATEGIES.map(s => <option key={s.label} value={s.value ?? ''}>{s.label}</option>)}
-                        </select>
-                        {row.saving && <Loader2 className="w-4 h-4 animate-spin text-[var(--zf-muted)]" />}
-                      </div>
-                    </td>
-                    <td className="px-5 py-3 text-xs text-[var(--zf-muted)] max-w-md">
-                      {STRATEGIES.find(s => (s.value ?? null) === (row.strategy ?? null))?.description}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )
+        <div className="bg-[var(--zf-surface)] rounded-xl border border-[var(--zf-hairline)] overflow-hidden">
+          <DataTable
+            columns={[
+              { key: 'vm', header: 'VM', className: 'px-5', render: (row) => <span className="font-medium text-[var(--zf-ink)]">{row.vm.name}</span> },
+              {
+                key: 'strategy',
+                header: 'Eviction Strategy',
+                render: (row) => (
+                  <div className="flex items-center gap-2">
+                    <select
+                      value={row.strategy ?? ''}
+                      onChange={(e) => handleChange(row.vm.name, (e.target.value || null) as EvictionStrategy | null)}
+                      disabled={row.saving || row.strategy === undefined}
+                      className="input-field text-sm"
+                    >
+                      {STRATEGIES.map(s => <option key={s.label} value={s.value ?? ''}>{s.label}</option>)}
+                    </select>
+                    {row.saving && <Loader2 className="w-4 h-4 animate-spin text-[var(--zf-muted)]" />}
+                  </div>
+                ),
+              },
+              {
+                key: 'meaning',
+                header: 'What it means',
+                render: (row) => (
+                  <span className="text-xs text-[var(--zf-muted)] max-w-md block">
+                    {STRATEGIES.find(s => (s.value ?? null) === (row.strategy ?? null))?.description}
+                  </span>
+                ),
+              },
+            ]}
+            rows={rows}
+            getRowKey={(row) => row.vm.name}
+            bordered={false}
+            emptyState={<EmptyState icon={<ShieldAlert className="w-10 h-10" />} title="No VMs to configure" />}
+          />
+        </div>
       ) : null}
     </div>
   )
