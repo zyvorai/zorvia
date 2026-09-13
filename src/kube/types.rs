@@ -550,11 +550,27 @@ pub struct InputDevice {
     pub bus: Option<String>,
 }
 
+/// Real KubeVirt schema (confirmed against the cluster's installed CRD):
+/// `{name: string (required), i6300esb: {action}}` -- `i6300esb` is the
+/// only watchdog model KubeVirt actually supports, and its only valid
+/// `action` values are `poweroff`, `reset`, `shutdown` (defaults to
+/// `reset` if omitted). This previously modeled a flat `{model, action}`
+/// shape that doesn't exist in the real CRD -- any patch built from that
+/// shape was silently dropped down to `{name: ""}` by the API server's
+/// structural-schema pruning, `model`/`action` never actually reaching a
+/// live device.
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct WatchdogDevice {
+    #[serde(default)]
+    pub name: String,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub model: Option<String>,
+    pub i6300esb: Option<I6300esbWatchdog>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct I6300esbWatchdog {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub action: Option<String>,
 }

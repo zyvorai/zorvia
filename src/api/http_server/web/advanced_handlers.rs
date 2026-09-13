@@ -144,12 +144,7 @@ pub async fn fabric_set_boot(
             let (st, j) = err_json(400, "VALIDATION_FAILED", "secure_boot requires UEFI firmware");
             return (st, j).into_response();
         }
-        let bootloader = if want_uefi {
-            json!({ "efi": { "secureBoot": body.secure_boot.unwrap_or(false) } })
-        } else {
-            json!({ "bios": {} })
-        };
-        patch["spec"] = json!({ "template": { "spec": { "domain": { "firmware": { "bootloader": bootloader } } } } });
+        patch = bootloader_patch(want_uefi, body.secure_boot.unwrap_or(false));
     }
 
     if let Some(order) = &body.boot_order {
@@ -360,9 +355,26 @@ pub async fn fabric_set_cpu_model(
 }
 
 // ---- Watchdog -----------------------------------------------------------
+// Real KubeVirt schema (confirmed against the cluster's installed CRD):
+// `i6300esb` is the only supported model, with actions limited to
+// `poweroff`/`reset`/`shutdown` -- there is no `ib700` model or
+// `pause`/`none` action, despite the frontend's WatchdogConfig type
+// allowing for them. Reject those rather than silently accepting and
+// dropping them, which is exactly what the previous (wrong) WatchdogDevice
+// shape did.
 
-const VALID_WATCHDOG_MODELS: &[&str] = &["i6300esb", "ib700"];
-const VALID_WATCHDOG_ACTIONS: &[&str] = &["reset", "shutdown", "poweroff", "pause", "none"];
+const VALID_WATCHDOG_MODELS: &[&str] = &["i6300esb"];
+const VALID_WATCHDOG_ACTIONS: &[&str] = &["reset", "shutdown", "poweroff"];
+
+fn watchdog_config_json(watchdog: Option<&crate::kube::types::WatchdogDevice>) -> serde_json::Value {
+    match watchdog.and_then(|w| w.i6300esb.as_ref()) {
+        Some(i6300esb) => json!({
+            "model": "i6300esb",
+            "action": i6300esb.action.clone().unwrap_or_else(|| "reset".to_string()),
+        }),
+        None => serde_json::Value::Null,
+    }
+}
 
 pub async fn fabric_get_watchdog(
     State(state): State<SharedState>,
@@ -382,7 +394,7 @@ pub async fn fabric_get_watchdog(
                 .devices
                 .as_ref()
                 .and_then(|d| d.watchdog.as_ref());
-            Json(json!(watchdog)).into_response()
+            Json(watchdog_config_json(watchdog)).into_response()
         }
         Err(e) => {
             let (st, j) = err_json(404, "NOT_FOUND", &sanitize_error(&e));
@@ -419,7 +431,7 @@ pub async fn fabric_set_watchdog(
     let api = vm_api(&client, &namespace);
     let patch = json!({
         "spec": { "template": { "spec": { "domain": { "devices": {
-            "watchdog": { "model": body.model, "action": body.action }
+            "watchdog": { "name": "watchdog0", "i6300esb": { "action": body.action } }
         } } } } }
     });
     match patch_vm(&api, &name, &patch).await {
@@ -523,6 +535,34 @@ pub struct EnableUefiBody {
     pub tpm_version: Option<String>,
 }
 
+/// Build a merge-patch that sets `firmware.bootloader` to EFI (with the
+/// given `secureBoot` value) or BIOS, always explicitly nulling out the
+/// other option. KubeVirt's admission webhook rejects a VM with both
+/// `bios` and `efi` present under `bootloader` at once, and JSON merge
+/// patch only adds/overwrites keys it's given -- patching just `efi`
+/// leaves a pre-existing sibling `bios` key in place, which is exactly
+/// what made the first version of this handler fail live with "has both
+/// EFI and BIOS configured, but they are mutually exclusive".
+///
+/// Also: KubeVirt requires `features.smm.enabled: true` whenever
+/// `secureBoot` is true (confirmed against the cluster's CRD: "Requires
+/// SMM to be enabled"), so this always folds that in alongside secure
+/// boot rather than leaving callers to discover the dependency themselves.
+fn bootloader_patch(want_uefi: bool, secure_boot: bool) -> serde_json::Value {
+    let bootloader = if want_uefi {
+        json!({ "bios": null, "efi": { "secureBoot": secure_boot, "persistent": true } })
+    } else {
+        json!({ "efi": null, "bios": {} })
+    };
+    let mut patch = json!({
+        "spec": { "template": { "spec": { "domain": { "firmware": { "bootloader": bootloader } } } } }
+    });
+    if want_uefi && secure_boot {
+        patch["spec"]["template"]["spec"]["domain"]["features"] = json!({ "smm": { "enabled": true } });
+    }
+    patch
+}
+
 pub async fn fabric_enable_uefi(
     State(state): State<SharedState>,
     Path(name): Path<String>,
@@ -533,11 +573,7 @@ pub async fn fabric_enable_uefi(
     let client = s.client();
     drop(s);
 
-    let mut patch = json!({
-        "spec": { "template": { "spec": { "domain": { "firmware": { "bootloader": {
-            "efi": { "secureBoot": body.secure_boot, "persistent": true }
-        } } } } } }
-    });
+    let mut patch = bootloader_patch(true, body.secure_boot);
     if body.tpm_version.is_some() {
         patch["spec"]["template"]["spec"]["domain"]["devices"] = json!({ "tpm": {} });
     }
@@ -579,11 +615,7 @@ async fn set_secure_boot(state: SharedState, name: String, enabled: bool) -> axu
         return (st, j).into_response();
     }
     let api = vm_api(&client, &namespace);
-    let patch = json!({
-        "spec": { "template": { "spec": { "domain": { "firmware": { "bootloader": {
-            "efi": { "secureBoot": enabled, "persistent": true }
-        } } } } } }
-    });
+    let patch = bootloader_patch(true, enabled);
     match patch_vm(&api, &name, &patch).await {
         Ok(_) => StatusCode::NO_CONTENT.into_response(),
         Err(e) => {
@@ -629,11 +661,7 @@ pub async fn fabric_reset_nvram(State(state): State<SharedState>, Path(name): Pa
         return (st, j).into_response();
     }
     let api = vm_api(&client, &namespace);
-    let patch = json!({
-        "spec": { "template": { "spec": { "domain": { "firmware": { "bootloader": {
-            "efi": { "secureBoot": false, "persistent": true }
-        } } } } } }
-    });
+    let patch = bootloader_patch(true, false);
     match patch_vm(&api, &name, &patch).await {
         Ok(_) => StatusCode::NO_CONTENT.into_response(),
         Err(e) => {
