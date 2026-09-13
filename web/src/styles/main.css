@@ -1042,8 +1042,17 @@ textarea.input-field {
   overflow: auto;
 }
 
+/* Single shared skeleton treatment -- both Skeleton.tsx's per-content
+   placeholders and PageSkeleton's route-level fallback render this class,
+   so there's one shimmer system instead of two. Token-derived so it adapts
+   in dark mode instead of always showing a light-gray gradient. */
 .skeleton {
-  background: linear-gradient(90deg, #ebebed 25%, #f5f5f7 50%, #ebebed 75%);
+  background: linear-gradient(
+    90deg,
+    var(--zf-canvas-alt) 25%,
+    var(--zf-hairline) 50%,
+    var(--zf-canvas-alt) 75%
+  );
   background-size: 200% 100%;
   animation: shimmer 1.4s ease-in-out infinite;
   border-radius: 8px;

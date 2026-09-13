@@ -1,16 +1,18 @@
 // Copyright 2026 Zyvor AI Labs · https://zyvor.dev
 // SPDX-License-Identifier: Apache-2.0
 
+import { Skeleton } from './Skeleton'
+
 export default function PageSkeleton() {
   return (
     <div className="space-y-6 animate-fade-in">
-      <div className="h-8 w-48 skeleton" />
-      <div className="h-12 w-full skeleton" />
+      <Skeleton className="h-8 w-48" />
+      <Skeleton className="h-12 w-full" />
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        <div className="h-40 skeleton" />
-        <div className="h-40 skeleton" />
+        <Skeleton className="h-40" />
+        <Skeleton className="h-40" />
       </div>
-      <div className="h-64 skeleton" />
+      <Skeleton className="h-64" />
     </div>
   )
 }
