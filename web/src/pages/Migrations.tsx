@@ -18,7 +18,7 @@ import { toastFailure } from '../utils/toastError'
 import { hintsForError } from '../utils/daemonHints'
 import { useConfirm } from '../hooks/useConfirm'
 import ConfirmDialog from '../components/ConfirmDialog'
-import { PageHeader } from '../components/ui'
+import { PageHeader, EmptyState, DataTable, type DataTableColumn } from '../components/ui'
 
 const TERMINAL_PHASES: MigrationPhase[] = ['Succeeded', 'Failed']
 
@@ -80,6 +80,18 @@ export default function Migrations() {
   const activeMigrations = migrations.filter(m => !TERMINAL_PHASES.includes(m.phase))
   const completedMigrations = migrations.filter(m => TERMINAL_PHASES.includes(m.phase))
 
+  const historyColumns: DataTableColumn<MigrationStatus>[] = [
+    { key: 'vm', header: 'VM', render: (m) => <span className="font-medium">{m.vm_name}</span> },
+    { key: 'source', header: 'Source', render: (m) => <span className="font-mono text-sm text-[var(--zf-muted)]">{m.source_node || '—'}</span> },
+    { key: 'target', header: 'Target', render: (m) => <span className="font-mono text-sm text-[var(--zf-muted)]">{m.target_node || '—'}</span> },
+    { key: 'phase', header: 'Phase', render: (m) => <StatusBadge phase={m.phase} /> },
+    {
+      key: 'started',
+      header: 'Started',
+      render: (m) => <span className="text-sm text-[var(--zf-muted)]">{m.start_timestamp ? new Date(m.start_timestamp).toLocaleString() : '—'}</span>,
+    },
+  ]
+
   return (
     <div className="space-y-6">
       {loadError && (
@@ -133,35 +145,14 @@ export default function Migrations() {
             </button>
           </div>
         ) : (
-          <div className="bg-[var(--zf-surface)] rounded-lg border border-[var(--zf-hairline)]">
-            <div className="overflow-x-auto">
-              <table className="w-full">
-                <thead className="bg-white">
-                  <tr>
-                    <th className="text-left p-4 font-medium text-[var(--zf-ink)]">VM</th>
-                    <th className="text-left p-4 font-medium text-[var(--zf-ink)]">Source</th>
-                    <th className="text-left p-4 font-medium text-[var(--zf-ink)]">Target</th>
-                    <th className="text-left p-4 font-medium text-[var(--zf-ink)]">Phase</th>
-                    <th className="text-left p-4 font-medium text-[var(--zf-ink)]">Started</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-[var(--zf-hairline)]">
-                  {completedMigrations.map(migration => (
-                    <tr key={migration.id} className="hover:bg-black/[0.03] transition">
-                      <td className="p-4 font-medium">{migration.vm_name}</td>
-                      <td className="p-4 font-mono text-sm text-[var(--zf-muted)]">{migration.source_node || '—'}</td>
-                      <td className="p-4 font-mono text-sm text-[var(--zf-muted)]">{migration.target_node || '—'}</td>
-                      <td className="p-4">
-                        <StatusBadge phase={migration.phase} />
-                      </td>
-                      <td className="p-4 text-sm text-[var(--zf-muted)]">
-                        {migration.start_timestamp ? new Date(migration.start_timestamp).toLocaleString() : '—'}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+          <div className="bg-[var(--zf-surface)] rounded-lg border border-[var(--zf-hairline)] overflow-hidden">
+            <DataTable
+              columns={historyColumns}
+              rows={completedMigrations}
+              getRowKey={(migration) => migration.id}
+              bordered={false}
+              emptyState={<EmptyState icon={<ArrowRightLeft className="w-10 h-10" />} title="No completed migrations yet" />}
+            />
           </div>
         )}
       </div>
@@ -197,11 +188,11 @@ function StatusBadge({ phase }: { phase: string }) {
     Pending: 'text-[var(--zf-muted)] bg-[var(--zf-canvas)] border-[var(--zf-hairline)]',
     Scheduling: 'text-[var(--zf-link)] bg-[var(--zf-canvas)] border-[var(--zf-hairline)]',
     Scheduled: 'text-[var(--zf-link)] bg-[var(--zf-canvas)] border-[var(--zf-hairline)]',
-    PreparingTarget: 'text-amber-800 bg-amber-50 border-amber-200',
-    TargetReady: 'text-amber-800 bg-amber-50 border-amber-200',
-    Running: 'text-amber-800 bg-amber-50 border-amber-200',
-    Succeeded: 'text-emerald-700 bg-emerald-50 border-emerald-200',
-    Failed: 'text-red-700 bg-red-50 border-red-200',
+    PreparingTarget: 'text-[var(--zf-warning)] bg-[var(--zf-warning)]/10 border-[var(--zf-warning)]/25',
+    TargetReady: 'text-[var(--zf-warning)] bg-[var(--zf-warning)]/10 border-[var(--zf-warning)]/25',
+    Running: 'text-[var(--zf-warning)] bg-[var(--zf-warning)]/10 border-[var(--zf-warning)]/25',
+    Succeeded: 'text-[var(--zf-success)] bg-[var(--zf-success)]/10 border-[var(--zf-success)]/25',
+    Failed: 'text-[var(--zf-danger)] bg-[var(--zf-danger)]/10 border-[var(--zf-danger)]/25',
   }
 
   return (
@@ -284,7 +275,7 @@ function StartMigrationDialog({
       <div className="bg-[var(--zf-surface)] rounded-lg border border-[var(--zf-hairline)] w-full max-w-md">
         <div className="flex items-center justify-between p-6 border-b border-[var(--zf-hairline)]">
           <h2 className="text-xl font-bold">Start Migration</h2>
-          <button onClick={onClose} className="p-2 hover:bg-black/[0.04] rounded transition">
+          <button onClick={onClose} className="p-2 hover:bg-[var(--zf-hover-tint)] rounded transition">
             <span className="text-2xl">&times;</span>
           </button>
         </div>
