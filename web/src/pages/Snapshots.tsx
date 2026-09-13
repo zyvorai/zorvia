@@ -17,7 +17,7 @@ import ErrorBanner from '../components/ErrorBanner'
 import { formatUserError } from '../utils/apiError'
 import { toastFailure } from '../utils/toastError'
 import RelativeTime from '../components/RelativeTime'
-import { PageHeader } from '../components/ui'
+import { PageHeader, DataTable, type DataTableColumn } from '../components/ui'
 
 export default function Snapshots() {
   const { confirmState, confirm, cancel } = useConfirm()
@@ -68,6 +68,44 @@ export default function Snapshots() {
     }
   }
 
+  const snapshotColumns: DataTableColumn<VMSnapshot>[] = [
+    {
+      key: 'name',
+      header: 'Name',
+      render: (snap) => (
+        <div className="flex items-center gap-2">
+          <Camera className="w-4 h-4 text-[var(--zf-link)]" />
+          <span className="font-medium">{snap.name}</span>
+        </div>
+      ),
+    },
+    { key: 'type', header: 'Type', render: (snap) => <span className="text-sm text-[var(--zf-muted)]">{snap.snapshot_type}</span> },
+    { key: 'description', header: 'Description', render: (snap) => <span className="text-sm text-[var(--zf-muted)]">{snap.description || '-'}</span> },
+    {
+      key: 'created',
+      header: 'Created',
+      render: (snap) => (
+        <span className="text-sm text-[var(--zf-muted)]">
+          <RelativeTime date={snap.created} />
+        </span>
+      ),
+    },
+    {
+      key: 'actions',
+      header: 'Actions',
+      render: (snap) => (
+        <div className="flex items-center gap-2">
+          <button type="button" onClick={() => void handleRevert(snap.id)} className="p-2 hover:bg-[var(--zf-hover-tint)] rounded transition" title="Revert to snapshot">
+            <RotateCcw className="w-4 h-4 text-[var(--zf-warning)]" />
+          </button>
+          <button type="button" onClick={() => void handleDelete(snap.id)} className="p-2 hover:bg-[var(--zf-hover-tint)] rounded transition" title="Delete snapshot">
+            <Trash2 className="w-4 h-4 text-[var(--zf-danger)]" />
+          </button>
+        </div>
+      ),
+    },
+  ]
+
   return (
     <div className="p-8">
       {loadError && vmName && (
@@ -87,7 +125,7 @@ export default function Snapshots() {
               type="text"
               value={vmName}
               onChange={(e) => setVmName(e.target.value)}
-              className="w-full bg-white border border-[var(--zf-hairline)] rounded px-4 py-2"
+              className="w-full bg-[var(--zf-surface)] border border-[var(--zf-hairline)] rounded px-4 py-2"
               placeholder="Enter VM name"
             />
           </div>
@@ -103,54 +141,16 @@ export default function Snapshots() {
 
       {vmName && (
         <div className="zf-panel overflow-hidden">
-          <table className="w-full">
-            <thead>
-              <tr className="text-left text-[var(--zf-muted)] text-sm">
-                <th className="p-4">Name</th>
-                <th className="p-4">Type</th>
-                <th className="p-4">Description</th>
-                <th className="p-4">Created</th>
-                <th className="p-4">Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {loading ? (
-                <tr>
-                  <td colSpan={5} className="p-8 text-center text-[var(--zf-muted)]">Loading snapshots...</td>
-                </tr>
-              ) : snapshots.length === 0 ? (
-                <tr>
-                  <td colSpan={5} className="p-8 text-center text-[var(--zf-muted)]">No snapshots found for this VM.</td>
-                </tr>
-              ) : (
-                snapshots.map((snap) => (
-                  <tr key={snap.id} className="border-t border-[var(--zf-hairline)] hover:bg-white">
-                    <td className="p-4">
-                      <div className="flex items-center gap-2">
-                        <Camera className="w-4 h-4 text-[var(--zf-link)]" />
-                        <span className="font-medium">{snap.name}</span>
-                      </div>
-                    </td>
-                    <td className="p-4 text-sm text-[var(--zf-muted)]">{snap.snapshot_type}</td>
-                    <td className="p-4 text-sm text-[var(--zf-muted)]">{snap.description || '-'}</td>
-                    <td className="p-4 text-sm text-[var(--zf-muted)]">
-                      <RelativeTime date={snap.created} />
-                    </td>
-                    <td className="p-4">
-                      <div className="flex items-center gap-2">
-                        <button type="button" onClick={() => void handleRevert(snap.id)} className="p-2 hover:bg-black/[0.04] rounded transition" title="Revert to snapshot">
-                          <RotateCcw className="w-4 h-4 text-amber-600" />
-                        </button>
-                        <button type="button" onClick={() => void handleDelete(snap.id)} className="p-2 hover:bg-black/[0.04] rounded transition" title="Delete snapshot">
-                          <Trash2 className="w-4 h-4 text-red-600" />
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
+          <DataTable
+            columns={snapshotColumns}
+            rows={snapshots}
+            getRowKey={(snap) => snap.id}
+            loading={loading}
+            bordered={false}
+            emptyState={
+              <div className="p-8 text-center text-[var(--zf-muted)]">No snapshots found for this VM.</div>
+            }
+          />
         </div>
       )}
 
@@ -225,7 +225,7 @@ function CreateSnapshotDialog({
               type="text"
               value={name}
               onChange={(e) => setName(e.target.value)}
-              className="w-full bg-white border border-[var(--zf-hairline)] rounded px-4 py-2"
+              className="w-full bg-[var(--zf-surface)] border border-[var(--zf-hairline)] rounded px-4 py-2"
               required
             />
           </div>
@@ -235,7 +235,7 @@ function CreateSnapshotDialog({
               type="text"
               value={description}
               onChange={(e) => setDescription(e.target.value)}
-              className="w-full bg-white border border-[var(--zf-hairline)] rounded px-4 py-2"
+              className="w-full bg-[var(--zf-surface)] border border-[var(--zf-hairline)] rounded px-4 py-2"
             />
           </div>
           <div className="mb-6">
@@ -243,7 +243,7 @@ function CreateSnapshotDialog({
             <select
               value={snapshotType}
               onChange={(e) => setSnapshotType(e.target.value as 'Disk' | 'Full')}
-              className="w-full bg-white border border-[var(--zf-hairline)] rounded px-4 py-2"
+              className="w-full bg-[var(--zf-surface)] border border-[var(--zf-hairline)] rounded px-4 py-2"
             >
               <option value="Disk">Disk</option>
               <option value="Full">Full</option>
