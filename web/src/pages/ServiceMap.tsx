@@ -6,7 +6,7 @@ import { Link } from 'react-router'
 import { Network } from 'lucide-react'
 import { getServiceMap, ServiceMapEntry } from '../api/serviceMap'
 import ErrorBanner from '../components/ErrorBanner'
-import { PageHeader, EmptyState } from '../components/ui'
+import { PageHeader, EmptyState, DataTable } from '../components/ui'
 import { formatUserError } from '../utils/apiError'
 import { toastFailure } from '../utils/toastError'
 import { hintsForError } from '../utils/daemonHints'
@@ -73,28 +73,22 @@ export default function ServiceMap() {
                 <Link to={`/app/vms/${encodeURIComponent(vmName)}`} className="font-medium text-[var(--zf-ink)] hover:underline">{vmName}</Link>
                 <span className="text-xs text-[var(--zf-muted)]">{services.length} service{services.length !== 1 ? 's' : ''}</span>
               </div>
-              <table className="w-full text-sm">
-                <thead><tr className="border-b border-[var(--zf-hairline)]">
-                  <th className="text-left px-5 py-2 text-xs font-medium text-[var(--zf-muted)] uppercase tracking-wider">Service</th>
-                  <th className="text-left px-5 py-2 text-xs font-medium text-[var(--zf-muted)] uppercase tracking-wider">Guest Port</th>
-                  <th className="text-left px-5 py-2 text-xs font-medium text-[var(--zf-muted)] uppercase tracking-wider">Protocol</th>
-                  <th className="text-left px-5 py-2 text-xs font-medium text-[var(--zf-muted)] uppercase tracking-wider">Connect</th>
-                  <th className="text-left px-5 py-2 text-xs font-medium text-[var(--zf-muted)] uppercase tracking-wider">Cluster IP</th>
-                </tr></thead>
-                <tbody className="divide-y divide-[var(--zf-hairline)]/30">
-                  {services.map((svc) => (
-                    <tr key={svc.service_name} className="hover:bg-black/[0.04] transition-colors">
-                      <td className="px-5 py-3 font-mono text-xs text-[var(--zf-ink)]">{svc.service_name}</td>
-                      <td className="px-5 py-3 text-[var(--zf-muted)]">{svc.guest_port}</td>
-                      <td className="px-5 py-3 text-[var(--zf-muted)] uppercase text-xs">{svc.protocol}</td>
-                      <td className="px-5 py-3 font-mono text-xs text-[var(--zf-ink)]">
-                        {svc.host_port ? `${svc.expose_host}:${svc.host_port}` : '—'}
-                      </td>
-                      <td className="px-5 py-3 text-[var(--zf-muted)] font-mono text-xs">{svc.cluster_ip || '—'}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+              <DataTable
+                columns={[
+                  { key: 'service', header: 'Service', className: 'px-5', render: (svc) => <span className="font-mono text-xs text-[var(--zf-ink)]">{svc.service_name}</span> },
+                  { key: 'port', header: 'Guest Port', render: (svc) => <span className="text-[var(--zf-muted)]">{svc.guest_port}</span> },
+                  { key: 'protocol', header: 'Protocol', render: (svc) => <span className="text-[var(--zf-muted)] uppercase text-xs">{svc.protocol}</span> },
+                  {
+                    key: 'connect',
+                    header: 'Connect',
+                    render: (svc) => <span className="font-mono text-xs text-[var(--zf-ink)]">{svc.host_port ? `${svc.expose_host}:${svc.host_port}` : '—'}</span>,
+                  },
+                  { key: 'cluster_ip', header: 'Cluster IP', render: (svc) => <span className="text-[var(--zf-muted)] font-mono text-xs">{svc.cluster_ip || '—'}</span> },
+                ]}
+                rows={services}
+                getRowKey={(svc) => svc.service_name}
+                bordered={false}
+              />
             </div>
           ))}
         </div>
