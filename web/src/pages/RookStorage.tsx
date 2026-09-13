@@ -34,10 +34,10 @@ const DEFAULT_NAMESPACE = 'rook-ceph'
 
 const HEALTH_STYLES: Record<string, string> = {
   NotProvisioned: 'text-[var(--zf-muted)] bg-[var(--zf-canvas)] border-[var(--zf-hairline)]',
-  Provisioning: 'text-amber-800 bg-amber-50 border-amber-200',
-  Healthy: 'text-emerald-700 bg-emerald-50 border-emerald-200',
-  Warning: 'text-amber-800 bg-amber-50 border-amber-200',
-  Error: 'text-red-700 bg-red-50 border-red-200',
+  Provisioning: 'text-[var(--zf-warning)] bg-[var(--zf-warning)]/10 border-[var(--zf-warning)]/25',
+  Healthy: 'text-[var(--zf-success)] bg-[var(--zf-success)]/10 border-[var(--zf-success)]/25',
+  Warning: 'text-[var(--zf-warning)] bg-[var(--zf-warning)]/10 border-[var(--zf-warning)]/25',
+  Error: 'text-[var(--zf-danger)] bg-[var(--zf-danger)]/10 border-[var(--zf-danger)]/25',
   Unknown: 'text-[var(--zf-muted)] bg-[var(--zf-canvas)] border-[var(--zf-hairline)]',
 }
 
@@ -133,7 +133,7 @@ export default function RookStorage() {
             <input
               value={namespace}
               onChange={(e) => setNamespace(e.target.value.trim() || DEFAULT_NAMESPACE)}
-              className="w-48 px-3 py-1.5 bg-white border border-[var(--zf-hairline)] rounded-md text-sm font-mono"
+              className="w-48 px-3 py-1.5 bg-[var(--zf-surface)] border border-[var(--zf-hairline)] rounded-md text-sm font-mono"
             />
           </div>
           <span className={`px-3 py-1 rounded-full text-xs font-medium border ${HEALTH_STYLES[status?.state ?? 'Unknown']}`}>
@@ -143,7 +143,7 @@ export default function RookStorage() {
         {status?.phase && <p className="text-sm text-[var(--zf-muted)]">Phase: {status.phase}</p>}
         {status?.ceph_health && <p className="text-sm text-[var(--zf-muted)]">Ceph health: {status.ceph_health}</p>}
         {status?.message && (
-          <p className="text-sm text-amber-800 bg-amber-50 border border-amber-200 rounded px-3 py-2">{status.message}</p>
+          <p className="text-sm text-[var(--zf-warning)] bg-[var(--zf-warning)]/10 border border-[var(--zf-warning)]/25 rounded px-3 py-2">{status.message}</p>
         )}
 
         {!provisioned && (
@@ -368,13 +368,13 @@ function CreatePoolForm({
           value={name}
           onChange={(e) => setName(e.target.value)}
           placeholder="fast-ssd"
-          className="w-36 px-2.5 py-1.5 bg-white border border-[var(--zf-hairline)] rounded-md text-sm"
+          className="w-36 px-2.5 py-1.5 bg-[var(--zf-surface)] border border-[var(--zf-hairline)] rounded-md text-sm"
         />
       </div>
       <select
         value={mode}
         onChange={(e) => setMode(e.target.value as 'replicated' | 'erasure')}
-        className="px-2.5 py-1.5 bg-white border border-[var(--zf-hairline)] rounded-md text-sm"
+        className="px-2.5 py-1.5 bg-[var(--zf-surface)] border border-[var(--zf-hairline)] rounded-md text-sm"
       >
         <option value="replicated">Replicated</option>
         <option value="erasure">Erasure-coded</option>
@@ -388,7 +388,7 @@ function CreatePoolForm({
             max={9}
             value={size}
             onChange={(e) => setSize(parseInt(e.target.value) || 3)}
-            className="w-20 px-2.5 py-1.5 bg-white border border-[var(--zf-hairline)] rounded-md text-sm"
+            className="w-20 px-2.5 py-1.5 bg-[var(--zf-surface)] border border-[var(--zf-hairline)] rounded-md text-sm"
           />
         </div>
       ) : (
@@ -400,7 +400,7 @@ function CreatePoolForm({
               min={1}
               value={dataChunks}
               onChange={(e) => setDataChunks(parseInt(e.target.value) || 4)}
-              className="w-20 px-2.5 py-1.5 bg-white border border-[var(--zf-hairline)] rounded-md text-sm"
+              className="w-20 px-2.5 py-1.5 bg-[var(--zf-surface)] border border-[var(--zf-hairline)] rounded-md text-sm"
             />
           </div>
           <div>
@@ -410,7 +410,7 @@ function CreatePoolForm({
               min={1}
               value={codingChunks}
               onChange={(e) => setCodingChunks(parseInt(e.target.value) || 2)}
-              className="w-20 px-2.5 py-1.5 bg-white border border-[var(--zf-hairline)] rounded-md text-sm"
+              className="w-20 px-2.5 py-1.5 bg-[var(--zf-surface)] border border-[var(--zf-hairline)] rounded-md text-sm"
             />
           </div>
         </>
@@ -450,7 +450,7 @@ function CreateNamedForm({
         value={name}
         onChange={(e) => setName(e.target.value)}
         placeholder={placeholder}
-        className="w-48 px-2.5 py-1.5 bg-white border border-[var(--zf-hairline)] rounded-md text-sm"
+        className="w-48 px-2.5 py-1.5 bg-[var(--zf-surface)] border border-[var(--zf-hairline)] rounded-md text-sm"
       />
       <button
         type="button"
