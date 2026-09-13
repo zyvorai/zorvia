@@ -548,9 +548,17 @@ pub struct EnableUefiBody {
 /// `secureBoot` is true (confirmed against the cluster's CRD: "Requires
 /// SMM to be enabled"), so this always folds that in alongside secure
 /// boot rather than leaving callers to discover the dependency themselves.
+///
+/// Deliberately leaves `persistent` unset (KubeVirt's own default is
+/// `false`) rather than forcing `true` -- persisting EFI NVRAM across
+/// reboots requires the cluster-wide `VMPersistentState` feature gate,
+/// confirmed live to be disabled on this cluster (the same gate that
+/// blocks the Create VM wizard's UEFI option); forcing it on would make
+/// every UEFI enable/secure-boot/reset call fail on any cluster without
+/// that gate, for a property nothing here actually needs.
 fn bootloader_patch(want_uefi: bool, secure_boot: bool) -> serde_json::Value {
     let bootloader = if want_uefi {
-        json!({ "bios": null, "efi": { "secureBoot": secure_boot, "persistent": true } })
+        json!({ "bios": null, "efi": { "secureBoot": secure_boot } })
     } else {
         json!({ "efi": null, "bios": {} })
     };
