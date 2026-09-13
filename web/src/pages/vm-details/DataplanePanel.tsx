@@ -47,8 +47,8 @@ function formatBytes(n: number): string {
 }
 
 const inputCls =
-  'w-full bg-white border border-[#d2d2d7] rounded-lg px-3 py-2 text-sm text-[#1d1d1f] disabled:opacity-50'
-const labelCls = 'block text-xs text-[#6e6e73] mb-1'
+  'w-full bg-[var(--zf-surface)] border border-[var(--zf-hairline)] rounded-lg px-3 py-2 text-sm text-[var(--zf-ink)] disabled:opacity-50'
+const labelCls = 'block text-xs text-[var(--zf-muted)] mb-1'
 
 export default function DataplanePanel({ vmName }: { vmName: string }) {
   const toast = useToastContext()
@@ -284,9 +284,9 @@ export default function DataplanePanel({ vmName }: { vmName: string }) {
 
   if (loading) {
     return (
-      <div className="bg-[#f5f5f7] rounded-xl border border-[#d2d2d7] p-8 text-center">
-        <Loader2 className="w-6 h-6 text-[#6e6e73] mx-auto mb-2 animate-spin" />
-        <p className="text-sm text-[#6e6e73]">Loading VM edge dataplane…</p>
+      <div className="bg-[var(--zf-canvas)] rounded-xl border border-[var(--zf-hairline)] p-8 text-center">
+        <Loader2 className="w-6 h-6 text-[var(--zf-muted)] mx-auto mb-2 animate-spin" />
+        <p className="text-sm text-[var(--zf-muted)]">Loading VM edge dataplane…</p>
       </div>
     )
   }
@@ -295,13 +295,13 @@ export default function DataplanePanel({ vmName }: { vmName: string }) {
     return (
       <div className="space-y-3">
         <SubsystemBanner subsystem="vm_dataplane" title="VM edge dataplane" />
-        <div className="bg-[#f5f5f7] rounded-xl border border-[#d2d2d7] p-6 space-y-3">
-        <div className="flex items-center gap-2 text-red-600">
+        <div className="bg-[var(--zf-canvas)] rounded-xl border border-[var(--zf-hairline)] p-6 space-y-3">
+        <div className="flex items-center gap-2 text-[var(--zf-danger)]">
           <AlertCircle className="w-4 h-4" />
           <span className="text-sm font-medium">VM edge dataplane (FluxVM)</span>
         </div>
-        <p className="text-sm text-[#6e6e73]">{error}</p>
-        <p className="text-xs text-[#6e6e73]">
+        <p className="text-sm text-[var(--zf-muted)]">{error}</p>
+        <p className="text-xs text-[var(--zf-muted)]">
           Requires FluxVM with <code className="font-mono">[sandbox.dataplane] mode = &quot;ebpf&quot;</code>.
           Separate from Security → Network Policies (Fabric SDN).
         </p>
@@ -318,16 +318,16 @@ export default function DataplanePanel({ vmName }: { vmName: string }) {
       <SubsystemBanner subsystem="vm_dataplane" title="VM edge dataplane" />
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-2">
-          <Shield className="w-4 h-4 text-[#0071e3]" />
+          <Shield className="w-4 h-4 text-[var(--zf-link)]" />
           <div>
-            <h3 className="text-sm font-semibold text-[#1d1d1f]">VM edge dataplane (FluxVM)</h3>
-            <p className="text-xs text-[#6e6e73]">
+            <h3 className="text-sm font-semibold text-[var(--zf-ink)]">VM edge dataplane (FluxVM)</h3>
+            <p className="text-xs text-[var(--zf-muted)]">
               Per-VM TC/eBPF policy (schema v4), groups, rate limits, stats, and flows — not Fabric SDN.
             </p>
           </div>
         </div>
         <div className="flex items-center gap-2">
-          <label className="flex items-center gap-1.5 text-xs text-[#6e6e73]">
+          <label className="flex items-center gap-1.5 text-xs text-[var(--zf-muted)]">
             <input
               type="checkbox"
               checked={autoRefresh}
@@ -338,29 +338,29 @@ export default function DataplanePanel({ vmName }: { vmName: string }) {
           <button
             type="button"
             onClick={() => void load()}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm rounded-lg border border-[#d2d2d7] bg-white text-[#1d1d1f] hover:bg-[#f5f5f7]"
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm rounded-lg border border-[var(--zf-hairline)] bg-[var(--zf-surface)] text-[var(--zf-ink)] hover:bg-[var(--zf-canvas)]"
           >
             <RefreshCw className="w-3.5 h-3.5" /> Refresh
           </button>
         </div>
       </div>
 
-      <div className="flex gap-1 border-b border-[#d2d2d7]">
+      <div className="flex gap-1 border-b border-[var(--zf-hairline)]">
         {tabs.map((t) => (
           <button
             key={t.id}
             type="button"
             onClick={() => setTab(t.id)}
             className={`px-3 py-2 text-sm font-medium relative ${
-              tab === t.id ? 'text-[#0071e3]' : 'text-[#6e6e73] hover:text-[#1d1d1f]'
+              tab === t.id ? 'text-[var(--zf-link)]' : 'text-[var(--zf-muted)] hover:text-[var(--zf-ink)]'
             }`}
           >
             {t.label}
             {t.id === 'policy' && dirty && (
-              <span className="ml-1 inline-block w-1.5 h-1.5 rounded-full bg-amber-500" />
+              <span className="ml-1 inline-block w-1.5 h-1.5 rounded-full bg-[var(--zf-warning)]" />
             )}
             {tab === t.id && (
-              <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-[#0071e3] rounded-full" />
+              <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-[var(--zf-link)] rounded-full" />
             )}
           </button>
         ))}
@@ -370,25 +370,25 @@ export default function DataplanePanel({ vmName }: { vmName: string }) {
         <div className="space-y-4">
           <div className="flex flex-wrap gap-2">
             <StatusBadge status={status.attached ? 'running' : 'stopped'} />
-            <span className="text-xs px-2 py-1 rounded-full bg-white border border-[#d2d2d7] text-[#1d1d1f]">
+            <span className="text-xs px-2 py-1 rounded-full bg-[var(--zf-surface)] border border-[var(--zf-hairline)] text-[var(--zf-ink)]">
               mode: {status.mode}
             </span>
             {status.policy_synced ? (
-              <span className="text-xs px-2 py-1 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200">
+              <span className="text-xs px-2 py-1 rounded-full bg-[var(--zf-success)]/10 text-[var(--zf-success)] border border-[var(--zf-success)]/25">
                 policy synced
               </span>
             ) : (
-              <span className="text-xs px-2 py-1 rounded-full bg-amber-50 text-amber-800 border border-amber-200">
+              <span className="text-xs px-2 py-1 rounded-full bg-[var(--zf-warning)]/10 text-[var(--zf-warning)] border border-[var(--zf-warning)]/25">
                 policy not synced
               </span>
             )}
             {!status.schema_compatible && (
-              <span className="text-xs px-2 py-1 rounded-full bg-red-50 text-red-700 border border-red-200">
+              <span className="text-xs px-2 py-1 rounded-full bg-[var(--zf-danger)]/10 text-[var(--zf-danger)] border border-[var(--zf-danger)]/25">
                 schema incompatible
               </span>
             )}
           </div>
-          <div className="bg-white rounded-xl border border-[#d2d2d7] p-4 grid grid-cols-2 sm:grid-cols-4 gap-4 text-sm">
+          <div className="bg-[var(--zf-surface)] rounded-xl border border-[var(--zf-hairline)] p-4 grid grid-cols-2 sm:grid-cols-4 gap-4 text-sm">
             <Stat label="Attached" value={status.attached ? 'yes' : 'no'} />
             <Stat label="Mode" value={status.mode} />
             <Stat label="Schema version" value={status.schema_version?.toString() ?? '—'} />
@@ -400,20 +400,20 @@ export default function DataplanePanel({ vmName }: { vmName: string }) {
             <Stat label="Pin dir" value={status.pin_dir ?? '—'} mono />
           </div>
           {!status.attached && status.mode === 'legacy' && (
-            <p className="text-sm text-amber-800 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
+            <p className="text-sm text-[var(--zf-warning)] bg-[var(--zf-warning)]/10 border border-[var(--zf-warning)]/25 rounded-lg px-3 py-2">
               Dataplane is in legacy (nftables) mode. Set FluxVM{' '}
               <code className="font-mono text-xs">[sandbox.dataplane] mode = &quot;ebpf&quot;</code> and
               restart FluxVM to attach the TC program.
             </p>
           )}
           {!status.attached && status.mode !== 'legacy' && (
-            <p className="text-sm text-amber-800 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
+            <p className="text-sm text-[var(--zf-warning)] bg-[var(--zf-warning)]/10 border border-[var(--zf-warning)]/25 rounded-lg px-3 py-2">
               eBPF mode configured but not attached yet — start a bridged (netns) VM or check BPF object
               path / memlock / bpffs mounts.
             </p>
           )}
-          <div className="bg-white rounded-xl border border-[#d2d2d7] p-4 space-y-2">
-            <p className="text-xs font-medium text-[#6e6e73] uppercase tracking-wide">
+          <div className="bg-[var(--zf-surface)] rounded-xl border border-[var(--zf-hairline)] p-4 space-y-2">
+            <p className="text-xs font-medium text-[var(--zf-muted)] uppercase tracking-wide">
               Active policy snapshot
             </p>
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-sm">
@@ -456,7 +456,7 @@ export default function DataplanePanel({ vmName }: { vmName: string }) {
             </div>
             {((status.policy ?? policy).allow_ports.length > 0 ||
               (status.policy ?? policy).allow_cidrs.length > 0) && (
-              <p className="text-xs text-[#6e6e73] font-mono break-all">
+              <p className="text-xs text-[var(--zf-muted)] font-mono break-all">
                 {[...(status.policy ?? policy).allow_cidrs, ...(status.policy ?? policy).allow_ports]
                   .slice(0, 12)
                   .join(' · ')}
@@ -474,7 +474,7 @@ export default function DataplanePanel({ vmName }: { vmName: string }) {
       {tab === 'policy' && (
         <div className="space-y-4">
           {!canWrite && (
-            <p className="text-sm text-amber-800 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
+            <p className="text-sm text-[var(--zf-warning)] bg-[var(--zf-warning)]/10 border border-[var(--zf-warning)]/25 rounded-lg px-3 py-2">
               Viewer accounts can inspect policy but cannot save changes.
             </p>
           )}
@@ -513,7 +513,7 @@ export default function DataplanePanel({ vmName }: { vmName: string }) {
             <button
               type="button"
               onClick={() => setShowJson((v) => !v)}
-              className="text-xs px-2.5 py-1.5 rounded-lg border border-[#d2d2d7] bg-white text-[#6e6e73] hover:text-[#1d1d1f]"
+              className="text-xs px-2.5 py-1.5 rounded-lg border border-[var(--zf-hairline)] bg-[var(--zf-surface)] text-[var(--zf-muted)] hover:text-[var(--zf-ink)]"
             >
               {showJson ? 'Form editor' : 'Advanced JSON'}
             </button>
@@ -531,8 +531,8 @@ export default function DataplanePanel({ vmName }: { vmName: string }) {
               readOnly={!canWrite}
             />
           ) : (
-            <div className="bg-white rounded-xl border border-[#d2d2d7] p-4 space-y-4">
-              <label className="flex items-center gap-2 text-sm text-[#1d1d1f]">
+            <div className="bg-[var(--zf-surface)] rounded-xl border border-[var(--zf-hairline)] p-4 space-y-4">
+              <label className="flex items-center gap-2 text-sm text-[var(--zf-ink)]">
                 <input
                   type="checkbox"
                   checked={policy.default_allow}
@@ -634,7 +634,7 @@ export default function DataplanePanel({ vmName }: { vmName: string }) {
               />
 
               <div className="flex flex-wrap gap-4">
-                <label className="flex items-center gap-2 text-sm text-[#1d1d1f]">
+                <label className="flex items-center gap-2 text-sm text-[var(--zf-ink)]">
                   <input
                     type="checkbox"
                     checked={!!policy.allow_icmp}
@@ -643,7 +643,7 @@ export default function DataplanePanel({ vmName }: { vmName: string }) {
                   />
                   Allow ICMP / ICMPv6
                 </label>
-                <label className="flex items-center gap-2 text-sm text-[#1d1d1f]">
+                <label className="flex items-center gap-2 text-sm text-[var(--zf-ink)]">
                   <input
                     type="checkbox"
                     checked={!!policy.audit_mode}
@@ -701,7 +701,7 @@ export default function DataplanePanel({ vmName }: { vmName: string }) {
                       updatePolicy({ sample_rate: Math.max(0, parseInt(e.target.value, 10) || 0) })
                     }
                   />
-                  <p className="text-[11px] text-[#6e6e73] mt-1">0 = off; ≥1 enables flow sampling</p>
+                  <p className="text-[11px] text-[var(--zf-muted)] mt-1">0 = off; ≥1 enables flow sampling</p>
                 </div>
               </div>
             </div>
@@ -712,7 +712,7 @@ export default function DataplanePanel({ vmName }: { vmName: string }) {
               type="button"
               disabled={!dirty || saving}
               onClick={resetPolicy}
-              className="px-3 py-1.5 text-sm rounded-lg border border-[#d2d2d7] bg-white text-[#1d1d1f] disabled:opacity-40"
+              className="px-3 py-1.5 text-sm rounded-lg border border-[var(--zf-hairline)] bg-[var(--zf-surface)] text-[var(--zf-ink)] disabled:opacity-40"
             >
               Discard
             </button>
@@ -721,7 +721,7 @@ export default function DataplanePanel({ vmName }: { vmName: string }) {
                 type="button"
                 disabled={saving || (!dirty && !showJson)}
                 onClick={() => void savePolicy()}
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm rounded-lg bg-[#0071e3] text-white disabled:opacity-40"
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm rounded-lg bg-[var(--zf-link)] text-white disabled:opacity-40"
               >
                 {saving ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : null}
                 Save policy
@@ -733,11 +733,11 @@ export default function DataplanePanel({ vmName }: { vmName: string }) {
 
       {tab === 'effective' && (
         <div className="space-y-3">
-          <p className="text-sm text-[#6e6e73]">
+          <p className="text-sm text-[var(--zf-muted)]">
             Declared policy merged with matching security groups (FluxVM edge).
           </p>
           {!effective ? (
-            <p className="text-sm text-[#6e6e73]">Effective policy unavailable.</p>
+            <p className="text-sm text-[var(--zf-muted)]">Effective policy unavailable.</p>
           ) : (
             <TerminalTextarea
               title="dataplane — effective"
@@ -752,10 +752,10 @@ export default function DataplanePanel({ vmName }: { vmName: string }) {
       {tab === 'stats' && (
         <div className="space-y-4">
           {!stats ? (
-            <p className="text-sm text-[#6e6e73]">No stats available (program may not be attached).</p>
+            <p className="text-sm text-[var(--zf-muted)]">No stats available (program may not be attached).</p>
           ) : (
             <>
-              <div className="bg-white rounded-xl border border-[#d2d2d7] p-4 grid grid-cols-2 sm:grid-cols-3 gap-4 text-sm">
+              <div className="bg-[var(--zf-surface)] rounded-xl border border-[var(--zf-hairline)] p-4 grid grid-cols-2 sm:grid-cols-3 gap-4 text-sm">
                 <Stat label="Allowed packets" value={stats.allowed_packets.toLocaleString()} />
                 <Stat label="Allowed bytes" value={formatBytes(stats.allowed_bytes)} />
                 <Stat label="Dropped packets" value={stats.dropped_packets.toLocaleString()} />
@@ -765,7 +765,7 @@ export default function DataplanePanel({ vmName }: { vmName: string }) {
               <button
                 type="button"
                 onClick={() => void load()}
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm rounded-lg border border-[#d2d2d7] bg-white"
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm rounded-lg border border-[var(--zf-hairline)] bg-[var(--zf-surface)]"
               >
                 <RefreshCw className="w-3.5 h-3.5" /> Refresh counters
               </button>
@@ -794,17 +794,17 @@ export default function DataplanePanel({ vmName }: { vmName: string }) {
             <button
               type="button"
               onClick={() => void load()}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm rounded-lg border border-[#d2d2d7] bg-white"
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm rounded-lg border border-[var(--zf-hairline)] bg-[var(--zf-surface)]"
             >
               <RefreshCw className="w-3.5 h-3.5" /> Reload flows
             </button>
-            <p className="text-xs text-[#6e6e73] pb-2">
+            <p className="text-xs text-[var(--zf-muted)] pb-2">
               {flows.length} flow{flows.length === 1 ? '' : 's'} · sample_rate={policy.sample_rate}
             </p>
           </div>
 
           {flows.length === 0 ? (
-            <div className="bg-white rounded-xl border border-[#d2d2d7] p-6 text-center text-sm text-[#6e6e73]">
+            <div className="bg-[var(--zf-surface)] rounded-xl border border-[var(--zf-hairline)] p-6 text-center text-sm text-[var(--zf-muted)]">
               No flows sampled yet. Set sample rate ≥ 1 on the Policy tab and generate traffic.
             </div>
           ) : (
@@ -838,9 +838,9 @@ export default function DataplanePanel({ vmName }: { vmName: string }) {
 function Stat({ label, value, mono }: { label: string; value: string; mono?: boolean }) {
   return (
     <div className="min-w-0">
-      <div className="text-xs text-[#6e6e73] uppercase tracking-wide">{label}</div>
+      <div className="text-xs text-[var(--zf-muted)] uppercase tracking-wide">{label}</div>
       <div
-        className={`font-medium text-[#1d1d1f] mt-0.5 truncate ${mono ? 'font-mono text-xs' : ''}`}
+        className={`font-medium text-[var(--zf-ink)] mt-0.5 truncate ${mono ? 'font-mono text-xs' : ''}`}
         title={value}
       >
         {value}
@@ -863,7 +863,7 @@ function PresetBtn({
       type="button"
       disabled={disabled}
       onClick={onClick}
-      className="text-xs px-2.5 py-1.5 rounded-lg border border-[#d2d2d7] bg-white text-[#1d1d1f] hover:bg-[#f5f5f7] disabled:opacity-40"
+      className="text-xs px-2.5 py-1.5 rounded-lg border border-[var(--zf-hairline)] bg-[var(--zf-surface)] text-[var(--zf-ink)] hover:bg-[var(--zf-canvas)] disabled:opacity-40"
     >
       {label}
     </button>
@@ -900,19 +900,19 @@ function TagList({
       </label>
       <div className="flex flex-wrap gap-1.5 mb-2 min-h-[1.5rem]">
         {items.length === 0 && (
-          <span className="text-xs text-[#6e6e73]">None</span>
+          <span className="text-xs text-[var(--zf-muted)]">None</span>
         )}
         {items.map((item) => (
           <span
             key={item}
-            className="inline-flex items-center gap-1 text-xs font-mono px-2 py-1 rounded-md bg-[#f5f5f7] border border-[#d2d2d7] text-[#1d1d1f]"
+            className="inline-flex items-center gap-1 text-xs font-mono px-2 py-1 rounded-md bg-[var(--zf-canvas)] border border-[var(--zf-hairline)] text-[var(--zf-ink)]"
           >
             {item}
             {!disabled && (
               <button
                 type="button"
                 onClick={() => onRemove(item)}
-                className="text-[#6e6e73] hover:text-red-600"
+                className="text-[var(--zf-muted)] hover:text-[var(--zf-danger)]"
                 aria-label={`Remove ${item}`}
               >
                 <X className="w-3 h-3" />
@@ -939,7 +939,7 @@ function TagList({
           <button
             type="button"
             onClick={onAdd}
-            className="inline-flex items-center gap-1 px-3 py-2 text-sm rounded-lg border border-[#d2d2d7] bg-white shrink-0"
+            className="inline-flex items-center gap-1 px-3 py-2 text-sm rounded-lg border border-[var(--zf-hairline)] bg-[var(--zf-surface)] shrink-0"
           >
             <Plus className="w-3.5 h-3.5" /> Add
           </button>
@@ -947,7 +947,7 @@ function TagList({
             <button
               type="button"
               onClick={onClear}
-              className="inline-flex items-center gap-1 px-3 py-2 text-sm rounded-lg border border-[#d2d2d7] bg-white text-[#6e6e73] shrink-0"
+              className="inline-flex items-center gap-1 px-3 py-2 text-sm rounded-lg border border-[var(--zf-hairline)] bg-[var(--zf-surface)] text-[var(--zf-muted)] shrink-0"
               title="Clear all"
             >
               <Trash2 className="w-3.5 h-3.5" />
