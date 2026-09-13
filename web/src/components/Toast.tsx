@@ -3,7 +3,6 @@
 
 import { useEffect } from 'react'
 import { CheckCircle, XCircle, AlertCircle, Info, X } from 'lucide-react'
-import { formatUserError } from '../utils/apiError'
 
 export type ToastType = 'success' | 'error' | 'warning' | 'info'
 
@@ -19,10 +18,12 @@ interface ToastProps {
   onClose: (id: string) => void
 }
 
-function displayMessage(type: ToastType, message: string): string {
-  if (type !== 'error') return message
-  const sanitized = formatUserError(new Error(message))
-  return sanitized.length > 320 ? `${sanitized.slice(0, 317)}…` : sanitized
+/** `message` is already fully formatted by the caller (e.g. `toastFailure`)
+ * -- don't re-run it through error formatting again here, that was masking
+ * a real "no toast ever appears" bug by double-processing an already-safe
+ * string. */
+function displayMessage(_type: ToastType, message: string): string {
+  return message.length > 320 ? `${message.slice(0, 317)}…` : message
 }
 
 export function ToastItem({ toast, onClose }: ToastProps) {

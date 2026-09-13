@@ -10,7 +10,7 @@ import { listAuditLogs, AuditLog } from '../api/audit'
 import {
   Play, Square, RotateCw, Trash2, Info, Activity, HardDrive,
   Network, Camera, Terminal, Cpu, MemoryStick, Pause, Wifi,
-  AlertCircle, Loader2, RefreshCw, Plus, Plug, Usb, Cloud, Settings, Wrench, Shield, MonitorPlay,
+  AlertCircle, Loader2, RefreshCw, Plus, Plug, Usb, Cloud, Settings, Wrench, Shield, MonitorPlay, Copy,
 } from 'lucide-react'
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts'
 import { useToastContext } from '../contexts/ToastContext'
@@ -211,6 +211,9 @@ export default function VMDetails() {
                 </>
               )}
             </>
+          )}
+          {canWrite && (
+            <ActionBtn onClick={() => setShowCloneDialog(true)} color="purple" icon={Copy} label="Clone" />
           )}
           <Link
             to={`/app/vms/${vm.name}/console`}

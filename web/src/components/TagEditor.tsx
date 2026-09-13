@@ -5,6 +5,7 @@ import { useState } from 'react'
 import { X, Plus, Tag } from 'lucide-react'
 import { updateTags } from '../api/vm'
 import { useToastContext } from '../contexts/ToastContext'
+import { toastFailure } from '../utils/toastError'
 
 interface TagEditorProps {
   vmName: string
@@ -55,8 +56,8 @@ export default function TagEditor({ vmName, currentTags, onClose, onSuccess }: T
       toast.success('Tags updated successfully')
       onSuccess()
       onClose()
-    } catch (_error) {
-      toast.error('Failed to update tags')
+    } catch (error) {
+      toastFailure(toast, 'Failed to update tags', error)
     } finally {
       setSaving(false)
     }
