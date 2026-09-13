@@ -904,6 +904,19 @@ a:hover {
   color: var(--zf-ink) !important;
 }
 
+/* Real frosted-glass surface (unlike .zf-panel/.glass-card above, which are
+   flattened to a plain flat card by design) -- same saturate+blur recipe
+   already proven on .mkt-nav, for surfaces that should read as "elevated
+   glass" rather than a plain bordered panel. */
+.zf-glass {
+  background: var(--zf-nav-surface);
+  backdrop-filter: saturate(180%) blur(20px);
+  -webkit-backdrop-filter: saturate(180%) blur(20px);
+  border: 1px solid var(--zf-nav-border);
+  border-radius: var(--zf-radius);
+  box-shadow: var(--zf-shadow-elevated);
+}
+
 .icon-tile {
   display: inline-flex;
   align-items: center;

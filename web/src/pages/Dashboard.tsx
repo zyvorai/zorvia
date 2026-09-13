@@ -90,7 +90,7 @@ export default function Dashboard() {
 
   return (
     <div className="space-y-6">
-      <div className="glass-panel relative overflow-hidden px-6 py-6 sm:px-8 sm:py-7">
+      <div className="zf-glass relative overflow-hidden px-6 py-6 sm:px-8 sm:py-7">
         <div className="pointer-events-none absolute -right-6 -top-10 w-72 h-72 opacity-70">
           <FabricGraphic ambient />
         </div>
