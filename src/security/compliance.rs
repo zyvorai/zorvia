@@ -674,6 +674,7 @@ mod tests {
                                 numa: None,
                                 realtime: None,
                                 max_sockets: None,
+                                features: None,
                             }),
                             memory: None,
                             devices: Some(Devices {

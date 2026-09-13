@@ -312,6 +312,7 @@ pub fn vm_config_to_kubevirt(config: &VMConfig) -> Result<VirtualMachine> {
                         numa: None,
                         realtime: None,
                         max_sockets: config.cpu.max_sockets,
+                        features: None,
                     }),
                     memory: Some(Memory {
                         guest: Some(config.memory.size.clone()),

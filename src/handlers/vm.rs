@@ -1362,6 +1362,7 @@ mod tests {
                                 numa: None,
                                 realtime: None,
                                 max_sockets: None,
+                                features: None,
                             }),
                             memory: Some(Memory {
                                 guest: Some(memory.to_string()),

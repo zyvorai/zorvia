@@ -28,6 +28,10 @@ pub mod web {
     mod fabric_vm_handlers;
     use fabric_vm_handlers::*;
 
+    #[path = "advanced_handlers.rs"]
+    mod advanced_handlers;
+    use advanced_handlers::*;
+
     #[path = "kryton_handlers.rs"]
     mod kryton_handlers;
     use kryton_handlers::*;
@@ -620,10 +624,30 @@ pub mod web {
             )
             .route("/vms/:name/tags/:tag", delete(fabric_remove_tag))
             .route("/vms/:name/clone", post(fabric_clone_vm))
-            .route("/vms/:name/firmware", get(fabric_get_firmware))
-            .route("/vms/:name/cpu-config", get(fabric_get_cpu_config))
-            .route("/vms/:name/numa", get(fabric_get_numa))
-            .route("/vms/:name/serial", get(fabric_get_serial))
+            .route("/vms/:name/boot", get(fabric_get_boot).post(fabric_set_boot))
+            .route("/vms/:name/display", get(fabric_get_display).post(fabric_set_display))
+            .route(
+                "/vms/:name/cpu-model",
+                get(fabric_get_cpu_model).post(fabric_set_cpu_model),
+            )
+            .route(
+                "/vms/:name/watchdog",
+                get(fabric_get_watchdog).post(fabric_set_watchdog),
+            )
+            .route(
+                "/vms/:name/serials",
+                get(fabric_get_serials).post(fabric_add_serial),
+            )
+            .route("/vms/:name/firmware/status", get(fabric_get_firmware_status))
+            .route("/vms/:name/firmware/uefi", post(fabric_enable_uefi))
+            .route(
+                "/vms/:name/firmware/secureboot",
+                post(fabric_enable_secureboot).delete(fabric_disable_secureboot),
+            )
+            .route("/vms/:name/firmware/reset", post(fabric_reset_nvram))
+            .route("/vms/:name/cpu/affinity", get(fabric_get_cpu_affinity))
+            .route("/system/cpu-models", get(fabric_list_cpu_models))
+            .route("/system/firmware/capabilities", get(fabric_firmware_capabilities))
             .route(
                 "/vms/:name/snapshots",
                 get(fabric_list_vm_snapshots).post(fabric_create_snapshot),

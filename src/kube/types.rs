@@ -102,6 +102,17 @@ pub struct CPU {
     pub realtime: Option<Realtime>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub max_sockets: Option<u32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub features: Option<Vec<CPUFeatureSpec>>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct CPUFeatureSpec {
+    pub name: String,
+    /// KubeVirt values: "force", "require" (default), "optional", "disable", "forbid".
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub policy: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
