@@ -14,9 +14,9 @@ type CheckStatus = 'pass' | 'warning' | 'fail'
 interface HealthCheck { name: string; status: CheckStatus; message: string }
 
 function StatusIcon({ status }: { status: CheckStatus }) {
-  if (status === 'pass') return <span className="flex items-center justify-center w-6 h-6 rounded-full bg-emerald-50 text-emerald-700 text-xs">&#10003;</span>
-  if (status === 'warning') return <span className="flex items-center justify-center w-6 h-6 rounded-full bg-amber-50 text-amber-800 text-xs">&#9888;</span>
-  return <span className="flex items-center justify-center w-6 h-6 rounded-full bg-red-50 text-red-700 text-xs">&#10007;</span>
+  if (status === 'pass') return <span className="flex items-center justify-center w-6 h-6 rounded-full bg-[var(--zf-success)]/10 text-[var(--zf-success)] text-xs">&#10003;</span>
+  if (status === 'warning') return <span className="flex items-center justify-center w-6 h-6 rounded-full bg-[var(--zf-warning)]/10 text-[var(--zf-warning)] text-xs">&#9888;</span>
+  return <span className="flex items-center justify-center w-6 h-6 rounded-full bg-[var(--zf-danger)]/10 text-[var(--zf-danger)] text-xs">&#10007;</span>
 }
 
 /** Derives operator-facing health checks from the real guest-insight report
@@ -171,10 +171,10 @@ export default function VMHealthCheck() {
           {report && !checking && (
             <div className="flex flex-col gap-4">
               <div
-                className={`rounded-xl p-4 border flex items-center gap-3 ${overallHealthy ? 'bg-emerald-50 border-emerald-200' : 'bg-red-50 border-red-200'}`}
+                className={`rounded-xl p-4 border flex items-center gap-3 ${overallHealthy ? 'bg-[var(--zf-success)]/10 border-[var(--zf-success)]/25' : 'bg-[var(--zf-danger)]/10 border-[var(--zf-danger)]/25'}`}
               >
                 <div
-                  className={`w-8 h-8 rounded-full flex items-center justify-center ${overallHealthy ? 'bg-emerald-100 text-emerald-700' : 'bg-red-100 text-red-700'}`}
+                  className={`w-8 h-8 rounded-full flex items-center justify-center ${overallHealthy ? 'bg-[var(--zf-success)]/20 text-[var(--zf-success)]' : 'bg-[var(--zf-danger)]/20 text-[var(--zf-danger)]'}`}
                 >
                   {overallHealthy ? '✓' : '⚠'}
                 </div>
@@ -198,7 +198,7 @@ export default function VMHealthCheck() {
                       <div className="text-xs text-[var(--zf-muted)] mt-0.5">{check.message}</div>
                     </div>
                     <span
-                      className={`px-2 py-0.5 rounded-full text-xs font-medium border ${check.status === 'pass' ? 'text-emerald-700 bg-emerald-50 border-emerald-200' : check.status === 'warning' ? 'text-amber-800 bg-amber-50 border-amber-200' : 'text-red-700 bg-red-50 border-red-200'}`}
+                      className={`px-2 py-0.5 rounded-full text-xs font-medium border ${check.status === 'pass' ? 'text-[var(--zf-success)] bg-[var(--zf-success)]/10 border-[var(--zf-success)]/25' : check.status === 'warning' ? 'text-[var(--zf-warning)] bg-[var(--zf-warning)]/10 border-[var(--zf-warning)]/25' : 'text-[var(--zf-danger)] bg-[var(--zf-danger)]/10 border-[var(--zf-danger)]/25'}`}
                     >
                       {check.status}
                     </span>
