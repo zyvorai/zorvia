@@ -5,7 +5,8 @@ import { useState, useEffect, useMemo } from 'react'
 import { Search, HardDrive } from 'lucide-react'
 import { apiFetch } from '../api/client'
 import ErrorBanner from '../components/ErrorBanner'
-import { PageHeader, Card, CardBody } from '../components/ui'
+import { PageHeader, Card, CardBody, EmptyState, DataTable, type DataTableColumn } from '../components/ui'
+import { SkeletonCard, SkeletonTable } from '../components/Skeleton'
 import { formatUserError } from '../utils/apiError'
 import { toastFailure } from '../utils/toastError'
 import { hintsForError } from '../utils/daemonHints'
@@ -55,7 +56,36 @@ export default function DiskImages() {
   const totalSize = images.reduce((sum, img) => sum + (img.size_bytes || 0), 0)
   const toggleSelect = (path: string) => setSelected(prev => { const next = new Set(prev); if (next.has(path)) next.delete(path); else next.add(path); return next })
 
-  if (loading) return <div className="flex items-center justify-center h-64 text-[var(--zf-muted)]"><div className="animate-spin w-6 h-6 border-2 border-[var(--zf-hairline)] border-t-[var(--zf-ink)] rounded-full mr-3" />Loading disk images...</div>
+  const imageColumns: DataTableColumn<DiskImage>[] = [
+    { key: 'name', header: 'Name', render: (img) => <span className="text-[var(--zf-ink)] font-medium">{img.name}</span> },
+    {
+      key: 'format',
+      header: 'Format',
+      render: (img) => <span className={`px-2 py-0.5 rounded-full text-xs font-medium border ${formatBadge}`}>{img.format}</span>,
+    },
+    { key: 'size', header: 'Size', render: (img) => <span className="text-[var(--zf-ink)] font-mono text-xs">{formatBytes(img.size_bytes)}</span> },
+    {
+      key: 'path',
+      header: 'Path',
+      render: (img) => (
+        <span className="text-[var(--zf-muted)] text-xs font-mono truncate block max-w-[250px]" title={img.path}>
+          {img.path}
+        </span>
+      ),
+    },
+  ]
+
+  if (loading) {
+    return (
+      <div className="space-y-6">
+        <PageHeader title="Disk Images" description="Browse and manage VM disk images" />
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+          {Array.from({ length: 4 }).map((_, i) => <SkeletonCard key={i} />)}
+        </div>
+        <SkeletonTable rows={5} cols={5} />
+      </div>
+    )
+  }
 
   return (
     <div className="space-y-6">
@@ -88,32 +118,31 @@ export default function DiskImages() {
           className="input-field pl-10" />
       </div>
 
-      {filtered.length === 0 ? (
-        <Card><CardBody className="p-10 text-center text-[var(--zf-muted)]"><HardDrive className="w-10 h-10 mx-auto mb-3 opacity-50" /><p className="text-sm">{images.length === 0 ? 'No disk images found' : 'No images match your search'}</p></CardBody></Card>
-      ) : (
-        <Card className="overflow-hidden">
-          <table className="w-full text-sm">
-            <thead><tr className="border-b border-[var(--zf-hairline)]">
-              <th className="px-4 py-3 text-left w-10"><span className="sr-only">Select</span></th>
-              <th className="px-4 py-3 text-left text-xs font-medium text-[var(--zf-muted)] uppercase">Name</th>
-              <th className="px-4 py-3 text-left text-xs font-medium text-[var(--zf-muted)] uppercase">Format</th>
-              <th className="px-4 py-3 text-left text-xs font-medium text-[var(--zf-muted)] uppercase">Size</th>
-              <th className="px-4 py-3 text-left text-xs font-medium text-[var(--zf-muted)] uppercase">Path</th>
-            </tr></thead>
-            <tbody>
-              {filtered.map(img => (
-                <tr key={img.path} onClick={() => toggleSelect(img.path)} className={`border-b border-[var(--zf-hairline)]/60 cursor-pointer transition-colors ${selected.has(img.path) ? 'bg-[var(--zf-link)]/10' : 'hover:bg-black/[0.04]'}`}>
-                  <td className="px-4 py-3"><input type="checkbox" checked={selected.has(img.path)} onChange={() => toggleSelect(img.path)} className="rounded border-[var(--zf-hairline)]" /></td>
-                  <td className="px-4 py-3 text-[var(--zf-ink)] font-medium">{img.name}</td>
-                  <td className="px-4 py-3"><span className={`px-2 py-0.5 rounded-full text-xs font-medium border ${formatBadge}`}>{img.format}</span></td>
-                  <td className="px-4 py-3 text-[var(--zf-ink)] font-mono text-xs">{formatBytes(img.size_bytes)}</td>
-                  <td className="px-4 py-3 text-[var(--zf-muted)] text-xs font-mono truncate max-w-[250px]" title={img.path}>{img.path}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </Card>
-      )}
+      <Card className="overflow-hidden">
+        <DataTable
+          columns={imageColumns}
+          rows={filtered}
+          getRowKey={(img) => img.path}
+          bordered={false}
+          selectedKeys={selected}
+          onToggleRow={toggleSelect}
+          onToggleAll={() => {
+            const allSelected = filtered.length > 0 && filtered.every((img) => selected.has(img.path))
+            setSelected((prev) => {
+              const next = new Set(prev)
+              filtered.forEach((img) => (allSelected ? next.delete(img.path) : next.add(img.path)))
+              return next
+            })
+          }}
+          onRowClick={(img) => toggleSelect(img.path)}
+          emptyState={
+            <EmptyState
+              icon={<HardDrive className="w-10 h-10" />}
+              title={images.length === 0 ? 'No disk images found' : 'No images match your search'}
+            />
+          }
+        />
+      </Card>
     </div>
   )
 }
