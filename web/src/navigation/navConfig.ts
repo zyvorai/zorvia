@@ -92,11 +92,16 @@ export const NAV_GROUPS: NavGroup[] = [
         items: [
           { label: 'Migrations', path: '/app/migrations', icon: ArrowRightLeft },
           { label: 'Migration Readiness', path: '/app/migrations/readiness', icon: ListChecks },
-          { label: 'Event Stream', path: '/app/events', icon: Radio },
           { label: 'Health Check', path: '/app/health-check', icon: HeartPulse },
           { label: 'HA Policy', path: '/app/ha-policy', icon: ShieldAlert },
           { label: 'Placement Advisor', path: '/app/placement', icon: Scale },
           { label: 'Warm Pools', path: '/app/warm-pools', icon: Layers3 },
+        ],
+      },
+      {
+        label: 'Automation & Alerts',
+        items: [
+          { label: 'Event Stream', path: '/app/events', icon: Radio },
           { label: 'Schedules', path: '/app/schedules', icon: CalendarClock },
           { label: 'Alerts', path: '/app/alerts', icon: Bell },
           { label: 'Webhooks', path: '/app/webhooks', icon: Webhook },
