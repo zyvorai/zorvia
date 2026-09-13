@@ -15,7 +15,8 @@ import {
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts'
 import { useToastContext } from '../contexts/ToastContext'
 import { useVMActions } from '../hooks/useVMActions'
-import { StatusBadge } from '../components/ui'
+import { StatusBadge, DataTable, EmptyState, type DataTableColumn } from '../components/ui'
+import { Skeleton } from '../components/Skeleton'
 import ConfirmDialog from '../components/ConfirmDialog'
 import CloneVMDialog from '../components/CloneVMDialog'
 import ErrorBanner from '../components/ErrorBanner'
@@ -98,22 +99,22 @@ export default function VMDetails() {
 
   if (loading) {
     return (
-      <div className="space-y-6 animate-pulse">
-        <div className="h-5 w-24 bg-white rounded" />
+      <div className="space-y-6">
+        <Skeleton className="h-5 w-24" />
         <div className="flex items-center justify-between">
           <div className="space-y-2">
-            <div className="h-8 w-48 bg-white rounded" />
-            <div className="h-4 w-32 bg-white rounded" />
+            <Skeleton className="h-8 w-48" />
+            <Skeleton className="h-4 w-32" />
           </div>
           <div className="flex gap-2">
-            <div className="h-9 w-20 bg-white rounded-lg" />
-            <div className="h-9 w-20 bg-white rounded-lg" />
+            <Skeleton className="h-9 w-20 rounded-lg" />
+            <Skeleton className="h-9 w-20 rounded-lg" />
           </div>
         </div>
-        <div className="h-10 bg-white rounded" />
+        <Skeleton className="h-10" />
         <div className="grid grid-cols-2 gap-4">
-          <div className="h-48 bg-white rounded-xl" />
-          <div className="h-48 bg-white rounded-xl" />
+          <Skeleton className="h-48 rounded-xl" />
+          <Skeleton className="h-48 rounded-xl" />
         </div>
       </div>
     )
@@ -221,7 +222,7 @@ export default function VMDetails() {
           {canWrite && (
             <button
               onClick={() => setShowDeleteConfirm(true)}
-              className="p-1.5 rounded-lg text-[var(--zf-muted)] hover:text-[var(--zf-danger)] hover:bg-red-50 transition-colors"
+              className="p-1.5 rounded-lg text-[var(--zf-muted)] hover:text-[var(--zf-danger)] hover:bg-[var(--zf-danger)]/10 transition-colors"
               title="Delete VM"
             >
               <Trash2 className="w-4 h-4" />
@@ -307,11 +308,11 @@ function ActionBtn({ onClick, color, icon: Icon, label }: {
   label: string
 }) {
   const colors: Record<string, string> = {
-    green: 'bg-emerald-50 text-emerald-700 hover:bg-emerald-100',
-    red: 'bg-red-50 text-[var(--zf-danger)] hover:bg-red-100',
-    yellow: 'bg-amber-50 text-amber-800 hover:bg-amber-100',
+    green: 'bg-[var(--zf-success)]/10 text-[var(--zf-success)] hover:bg-[var(--zf-success)]/20',
+    red: 'bg-[var(--zf-danger)]/10 text-[var(--zf-danger)] hover:bg-[var(--zf-danger)]/20',
+    yellow: 'bg-[var(--zf-warning)]/10 text-[var(--zf-warning)] hover:bg-[var(--zf-warning)]/20',
     blue: 'bg-[var(--zf-link)]/15 text-[var(--zf-link)] hover:bg-[var(--zf-link)]/25',
-    purple: 'bg-black/[0.04] text-[var(--zf-ink)] hover:bg-black/[0.06]',
+    purple: 'bg-[var(--zf-hover-tint)] text-[var(--zf-ink)] hover:bg-[var(--zf-active-tint)]',
   }
 
   return (
@@ -529,9 +530,9 @@ function MetricsTab({ vm }: { vm: VM }) {
 function MetricStat({ label, value, color }: { label: string; value: string; color: string }) {
   const textMap: Record<string, string> = {
     blue: 'text-[var(--zf-link)]',
-    emerald: 'text-emerald-700',
+    emerald: 'text-[var(--zf-success)]',
     purple: 'text-[var(--zf-ink)]',
-    orange: 'text-amber-800',
+    orange: 'text-[var(--zf-warning)]',
   }
   return (
     <div className="zf-panel px-4 py-3">
@@ -564,66 +565,49 @@ function DisksTab({ vm }: { vm: VM }) {
     load()
   }, [load])
 
-  if (disks === null) {
-    return (
-      <div className="zf-panel p-8 text-center text-sm text-[var(--zf-muted)]">
-        <Loader2 className="w-6 h-6 mx-auto mb-2 animate-spin" />
-        Loading disks…
-      </div>
-    )
-  }
-
-  if (disks.length === 0) {
-    return (
-      <div className="zf-panel p-8 text-center">
-        <HardDrive className="w-10 h-10 text-[var(--zf-muted)] mx-auto mb-3" />
-        <p className="text-[var(--zf-muted)] text-sm">
-          {loadError ? `Could not load disks: ${loadError}` : 'No disk information available'}
-        </p>
-      </div>
-    )
-  }
+  const columns: DataTableColumn<VmDisk>[] = [
+    { key: 'device', header: 'Device', className: 'px-5', render: (disk) => <span className="font-medium text-[var(--zf-ink)]">{disk.name}</span> },
+    { key: 'source', header: 'Source', render: (disk) => disk.source },
+    { key: 'size', header: 'Size', render: (disk) => disk.size ?? '--' },
+    {
+      key: 'type',
+      header: 'Type',
+      render: (disk) => (
+        <span className="px-2 py-0.5 text-[11px] font-medium rounded text-[var(--zf-muted)] bg-[var(--zf-canvas)] border border-[var(--zf-hairline)]">
+          {disk.device_type.toUpperCase()}
+        </span>
+      ),
+    },
+    { key: 'bus', header: 'Bus', render: (disk) => disk.bus ?? '--' },
+    {
+      key: 'actions',
+      header: '',
+      className: 'text-right',
+      render: (disk) =>
+        disk.resizable && canWrite ? (
+          <button type="button" onClick={() => setResizeTarget(disk)} className="zf-btn zf-btn-ghost zf-btn-sm">
+            Resize
+          </button>
+        ) : null,
+    },
+  ]
 
   return (
     <div className="zf-panel overflow-hidden">
-      <table className="w-full text-sm">
-        <thead>
-          <tr className="text-left text-xs font-medium text-[var(--zf-muted)] uppercase tracking-wider border-b border-[var(--zf-hairline)]">
-            <th className="py-3 px-5">Device</th>
-            <th className="py-3 px-4">Source</th>
-            <th className="py-3 px-4">Size</th>
-            <th className="py-3 px-4">Type</th>
-            <th className="py-3 px-4">Bus</th>
-            <th className="py-3 px-4"></th>
-          </tr>
-        </thead>
-        <tbody>
-          {disks.map((disk) => (
-            <tr key={disk.name} className="border-t border-[var(--zf-hairline)]/50 hover:bg-black/[0.03] transition-colors">
-              <td className="py-3 px-5 font-medium text-[var(--zf-ink)]">{disk.name}</td>
-              <td className="py-3 px-4 text-[var(--zf-muted)]">{disk.source}</td>
-              <td className="py-3 px-4 text-[var(--zf-muted)]">{disk.size ?? '--'}</td>
-              <td className="py-3 px-4">
-                <span className="px-2 py-0.5 text-[11px] font-medium rounded text-[var(--zf-muted)] bg-[var(--zf-canvas)] border border-[var(--zf-hairline)]">
-                  {disk.device_type.toUpperCase()}
-                </span>
-              </td>
-              <td className="py-3 px-4 text-[var(--zf-muted)]">{disk.bus ?? '--'}</td>
-              <td className="py-3 px-4 text-right">
-                {disk.resizable && canWrite && (
-                  <button
-                    type="button"
-                    onClick={() => setResizeTarget(disk)}
-                    className="zf-btn zf-btn-ghost zf-btn-sm"
-                  >
-                    Resize
-                  </button>
-                )}
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
+      <DataTable
+        columns={columns}
+        rows={disks ?? []}
+        getRowKey={(disk) => disk.name}
+        loading={disks === null}
+        bordered={false}
+        emptyState={
+          <EmptyState
+            icon={<HardDrive className="w-10 h-10" />}
+            title="No disks"
+            description={loadError ? `Could not load disks: ${loadError}` : 'No disk information available'}
+          />
+        }
+      />
       {resizeTarget && (
         <ResizeDiskDialog
           disk={resizeTarget}
@@ -670,7 +654,7 @@ function ResizeDiskDialog({
           value={size}
           onChange={(e) => setSize(e.target.value)}
           placeholder="e.g. 40Gi"
-          className="w-full px-3 py-2 bg-white border border-[var(--zf-hairline)] rounded-lg text-sm font-mono"
+          className="w-full px-3 py-2 bg-[var(--zf-surface)] border border-[var(--zf-hairline)] rounded-lg text-sm font-mono"
         />
         <div className="flex justify-end gap-2">
           <button type="button" onClick={onClose} disabled={busy} className="zf-btn zf-btn-ghost zf-btn-sm">
@@ -739,50 +723,47 @@ function NetworkTabContent({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [vm.name])
 
-  const interfacesSection = interfaces === null ? (
-    <div className="zf-panel p-8 text-center text-sm text-[var(--zf-muted)]">
-      <Loader2 className="w-6 h-6 mx-auto mb-2 animate-spin" />
-      Loading network interfaces…
-    </div>
-  ) : interfaces.length === 0 ? (
-    <div className="zf-panel p-8 text-center">
-      <Network className="w-10 h-10 text-[var(--zf-muted)] mx-auto mb-3" />
-      <p className="text-[var(--zf-muted)] text-sm">
-        {loadError ? `Could not load interfaces: ${loadError}` : 'No network information available'}
-      </p>
-    </div>
-  ) : (
+  const interfaceColumns: DataTableColumn<VmInterface>[] = [
+    { key: 'name', header: 'Interface', className: 'px-5', render: (iface) => <span className="font-medium text-[var(--zf-ink)]">{iface.name}</span> },
+    { key: 'network', header: 'Network', render: (iface) => iface.network ?? '--' },
+    { key: 'mac', header: 'MAC Address', render: (iface) => <span className="font-mono text-xs">{iface.mac_address ?? '--'}</span> },
+    {
+      key: 'ip',
+      header: 'IP Address',
+      render: (iface) => (
+        <span className="font-mono text-xs text-[var(--zf-ink)]">
+          {iface.ip_addresses.length > 0 ? iface.ip_addresses.join(', ') : iface.ip_address ?? '--'}
+        </span>
+      ),
+    },
+    { key: 'model', header: 'Model', render: (iface) => iface.model ?? '--' },
+    {
+      key: 'type',
+      header: 'Type',
+      render: (iface) => (
+        <span className="px-2 py-0.5 text-[11px] font-medium rounded text-[var(--zf-muted)] bg-[var(--zf-canvas)] border border-[var(--zf-hairline)]">
+          {iface.network_type}
+        </span>
+      ),
+    },
+  ]
+
+  const interfacesSection = (
     <div className="zf-panel overflow-hidden">
-      <table className="w-full text-sm">
-        <thead>
-          <tr className="text-left text-xs font-medium text-[var(--zf-muted)] uppercase tracking-wider border-b border-[var(--zf-hairline)]">
-            <th className="py-3 px-5">Interface</th>
-            <th className="py-3 px-4">Network</th>
-            <th className="py-3 px-4">MAC Address</th>
-            <th className="py-3 px-4">IP Address</th>
-            <th className="py-3 px-4">Model</th>
-            <th className="py-3 px-4">Type</th>
-          </tr>
-        </thead>
-        <tbody>
-          {interfaces.map((iface) => (
-            <tr key={iface.name} className="border-t border-[var(--zf-hairline)]/50 hover:bg-black/[0.03] transition-colors">
-              <td className="py-3 px-5 font-medium text-[var(--zf-ink)]">{iface.name}</td>
-              <td className="py-3 px-4 text-[var(--zf-muted)]">{iface.network ?? '--'}</td>
-              <td className="py-3 px-4 font-mono text-xs text-[var(--zf-muted)]">{iface.mac_address ?? '--'}</td>
-              <td className="py-3 px-4 font-mono text-xs text-[var(--zf-ink)]">
-                {iface.ip_addresses.length > 0 ? iface.ip_addresses.join(', ') : iface.ip_address ?? '--'}
-              </td>
-              <td className="py-3 px-4 text-[var(--zf-muted)]">{iface.model ?? '--'}</td>
-              <td className="py-3 px-4">
-                <span className="px-2 py-0.5 text-[11px] font-medium rounded text-[var(--zf-muted)] bg-[var(--zf-canvas)] border border-[var(--zf-hairline)]">
-                  {iface.network_type}
-                </span>
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
+      <DataTable
+        columns={interfaceColumns}
+        rows={interfaces ?? []}
+        getRowKey={(iface) => iface.name}
+        loading={interfaces === null}
+        bordered={false}
+        emptyState={
+          <EmptyState
+            icon={<Network className="w-10 h-10" />}
+            title="No network interfaces"
+            description={loadError ? `Could not load interfaces: ${loadError}` : 'No network information available'}
+          />
+        }
+      />
     </div>
   )
 
@@ -932,56 +913,53 @@ function PortForwardsSection({ vm, onUpdated }: { vm: VM; onUpdated: () => void 
         </div>
       )}
 
-      {forwards.length === 0 ? (
-        <div className="p-8 text-center text-[var(--zf-muted)] text-sm">No ports exposed.</div>
-      ) : (
-        <table className="w-full text-sm">
-          <thead>
-            <tr className="text-left text-xs font-medium text-[var(--zf-muted)] uppercase tracking-wider border-b border-[var(--zf-hairline)]">
-              <th className="py-3 px-5">Host Port</th>
-              <th className="py-3 px-4">Guest Port</th>
-              <th className="py-3 px-4">Protocol</th>
-              <th className="py-3 px-4"></th>
-            </tr>
-          </thead>
-          <tbody>
-            {forwards.map((f, i) => (
-              <tr key={i} className="border-t border-[var(--zf-hairline)] hover:bg-black/[0.03] transition-colors">
-                <td className="py-3 px-5 font-mono text-[var(--zf-ink)]">{f.host_port}</td>
-                <td className="py-3 px-4 font-mono text-[var(--zf-ink)]">{f.guest_port}</td>
-                <td className="py-3 px-4">
-                  <span className="px-2 py-0.5 rounded text-xs font-medium bg-[var(--zf-link)]/10 text-[var(--zf-link)] border border-[var(--zf-link)]/20 uppercase">
-                    {f.protocol}
-                  </span>
-                </td>
-                <td className="py-3 px-4 text-right">
-                  <div className="flex items-center justify-end gap-1">
-                    {f.guest_port === 3389 && (
-                      <button
-                        onClick={() => downloadRdpFile(f.expose_host || window.location.hostname, f.host_port)}
-                        title="Download .rdp file"
-                        className="p-1.5 rounded-md text-[var(--zf-muted)] hover:text-[var(--zf-link)] hover:bg-black/[0.03] transition-colors"
-                      >
-                        <MonitorPlay className="w-3.5 h-3.5" />
-                      </button>
-                    )}
-                    {canWrite && (
-                      <button
-                        onClick={() => handleRemove(f.host_port)}
-                        disabled={removingPort === f.host_port}
-                        title="Remove port forward"
-                        className="p-1.5 rounded-md text-[var(--zf-muted)] hover:text-[var(--zf-danger)] hover:bg-red-50 disabled:opacity-50 transition-colors"
-                      >
-                        <Trash2 className="w-3.5 h-3.5" />
-                      </button>
-                    )}
-                  </div>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      )}
+      <DataTable
+        columns={[
+          { key: 'host', header: 'Host Port', className: 'px-5', render: (f) => <span className="font-mono text-[var(--zf-ink)]">{f.host_port}</span> },
+          { key: 'guest', header: 'Guest Port', render: (f) => <span className="font-mono text-[var(--zf-ink)]">{f.guest_port}</span> },
+          {
+            key: 'protocol',
+            header: 'Protocol',
+            render: (f) => (
+              <span className="px-2 py-0.5 rounded text-xs font-medium bg-[var(--zf-link)]/10 text-[var(--zf-link)] border border-[var(--zf-link)]/20 uppercase">
+                {f.protocol}
+              </span>
+            ),
+          },
+          {
+            key: 'actions',
+            header: '',
+            className: 'text-right',
+            render: (f) => (
+              <div className="flex items-center justify-end gap-1">
+                {f.guest_port === 3389 && (
+                  <button
+                    onClick={() => downloadRdpFile(f.expose_host || window.location.hostname, f.host_port)}
+                    title="Download .rdp file"
+                    className="p-1.5 rounded-md text-[var(--zf-muted)] hover:text-[var(--zf-link)] hover:bg-[var(--zf-hover-tint)] transition-colors"
+                  >
+                    <MonitorPlay className="w-3.5 h-3.5" />
+                  </button>
+                )}
+                {canWrite && (
+                  <button
+                    onClick={() => handleRemove(f.host_port)}
+                    disabled={removingPort === f.host_port}
+                    title="Remove port forward"
+                    className="p-1.5 rounded-md text-[var(--zf-muted)] hover:text-[var(--zf-danger)] hover:bg-[var(--zf-danger)]/10 disabled:opacity-50 transition-colors"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                  </button>
+                )}
+              </div>
+            ),
+          },
+        ]}
+        rows={forwards}
+        getRowKey={(f) => String(f.host_port)}
+        bordered={false}
+        emptyState={<div className="p-8 text-center text-[var(--zf-muted)] text-sm">No ports exposed.</div>}
+      />
     </div>
   )
 }
@@ -1189,64 +1167,66 @@ function SnapshotsTab({ vm }: { vm: VM }) {
         </div>
       )}
 
-      {snapshots.length === 0 ? (
-        <div className="zf-panel p-8 text-center">
-          <Camera className="w-10 h-10 text-[var(--zf-muted)] mx-auto mb-3" />
-          <p className="text-[var(--zf-muted)] text-sm">No snapshots found</p>
-          <p className="text-[var(--zf-muted)] text-xs mt-1">Create a snapshot to save the current state of this VM</p>
-        </div>
-      ) : (
-        <div className="zf-panel overflow-hidden">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="text-left text-xs font-medium text-[var(--zf-muted)] uppercase tracking-wider border-b border-[var(--zf-hairline)]">
-                <th className="py-3 px-5">Name</th>
-                <th className="py-3 px-4">Type</th>
-                <th className="py-3 px-4">Created</th>
-                <th className="py-3 px-4">Size</th>
-                <th className="py-3 px-4">Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {snapshots.map((snap) => (
-                <tr key={snap.id} className="border-t border-[var(--zf-hairline)]/50 hover:bg-black/[0.03] transition-colors group">
-                  <td className="py-3 px-5">
-                    <div className="font-medium text-[var(--zf-ink)]">{snap.name}</div>
-                    {snap.description && (
-                      <div className="text-xs text-[var(--zf-muted)] mt-0.5">{snap.description}</div>
-                    )}
-                  </td>
-                  <td className="py-3 px-4">
-                    <span className="px-2 py-0.5 text-[11px] font-medium rounded text-[var(--zf-muted)] bg-[var(--zf-canvas)] border border-[var(--zf-hairline)]">
-                      {snap.snapshot_type === 'Disk' ? 'disk-only' : 'full'}
-                    </span>
-                  </td>
-                  <td className="py-3 px-4 text-[var(--zf-muted)]">{new Date(snap.created).toLocaleString()}</td>
-                  <td className="py-3 px-4 text-[var(--zf-muted)] tabular-nums">{formatSize(snap.size_bytes)}</td>
-                  <td className="py-3 px-4">
-                    <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                      <button
-                        onClick={() => handleRevert(snap)}
-                        disabled={actionInProgress === snap.id}
-                        className="px-2.5 py-1 bg-[var(--zf-link)]/15 text-[var(--zf-link)] hover:bg-[var(--zf-link)]/25 disabled:opacity-50 rounded text-xs font-medium transition-colors"
-                      >
-                        {actionInProgress === snap.id ? 'Working...' : 'Restore'}
-                      </button>
-                      <button
-                        onClick={() => handleDelete(snap)}
-                        disabled={actionInProgress === snap.id}
-                        className="px-2.5 py-1 bg-red-50 text-[var(--zf-danger)] hover:bg-red-100 disabled:opacity-50 rounded text-xs font-medium transition-colors"
-                      >
-                        Delete
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
+      <div className="zf-panel overflow-hidden">
+        <DataTable
+          columns={[
+            {
+              key: 'name',
+              header: 'Name',
+              className: 'px-5',
+              render: (snap) => (
+                <>
+                  <div className="font-medium text-[var(--zf-ink)]">{snap.name}</div>
+                  {snap.description && <div className="text-xs text-[var(--zf-muted)] mt-0.5">{snap.description}</div>}
+                </>
+              ),
+            },
+            {
+              key: 'type',
+              header: 'Type',
+              render: (snap) => (
+                <span className="px-2 py-0.5 text-[11px] font-medium rounded text-[var(--zf-muted)] bg-[var(--zf-canvas)] border border-[var(--zf-hairline)]">
+                  {snap.snapshot_type === 'Disk' ? 'disk-only' : 'full'}
+                </span>
+              ),
+            },
+            { key: 'created', header: 'Created', render: (snap) => new Date(snap.created).toLocaleString() },
+            { key: 'size', header: 'Size', render: (snap) => <span className="tabular-nums">{formatSize(snap.size_bytes)}</span> },
+            {
+              key: 'actions',
+              header: 'Actions',
+              render: (snap) => (
+                <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                  <button
+                    onClick={() => handleRevert(snap)}
+                    disabled={actionInProgress === snap.id}
+                    className="px-2.5 py-1 bg-[var(--zf-link)]/15 text-[var(--zf-link)] hover:bg-[var(--zf-link)]/25 disabled:opacity-50 rounded text-xs font-medium transition-colors"
+                  >
+                    {actionInProgress === snap.id ? 'Working...' : 'Restore'}
+                  </button>
+                  <button
+                    onClick={() => handleDelete(snap)}
+                    disabled={actionInProgress === snap.id}
+                    className="px-2.5 py-1 bg-[var(--zf-danger)]/10 text-[var(--zf-danger)] hover:bg-[var(--zf-danger)]/20 disabled:opacity-50 rounded text-xs font-medium transition-colors"
+                  >
+                    Delete
+                  </button>
+                </div>
+              ),
+            },
+          ]}
+          rows={snapshots}
+          getRowKey={(snap) => snap.id}
+          bordered={false}
+          emptyState={
+            <EmptyState
+              icon={<Camera className="w-10 h-10" />}
+              title="No snapshots found"
+              description="Create a snapshot to save the current state of this VM"
+            />
+          }
+        />
+      </div>
     </div>
   )
 }
@@ -1318,9 +1298,9 @@ function LogsTab({ vm }: { vm: VM }) {
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-2">
           <div className={`w-2 h-2 rounded-full ${
-            vm.state === 'running' ? 'bg-emerald-500 animate-pulse'
-              : vm.state === 'starting' ? 'bg-amber-500 animate-pulse'
-              : vm.state === 'failed' ? 'bg-red-500' : 'bg-[var(--zf-hairline)]'
+            vm.state === 'running' ? 'bg-[var(--zf-success)] animate-pulse'
+              : vm.state === 'starting' ? 'bg-[var(--zf-warning)] animate-pulse'
+              : vm.state === 'failed' ? 'bg-[var(--zf-danger)]' : 'bg-[var(--zf-hairline)]'
           }`} />
           <span className="text-sm text-[var(--zf-muted)]">
             {vm.state === 'starting' ? 'Booting — watching console output live' : `VM is ${vm.state}`}
@@ -1337,7 +1317,7 @@ function LogsTab({ vm }: { vm: VM }) {
           <button
             onClick={() => setAutoRefresh((v) => !v)}
             className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm transition-colors ${
-              autoRefresh ? 'bg-[var(--zf-link)]/20 text-[var(--zf-link)] border border-[var(--zf-link)]/30' : 'bg-white border border-[var(--zf-hairline)] text-[var(--zf-muted)] hover:text-[var(--zf-ink)]'
+              autoRefresh ? 'bg-[var(--zf-link)]/20 text-[var(--zf-link)] border border-[var(--zf-link)]/30' : 'bg-[var(--zf-surface)] border border-[var(--zf-hairline)] text-[var(--zf-muted)] hover:text-[var(--zf-ink)]'
             }`}
           >
             <span className={`w-1.5 h-1.5 rounded-full ${autoRefresh ? 'bg-[var(--zf-link)] animate-pulse' : 'bg-[var(--zf-hairline)]'}`} />
