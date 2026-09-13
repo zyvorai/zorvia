@@ -5,7 +5,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { Gauge } from 'lucide-react'
 import { getCapacityOverview, getCapacityFit, CapacityOverview } from '../api/capacity'
 import ErrorBanner from '../components/ErrorBanner'
-import { PageHeader } from '../components/ui'
+import { PageHeader, DataTable } from '../components/ui'
 import { formatUserError } from '../utils/apiError'
 import { toastFailure } from '../utils/toastError'
 import { hintsForError } from '../utils/daemonHints'
@@ -16,9 +16,9 @@ function pct(used: number, total: number): number {
 }
 
 function barColor(p: number): string {
-  if (p >= 90) return 'bg-red-500'
-  if (p >= 70) return 'bg-amber-500'
-  return 'bg-emerald-500'
+  if (p >= 90) return 'bg-[var(--zf-danger)]'
+  if (p >= 70) return 'bg-[var(--zf-warning)]'
+  return 'bg-[var(--zf-success)]'
 }
 
 export default function CapacityPlanning() {
@@ -138,26 +138,26 @@ export default function CapacityPlanning() {
 
           <div className="bg-[var(--zf-surface)] rounded-xl border border-[var(--zf-hairline)] overflow-hidden">
             <div className="px-5 py-4 border-b border-[var(--zf-hairline)]"><h3 className="text-sm font-semibold text-[var(--zf-ink)]">Per-Node Breakdown</h3></div>
-            <table className="w-full text-sm">
-              <thead><tr className="border-b border-[var(--zf-hairline)]">
-                <th className="text-left px-5 py-2 text-xs font-medium text-[var(--zf-muted)] uppercase tracking-wider">Node</th>
-                <th className="text-left px-5 py-2 text-xs font-medium text-[var(--zf-muted)] uppercase tracking-wider">CPU</th>
-                <th className="text-left px-5 py-2 text-xs font-medium text-[var(--zf-muted)] uppercase tracking-wider">Memory</th>
-                <th className="text-left px-5 py-2 text-xs font-medium text-[var(--zf-muted)] uppercase tracking-wider">VMs</th>
-                <th className="text-left px-5 py-2 text-xs font-medium text-[var(--zf-muted)] uppercase tracking-wider">Status</th>
-              </tr></thead>
-              <tbody className="divide-y divide-[var(--zf-hairline)]/30">
-                {data.nodes.map(n => (
-                  <tr key={n.name}>
-                    <td className="px-5 py-2 text-[var(--zf-ink)] font-medium">{n.name}</td>
-                    <td className="px-5 py-2 text-xs text-[var(--zf-muted)]">{n.used_cpu.toFixed(1)} / {n.allocatable_cpu.toFixed(1)}</td>
-                    <td className="px-5 py-2 text-xs text-[var(--zf-muted)]">{n.used_memory_gib.toFixed(1)} / {n.allocatable_memory_gib.toFixed(1)} GiB</td>
-                    <td className="px-5 py-2 text-xs text-[var(--zf-muted)]">{n.vm_count}</td>
-                    <td className="px-5 py-2 text-xs">{n.unschedulable ? <span className="text-amber-700">Unschedulable</span> : <span className="text-emerald-700">Ready</span>}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+            <DataTable
+              columns={[
+                { key: 'node', header: 'Node', className: 'px-5', render: (n) => <span className="text-[var(--zf-ink)] font-medium">{n.name}</span> },
+                { key: 'cpu', header: 'CPU', render: (n) => <span className="text-xs text-[var(--zf-muted)]">{n.used_cpu.toFixed(1)} / {n.allocatable_cpu.toFixed(1)}</span> },
+                { key: 'memory', header: 'Memory', render: (n) => <span className="text-xs text-[var(--zf-muted)]">{n.used_memory_gib.toFixed(1)} / {n.allocatable_memory_gib.toFixed(1)} GiB</span> },
+                { key: 'vms', header: 'VMs', render: (n) => <span className="text-xs text-[var(--zf-muted)]">{n.vm_count}</span> },
+                {
+                  key: 'status',
+                  header: 'Status',
+                  render: (n) => (
+                    <span className="text-xs">
+                      {n.unschedulable ? <span className="text-[var(--zf-warning)]">Unschedulable</span> : <span className="text-[var(--zf-success)]">Ready</span>}
+                    </span>
+                  ),
+                },
+              ]}
+              rows={data.nodes}
+              getRowKey={(n) => n.name}
+              bordered={false}
+            />
           </div>
         </>
       ) : !loadError ? (
