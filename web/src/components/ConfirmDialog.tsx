@@ -35,21 +35,21 @@ export default function ConfirmDialog({
   }, [onCancel])
 
   const confirmColors = {
-    danger: 'bg-red-600 hover:bg-red-500 text-white',
-    warning: 'bg-yellow-600 hover:bg-yellow-500 text-[#1d1d1f]',
-    info: 'bg-[#0066cc] hover:bg-[#0077ed] text-white',
+    danger: 'bg-[var(--zf-danger)] hover:opacity-90 text-white',
+    warning: 'bg-[var(--zf-warning)] hover:opacity-90 text-black',
+    info: 'bg-[var(--zf-link)] hover:bg-[var(--zf-link-hover)] text-white',
   }[variant]
 
   const iconBg = {
-    danger: 'bg-red-500/10',
-    warning: 'bg-yellow-500/10',
-    info: 'bg-blue-500/10',
+    danger: 'bg-[var(--zf-danger)]/10',
+    warning: 'bg-[var(--zf-warning)]/10',
+    info: 'bg-[var(--zf-link)]/10',
   }[variant]
 
   const iconColor = {
-    danger: 'text-red-600',
-    warning: 'text-amber-600',
-    info: 'text-[#0066cc]',
+    danger: 'text-[var(--zf-danger)]',
+    warning: 'text-[var(--zf-warning)]',
+    info: 'text-[var(--zf-link)]',
   }[variant]
 
   return (
@@ -62,7 +62,7 @@ export default function ConfirmDialog({
       onClick={onCancel}
     >
       <div
-        className="bg-[#f5f5f7] rounded-xl shadow-2xl border border-[#d2d2d7] w-full max-w-md p-6"
+        className="bg-[var(--zf-canvas)] rounded-xl shadow-2xl border border-[var(--zf-hairline)] w-full max-w-md p-6"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-start gap-4 mb-5">
@@ -70,10 +70,10 @@ export default function ConfirmDialog({
             <AlertTriangle className={`w-5 h-5 ${iconColor}`} />
           </div>
           <div>
-            <h3 id="confirm-title" className="text-base font-semibold text-[#1d1d1f]">
+            <h3 id="confirm-title" className="text-base font-semibold text-[var(--zf-ink)]">
               {title}
             </h3>
-            <p id="confirm-message" className="text-sm text-[#6e6e73] mt-1 leading-relaxed">
+            <p id="confirm-message" className="text-sm text-[var(--zf-muted)] mt-1 leading-relaxed">
               {message}
             </p>
           </div>
@@ -82,7 +82,7 @@ export default function ConfirmDialog({
           <button
             ref={cancelRef}
             onClick={onCancel}
-            className="px-4 py-2 bg-white hover:bg-black/[0.04] border border-[#d2d2d7] rounded-lg transition-colors text-sm text-[#1d1d1f]"
+            className="px-4 py-2 bg-[var(--zf-surface)] hover:bg-[var(--zf-hover-tint)] border border-[var(--zf-hairline)] rounded-lg transition-colors text-sm text-[var(--zf-ink)]"
           >
             {cancelLabel}
           </button>
