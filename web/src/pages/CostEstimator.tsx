@@ -161,7 +161,7 @@ export default function CostEstimator() {
 
         <label className="flex items-center gap-3 cursor-pointer">
           <input type="checkbox" checked={includeSnapshots} onChange={() => setIncludeSnapshots(!includeSnapshots)} className="sr-only peer" />
-          <div className={`relative w-10 h-5 rounded-full transition-colors ${includeSnapshots ? 'bg-emerald-500' : 'bg-[var(--zf-hairline)]'}`}>
+          <div className={`relative w-10 h-5 rounded-full transition-colors ${includeSnapshots ? 'bg-[var(--zf-success)]' : 'bg-[var(--zf-hairline)]'}`}>
             <div className={`absolute top-0.5 w-4 h-4 rounded-full bg-white transition-transform ${includeSnapshots ? 'translate-x-5' : 'translate-x-0.5'}`} />
           </div>
           <span className="text-sm text-[var(--zf-ink)]">Include snapshots (+50% storage)</span>
@@ -169,7 +169,7 @@ export default function CostEstimator() {
 
         <div className="bg-[var(--zf-canvas)] rounded-lg px-3 py-2 text-xs text-[var(--zf-muted)]">
           Total estimated storage:{' '}
-          <span className="text-emerald-600 font-medium">
+          <span className="text-[var(--zf-success)] font-medium">
             {totalGB >= 1000 ? `${(totalGB / 1000).toFixed(1)} TB` : `${totalGB.toFixed(0)} GB`}
           </span>
         </div>
@@ -193,12 +193,12 @@ export default function CostEstimator() {
                   key={est.name}
                   className={`bg-[var(--zf-surface)] rounded-xl p-5 border transition-colors ${
                     isCheapest
-                      ? 'border-emerald-300 ring-1 ring-emerald-100'
+                      ? 'border-[var(--zf-success)]/40 ring-1 ring-[var(--zf-success)]/15'
                       : 'border-[var(--zf-hairline)]'
                   }`}
                 >
                   {isCheapest && (
-                    <span className="text-xs font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded mb-2 inline-block">
+                    <span className="text-xs font-semibold text-[var(--zf-success)] bg-[var(--zf-success)]/10 border border-[var(--zf-success)]/25 px-2 py-0.5 rounded mb-2 inline-block">
                       Cheapest
                     </span>
                   )}
@@ -224,8 +224,8 @@ export default function CostEstimator() {
           </div>
 
           {cheapest && (
-            <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-5">
-              <h4 className="text-sm font-semibold text-emerald-600 mb-2">
+            <div className="bg-[var(--zf-success)]/10 border border-[var(--zf-success)]/25 rounded-xl p-5">
+              <h4 className="text-sm font-semibold text-[var(--zf-success)] mb-2">
                 Savings vs On-Premises Storage
               </h4>
               <p className="text-xs text-[var(--zf-muted)] mb-1">
@@ -233,8 +233,8 @@ export default function CostEstimator() {
                 {ON_PREM_PRICE}/GB/mo)
               </p>
               <p className="text-sm text-[var(--zf-ink)]">
-                Using <span className="text-emerald-600 font-semibold">{cheapest.name}</span> saves{' '}
-                <span className="text-emerald-600 font-semibold">
+                Using <span className="text-[var(--zf-success)] font-semibold">{cheapest.name}</span> saves{' '}
+                <span className="text-[var(--zf-success)] font-semibold">
                   {formatCurrency(onPremMonthly - cheapest.monthly)}
                 </span>
                 /month (
