@@ -77,21 +77,31 @@ export default function VNCViewer({ vmName }: VNCViewerProps) {
     }
   }
 
+  // This viewer is a fixed-dark "device screen" regardless of app theme
+  // (like AppleTerminalFrame) -- its toolbar/status colors are chosen for
+  // contrast against that permanently-dark chrome, not against --zf-* tokens
+  // which would flip to a dark color in light app-theme and vanish.
   const statusMeta: Record<Status, { label: string; dot: string; text: string }> = {
     connecting: { label: 'Connecting…', dot: 'bg-amber-400 animate-pulse', text: 'text-amber-400' },
-    connected: { label: 'Connected', dot: 'bg-emerald-400', text: 'text-emerald-600' },
-    disconnected: { label: 'Disconnected', dot: 'bg-slate-500', text: 'text-[#6e6e73]' },
-    error: { label: 'Connection failed', dot: 'bg-red-400', text: 'text-red-600' },
+    connected: { label: 'Connected', dot: 'bg-emerald-400', text: 'text-emerald-400' },
+    disconnected: { label: 'Disconnected', dot: 'bg-slate-400', text: 'text-slate-300' },
+    error: { label: 'Connection failed', dot: 'bg-red-400', text: 'text-red-400' },
   }
   const meta = statusMeta[status]
 
   return (
     <div
       ref={frameRef}
-      className={`relative rounded-xl border border-[#d2d2d7] overflow-hidden ${fullscreen ? 'bg-black' : 'bg-gradient-to-b from-slate-900 to-black'}`}
+      className={`relative rounded-xl border border-white/10 overflow-hidden ${fullscreen ? 'bg-black' : 'bg-gradient-to-b from-slate-900 to-black'}`}
     >
-      {/* Toolbar */}
-      <div className={`flex items-center justify-between gap-3 px-4 py-2.5 border-b border-white/10 ${fullscreen ? 'bg-black/80' : 'bg-slate-900/70'}`}>
+      {/* Toolbar. bg-slate-900/70 is set via inline style, not a class --
+          main.css's compatibility shim force-lightens any bg-slate-900/*
+          class in light app-theme, which would turn this permanently-dark
+          toolbar into an unreadable light bar with light button text. */}
+      <div
+        className="flex items-center justify-between gap-3 px-4 py-2.5 border-b border-white/10"
+        style={{ background: fullscreen ? 'rgba(0, 0, 0, 0.8)' : 'rgba(15, 23, 42, 0.7)' }}
+      >
         <div className="flex items-center gap-2">
           <span className={`w-2 h-2 rounded-full ${meta.dot}`} />
           <span className={`text-xs font-medium ${meta.text}`}>{meta.label}</span>
@@ -102,7 +112,7 @@ export default function VNCViewer({ vmName }: VNCViewerProps) {
             onClick={() => rfbRef.current?.sendCtrlAltDel()}
             disabled={status !== 'connected'}
             title="Send Ctrl+Alt+Del"
-            className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium text-[#1d1d1f] hover:text-[#1d1d1f] hover:bg-white/10 disabled:opacity-40 disabled:hover:bg-transparent transition-colors"
+            className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium text-slate-200 hover:text-white hover:bg-white/10 disabled:opacity-40 disabled:hover:bg-transparent transition-colors"
           >
             <Keyboard className="w-3.5 h-3.5" />
             Ctrl+Alt+Del
@@ -112,7 +122,7 @@ export default function VNCViewer({ vmName }: VNCViewerProps) {
               type="button"
               onClick={() => setConnectAttempt((n) => n + 1)}
               title="Reconnect"
-              className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium text-[#1d1d1f] hover:text-[#1d1d1f] hover:bg-white/10 transition-colors"
+              className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium text-slate-200 hover:text-white hover:bg-white/10 transition-colors"
             >
               <RotateCw className="w-3.5 h-3.5" />
               Reconnect
@@ -122,7 +132,7 @@ export default function VNCViewer({ vmName }: VNCViewerProps) {
             type="button"
             onClick={toggleFullscreen}
             title={fullscreen ? 'Exit fullscreen' : 'Fullscreen'}
-            className="p-1.5 rounded-lg text-[#1d1d1f] hover:text-[#1d1d1f] hover:bg-white/10 transition-colors"
+            className="p-1.5 rounded-lg text-slate-200 hover:text-white hover:bg-white/10 transition-colors"
           >
             {fullscreen ? <Minimize className="w-3.5 h-3.5" /> : <Maximize className="w-3.5 h-3.5" />}
           </button>
@@ -143,20 +153,20 @@ export default function VNCViewer({ vmName }: VNCViewerProps) {
           <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 pointer-events-none">
             {status === 'connecting' && (
               <>
-                <Loader2 className="w-8 h-8 text-[#0066cc] animate-spin" />
-                <p className="text-sm text-[#6e6e73]">Connecting to display…</p>
+                <Loader2 className="w-8 h-8 text-blue-400 animate-spin" />
+                <p className="text-sm text-slate-400">Connecting to display…</p>
               </>
             )}
             {status === 'disconnected' && (
               <>
-                <WifiOff className="w-8 h-8 text-[#6e6e73]" />
-                <p className="text-sm text-[#6e6e73]">{errorMsg || 'Disconnected'}</p>
+                <WifiOff className="w-8 h-8 text-slate-400" />
+                <p className="text-sm text-slate-400">{errorMsg || 'Disconnected'}</p>
               </>
             )}
             {status === 'error' && (
               <>
-                <AlertTriangle className="w-8 h-8 text-red-600" />
-                <p className="text-sm text-red-600">{errorMsg || 'Connection failed'}</p>
+                <AlertTriangle className="w-8 h-8 text-red-400" />
+                <p className="text-sm text-red-400">{errorMsg || 'Connection failed'}</p>
               </>
             )}
           </div>
@@ -165,7 +175,7 @@ export default function VNCViewer({ vmName }: VNCViewerProps) {
           // A black canvas alone is indistinguishable from a dead connection
           // -- the guest's VGA framebuffer stays blank on any image whose
           // console output goes entirely to a serial tty, which is common.
-          <div className="absolute bottom-3 right-3 flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-black/60 backdrop-blur-sm text-[#6e6e73] text-[11px] pointer-events-none">
+          <div className="absolute bottom-3 right-3 flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-black/60 backdrop-blur-sm text-slate-300 text-[11px] pointer-events-none">
             <Monitor className="w-3 h-3" />
             Live display
           </div>
