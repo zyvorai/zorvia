@@ -25,6 +25,7 @@ const statusStyles: Record<string, string> = {
   paused: WARNING,
   warning: WARNING,
   pending: WARNING,
+  in_progress: WARNING,
   unknown: 'text-[var(--zf-muted)] bg-[var(--zf-canvas)] border-[var(--zf-hairline)]',
 }
 
@@ -42,6 +43,7 @@ const dotColors: Record<string, string> = {
   paused: 'bg-[var(--zf-warning)]',
   warning: 'bg-[var(--zf-warning)]',
   pending: 'bg-[var(--zf-warning)]',
+  in_progress: 'bg-[var(--zf-warning)]',
   unknown: 'bg-[var(--zf-muted)]',
 }
 

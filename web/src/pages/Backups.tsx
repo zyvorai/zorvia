@@ -9,7 +9,7 @@ import { useToastContext } from '../contexts/ToastContext'
 import { useConfirm } from '../hooks/useConfirm'
 import ConfirmDialog from '../components/ConfirmDialog'
 import ErrorBanner from '../components/ErrorBanner'
-import { PageHeader, EmptyState } from '../components/ui'
+import { PageHeader, EmptyState, DataTable, StatusBadge, type DataTableColumn } from '../components/ui'
 import { formatUserError } from '../utils/apiError'
 import { toastFailure } from '../utils/toastError'
 import { hintsForError } from '../utils/daemonHints'
@@ -19,14 +19,6 @@ function fmtBytes(n: number): string {
   if (n >= 1024 ** 3) return `${(n / 1024 ** 3).toFixed(1)} GB`
   if (n >= 1024 ** 2) return `${(n / 1024 ** 2).toFixed(1)} MB`
   return `${(n / 1024).toFixed(1)} KB`
-}
-
-function statusBadge(status: Backup['status']): string {
-  switch (status) {
-    case 'completed': return 'text-emerald-700 bg-emerald-50 border-emerald-200'
-    case 'failed': return 'text-red-700 bg-red-50 border-red-200'
-    default: return 'text-amber-800 bg-amber-50 border-amber-200'
-  }
 }
 
 export default function Backups() {
@@ -101,6 +93,25 @@ export default function Backups() {
     }
   }
 
+  const backupColumns: DataTableColumn<Backup>[] = [
+    { key: 'id', header: 'Backup', className: 'px-5', render: (b) => <span className="font-mono text-xs text-[var(--zf-ink)]">{b.id}</span> },
+    { key: 'vm', header: 'VM', render: (b) => <span className="text-[var(--zf-muted)]">{b.vm_name}</span> },
+    { key: 'status', header: 'Status', render: (b) => <StatusBadge status={b.status} /> },
+    { key: 'size', header: 'Size', render: (b) => <span className="text-[var(--zf-muted)]">{fmtBytes(b.size_bytes)}</span> },
+    { key: 'created', header: 'Created', render: (b) => <span className="text-xs text-[var(--zf-muted)]">{b.created ? new Date(b.created).toLocaleString() : '—'}</span> },
+    { key: 'expires', header: 'Expires', render: (b) => <span className="text-xs text-[var(--zf-muted)]">{b.expires_at ? new Date(b.expires_at).toLocaleDateString() : '—'}</span> },
+    {
+      key: 'actions',
+      header: 'Actions',
+      className: 'text-right',
+      render: (b) => (
+        <button onClick={() => handleDelete(b)} disabled={deletingId === b.id} className="p-1.5 text-[var(--zf-muted)] hover:text-[var(--zf-danger)] hover:bg-[var(--zf-danger)]/10 rounded-lg transition-colors disabled:opacity-50" title="Delete backup">
+          {deletingId === b.id ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
+        </button>
+      ),
+    },
+  ]
+
   return (
     <div className="space-y-6">
       <PageHeader
@@ -145,7 +156,7 @@ export default function Backups() {
                   <input type="text" value={description} onChange={(e) => setDescription(e.target.value)} placeholder="pre-upgrade backup" className="input-field text-sm w-full" />
                 </div>
               </div>
-              {createError && <p className="text-sm text-red-600">{createError}</p>}
+              {createError && <p className="text-sm text-[var(--zf-danger)]">{createError}</p>}
               <div className="flex gap-2">
                 <button onClick={handleCreate} disabled={creating} className="zf-btn zf-btn-primary zf-btn-sm">
                   {creating ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
@@ -156,40 +167,17 @@ export default function Backups() {
             </div>
           )}
 
-          {backups.length === 0 ? (
-            <EmptyState icon={<HardDrive className="w-8 h-8" />} title="No backups yet" description="Start a backup to capture a point-in-time VolumeSnapshot of a VM." />
-          ) : (
-            <div className="bg-[var(--zf-surface)] rounded-xl border border-[var(--zf-hairline)] overflow-hidden">
-              <table className="w-full text-sm">
-                <thead><tr className="border-b border-[var(--zf-hairline)]">
-                  <th className="text-left px-5 py-3 text-xs font-medium text-[var(--zf-muted)] uppercase tracking-wider">Backup</th>
-                  <th className="text-left px-5 py-3 text-xs font-medium text-[var(--zf-muted)] uppercase tracking-wider">VM</th>
-                  <th className="text-left px-5 py-3 text-xs font-medium text-[var(--zf-muted)] uppercase tracking-wider">Status</th>
-                  <th className="text-left px-5 py-3 text-xs font-medium text-[var(--zf-muted)] uppercase tracking-wider">Size</th>
-                  <th className="text-left px-5 py-3 text-xs font-medium text-[var(--zf-muted)] uppercase tracking-wider">Created</th>
-                  <th className="text-left px-5 py-3 text-xs font-medium text-[var(--zf-muted)] uppercase tracking-wider">Expires</th>
-                  <th className="text-right px-5 py-3 text-xs font-medium text-[var(--zf-muted)] uppercase tracking-wider">Actions</th>
-                </tr></thead>
-                <tbody className="divide-y divide-[var(--zf-hairline)]/30">
-                  {backups.map(b => (
-                    <tr key={b.id} className="hover:bg-black/[0.04] transition-colors">
-                      <td className="px-5 py-3 font-mono text-xs text-[var(--zf-ink)]">{b.id}</td>
-                      <td className="px-5 py-3 text-[var(--zf-muted)]">{b.vm_name}</td>
-                      <td className="px-5 py-3"><span className={`px-2.5 py-0.5 rounded-full text-xs font-medium border ${statusBadge(b.status)}`}>{b.status}</span></td>
-                      <td className="px-5 py-3 text-[var(--zf-muted)]">{fmtBytes(b.size_bytes)}</td>
-                      <td className="px-5 py-3 text-xs text-[var(--zf-muted)]">{b.created ? new Date(b.created).toLocaleString() : '—'}</td>
-                      <td className="px-5 py-3 text-xs text-[var(--zf-muted)]">{b.expires_at ? new Date(b.expires_at).toLocaleDateString() : '—'}</td>
-                      <td className="px-5 py-3 text-right">
-                        <button onClick={() => handleDelete(b)} disabled={deletingId === b.id} className="p-1.5 text-[var(--zf-muted)] hover:text-red-600 hover:bg-red-500/10 rounded-lg transition-colors disabled:opacity-50" title="Delete backup">
-                          {deletingId === b.id ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
+          <div className="bg-[var(--zf-surface)] rounded-xl border border-[var(--zf-hairline)] overflow-hidden">
+            <DataTable
+              columns={backupColumns}
+              rows={backups}
+              getRowKey={(b) => b.id}
+              bordered={false}
+              emptyState={
+                <EmptyState icon={<HardDrive className="w-8 h-8" />} title="No backups yet" description="Start a backup to capture a point-in-time VolumeSnapshot of a VM." />
+              }
+            />
+          </div>
         </>
       ) : null}
 
