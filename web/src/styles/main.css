@@ -1069,6 +1069,23 @@ textarea.input-field {
 .animate-slide-in { animation: slide-in 0.3s ease-out; }
 .animate-pulse-dot { animation: pulse-dot 2s ease-in-out infinite; }
 
+/* Console-wide reduced-motion guard, mirroring the marketing-only one above
+   (.mkt-reveal etc.) so the console's own decorative animations respect the
+   OS setting too. Functional spinners (Tailwind's animate-spin) are left
+   alone since they communicate an in-progress state, not decoration. */
+@media (prefers-reduced-motion: reduce) {
+  .skeleton {
+    animation: none;
+    background: var(--zf-canvas-alt);
+  }
+  .animate-fade-in,
+  .animate-slide-in,
+  .animate-pulse-dot,
+  .animate-ping {
+    animation: none;
+  }
+}
+
 .recharts-tooltip-wrapper,
 .recharts-cursor {
   z-index: 20 !important;
