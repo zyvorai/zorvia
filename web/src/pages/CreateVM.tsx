@@ -14,9 +14,8 @@ import {
   ArrowLeft, ArrowRight, Cpu, HardDrive, ChevronDown, ChevronUp, Shield, Plus, X,
   Network, Server, Sparkles, Check, Download, MonitorCog,
 } from 'lucide-react'
-import WizardStepper from '../components/WizardStepper'
 import ErrorBanner from '../components/ErrorBanner'
-import { PageHeader } from '../components/ui/PageHeader'
+import { PageHeader, WizardStepper } from '../components/ui'
 import { formatUserError } from '../utils/apiError'
 import { toastFailure } from '../utils/toastError'
 import { hintsForError } from '../utils/daemonHints'
@@ -476,7 +475,7 @@ export default function CreateVM() {
 
         <form onSubmit={handleSubmit} className="space-y-4 mt-4">
           {validationError && (
-            <div className="p-3 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm">
+            <div className="p-3 bg-[var(--zf-danger)]/10 border border-[var(--zf-danger)]/25 rounded-lg text-[var(--zf-danger)] text-sm">
               {validationError}
             </div>
           )}
@@ -495,7 +494,7 @@ export default function CreateVM() {
                   value={name}
                   onChange={(e) => setName(e.target.value)}
                   placeholder="my-virtual-machine"
-                  className="w-full px-3.5 py-2.5 bg-white border border-[var(--zf-hairline)] rounded-lg text-[var(--zf-ink)] placeholder-[var(--zf-muted)] focus:outline-none focus:border-[var(--zf-link)]/50 focus:ring-1 focus:ring-[var(--zf-link)]/20 transition-colors text-sm"
+                  className="w-full px-3.5 py-2.5 bg-[var(--zf-surface)] border border-[var(--zf-hairline)] rounded-lg text-[var(--zf-ink)] placeholder-[var(--zf-muted)] focus:outline-none focus:border-[var(--zf-link)]/50 focus:ring-1 focus:ring-[var(--zf-link)]/20 transition-colors text-sm"
                   required
                   autoFocus
                 />
@@ -522,8 +521,8 @@ export default function CreateVM() {
                       }}
                       className={`px-4 py-2 rounded-lg text-sm font-medium border transition-colors ${
                         guestOs === os
-                          ? 'bg-[var(--zf-ink)] text-white border-[var(--zf-ink)]'
-                          : 'bg-white text-[var(--zf-ink)] border-[var(--zf-hairline)]'
+                          ? 'bg-[var(--zf-ink)] text-[var(--zf-canvas)] border-[var(--zf-ink)]'
+                          : 'bg-[var(--zf-surface)] text-[var(--zf-ink)] border-[var(--zf-hairline)]'
                       }`}
                     >
                       {os === 'linux' ? 'Linux' : 'Windows'}
@@ -533,7 +532,7 @@ export default function CreateVM() {
               </div>
 
               {guestOs === 'linux' && (
-                <div className="rounded-lg border border-[var(--zf-hairline)] p-4 space-y-3 bg-white">
+                <div className="rounded-lg border border-[var(--zf-hairline)] p-4 space-y-3 bg-[var(--zf-surface)]">
                   <h3 className="text-sm font-semibold text-[var(--zf-ink)]">Cloud-init</h3>
                   <div className="grid sm:grid-cols-2 gap-3">
                     <div>
@@ -586,7 +585,7 @@ export default function CreateVM() {
                 </div>
               )}
 
-              <div className="rounded-lg border border-[var(--zf-hairline)] p-4 space-y-2 bg-white">
+              <div className="rounded-lg border border-[var(--zf-hairline)] p-4 space-y-2 bg-[var(--zf-surface)]">
                 <h3 className="text-sm font-semibold text-[var(--zf-ink)]">Expose</h3>
                 {guestOs === 'linux' && (
                   <label className="flex items-center gap-2 text-sm">
@@ -616,7 +615,7 @@ export default function CreateVM() {
                   value={tenant}
                   onChange={(e) => setTenant(e.target.value)}
                   placeholder="acme"
-                  className="w-full px-3.5 py-2.5 bg-white border border-[var(--zf-hairline)] rounded-lg text-[var(--zf-ink)] placeholder-[var(--zf-muted)] focus:outline-none focus:border-[var(--zf-link)]/50 focus:ring-1 focus:ring-[var(--zf-link)]/20 transition-colors text-sm"
+                  className="w-full px-3.5 py-2.5 bg-[var(--zf-surface)] border border-[var(--zf-hairline)] rounded-lg text-[var(--zf-ink)] placeholder-[var(--zf-muted)] focus:outline-none focus:border-[var(--zf-link)]/50 focus:ring-1 focus:ring-[var(--zf-link)]/20 transition-colors text-sm"
                 />
               </div>
 
@@ -632,13 +631,13 @@ export default function CreateVM() {
                     ))}
                   </div>
                 ) : !krytonStatus?.enabled || !krytonStatus?.connected ? (
-                  <p className="text-xs text-amber-800 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
+                  <p className="text-xs text-[var(--zf-warning)] bg-[var(--zf-warning)]/10 border border-[var(--zf-warning)]/25 rounded-lg px-3 py-2">
                     Kryton (the Windows control plane) is not reachable from this Zorvia server. Configure{' '}
                     <code className="font-mono">KRYTON_URL</code> and see the{' '}
                     <a href="/app/windows" className="underline">Windows page</a> for status.
                   </p>
                 ) : !krytonStatus.project ? (
-                  <p className="text-xs text-amber-800 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
+                  <p className="text-xs text-[var(--zf-warning)] bg-[var(--zf-warning)]/10 border border-[var(--zf-warning)]/25 rounded-lg px-3 py-2">
                     Kryton is reachable, but <code className="font-mono">KRYTON_PROJECT</code> is not configured on
                     the Zorvia server — Windows VM creation is blocked until it is.
                   </p>
@@ -658,7 +657,7 @@ export default function CreateVM() {
                           className={`relative text-left p-3 rounded-lg border transition-colors ${
                             selected
                               ? 'bg-[var(--zf-link)]/15 border-[var(--zf-link)]/40 ring-1 ring-[var(--zf-link)]/30'
-                              : 'bg-white border-[var(--zf-hairline)] hover:border-[var(--zf-hairline)]'
+                              : 'bg-[var(--zf-surface)] border-[var(--zf-hairline)] hover:border-[var(--zf-hairline)]'
                           }`}
                         >
                           {selected && (
@@ -726,7 +725,7 @@ export default function CreateVM() {
                         className={`relative text-left p-3 rounded-lg border transition-colors ${
                           selected
                             ? 'bg-[var(--zf-link)]/15 border-[var(--zf-link)]/40 ring-1 ring-[var(--zf-link)]/30'
-                            : 'bg-white border-[var(--zf-hairline)] hover:border-[var(--zf-hairline)]'
+                            : 'bg-[var(--zf-surface)] border-[var(--zf-hairline)] hover:border-[var(--zf-hairline)]'
                         }`}
                       >
                         {selected && (
@@ -759,7 +758,7 @@ export default function CreateVM() {
                 value={image}
                 onChange={(e) => setImage(e.target.value)}
                 placeholder="Or enter a path on the host, e.g. /var/lib/zyvor-fabricd/images/ubuntu-24.04.qcow2"
-                className="w-full px-3.5 py-2.5 bg-white border border-[var(--zf-hairline)] rounded-lg text-[var(--zf-ink)] placeholder-[var(--zf-muted)] focus:outline-none focus:border-[var(--zf-link)]/50 focus:ring-1 focus:ring-[var(--zf-link)]/20 transition-colors text-sm font-mono"
+                className="w-full px-3.5 py-2.5 bg-[var(--zf-surface)] border border-[var(--zf-hairline)] rounded-lg text-[var(--zf-ink)] placeholder-[var(--zf-muted)] focus:outline-none focus:border-[var(--zf-link)]/50 focus:ring-1 focus:ring-[var(--zf-link)]/20 transition-colors text-sm font-mono"
                 required
               />
             </div>
@@ -817,7 +816,7 @@ export default function CreateVM() {
                         onChange={(e) => setCpus(Math.max(1, Math.min(32, parseInt(e.target.value) || 1)))}
                         min={1}
                         max={32}
-                        className="w-full px-2 py-1.5 bg-white border border-[var(--zf-hairline)] rounded-md text-center text-sm text-[var(--zf-ink)] focus:outline-none focus:border-[var(--zf-link)]/50"
+                        className="w-full px-2 py-1.5 bg-[var(--zf-surface)] border border-[var(--zf-hairline)] rounded-md text-center text-sm text-[var(--zf-ink)] focus:outline-none focus:border-[var(--zf-link)]/50"
                       />
                     </div>
                   </div>
@@ -837,7 +836,7 @@ export default function CreateVM() {
                         className={`px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
                           memory === preset.value
                             ? 'bg-[var(--zf-link)]/20 text-[var(--zf-link)] border border-[var(--zf-link)]/30'
-                            : 'bg-white border border-[var(--zf-hairline)] text-[var(--zf-muted)] hover:text-[var(--zf-ink)] hover:border-[var(--zf-hairline)]'
+                            : 'bg-[var(--zf-surface)] border border-[var(--zf-hairline)] text-[var(--zf-muted)] hover:text-[var(--zf-ink)] hover:border-[var(--zf-hairline)]'
                         }`}
                       >
                         {preset.label}
@@ -852,7 +851,7 @@ export default function CreateVM() {
                       onChange={(e) => setMemory(parseInt(e.target.value) || 512)}
                       min={256}
                       step={256}
-                      className="w-28 px-3 py-1.5 bg-white border border-[var(--zf-hairline)] rounded-md text-sm text-[var(--zf-ink)] focus:outline-none focus:border-[var(--zf-link)]/50"
+                      className="w-28 px-3 py-1.5 bg-[var(--zf-surface)] border border-[var(--zf-hairline)] rounded-md text-sm text-[var(--zf-ink)] focus:outline-none focus:border-[var(--zf-link)]/50"
                     />
                     <span className="text-sm text-[var(--zf-muted)]">MB</span>
                     <span className="text-sm text-[var(--zf-muted)] ml-2">
@@ -873,7 +872,7 @@ export default function CreateVM() {
                 max={2048}
                 value={diskGb}
                 onChange={(e) => setDiskGb(Math.max(1, parseInt(e.target.value) || 20))}
-                className="w-28 px-3 py-1.5 bg-white border border-[var(--zf-hairline)] rounded-md text-sm text-[var(--zf-ink)]"
+                className="w-28 px-3 py-1.5 bg-[var(--zf-surface)] border border-[var(--zf-hairline)] rounded-md text-sm text-[var(--zf-ink)]"
               />
             </div>
 
@@ -885,25 +884,25 @@ export default function CreateVM() {
                 </label>
                 <div className="space-y-3">
                   {extraDisks.map((row, i) => (
-                    <div key={i} className="flex flex-wrap items-center gap-2 bg-white border border-[var(--zf-hairline)] rounded-lg p-3">
+                    <div key={i} className="flex flex-wrap items-center gap-2 bg-[var(--zf-surface)] border border-[var(--zf-hairline)] rounded-lg p-3">
                       <input
                         type="text"
                         value={row.name}
                         onChange={(e) => updateDiskRow(i, { name: e.target.value })}
                         placeholder="Name"
-                        className="w-28 px-2.5 py-1.5 bg-white border border-[var(--zf-hairline)] rounded-md text-sm text-[var(--zf-ink)] focus:outline-none focus:border-[var(--zf-link)]/50"
+                        className="w-28 px-2.5 py-1.5 bg-[var(--zf-surface)] border border-[var(--zf-hairline)] rounded-md text-sm text-[var(--zf-ink)] focus:outline-none focus:border-[var(--zf-link)]/50"
                       />
                       <input
                         type="text"
                         value={row.size}
                         onChange={(e) => updateDiskRow(i, { size: e.target.value })}
                         placeholder="Size (e.g. 20Gi)"
-                        className="w-28 px-2.5 py-1.5 bg-white border border-[var(--zf-hairline)] rounded-md text-sm text-[var(--zf-ink)] focus:outline-none focus:border-[var(--zf-link)]/50"
+                        className="w-28 px-2.5 py-1.5 bg-[var(--zf-surface)] border border-[var(--zf-hairline)] rounded-md text-sm text-[var(--zf-ink)] focus:outline-none focus:border-[var(--zf-link)]/50"
                       />
                       <select
                         value={row.sourceType}
                         onChange={(e) => updateDiskRow(i, { sourceType: e.target.value as DiskRow['sourceType'], sourceValue: '' })}
-                        className="px-2 py-1.5 bg-white border border-[var(--zf-hairline)] rounded-md text-sm text-[var(--zf-ink)]"
+                        className="px-2 py-1.5 bg-[var(--zf-surface)] border border-[var(--zf-hairline)] rounded-md text-sm text-[var(--zf-ink)]"
                       >
                         <option value="blank">Blank</option>
                         <option value="pvc">Existing PVC</option>
@@ -916,13 +915,13 @@ export default function CreateVM() {
                           value={row.sourceValue}
                           onChange={(e) => updateDiskRow(i, { sourceValue: e.target.value })}
                           placeholder={row.sourceType === 'containerDisk' ? 'quay.io/...' : 'PVC/DataVolume name'}
-                          className="flex-1 min-w-[10rem] px-2.5 py-1.5 bg-white border border-[var(--zf-hairline)] rounded-md text-sm text-[var(--zf-ink)] focus:outline-none focus:border-[var(--zf-link)]/50"
+                          className="flex-1 min-w-[10rem] px-2.5 py-1.5 bg-[var(--zf-surface)] border border-[var(--zf-hairline)] rounded-md text-sm text-[var(--zf-ink)] focus:outline-none focus:border-[var(--zf-link)]/50"
                         />
                       )}
                       <button
                         type="button"
                         onClick={() => removeDiskRow(i)}
-                        className="p-1.5 rounded-md text-[var(--zf-muted)] hover:text-red-600 hover:bg-red-50 transition-colors"
+                        className="p-1.5 rounded-md text-[var(--zf-muted)] hover:text-[var(--zf-danger)] hover:bg-[var(--zf-danger)]/10 transition-colors"
                         title="Remove"
                       >
                         <X className="w-3.5 h-3.5" />
@@ -933,7 +932,7 @@ export default function CreateVM() {
                 <button
                   type="button"
                   onClick={addDiskRow}
-                  className="mt-2 flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-white border border-[var(--zf-hairline)] text-[var(--zf-ink)] hover:border-[var(--zf-hairline)] transition-colors"
+                  className="mt-2 flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-[var(--zf-surface)] border border-[var(--zf-hairline)] text-[var(--zf-ink)] hover:border-[var(--zf-hairline)] transition-colors"
                 >
                   <Plus className="w-3.5 h-3.5" />
                   Add disk
@@ -953,7 +952,7 @@ export default function CreateVM() {
 
             {showAdvanced && (
               <div className="px-6 pb-6 space-y-5 border-t border-[var(--zf-hairline)] pt-5">
-                <p className="text-xs text-[var(--zf-muted)] bg-white border border-[var(--zf-hairline)] rounded-lg px-3 py-2">
+                <p className="text-xs text-[var(--zf-muted)] bg-[var(--zf-surface)] border border-[var(--zf-hairline)] rounded-lg px-3 py-2">
                   Applied when the VM is created — KubeVirt requires firmware, CPU model, and machine type to be set upfront.
                 </p>
                 <div>
@@ -976,7 +975,7 @@ export default function CreateVM() {
                             className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
                               advanced.firmware === fw
                                 ? 'bg-[var(--zf-link)]/20 text-[var(--zf-link)] border border-[var(--zf-link)]/30'
-                                : 'bg-white border border-[var(--zf-hairline)] text-[var(--zf-muted)] hover:text-[var(--zf-ink)]'
+                                : 'bg-[var(--zf-surface)] border border-[var(--zf-hairline)] text-[var(--zf-muted)] hover:text-[var(--zf-ink)]'
                             }`}
                           >
                             {fw.toUpperCase()}
@@ -1009,7 +1008,7 @@ export default function CreateVM() {
                             className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
                               advanced.cpuMode === mode
                                 ? 'bg-[var(--zf-link)]/20 text-[var(--zf-link)] border border-[var(--zf-link)]/30'
-                                : 'bg-white border border-[var(--zf-hairline)] text-[var(--zf-muted)] hover:text-[var(--zf-ink)]'
+                                : 'bg-[var(--zf-surface)] border border-[var(--zf-hairline)] text-[var(--zf-muted)] hover:text-[var(--zf-ink)]'
                             }`}
                           >
                             {mode}
@@ -1022,7 +1021,7 @@ export default function CreateVM() {
                           value={advanced.cpuModelName}
                           onChange={(e) => setAdvanced({ ...advanced, cpuModelName: e.target.value })}
                           placeholder="e.g. Haswell, EPYC-Rome"
-                          className="mt-2 w-full px-3 py-2 bg-white border border-[var(--zf-hairline)] rounded-lg text-sm"
+                          className="mt-2 w-full px-3 py-2 bg-[var(--zf-surface)] border border-[var(--zf-hairline)] rounded-lg text-sm"
                         />
                       )}
                       <label className="flex items-center gap-2 mt-3 text-sm text-[var(--zf-ink)]">
@@ -1042,7 +1041,7 @@ export default function CreateVM() {
                         value={advanced.machineType}
                         onChange={(e) => setAdvanced({ ...advanced, machineType: e.target.value })}
                         placeholder="q35"
-                        className="w-40 px-3 py-2 bg-white border border-[var(--zf-hairline)] rounded-lg text-sm font-mono"
+                        className="w-40 px-3 py-2 bg-[var(--zf-surface)] border border-[var(--zf-hairline)] rounded-lg text-sm font-mono"
                       />
                     </div>
 
@@ -1087,7 +1086,7 @@ export default function CreateVM() {
                           className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
                             networkMode === 'nat'
                               ? 'bg-[var(--zf-link)]/20 text-[var(--zf-link)] border border-[var(--zf-link)]/30'
-                              : 'bg-white border border-[var(--zf-hairline)] text-[var(--zf-muted)] hover:text-[var(--zf-ink)]'
+                              : 'bg-[var(--zf-surface)] border border-[var(--zf-hairline)] text-[var(--zf-muted)] hover:text-[var(--zf-ink)]'
                           }`}
                         >
                           NAT (default)
@@ -1098,7 +1097,7 @@ export default function CreateVM() {
                           className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
                             networkMode === 'bridged'
                               ? 'bg-[var(--zf-link)]/20 text-[var(--zf-link)] border border-[var(--zf-link)]/30'
-                              : 'bg-white border border-[var(--zf-hairline)] text-[var(--zf-muted)] hover:text-[var(--zf-ink)]'
+                              : 'bg-[var(--zf-surface)] border border-[var(--zf-hairline)] text-[var(--zf-muted)] hover:text-[var(--zf-ink)]'
                           }`}
                         >
                           Bridged (DHCP)
@@ -1115,7 +1114,7 @@ export default function CreateVM() {
                             type="checkbox"
                             checked={staticIp}
                             onChange={(e) => setStaticIp(e.target.checked)}
-                            className="rounded border-[var(--zf-hairline)] bg-white text-[var(--zf-link)] focus:ring-[var(--zf-link)]/50"
+                            className="rounded border-[var(--zf-hairline)] bg-[var(--zf-surface)] text-[var(--zf-link)] focus:ring-[var(--zf-link)]/50"
                           />
                           Assign the IP statically via cloud-init
                         </label>
@@ -1143,7 +1142,7 @@ export default function CreateVM() {
                         <button
                           type="button"
                           onClick={() => addPortForwardRow('22')}
-                          className="mb-2 px-3 py-1.5 rounded-lg text-xs font-medium bg-white border border-[var(--zf-hairline)] text-[var(--zf-ink)] hover:text-[var(--zf-ink)] hover:border-[var(--zf-hairline)] transition-colors"
+                          className="mb-2 px-3 py-1.5 rounded-lg text-xs font-medium bg-[var(--zf-surface)] border border-[var(--zf-hairline)] text-[var(--zf-ink)] hover:text-[var(--zf-ink)] hover:border-[var(--zf-hairline)] transition-colors"
                         >
                           + Expose SSH (22)
                         </button>
@@ -1158,7 +1157,7 @@ export default function CreateVM() {
                               placeholder="Host port"
                               min={1}
                               max={65535}
-                              className="w-28 px-2.5 py-1.5 bg-white border border-[var(--zf-hairline)] rounded-md text-sm text-[var(--zf-ink)] focus:outline-none focus:border-[var(--zf-link)]/50"
+                              className="w-28 px-2.5 py-1.5 bg-[var(--zf-surface)] border border-[var(--zf-hairline)] rounded-md text-sm text-[var(--zf-ink)] focus:outline-none focus:border-[var(--zf-link)]/50"
                             />
                             <span className="text-[var(--zf-muted)] text-sm">→</span>
                             <input
@@ -1168,12 +1167,12 @@ export default function CreateVM() {
                               placeholder="Guest port"
                               min={1}
                               max={65535}
-                              className="w-28 px-2.5 py-1.5 bg-white border border-[var(--zf-hairline)] rounded-md text-sm text-[var(--zf-ink)] focus:outline-none focus:border-[var(--zf-link)]/50"
+                              className="w-28 px-2.5 py-1.5 bg-[var(--zf-surface)] border border-[var(--zf-hairline)] rounded-md text-sm text-[var(--zf-ink)] focus:outline-none focus:border-[var(--zf-link)]/50"
                             />
                             <select
                               value={row.protocol}
                               onChange={(e) => updatePortForwardRow(i, { protocol: e.target.value as 'tcp' | 'udp' })}
-                              className="px-2 py-1.5 bg-white border border-[var(--zf-hairline)] rounded-md text-sm text-[var(--zf-ink)]"
+                              className="px-2 py-1.5 bg-[var(--zf-surface)] border border-[var(--zf-hairline)] rounded-md text-sm text-[var(--zf-ink)]"
                             >
                               <option value="tcp">TCP</option>
                               <option value="udp">UDP</option>
@@ -1181,7 +1180,7 @@ export default function CreateVM() {
                             <button
                               type="button"
                               onClick={() => removePortForwardRow(i)}
-                              className="p-1.5 rounded-md text-[var(--zf-muted)] hover:text-red-600 hover:bg-red-50 transition-colors"
+                              className="p-1.5 rounded-md text-[var(--zf-muted)] hover:text-[var(--zf-danger)] hover:bg-[var(--zf-danger)]/10 transition-colors"
                               title="Remove"
                             >
                               <X className="w-3.5 h-3.5" />
@@ -1192,7 +1191,7 @@ export default function CreateVM() {
                       <button
                         type="button"
                         onClick={() => addPortForwardRow()}
-                        className="mt-2 flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-white border border-[var(--zf-hairline)] text-[var(--zf-ink)] hover:text-[var(--zf-ink)] hover:border-[var(--zf-hairline)] transition-colors"
+                        className="mt-2 flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-[var(--zf-surface)] border border-[var(--zf-hairline)] text-[var(--zf-ink)] hover:text-[var(--zf-ink)] hover:border-[var(--zf-hairline)] transition-colors"
                       >
                         <Plus className="w-3.5 h-3.5" />
                         Add port forward
@@ -1207,25 +1206,25 @@ export default function CreateVM() {
                       </label>
                       <div className="space-y-3">
                         {extraNics.map((row, i) => (
-                          <div key={i} className="flex flex-wrap items-center gap-2 bg-white border border-[var(--zf-hairline)] rounded-lg p-3">
+                          <div key={i} className="flex flex-wrap items-center gap-2 bg-[var(--zf-surface)] border border-[var(--zf-hairline)] rounded-lg p-3">
                             <input
                               type="text"
                               value={row.name}
                               onChange={(e) => updateNicRow(i, { name: e.target.value })}
                               placeholder="Name"
-                              className="w-28 px-2.5 py-1.5 bg-white border border-[var(--zf-hairline)] rounded-md text-sm text-[var(--zf-ink)] focus:outline-none focus:border-[var(--zf-link)]/50"
+                              className="w-28 px-2.5 py-1.5 bg-[var(--zf-surface)] border border-[var(--zf-hairline)] rounded-md text-sm text-[var(--zf-ink)] focus:outline-none focus:border-[var(--zf-link)]/50"
                             />
                             <input
                               type="text"
                               value={row.network}
                               onChange={(e) => updateNicRow(i, { network: e.target.value })}
                               placeholder="Network"
-                              className="w-32 px-2.5 py-1.5 bg-white border border-[var(--zf-hairline)] rounded-md text-sm text-[var(--zf-ink)] focus:outline-none focus:border-[var(--zf-link)]/50"
+                              className="w-32 px-2.5 py-1.5 bg-[var(--zf-surface)] border border-[var(--zf-hairline)] rounded-md text-sm text-[var(--zf-ink)] focus:outline-none focus:border-[var(--zf-link)]/50"
                             />
                             <select
                               value={row.networkType}
                               onChange={(e) => updateNicRow(i, { networkType: e.target.value as NicRow['networkType'], networkTypeValue: '' })}
-                              className="px-2 py-1.5 bg-white border border-[var(--zf-hairline)] rounded-md text-sm text-[var(--zf-ink)]"
+                              className="px-2 py-1.5 bg-[var(--zf-surface)] border border-[var(--zf-hairline)] rounded-md text-sm text-[var(--zf-ink)]"
                             >
                               <option value="pod">Pod</option>
                               <option value="bridge">Bridge</option>
@@ -1238,13 +1237,13 @@ export default function CreateVM() {
                                 value={row.networkTypeValue}
                                 onChange={(e) => updateNicRow(i, { networkTypeValue: e.target.value })}
                                 placeholder="Network attachment name"
-                                className="flex-1 min-w-[10rem] px-2.5 py-1.5 bg-white border border-[var(--zf-hairline)] rounded-md text-sm text-[var(--zf-ink)] focus:outline-none focus:border-[var(--zf-link)]/50"
+                                className="flex-1 min-w-[10rem] px-2.5 py-1.5 bg-[var(--zf-surface)] border border-[var(--zf-hairline)] rounded-md text-sm text-[var(--zf-ink)] focus:outline-none focus:border-[var(--zf-link)]/50"
                               />
                             )}
                             <button
                               type="button"
                               onClick={() => removeNicRow(i)}
-                              className="p-1.5 rounded-md text-[var(--zf-muted)] hover:text-red-600 hover:bg-red-50 transition-colors"
+                              className="p-1.5 rounded-md text-[var(--zf-muted)] hover:text-[var(--zf-danger)] hover:bg-[var(--zf-danger)]/10 transition-colors"
                               title="Remove"
                             >
                               <X className="w-3.5 h-3.5" />
@@ -1255,7 +1254,7 @@ export default function CreateVM() {
                       <button
                         type="button"
                         onClick={addNicRow}
-                        className="mt-2 flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-white border border-[var(--zf-hairline)] text-[var(--zf-ink)] hover:border-[var(--zf-hairline)] transition-colors"
+                        className="mt-2 flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-[var(--zf-surface)] border border-[var(--zf-hairline)] text-[var(--zf-ink)] hover:border-[var(--zf-hairline)] transition-colors"
                       >
                         <Plus className="w-3.5 h-3.5" />
                         Add NIC
@@ -1491,7 +1490,7 @@ function GoldenImageModal({ onClose, onCreated }: { onClose: () => void; onCreat
             </div>
           </div>
           {!submitting && (
-            <button type="button" onClick={onClose} className="p-2 hover:bg-white/[0.03] rounded transition text-[var(--zf-muted)] hover:text-[var(--zf-ink)]">
+            <button type="button" onClick={onClose} className="p-2 hover:bg-[var(--zf-hover-tint)] rounded transition text-[var(--zf-muted)] hover:text-[var(--zf-ink)]">
               <X className="w-4 h-4" />
             </button>
           )}
@@ -1502,13 +1501,13 @@ function GoldenImageModal({ onClose, onCreated }: { onClose: () => void; onCreat
             the OUTER wizard form and reload the page instead). */}
         <div className="p-6 space-y-4">
           {error && (
-            <div className="p-3 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm">
+            <div className="p-3 bg-[var(--zf-danger)]/10 border border-[var(--zf-danger)]/25 rounded-lg text-[var(--zf-danger)] text-sm">
               {error}
             </div>
           )}
 
           {vmsLoading ? (
-            <div className="h-10 rounded-lg bg-white animate-pulse" />
+            <div className="h-10 rounded-lg bg-[var(--zf-surface)] animate-pulse" />
           ) : vms.length === 0 ? (
             <p className="text-sm text-[var(--zf-muted)]">No VMs exist yet — create a VM first, then come back here to save its disk as a golden image.</p>
           ) : (
@@ -1519,7 +1518,7 @@ function GoldenImageModal({ onClose, onCreated }: { onClose: () => void; onCreat
                   value={vmName}
                   onChange={(e) => setVmName(e.target.value)}
                   disabled={submitting}
-                  className="w-full bg-white border border-[var(--zf-hairline)] rounded-lg py-2 px-4 text-[var(--zf-ink)] focus:outline-none focus:border-[var(--zf-link)]/50 disabled:opacity-50"
+                  className="w-full bg-[var(--zf-surface)] border border-[var(--zf-hairline)] rounded-lg py-2 px-4 text-[var(--zf-ink)] focus:outline-none focus:border-[var(--zf-link)]/50 disabled:opacity-50"
                 >
                   {vms.map((v) => (
                     <option key={v.name} value={v.name}>{v.name} ({v.state})</option>
@@ -1540,14 +1539,14 @@ function GoldenImageModal({ onClose, onCreated }: { onClose: () => void; onCreat
                   }}
                   placeholder="e.g. web-server-golden"
                   disabled={submitting}
-                  className="w-full bg-white border border-[var(--zf-hairline)] rounded-lg py-2 px-4 text-[var(--zf-ink)] font-mono text-sm focus:outline-none focus:border-[var(--zf-link)]/50 disabled:opacity-50"
+                  className="w-full bg-[var(--zf-surface)] border border-[var(--zf-hairline)] rounded-lg py-2 px-4 text-[var(--zf-ink)] font-mono text-sm focus:outline-none focus:border-[var(--zf-link)]/50 disabled:opacity-50"
                   required
                   autoFocus
                 />
               </div>
               {submitting && progress !== null && (
                 <div>
-                  <div className="h-1.5 rounded-full bg-white overflow-hidden">
+                  <div className="h-1.5 rounded-full bg-[var(--zf-canvas-alt)] overflow-hidden">
                     <div
                       className="h-full bg-[var(--zf-link)] transition-all duration-500"
                       style={{ width: `${Math.max(5, progress)}%` }}
@@ -1678,14 +1677,14 @@ function DownloadImageModal({ existingImages, onClose, onDownloaded }: {
             </div>
           </div>
           {!submitting && (
-            <button type="button" onClick={onClose} className="p-2 hover:bg-white/[0.03] rounded transition text-[var(--zf-muted)] hover:text-[var(--zf-ink)]">
+            <button type="button" onClick={onClose} className="p-2 hover:bg-[var(--zf-hover-tint)] rounded transition text-[var(--zf-muted)] hover:text-[var(--zf-ink)]">
               <X className="w-4 h-4" />
             </button>
           )}
         </div>
         <div className="p-6 space-y-4">
           {error && (
-            <div className="p-3 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm">
+            <div className="p-3 bg-[var(--zf-danger)]/10 border border-[var(--zf-danger)]/25 rounded-lg text-[var(--zf-danger)] text-sm">
               {error}
             </div>
           )}
@@ -1693,7 +1692,7 @@ function DownloadImageModal({ existingImages, onClose, onDownloaded }: {
           {catalogLoading ? (
             <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
               {[0, 1, 2, 3, 4, 5].map((i) => (
-                <div key={i} className="h-16 rounded-lg bg-white animate-pulse" />
+                <div key={i} className="h-16 rounded-lg bg-[var(--zf-surface)] animate-pulse" />
               ))}
             </div>
           ) : (
@@ -1710,7 +1709,7 @@ function DownloadImageModal({ existingImages, onClose, onDownloaded }: {
                     className={`relative text-left p-3 rounded-lg border transition-colors disabled:opacity-50 ${
                       isSelected
                         ? 'bg-[var(--zf-link)]/15 border-[var(--zf-link)]/40 ring-1 ring-[var(--zf-link)]/30'
-                        : 'bg-white border-[var(--zf-hairline)] hover:border-[var(--zf-hairline)]'
+                        : 'bg-[var(--zf-surface)] border-[var(--zf-hairline)] hover:border-[var(--zf-hairline)]'
                     }`}
                   >
                     {isSelected && (
@@ -1724,7 +1723,7 @@ function DownloadImageModal({ existingImages, onClose, onDownloaded }: {
                     <p className="text-sm font-medium text-[var(--zf-ink)] truncate capitalize">{img.distro}</p>
                     <p className="text-xs text-[var(--zf-muted)]">{img.version} · {img.arch}</p>
                     {onDisk && (
-                      <p className="text-[10px] font-medium text-emerald-600 mt-1">Already on disk</p>
+                      <p className="text-[10px] font-medium text-[var(--zf-success)] mt-1">Already on disk</p>
                     )}
                   </button>
                 )
