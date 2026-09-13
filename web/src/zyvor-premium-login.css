@@ -57,14 +57,6 @@
   -moz-osx-font-smoothing: grayscale;
 }
 
-html[data-theme='tahoe-light'] .login-page,
-html[data-ui-shell='default'] .login-page,
-.login-page.zeus-login {
-  background-color: hsl(0 0% 100%);
-  background-image: none;
-  color: hsl(240 6% 10%);
-}
-
 /* Full-viewport snap scroll between hero + sign-in chapters */
 .login-store-page {
   overflow: hidden;
