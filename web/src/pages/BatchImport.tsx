@@ -5,7 +5,7 @@ import { useState, useCallback, useRef } from 'react'
 import { Upload, Download, Eye, Send, CheckCircle, XCircle, Clock, Loader2, FileText } from 'lucide-react'
 import { createVM } from '../api/vm'
 import ErrorBanner from '../components/ErrorBanner'
-import { PageHeader } from '../components/ui'
+import { PageHeader, DataTable, type DataTableColumn } from '../components/ui'
 import { TerminalTextarea } from '../components/AppleTerminalFrame'
 import { formatUserError } from '../utils/apiError'
 
@@ -119,9 +119,35 @@ export default function BatchImport() {
   const handleFileSelect = useCallback((e: React.ChangeEvent<HTMLInputElement>) => { const file = e.target.files?.[0]; if (file) { const reader = new FileReader(); reader.onload = (ev) => setInputText(ev.target?.result as string); reader.readAsText(file) } }, [])
   const handleDownloadTemplate = useCallback(() => { const blob = new Blob([exampleYAML], { type: 'text/yaml' }); const url = URL.createObjectURL(blob); const a = document.createElement('a'); a.href = url; a.download = 'batch-import-template.yaml'; a.click(); URL.revokeObjectURL(url) }, [])
 
-  const statusIcon = (status: VMStatus) => { switch (status) { case 'pending': return <Clock className="w-4 h-4 text-[var(--zf-muted)]" />; case 'submitting': return <Loader2 className="w-4 h-4 text-[var(--zf-link)] animate-spin" />; case 'submitted': return <CheckCircle className="w-4 h-4 text-emerald-600" />; case 'error': return <XCircle className="w-4 h-4 text-red-600" /> } }
+  const statusIcon = (status: VMStatus) => { switch (status) { case 'pending': return <Clock className="w-4 h-4 text-[var(--zf-muted)]" />; case 'submitting': return <Loader2 className="w-4 h-4 text-[var(--zf-link)] animate-spin" />; case 'submitted': return <CheckCircle className="w-4 h-4 text-[var(--zf-success)]" />; case 'error': return <XCircle className="w-4 h-4 text-[var(--zf-danger)]" /> } }
   const submitted = items.filter((i) => i.status === 'submitted').length
   const errors = items.filter((i) => i.status === 'error').length
+
+  const importColumns: DataTableColumn<VMImportItem>[] = [
+    {
+      key: 'status',
+      header: 'Status',
+      render: (item) => (
+        <div className="flex items-center gap-2">
+          {statusIcon(item.status)}
+          <span className="text-xs text-[var(--zf-muted)] capitalize">{item.status}</span>
+        </div>
+      ),
+    },
+    { key: 'name', header: 'VM Name', render: (item) => <span className="text-[var(--zf-ink)] font-medium">{item.name}</span> },
+    { key: 'cpus', header: 'CPUs', render: (item) => <span className="text-[var(--zf-muted)]">{item.cpus}</span> },
+    { key: 'memory', header: 'Memory', render: (item) => <span className="text-[var(--zf-muted)]">{item.memoryLabel}</span> },
+    {
+      key: 'image',
+      header: 'Image',
+      render: (item) => (
+        <span className="text-[var(--zf-muted)] font-mono text-xs">
+          {item.image}
+          {item.error && <p className="text-[var(--zf-danger)] mt-1">{item.error}</p>}
+        </span>
+      ),
+    },
+  ]
 
   return (
     <div className="max-w-4xl mx-auto space-y-6">
@@ -138,7 +164,7 @@ export default function BatchImport() {
       {!previewing ? (
         <div className="space-y-4">
           <div onDragOver={(e) => { e.preventDefault(); setDragOver(true) }} onDragLeave={() => setDragOver(false)} onDrop={handleFileDrop} onClick={() => fileRef.current?.click()}
-            className={`border-2 border-dashed rounded-xl p-8 text-center cursor-pointer transition-colors ${dragOver ? 'border-[var(--zf-ink)] bg-black/[0.04]' : 'border-[var(--zf-hairline)] hover:border-[var(--zf-muted)] bg-white'}`}>
+            className={`border-2 border-dashed rounded-xl p-8 text-center cursor-pointer transition-colors ${dragOver ? 'border-[var(--zf-ink)] bg-black/[0.04]' : 'border-[var(--zf-hairline)] hover:border-[var(--zf-muted)] bg-[var(--zf-surface)]'}`}>
             <Upload className="w-8 h-8 text-[var(--zf-muted)] mx-auto mb-3" />
             <p className="text-sm text-[var(--zf-muted)]">Drag &amp; drop a <span className="text-[var(--zf-ink)] font-medium">.yaml</span> or <span className="text-[var(--zf-ink)] font-medium">.json</span> file, or click to browse</p>
             <input ref={fileRef} type="file" accept=".yaml,.yml,.json" className="hidden" onChange={handleFileSelect} />
@@ -162,20 +188,11 @@ export default function BatchImport() {
         <div className="space-y-4">
           <div className="flex items-center gap-4 p-3 bg-[var(--zf-canvas)] border border-[var(--zf-hairline)] rounded-lg text-sm">
             <span className="text-[var(--zf-muted)]"><FileText className="w-4 h-4 inline mr-1" />{items.length} VMs</span>
-            {submitted > 0 && <span className="text-emerald-600"><CheckCircle className="w-4 h-4 inline mr-1" />{submitted} submitted</span>}
-            {errors > 0 && <span className="text-red-600"><XCircle className="w-4 h-4 inline mr-1" />{errors} failed</span>}
+            {submitted > 0 && <span className="text-[var(--zf-success)]"><CheckCircle className="w-4 h-4 inline mr-1" />{submitted} submitted</span>}
+            {errors > 0 && <span className="text-[var(--zf-danger)]"><XCircle className="w-4 h-4 inline mr-1" />{errors} failed</span>}
           </div>
           <div className="bg-[var(--zf-canvas)] border border-[var(--zf-hairline)] rounded-xl overflow-hidden">
-            <table className="w-full text-sm"><thead><tr className="border-b border-[var(--zf-hairline)] bg-[var(--zf-canvas)]"><th className="px-4 py-3 text-left text-xs font-medium text-[var(--zf-muted)] uppercase">Status</th><th className="px-4 py-3 text-left text-xs font-medium text-[var(--zf-muted)] uppercase">VM Name</th><th className="px-4 py-3 text-left text-xs font-medium text-[var(--zf-muted)] uppercase">CPUs</th><th className="px-4 py-3 text-left text-xs font-medium text-[var(--zf-muted)] uppercase">Memory</th><th className="px-4 py-3 text-left text-xs font-medium text-[var(--zf-muted)] uppercase">Image</th></tr></thead>
-            <tbody>{items.map((item, idx) => (
-              <tr key={idx} className="border-b border-[var(--zf-hairline)] last:border-0 hover:bg-[var(--zf-canvas)]">
-                <td className="px-4 py-3"><div className="flex items-center gap-2">{statusIcon(item.status)}<span className="text-xs text-[var(--zf-muted)] capitalize">{item.status}</span></div></td>
-                <td className="px-4 py-3 text-[var(--zf-ink)] font-medium">{item.name}</td>
-                <td className="px-4 py-3 text-[var(--zf-muted)]">{item.cpus}</td>
-                <td className="px-4 py-3 text-[var(--zf-muted)]">{item.memoryLabel}</td>
-                <td className="px-4 py-3 text-[var(--zf-muted)] font-mono text-xs">{item.image}{item.error && <p className="text-red-600 mt-1">{item.error}</p>}</td>
-              </tr>
-            ))}</tbody></table>
+            <DataTable columns={importColumns} rows={items} getRowKey={(item) => item.name} bordered={false} />
           </div>
           <div className="flex items-center gap-3">
             <button onClick={handleSubmitAll} disabled={submitting || items.every((i) => i.status === 'submitted')} className="zf-btn zf-btn-primary">{submitting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}{submitting ? 'Submitting...' : 'Submit All'}</button>
