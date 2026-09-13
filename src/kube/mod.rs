@@ -494,6 +494,49 @@ impl KubeClient {
         Ok(vms.patch(name, &pp, &Patch::Merge(&patch)).await?)
     }
 
+    /// Rewrite the `cloudinitdisk` volume's `cloudInitNoCloud.userData` on
+    /// the VM object. This patches the *desired* spec, not a live volume --
+    /// KubeVirt cloud-init is baked in at boot, so the new content only
+    /// takes effect the next time the VM (re)starts, same as any other
+    /// domain-spec change to a VM that's currently running.
+    pub async fn update_cloud_init(
+        &self,
+        namespace: &str,
+        name: &str,
+        user_data: &str,
+    ) -> Result<VirtualMachine> {
+        let vm = self.get_vm(namespace, name).await?;
+        let mut volumes = vm
+            .spec
+            .template
+            .spec
+            .volumes
+            .clone()
+            .ok_or_else(|| anyhow::anyhow!("VM '{name}' has no volumes"))?;
+        let cloudinit = volumes
+            .iter_mut()
+            .find(|v| v.cloud_init_no_cloud.is_some())
+            .ok_or_else(|| {
+                anyhow::anyhow!(
+                    "VM '{name}' has no cloudInitNoCloud volume -- it wasn't created with cloud-init enabled"
+                )
+            })?;
+        let source = cloudinit.cloud_init_no_cloud.get_or_insert_with(|| {
+            crate::kube::types::CloudInitNoCloudSource {
+                user_data: None,
+                network_data: None,
+            }
+        });
+        source.user_data = Some(user_data.to_string());
+
+        let vms: Api<VirtualMachine> = self.vm_api(namespace);
+        let patch = json!({
+            "spec": { "template": { "spec": { "volumes": volumes } } }
+        });
+        let pp = PatchParams::default();
+        Ok(vms.patch(name, &pp, &Patch::Merge(&patch)).await?)
+    }
+
     /// Attach an existing PVC or DataVolume to a running VMI by name via the
     /// `addvolume` subresource.
     pub async fn add_volume(

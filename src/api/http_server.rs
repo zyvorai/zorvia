@@ -1327,7 +1327,7 @@ pub mod web {
                                 "snapshot_type": "Disk",
                                 "parent_id": null,
                                 "size_bytes": 0,
-                                "created": "",
+                                "created": s.created_at.map(|t| t.to_rfc3339()).unwrap_or_default(),
                             })
                         })
                         .collect();
@@ -1366,7 +1366,7 @@ pub mod web {
                                 "snapshot_type": "Disk",
                                 "parent_id": null,
                                 "size_bytes": 0,
-                                "created": "",
+                                "created": s.created_at.map(|t| t.to_rfc3339()).unwrap_or_default(),
                             })
                         })
                         .collect();

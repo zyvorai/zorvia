@@ -245,6 +245,54 @@ pub fn classify_hotplug_error(action: &str, raw: &str) -> (u16, &'static str, St
     (500, "HOTPLUG_FAILED", format!("Failed to {action}"))
 }
 
+/// Map a KubeVirt / HTTP error into a client-safe snapshot-restore message.
+/// Like the other `classify_*_error` functions, this must receive *raw*
+/// error text (before `sanitize_error()`), since it's the thing doing the
+/// sanitizing here -- its return value is always client-safe, never the raw
+/// input, so callers should use the returned message as-is instead of also
+/// running it through `sanitize_error()`.
+pub fn classify_restore_error(action: &str, raw: &str) -> (u16, &'static str, String) {
+    let lower = raw.to_ascii_lowercase();
+    if lower.contains("notfound") || lower.contains("not found") || lower.contains("does not exist")
+    {
+        return (
+            404,
+            "NOT_FOUND",
+            format!("Cannot {action}: the snapshot or VM was not found"),
+        );
+    }
+    if lower.contains("forbidden") || lower.contains("unauthorized") {
+        return (
+            403,
+            "FORBIDDEN",
+            format!("Not allowed to {action} (check virtualmachinerestores RBAC)"),
+        );
+    }
+    if (lower.contains("admission webhook") && lower.contains("denied the request"))
+        || lower.contains("no volumes")
+        || lower.contains("excluded")
+        || lower.contains("nothing to restore")
+    {
+        return (
+            409,
+            "VALIDATION_FAILED",
+            format!(
+                "Cannot {action}: this snapshot has no restorable disk content (its volumes \
+                 were excluded at snapshot time -- this happens for VMs without \
+                 PVC/DataVolume-backed disks, e.g. ephemeral emptyDisk volumes)"
+            ),
+        );
+    }
+    if lower.contains("conflict") || lower.contains("already exists") {
+        return (
+            409,
+            "CONFLICT",
+            format!("Cannot {action}: a restore is already in progress or in a conflicting state"),
+        );
+    }
+    (500, "REVERT_FAILED", format!("Failed to {action}"))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

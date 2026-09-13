@@ -32,6 +32,7 @@ pub async fn get_ha_policy_handler(
 }
 
 #[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct SetHaPolicyBody {
     /// KubeVirt's real values: "LiveMigrate", "LiveMigrateIfPossible",
     /// "External", "None". Pass `null` to clear it (cluster default applies).

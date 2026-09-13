@@ -724,29 +724,39 @@ pub async fn fabric_cloud_init(
         format!("#cloud-config\nhostname: {host}\nmanage_etc_hosts: true\n")
     });
 
-    // Annotate VM with desired cloud-init for operators; full volume rewrite requires stop/recreate.
-    let patch = json!({
+    // Also annotate the VM for operators' visibility (kept even though the
+    // real fix below now writes the actual cloudInitNoCloud.userData too --
+    // an operator inspecting annotations can still see the last requested
+    // value without decoding the volumes array).
+    let annotate_patch = json!({
         "metadata": {
             "annotations": {
-                "zorvia.io/cloud-init-user-data": user_data,
+                "zorvia.io/cloud-init-user-data": &user_data,
                 "zorvia.io/cloud-init-instance-id": body.instance_id.unwrap_or_else(|| name.clone()),
             }
         }
     });
-
     let vms: kube::Api<crate::kube::types::VirtualMachine> =
         kube::Api::namespaced(client.client(), &namespace);
-    match vms
+    if let Err(e) = vms
         .patch(
             &name,
             &kube::api::PatchParams::default(),
-            &kube::api::Patch::Merge(&patch),
+            &kube::api::Patch::Merge(&annotate_patch),
         )
         .await
     {
+        let (st, j) = err_json(500, "CLOUD_INIT_FAILED", &sanitize_error(&e));
+        return (st, j).into_response();
+    }
+
+    // The actual fix: rewrite the cloudinitdisk volume's real userData, not
+    // just an annotation. Takes effect on the VM's next (re)start, same as
+    // the frontend's own "generate ISO, applied on next boot" framing.
+    match client.update_cloud_init(&namespace, &name, &user_data).await {
         Ok(_) => StatusCode::NO_CONTENT.into_response(),
         Err(e) => {
-            let (st, j) = err_json(500, "CLOUD_INIT_FAILED", &format!("{e}"));
+            let (st, j) = err_json(500, "CLOUD_INIT_FAILED", &sanitize_error(&e));
             (st, j).into_response()
         }
     }
@@ -1032,7 +1042,10 @@ pub async fn fabric_delete_snapshot(
     match result {
         Ok(()) => StatusCode::NO_CONTENT.into_response(),
         Err(e) => {
-            let (st, j) = err_json(500, "SNAPSHOT_DELETE_FAILED", &sanitize_error(&e));
+            let raw = e.to_string();
+            let (code, kind, msg) =
+                crate::kube::lifecycle::classify_restore_error("delete this snapshot", &raw);
+            let (st, j) = err_json(code, kind, &msg);
             (st, j).into_response()
         }
     }
@@ -1046,9 +1059,12 @@ pub async fn fabric_revert_snapshot(
     let s = state.read().await;
     let namespace = s.namespace.clone();
     drop(s);
+    // classify_restore_error needs raw error text (before any sanitizing) --
+    // it's the thing doing the sanitizing here, same convention as
+    // classify_lifecycle_error/classify_migration_error/classify_hotplug_error.
     let result = match crate::snapshots::RestoreManager::new(&namespace).await {
         Ok(rm) => rm.restore_in_place(&vm, &id).await.map_err(|e| e.to_string()),
-        Err(e) => Err(sanitize_error(&e)),
+        Err(e) => Err(e.to_string()),
     };
     record_audit(
         &state,
@@ -1062,8 +1078,9 @@ pub async fn fabric_revert_snapshot(
     .await;
     match result {
         Ok(_) => StatusCode::NO_CONTENT.into_response(),
-        Err(e) => {
-            let (st, j) = err_json(500, "REVERT_FAILED", &e);
+        Err(raw) => {
+            let (code, kind, msg) = crate::kube::lifecycle::classify_restore_error("revert to this snapshot", &raw);
+            let (st, j) = err_json(code, kind, &msg);
             (st, j).into_response()
         }
     }
