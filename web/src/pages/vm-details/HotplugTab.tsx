@@ -11,6 +11,7 @@ import {
   hotplugNic,
   hotremoveDisk,
   hotremoveNic,
+  type HotplugApplyResult,
 } from '../../api/hotplug'
 import { useToastContext } from '../../contexts/ToastContext'
 import { toastFailure } from '../../utils/toastError'
@@ -34,6 +35,35 @@ export default function HotplugTab({ vm }: { vm: VM }) {
     try {
       await fn()
       toast.success(success)
+    } catch (e) {
+      toastFailure(toast, 'Hotplug failed', e)
+    } finally {
+      setBusy(null)
+    }
+  }
+
+  // CPU/memory hotplug is asynchronous on KubeVirt's side: the request not
+  // throwing only means the patch was accepted, not that the guest is
+  // actually running with it. Route these two through the response's
+  // hotplug_converged/restart_required flags instead of a fixed "success"
+  // string, so a staged-for-restart or still-applying change doesn't read
+  // as a confident, completed success.
+  const runHotplugApply = async (
+    key: string,
+    fn: () => Promise<HotplugApplyResult>,
+    convergedMessage: string,
+    pendingLabel: string,
+  ) => {
+    setBusy(key)
+    try {
+      const result = await fn()
+      if (result.hotplug_converged) {
+        toast.success(convergedMessage)
+      } else if (result.restart_required) {
+        toast.warning(`${pendingLabel} staged -- restart the VM to apply it`)
+      } else {
+        toast.warning(`${pendingLabel} accepted, still applying -- check back shortly`)
+      }
     } catch (e) {
       toastFailure(toast, 'Hotplug failed', e)
     } finally {
@@ -77,7 +107,14 @@ export default function HotplugTab({ vm }: { vm: VM }) {
             <ActionButton
               disabled={!canWrite || busy !== null}
               loading={busy === 'cpu'}
-              onClick={() => run('cpu', () => hotplugCpu(vm.name, { count: cpuCount }), `CPU count set to ${cpuCount}`)}
+              onClick={() =>
+                runHotplugApply(
+                  'cpu',
+                  () => hotplugCpu(vm.name, { count: cpuCount }),
+                  `CPU count set to ${cpuCount}`,
+                  `CPU change to ${cpuCount}`,
+                )
+              }
               label="Apply"
             />
           </div>
@@ -100,7 +137,14 @@ export default function HotplugTab({ vm }: { vm: VM }) {
             <ActionButton
               disabled={!canWrite || busy !== null}
               loading={busy === 'mem'}
-              onClick={() => run('mem', () => hotplugMemory(vm.name, { size_mb: memMb }), `Added ${memMb} MB memory`)}
+              onClick={() =>
+                runHotplugApply(
+                  'mem',
+                  () => hotplugMemory(vm.name, { size_mb: memMb }),
+                  `Added ${memMb} MB memory`,
+                  `Memory increase of ${memMb} MB`,
+                )
+              }
               label="Add"
             />
           </div>

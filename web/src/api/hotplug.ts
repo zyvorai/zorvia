@@ -22,12 +22,22 @@ export interface HotplugNicRequest {
   model?: string
 }
 
-export async function hotplugCpu(vmName: string, req: HotplugCpuRequest): Promise<unknown> {
-  return apiPost<unknown>(`${API_BASE_URL}/vms/${vmName}/hotplug/cpu`, req)
+// KubeVirt live-update reconciliation is asynchronous, so the backend
+// polls briefly after accepting a CPU/memory hotplug patch and reports
+// what actually happened -- accepting the patch is not the same as the
+// guest running with it live. Callers must branch on these instead of
+// assuming success just because the request didn't throw.
+export interface HotplugApplyResult {
+  hotplug_converged?: boolean
+  restart_required?: boolean
 }
 
-export async function hotplugMemory(vmName: string, req: HotplugMemoryRequest): Promise<unknown> {
-  return apiPost<unknown>(`${API_BASE_URL}/vms/${vmName}/hotplug/memory`, req)
+export async function hotplugCpu(vmName: string, req: HotplugCpuRequest): Promise<HotplugApplyResult> {
+  return apiPost<HotplugApplyResult>(`${API_BASE_URL}/vms/${vmName}/hotplug/cpu`, req)
+}
+
+export async function hotplugMemory(vmName: string, req: HotplugMemoryRequest): Promise<HotplugApplyResult> {
+  return apiPost<HotplugApplyResult>(`${API_BASE_URL}/vms/${vmName}/hotplug/memory`, req)
 }
 
 export async function hotplugDisk(vmName: string, req: HotplugDiskRequest): Promise<unknown> {
