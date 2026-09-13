@@ -13,23 +13,23 @@ import { useToastContext } from '../contexts/ToastContext'
 
 function StatusIcon({ status }: { status: ReadinessCheck['status'] }) {
   if (status === 'Passed') {
-    return <span className="flex items-center justify-center w-6 h-6 rounded-full bg-emerald-50 text-emerald-700 text-xs">&#10003;</span>
+    return <span className="flex items-center justify-center w-6 h-6 rounded-full bg-[var(--zf-success)]/10 text-[var(--zf-success)] text-xs">&#10003;</span>
   }
   if (status === 'Warning') {
-    return <span className="flex items-center justify-center w-6 h-6 rounded-full bg-amber-50 text-amber-800 text-xs">&#9888;</span>
+    return <span className="flex items-center justify-center w-6 h-6 rounded-full bg-[var(--zf-warning)]/10 text-[var(--zf-warning)] text-xs">&#9888;</span>
   }
   if (status === 'Skipped') {
     return <span className="flex items-center justify-center w-6 h-6 rounded-full bg-[var(--zf-canvas)] text-[var(--zf-muted)] text-xs">&#8212;</span>
   }
-  return <span className="flex items-center justify-center w-6 h-6 rounded-full bg-red-50 text-red-700 text-xs">&#10007;</span>
+  return <span className="flex items-center justify-center w-6 h-6 rounded-full bg-[var(--zf-danger)]/10 text-[var(--zf-danger)] text-xs">&#10007;</span>
 }
 
 function statusBadgeClass(status: ReadinessCheck['status']): string {
   switch (status) {
-    case 'Passed': return 'text-emerald-700 bg-emerald-50 border-emerald-200'
-    case 'Warning': return 'text-amber-800 bg-amber-50 border-amber-200'
+    case 'Passed': return 'text-[var(--zf-success)] bg-[var(--zf-success)]/10 border-[var(--zf-success)]/25'
+    case 'Warning': return 'text-[var(--zf-warning)] bg-[var(--zf-warning)]/10 border-[var(--zf-warning)]/25'
     case 'Skipped': return 'text-[var(--zf-muted)] bg-[var(--zf-canvas)] border-[var(--zf-hairline)]'
-    default: return 'text-red-700 bg-red-50 border-red-200'
+    default: return 'text-[var(--zf-danger)] bg-[var(--zf-danger)]/10 border-[var(--zf-danger)]/25'
   }
 }
 
@@ -118,9 +118,9 @@ export default function MigrationReadiness() {
             </div>
           ) : (
             <>
-              <div className={`rounded-xl p-4 border flex items-center justify-between ${hasIssues ? 'bg-amber-50 border-amber-200' : 'bg-emerald-50 border-emerald-200'}`}>
+              <div className={`rounded-xl p-4 border flex items-center justify-between ${hasIssues ? 'bg-[var(--zf-warning)]/10 border-[var(--zf-warning)]/25' : 'bg-[var(--zf-success)]/10 border-[var(--zf-success)]/25'}`}>
                 <div className="flex items-center gap-3">
-                  <div className={`w-8 h-8 rounded-full flex items-center justify-center ${hasIssues ? 'bg-amber-100 text-amber-800' : 'bg-emerald-100 text-emerald-700'}`}>
+                  <div className={`w-8 h-8 rounded-full flex items-center justify-center ${hasIssues ? 'bg-[var(--zf-warning)]/20 text-[var(--zf-warning)]' : 'bg-[var(--zf-success)]/20 text-[var(--zf-success)]'}`}>
                     {hasIssues ? '⚠' : '✓'}
                   </div>
                   <div>
