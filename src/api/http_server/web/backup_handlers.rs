@@ -191,3 +191,133 @@ pub async fn delete_backup_handler(
         Err(e) => backup_error("delete backup", e),
     }
 }
+
+fn restore_job_json(r: &crate::snapshots::RestoreInfo) -> serde_json::Value {
+    let status = match r.status {
+        crate::snapshots::RestoreStatus::Succeeded => "completed",
+        crate::snapshots::RestoreStatus::InProgress => "running",
+        crate::snapshots::RestoreStatus::Failed => "failed",
+        crate::snapshots::RestoreStatus::Unknown => "running",
+    };
+    json!({
+        "id": r.name,
+        "backup_id": r.snapshot_name,
+        "vm_name": r.target_vm_name,
+        "operation": "restore",
+        "status": status,
+        "progress": if matches!(r.status, crate::snapshots::RestoreStatus::Succeeded) { 100 } else { 0 },
+        "started_at": r.created_at.map(|t| t.to_rfc3339()),
+        "completed_at": r.completed_at.map(|t| t.to_rfc3339()),
+        "error": r.error,
+    })
+}
+
+#[derive(Debug, Deserialize)]
+pub struct RestoreBackupBody {
+    pub backup_id: String,
+    #[serde(default)]
+    pub target_vm_name: Option<String>,
+    // Accepted for API-shape compatibility with `web/src/api/backup.ts`'s
+    // `RestoreOptions` -- a full point-in-time snapshot restore always
+    // restores config+disks+state together (there's no incremental/partial
+    // restore engine here, matching how `backup_type` works on create).
+    #[serde(default)]
+    #[allow(dead_code)]
+    pub restore_config: Option<bool>,
+    #[serde(default)]
+    #[allow(dead_code)]
+    pub restore_disks: Option<bool>,
+    #[serde(default)]
+    #[allow(dead_code)]
+    pub restore_state: Option<bool>,
+}
+
+/// `POST /backups/restore` -- restores a backup either in-place (onto its
+/// original VM, which must be stopped) or to a new VM (when `target_vm_name`
+/// names a different VM than the one the snapshot was taken from). Wraps
+/// the same `RestoreManager` the working `POST /vms/:name/snapshots/:id/revert`
+/// endpoint already uses.
+pub async fn restore_backup_handler(
+    State(state): State<SharedState>,
+    AxumJson(body): AxumJson<RestoreBackupBody>,
+) -> impl IntoResponse {
+    if body.backup_id.trim().is_empty() {
+        let (st, j) = err_json(400, "INVALID_NAME", "backup_id is required");
+        return (st, j).into_response();
+    }
+    let s = state.read().await;
+    let namespace = s.namespace.clone();
+    drop(s);
+
+    let manager = match SnapshotManager::new(&namespace).await {
+        Ok(m) => m,
+        Err(e) => return backup_error("connect to cluster", e),
+    };
+    let snapshot = match manager.get_snapshot(&body.backup_id).await {
+        Ok(s) => s,
+        Err(e) => return backup_error("find backup", e),
+    };
+
+    let restore_manager = match crate::snapshots::RestoreManager::new(&namespace).await {
+        Ok(rm) => rm,
+        Err(e) => return backup_error("connect to cluster", e),
+    };
+    let result = match &body.target_vm_name {
+        Some(target) if *target != snapshot.vm_name => {
+            restore_manager
+                .restore_to_new_vm(&body.backup_id, target, true)
+                .await
+        }
+        _ => {
+            restore_manager
+                .restore_in_place(&snapshot.vm_name, &body.backup_id)
+                .await
+        }
+    };
+    match result {
+        Ok(info) => (StatusCode::CREATED, Json(restore_job_json(&info))).into_response(),
+        Err(e) => {
+            let raw = e.to_string();
+            let (code, kind, msg) =
+                crate::kube::lifecycle::classify_restore_error("restore this backup", &raw);
+            let (st, j) = err_json(code, kind, &msg);
+            (st, j).into_response()
+        }
+    }
+}
+
+/// `GET /backups/jobs` -- fleet-wide backup+restore job status, reusing the
+/// same `backup_job_json` shape `create_backup_handler` already returns.
+pub async fn list_backup_jobs_handler(State(state): State<SharedState>) -> impl IntoResponse {
+    let s = state.read().await;
+    let namespace = s.namespace.clone();
+    drop(s);
+
+    let manager = match SnapshotManager::new(&namespace).await {
+        Ok(m) => m,
+        Err(e) => return backup_error("connect to cluster", e),
+    };
+    match manager.list_snapshots_sorted(None).await {
+        Ok(snaps) => Json(snaps.iter().map(backup_job_json).collect::<Vec<_>>()).into_response(),
+        Err(e) => backup_error("list backup jobs", e),
+    }
+}
+
+/// `GET /backups/jobs/:id` -- single backup job status by id.
+pub async fn get_backup_job_handler(
+    State(state): State<SharedState>,
+    Path(id): Path<String>,
+) -> impl IntoResponse {
+    let s = state.read().await;
+    let namespace = s.namespace.clone();
+    drop(s);
+
+    let manager = match SnapshotManager::new(&namespace).await {
+        Ok(m) => m,
+        Err(e) => return backup_error("connect to cluster", e),
+    };
+    match manager.get_snapshot(&id).await {
+        Ok(info) => Json(backup_job_json(&info)).into_response(),
+        Err(e) => backup_error("find backup job", e),
+    }
+}

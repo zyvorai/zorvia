@@ -762,6 +762,268 @@ pub async fn fabric_cloud_init(
     }
 }
 
+// ---- Tags: freeform tag names stored as `tag.zorvia.io/<name>: "true"`
+// labels, reusing the vCenter-migration key/value metadata machinery in
+// `crate::vcenter_ops::metadata` (already tested, already wired to the CLI's
+// `zorvia tag-set`/`tag-remove`). The web console's tag model is a flat
+// list of names rather than key=value pairs, so each tag becomes its own
+// boolean-ish label; the list is reconstructed by reading back the *keys*
+// of every label with the `tag.zorvia.io/` prefix.
+
+#[derive(Debug, Deserialize)]
+pub struct SetTagsBody {
+    pub tags: Vec<String>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct AddTagBody {
+    pub tag: String,
+}
+
+fn current_tags(vm: &crate::kube::types::VirtualMachine) -> std::collections::BTreeSet<String> {
+    let labels = vm.metadata.labels.clone().unwrap_or_default();
+    crate::vcenter_ops::inventory::extract_prefixed(
+        &labels,
+        crate::vcenter_ops::inventory::TAG_PREFIX,
+    )
+    .into_keys()
+    .collect()
+}
+
+/// Build one merge-patch covering every tag label to add/clear, so a
+/// multi-tag change is a single API call instead of one round-trip per tag.
+fn tags_patch(
+    to_add: impl IntoIterator<Item = String>,
+    to_remove: impl IntoIterator<Item = String>,
+) -> Result<serde_json::Value, String> {
+    let mut labels = serde_json::Map::new();
+    for tag in to_add {
+        let key = crate::vcenter_ops::metadata::qualified_key(
+            crate::vcenter_ops::metadata::MetadataKind::Tag,
+            &tag,
+        )
+        .map_err(|e| e.to_string())?;
+        labels.insert(key, serde_json::Value::String("true".into()));
+    }
+    for tag in to_remove {
+        let key = crate::vcenter_ops::metadata::qualified_key(
+            crate::vcenter_ops::metadata::MetadataKind::Tag,
+            &tag,
+        )
+        .map_err(|e| e.to_string())?;
+        labels.insert(key, serde_json::Value::Null);
+    }
+    Ok(json!({ "metadata": { "labels": serde_json::Value::Object(labels) } }))
+}
+
+async fn apply_tags_patch(
+    client: &crate::kube::KubeClient,
+    namespace: &str,
+    name: &str,
+    patch: &serde_json::Value,
+) -> Result<(), kube::Error> {
+    let vms: kube::Api<crate::kube::types::VirtualMachine> =
+        kube::Api::namespaced(client.client(), namespace);
+    vms.patch(
+        name,
+        &kube::api::PatchParams::default(),
+        &kube::api::Patch::Merge(patch),
+    )
+    .await?;
+    Ok(())
+}
+
+pub async fn fabric_set_tags(
+    State(state): State<SharedState>,
+    Path(name): Path<String>,
+    AxumJson(body): AxumJson<SetTagsBody>,
+) -> impl IntoResponse {
+    let s = state.read().await;
+    let namespace = s.namespace.clone();
+    let client = s.client();
+    drop(s);
+
+    let vm = match client.get_vm(&namespace, &name).await {
+        Ok(vm) => vm,
+        Err(e) => {
+            let (st, j) = err_json(404, "NOT_FOUND", &sanitize_error(&e));
+            return (st, j).into_response();
+        }
+    };
+    let existing = current_tags(&vm);
+    let desired: std::collections::BTreeSet<String> = body.tags.into_iter().collect();
+    let to_add = desired.difference(&existing).cloned();
+    let to_remove = existing.difference(&desired).cloned();
+    let patch = match tags_patch(to_add, to_remove) {
+        Ok(p) => p,
+        Err(e) => {
+            let (st, j) = err_json(400, "INVALID_TAG", &e);
+            return (st, j).into_response();
+        }
+    };
+    match apply_tags_patch(&client, &namespace, &name, &patch).await {
+        Ok(()) => StatusCode::NO_CONTENT.into_response(),
+        Err(e) => {
+            let (st, j) = err_json(500, "TAGS_UPDATE_FAILED", &sanitize_error(&e));
+            (st, j).into_response()
+        }
+    }
+}
+
+pub async fn fabric_add_tag(
+    State(state): State<SharedState>,
+    Path(name): Path<String>,
+    AxumJson(body): AxumJson<AddTagBody>,
+) -> impl IntoResponse {
+    let s = state.read().await;
+    let namespace = s.namespace.clone();
+    let client = s.client();
+    drop(s);
+
+    let patch = match tags_patch([body.tag], []) {
+        Ok(p) => p,
+        Err(e) => {
+            let (st, j) = err_json(400, "INVALID_TAG", &e);
+            return (st, j).into_response();
+        }
+    };
+    match apply_tags_patch(&client, &namespace, &name, &patch).await {
+        Ok(()) => StatusCode::NO_CONTENT.into_response(),
+        Err(e) => {
+            let (st, j) = err_json(500, "TAGS_UPDATE_FAILED", &sanitize_error(&e));
+            (st, j).into_response()
+        }
+    }
+}
+
+pub async fn fabric_remove_tag(
+    State(state): State<SharedState>,
+    Path((name, tag)): Path<(String, String)>,
+) -> impl IntoResponse {
+    let s = state.read().await;
+    let namespace = s.namespace.clone();
+    let client = s.client();
+    drop(s);
+
+    let patch = match tags_patch([], [tag]) {
+        Ok(p) => p,
+        Err(e) => {
+            let (st, j) = err_json(400, "INVALID_TAG", &e);
+            return (st, j).into_response();
+        }
+    };
+    match apply_tags_patch(&client, &namespace, &name, &patch).await {
+        Ok(()) => StatusCode::NO_CONTENT.into_response(),
+        Err(e) => {
+            let (st, j) = err_json(500, "TAGS_UPDATE_FAILED", &sanitize_error(&e));
+            (st, j).into_response()
+        }
+    }
+}
+
+// ---- Read-only status projections of data `get_vm` already returns in
+// full. Each of these previously fell through to the router's
+// `fabric_not_implemented` fallback (no route registered at all), even
+// though the underlying VM object has always carried this data.
+
+/// `GET /vms/{name}/firmware` -- UEFI/BIOS boot config + firmware UUID.
+pub async fn fabric_get_firmware(
+    State(state): State<SharedState>,
+    Path(name): Path<String>,
+) -> impl IntoResponse {
+    let s = state.read().await;
+    let namespace = s.namespace.clone();
+    let client = s.client();
+    drop(s);
+
+    let vm = match client.get_vm(&namespace, &name).await {
+        Ok(vm) => vm,
+        Err(e) => {
+            let (st, j) = err_json(404, "NOT_FOUND", &sanitize_error(&e));
+            return (st, j).into_response();
+        }
+    };
+    Json(json!(vm.spec.template.spec.domain.firmware)).into_response()
+}
+
+/// `GET /vms/{name}/cpu-config` -- topology/model/pinning config.
+pub async fn fabric_get_cpu_config(
+    State(state): State<SharedState>,
+    Path(name): Path<String>,
+) -> impl IntoResponse {
+    let s = state.read().await;
+    let namespace = s.namespace.clone();
+    let client = s.client();
+    drop(s);
+
+    let vm = match client.get_vm(&namespace, &name).await {
+        Ok(vm) => vm,
+        Err(e) => {
+            let (st, j) = err_json(404, "NOT_FOUND", &sanitize_error(&e));
+            return (st, j).into_response();
+        }
+    };
+    Json(json!(vm.spec.template.spec.domain.cpu)).into_response()
+}
+
+/// `GET /vms/{name}/numa` -- NUMA topology config, nested under CPU. Will
+/// mostly report `null` until creation-time NUMA support exists -- that's
+/// an honest empty state, an improvement over the previous `501`.
+pub async fn fabric_get_numa(
+    State(state): State<SharedState>,
+    Path(name): Path<String>,
+) -> impl IntoResponse {
+    let s = state.read().await;
+    let namespace = s.namespace.clone();
+    let client = s.client();
+    drop(s);
+
+    let vm = match client.get_vm(&namespace, &name).await {
+        Ok(vm) => vm,
+        Err(e) => {
+            let (st, j) = err_json(404, "NOT_FOUND", &sanitize_error(&e));
+            return (st, j).into_response();
+        }
+    };
+    let numa = vm.spec.template.spec.domain.cpu.and_then(|c| c.numa);
+    Json(json!(numa)).into_response()
+}
+
+/// `GET /vms/{name}/serial` -- serial console availability. This is a
+/// status/metadata read, not a new websocket path -- the real transport
+/// (`build_kubevirt_ws`) already exists and backs the working `ws_console`
+/// handler; a console is reachable there whenever the VMI is Running.
+pub async fn fabric_get_serial(
+    State(state): State<SharedState>,
+    Path(name): Path<String>,
+) -> impl IntoResponse {
+    let s = state.read().await;
+    let namespace = s.namespace.clone();
+    let client = s.client();
+    drop(s);
+
+    if let Err(e) = client.get_vm(&namespace, &name).await {
+        let (st, j) = err_json(404, "NOT_FOUND", &sanitize_error(&e));
+        return (st, j).into_response();
+    }
+    let (available, phase) = match client.get_vmi(&namespace, &name).await {
+        Ok(vmi) => {
+            let phase = vmi
+                .status
+                .and_then(|s| s.phase)
+                .unwrap_or_else(|| "Unknown".to_string());
+            (phase == "Running", phase)
+        }
+        Err(_) => (false, "NotRunning".to_string()),
+    };
+    Json(json!({
+        "available": available,
+        "vm_phase": phase,
+        "console_path": format!("/api/vms/{name}/console"),
+    }))
+    .into_response()
+}
+
 pub async fn fabric_clone_vm(
     State(state): State<SharedState>,
     headers: HeaderMap,

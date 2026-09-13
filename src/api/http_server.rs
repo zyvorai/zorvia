@@ -614,7 +614,16 @@ pub mod web {
                 delete(fabric_remove_port_forward),
             )
             .route("/vms/:name/cloud-init", post(fabric_cloud_init))
+            .route(
+                "/vms/:name/tags",
+                put(fabric_set_tags).post(fabric_add_tag),
+            )
+            .route("/vms/:name/tags/:tag", delete(fabric_remove_tag))
             .route("/vms/:name/clone", post(fabric_clone_vm))
+            .route("/vms/:name/firmware", get(fabric_get_firmware))
+            .route("/vms/:name/cpu-config", get(fabric_get_cpu_config))
+            .route("/vms/:name/numa", get(fabric_get_numa))
+            .route("/vms/:name/serial", get(fabric_get_serial))
             .route(
                 "/vms/:name/snapshots",
                 get(fabric_list_vm_snapshots).post(fabric_create_snapshot),
@@ -633,6 +642,9 @@ pub mod web {
                 get(list_backups_handler).post(create_backup_handler),
             )
             .route("/backups/:id", delete(delete_backup_handler))
+            .route("/backups/restore", post(restore_backup_handler))
+            .route("/backups/jobs", get(list_backup_jobs_handler))
+            .route("/backups/jobs/:id", get(get_backup_job_handler))
             .route("/placement/rebalance", get(placement_rebalance_handler))
             .route("/placement/:vm", get(placement_recommend_handler))
             .route(
