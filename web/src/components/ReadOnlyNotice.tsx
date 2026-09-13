@@ -3,7 +3,7 @@
 
 export default function ReadOnlyNotice() {
   return (
-    <div className="text-sm text-amber-400/90 bg-amber-500/10 border border-amber-500/20 rounded-lg px-3 py-2 mb-4">
+    <div className="text-sm text-[var(--zf-warning)] bg-[var(--zf-warning)]/10 border border-[var(--zf-warning)]/20 rounded-lg px-3 py-2 mb-4">
       You are signed in as a viewer. Create, edit, and delete actions are disabled.
     </div>
   )

@@ -35,17 +35,17 @@ export function ToastItem({ toast, onClose }: ToastProps) {
   const display = displayMessage(toast.type, toast.message)
 
   const config = {
-    success: { icon: CheckCircle, bg: 'bg-emerald-50', border: 'border-emerald-200', text: 'text-emerald-700' },
-    error: { icon: XCircle, bg: 'bg-red-50', border: 'border-red-200', text: 'text-red-700' },
-    warning: { icon: AlertCircle, bg: 'bg-amber-50', border: 'border-amber-200', text: 'text-amber-800' },
-    info: { icon: Info, bg: 'bg-sky-50', border: 'border-sky-200', text: 'text-sky-800' },
+    success: { icon: CheckCircle, bg: 'bg-[var(--zf-success)]/10', border: 'border-[var(--zf-success)]/25', text: 'text-[var(--zf-success)]' },
+    error: { icon: XCircle, bg: 'bg-[var(--zf-danger)]/10', border: 'border-[var(--zf-danger)]/25', text: 'text-[var(--zf-danger)]' },
+    warning: { icon: AlertCircle, bg: 'bg-[var(--zf-warning)]/10', border: 'border-[var(--zf-warning)]/25', text: 'text-[var(--zf-warning)]' },
+    info: { icon: Info, bg: 'bg-[var(--zf-link)]/10', border: 'border-[var(--zf-link)]/25', text: 'text-[var(--zf-link)]' },
   }[toast.type]
 
   const Icon = config.icon
 
   return (
     <div
-      className={`flex items-center gap-3 px-4 py-3 rounded-xl border shadow-lg animate-slide-in bg-white ${config.bg} ${config.border}`}
+      className={`flex items-center gap-3 px-4 py-3 rounded-xl border shadow-lg animate-slide-in bg-[var(--zf-surface)] ${config.bg} ${config.border}`}
     >
       <Icon className={`w-4 h-4 shrink-0 ${config.text}`} />
       <span className="flex-1 text-sm text-[var(--zf-ink)] whitespace-pre-wrap break-words">{display}</span>

@@ -25,19 +25,19 @@ export default function ConnectionStatus() {
       title={title}
       className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium border ${
         isLive
-          ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
-          : 'bg-red-50 text-red-700 border-red-200'
+          ? 'bg-[var(--zf-success)]/10 text-[var(--zf-success)] border-[var(--zf-success)]/25'
+          : 'bg-[var(--zf-danger)]/10 text-[var(--zf-danger)] border-[var(--zf-danger)]/25'
       }`}
     >
       {isLive ? (
         <>
-          <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse-dot" />
+          <div className="w-1.5 h-1.5 rounded-full bg-[var(--zf-success)] animate-pulse-dot" />
           <Wifi className="w-3.5 h-3.5 shrink-0" aria-hidden />
           <span className="whitespace-nowrap max-xl:sr-only">Live</span>
         </>
       ) : (
         <>
-          <div className="w-1.5 h-1.5 rounded-full bg-red-500" />
+          <div className="w-1.5 h-1.5 rounded-full bg-[var(--zf-danger)]" />
           <WifiOff className="w-3.5 h-3.5 shrink-0" aria-hidden />
           <span className="whitespace-nowrap max-xl:sr-only">Offline</span>
         </>
