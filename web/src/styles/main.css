@@ -941,6 +941,35 @@ a:hover {
   color: var(--zf-ink);
 }
 
+/* Shared DataTable primitive (ui/DataTable.tsx) -- one sortable/selectable
+   table implementation so list pages stop hand-rolling their own <table>. */
+.zf-table-header-row th {
+  position: sticky;
+  top: var(--console-topbar-height);
+  z-index: 5;
+  background: var(--zf-canvas);
+}
+.zf-table-sort-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  cursor: pointer;
+  user-select: none;
+}
+.zf-table-sort-btn:hover {
+  color: var(--zf-ink);
+}
+.zf-table-row {
+  border-top: 1px solid var(--zf-hairline);
+  transition: background-color 0.15s ease;
+}
+.zf-table-row:hover {
+  background: var(--zf-hover-tint);
+}
+.zf-table-row.selected {
+  background: color-mix(in srgb, var(--zf-link) 5%, transparent);
+}
+
 /* Terminal.app chrome — always near-black, both themes.
    Light-theme remaps match Tailwind substrings like selection:bg-[#0a…] and
    would otherwise paint these panes white with light text. */

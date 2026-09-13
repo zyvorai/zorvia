@@ -1,14 +1,14 @@
 // Copyright 2026 Zyvor AI Labs · https://zyvor.dev
 // SPDX-License-Identifier: Apache-2.0
 
-import { useEffect, useState, useMemo, useCallback, type MouseEvent } from 'react'
+import { useEffect, useState, useMemo, useCallback } from 'react'
 import { Link, useNavigate } from 'react-router'
 import { listVMs, startVM, stopVM, deleteVM, VM } from '../api/vm'
 import { createBackup } from '../api/backup'
 import { Search, X, Tag, Layers, Monitor, LayoutGrid, List, Play, Square, MoreVertical, Cpu, HardDrive, CheckSquare, Trash2, Archive } from 'lucide-react'
 import VMCard from '../components/VMCard'
 import { getTagColor } from '../components/TagEditor'
-import { PageHeader, EmptyState, StatusBadge } from '../components/ui'
+import { PageHeader, EmptyState, StatusBadge, DataTable, type DataTableColumn } from '../components/ui'
 import ErrorBanner from '../components/ErrorBanner'
 import { formatUserError } from '../utils/apiError'
 import { toastFailure } from '../utils/toastError'
@@ -23,98 +23,32 @@ import CopyButton from '../components/CopyButton'
 
 type ViewMode = 'grid' | 'table'
 
-function VMTableRow({ vm, onUpdate, selected, onSelect, canWrite }: { vm: VM; onUpdate: () => void; selected: boolean; onSelect: (name: string) => void; canWrite: boolean }) {
+function VMRowActions({ vm, onUpdate, canWrite }: { vm: VM; onUpdate: () => void; canWrite: boolean }) {
   const { handleStart, handleStop } = useVMActions(vm.name, onUpdate)
-  const navigate = useNavigate()
 
-  const handleRowDoubleClick = (e: MouseEvent) => {
-    if ((e.target as HTMLElement).closest('a, button, input')) return
-    navigate(`/app/vms/${vm.name}`)
+  if (!canWrite) {
+    return (
+      <Link to={`/app/vms/${vm.name}`} className="text-xs text-[var(--zf-link)] hover:text-[var(--zf-link-hover)]">
+        View
+      </Link>
+    )
   }
 
   return (
-    <tr
-      onDoubleClick={handleRowDoubleClick}
-      title="Double-click to open details"
-      className={`border-t border-[var(--zf-hairline)] hover:bg-black/[0.02] transition-colors group ${selected ? 'bg-[var(--zf-link)]/5' : ''}`}
-    >
-      <td className="py-3 px-4 w-10">
-        <input
-          type="checkbox"
-          checked={selected}
-          onChange={() => onSelect(vm.name)}
-          className="w-3.5 h-3.5 rounded border-[var(--zf-hairline)] cursor-pointer"
-        />
-      </td>
-      <td className="py-3 px-4">
-        <div className="flex items-center gap-1 group/name">
-          <Link
-            to={`/app/vms/${vm.name}`}
-            className="font-medium text-[var(--zf-ink)] hover:text-[var(--zf-link)] transition-colors"
-          >
-            {vm.name}
-          </Link>
-          <CopyButton text={vm.name} iconOnly className="opacity-0 group-hover/name:opacity-100" successMessage="VM name copied" />
-        </div>
-      </td>
-      <td className="py-3 px-4">
-        <StatusBadge status={vm.state} title={vm.state === 'failed' ? vm.last_error : undefined} />
-      </td>
-      <td className="py-3 px-4">
-        <div className="flex items-center gap-1.5 text-sm text-[var(--zf-muted)]">
-          <Cpu className="w-3.5 h-3.5 text-[var(--zf-muted)]" />
-          {vm.cpus}
-        </div>
-      </td>
-      <td className="py-3 px-4">
-        <div className="flex items-center gap-1.5 text-sm text-[var(--zf-muted)]">
-          <HardDrive className="w-3.5 h-3.5 text-[var(--zf-muted)]" />
-          {vm.memory >= 1024 ? `${(vm.memory / 1024).toFixed(1)} GB` : `${vm.memory} MB`}
-        </div>
-      </td>
-      <td className="py-3 px-4">
-        <span className="text-sm text-[var(--zf-muted)] truncate block max-w-[200px]">{vm.image}</span>
-      </td>
-      <td className="py-3 px-4">
-        {vm.tags && vm.tags.length > 0 ? (
-          <div className="flex flex-wrap gap-1">
-            {vm.tags.slice(0, 2).map((tag) => (
-              <span
-                key={tag}
-                className={`px-1.5 py-0.5 rounded text-[11px] font-medium ${getTagColor(tag)} text-[var(--zf-ink)]/90`}
-              >
-                {tag}
-              </span>
-            ))}
-            {vm.tags.length > 2 && (
-              <span className="text-[11px] text-[var(--zf-muted)]">+{vm.tags.length - 2}</span>
-            )}
-          </div>
-        ) : (
-          <span className="text-[var(--zf-muted)] text-sm">--</span>
-        )}
-      </td>
-      <td className="py-3 px-4">
-        {canWrite ? (
-        <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-          {vm.state === 'stopped' || vm.state === 'failed' ? (
-            <button onClick={handleStart} className="p-1.5 rounded-md text-emerald-700 hover:bg-emerald-50 transition-colors" title="Start">
-              <Play className="w-3.5 h-3.5" />
-            </button>
-          ) : (
-            <button onClick={handleStop} className="p-1.5 rounded-md text-[var(--zf-danger)] hover:bg-red-50 transition-colors" title="Stop">
-              <Square className="w-3.5 h-3.5" />
-            </button>
-          )}
-          <Link to={`/app/vms/${vm.name}`} className="p-1.5 rounded-md text-[var(--zf-muted)] hover:text-[var(--zf-ink)] hover:bg-black/[0.04] transition-colors" title="Details">
-            <MoreVertical className="w-3.5 h-3.5" />
-          </Link>
-        </div>
-        ) : (
-          <Link to={`/app/vms/${vm.name}`} className="text-xs text-[var(--zf-link)] hover:text-[var(--zf-link-hover)]">View</Link>
-        )}
-      </td>
-    </tr>
+    <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+      {vm.state === 'stopped' || vm.state === 'failed' ? (
+        <button onClick={handleStart} className="p-1.5 rounded-md text-emerald-700 hover:bg-emerald-50 transition-colors" title="Start">
+          <Play className="w-3.5 h-3.5" />
+        </button>
+      ) : (
+        <button onClick={handleStop} className="p-1.5 rounded-md text-[var(--zf-danger)] hover:bg-red-50 transition-colors" title="Stop">
+          <Square className="w-3.5 h-3.5" />
+        </button>
+      )}
+      <Link to={`/app/vms/${vm.name}`} className="p-1.5 rounded-md text-[var(--zf-muted)] hover:text-[var(--zf-ink)] hover:bg-black/[0.04] transition-colors" title="Details">
+        <MoreVertical className="w-3.5 h-3.5" />
+      </Link>
+    </div>
   )
 }
 
@@ -543,27 +477,107 @@ export default function VMList() {
 }
 
 function VMTable({ vms, onUpdate, selectedVMs, onSelect, canWrite }: { vms: VM[]; onUpdate: () => void; selectedVMs: Set<string>; onSelect: (name: string) => void; canWrite: boolean }) {
+  const navigate = useNavigate()
+
+  const columns = useMemo<DataTableColumn<VM>[]>(
+    () => [
+      {
+        key: 'name',
+        header: 'Name',
+        sortable: true,
+        sortValue: (vm) => vm.name.toLowerCase(),
+        render: (vm) => (
+          <div className="flex items-center gap-1 group/name">
+            <Link to={`/app/vms/${vm.name}`} className="font-medium text-[var(--zf-ink)] hover:text-[var(--zf-link)] transition-colors">
+              {vm.name}
+            </Link>
+            <CopyButton text={vm.name} iconOnly className="opacity-0 group-hover/name:opacity-100" successMessage="VM name copied" />
+          </div>
+        ),
+      },
+      {
+        key: 'status',
+        header: 'Status',
+        sortable: true,
+        sortValue: (vm) => vm.state,
+        render: (vm) => <StatusBadge status={vm.state} title={vm.state === 'failed' ? vm.last_error : undefined} />,
+      },
+      {
+        key: 'cpu',
+        header: 'CPU',
+        sortable: true,
+        sortValue: (vm) => vm.cpus,
+        render: (vm) => (
+          <div className="flex items-center gap-1.5 text-sm text-[var(--zf-muted)]">
+            <Cpu className="w-3.5 h-3.5 text-[var(--zf-muted)]" />
+            {vm.cpus}
+          </div>
+        ),
+      },
+      {
+        key: 'memory',
+        header: 'Memory',
+        sortable: true,
+        sortValue: (vm) => vm.memory,
+        render: (vm) => (
+          <div className="flex items-center gap-1.5 text-sm text-[var(--zf-muted)]">
+            <HardDrive className="w-3.5 h-3.5 text-[var(--zf-muted)]" />
+            {vm.memory >= 1024 ? `${(vm.memory / 1024).toFixed(1)} GB` : `${vm.memory} MB`}
+          </div>
+        ),
+      },
+      {
+        key: 'image',
+        header: 'Image',
+        render: (vm) => <span className="text-sm text-[var(--zf-muted)] truncate block max-w-[200px]">{vm.image}</span>,
+      },
+      {
+        key: 'tags',
+        header: 'Tags',
+        render: (vm) =>
+          vm.tags && vm.tags.length > 0 ? (
+            <div className="flex flex-wrap gap-1">
+              {vm.tags.slice(0, 2).map((tag) => (
+                <span key={tag} className={`px-1.5 py-0.5 rounded text-[11px] font-medium ${getTagColor(tag)} text-[var(--zf-ink)]/90`}>
+                  {tag}
+                </span>
+              ))}
+              {vm.tags.length > 2 && <span className="text-[11px] text-[var(--zf-muted)]">+{vm.tags.length - 2}</span>}
+            </div>
+          ) : (
+            <span className="text-[var(--zf-muted)] text-sm">--</span>
+          ),
+      },
+      {
+        key: 'actions',
+        header: 'Actions',
+        className: 'w-[140px]',
+        render: (vm) => <VMRowActions vm={vm} onUpdate={onUpdate} canWrite={canWrite} />,
+      },
+    ],
+    [onUpdate, canWrite],
+  )
+
+  const toggleAll = () => {
+    const allSelected = vms.length > 0 && vms.every((vm) => selectedVMs.has(vm.name))
+    vms.forEach((vm) => {
+      const isSelected = selectedVMs.has(vm.name)
+      if (allSelected === isSelected) onSelect(vm.name)
+    })
+  }
+
   return (
-    <div className="bg-[var(--zf-canvas)] rounded-xl border border-[var(--zf-hairline)] overflow-hidden">
-      <table className="w-full text-sm">
-        <thead>
-          <tr className="text-left text-xs font-medium text-[var(--zf-muted)] uppercase tracking-wider">
-            <th className="py-3 px-4 w-10" />
-            <th className="py-3 px-4">Name</th>
-            <th className="py-3 px-4">Status</th>
-            <th className="py-3 px-4">CPU</th>
-            <th className="py-3 px-4">Memory</th>
-            <th className="py-3 px-4">Image</th>
-            <th className="py-3 px-4">Tags</th>
-            <th className="py-3 px-4 w-[140px]">Actions</th>
-          </tr>
-        </thead>
-        <tbody>
-          {vms.map((vm) => (
-            <VMTableRow key={vm.name} vm={vm} onUpdate={onUpdate} selected={selectedVMs.has(vm.name)} onSelect={onSelect} canWrite={canWrite} />
-          ))}
-        </tbody>
-      </table>
-    </div>
+    <DataTable
+      columns={columns}
+      rows={vms}
+      getRowKey={(vm) => vm.name}
+      selectedKeys={selectedVMs}
+      onToggleRow={onSelect}
+      onToggleAll={toggleAll}
+      onRowDoubleClick={(vm, e) => {
+        if ((e.target as HTMLElement).closest('a, button, input')) return
+        navigate(`/app/vms/${vm.name}`)
+      }}
+    />
   )
 }
