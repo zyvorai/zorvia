@@ -12,30 +12,30 @@ import { toastFailure } from '../utils/toastError'
 import { hintsForError } from '../utils/daemonHints'
 
 function scoreColor(score: number): string {
-  if (score >= 90) return 'text-emerald-600'
-  if (score >= 70) return 'text-amber-600'
-  return 'text-red-600'
+  if (score >= 90) return 'text-[var(--zf-success)]'
+  if (score >= 70) return 'text-[var(--zf-warning)]'
+  return 'text-[var(--zf-danger)]'
 }
 
 function scoreBorder(score: number): string {
-  if (score >= 90) return 'border-emerald-500'
-  if (score >= 70) return 'border-amber-500'
-  return 'border-red-500'
+  if (score >= 90) return 'border-[var(--zf-success)]'
+  if (score >= 70) return 'border-[var(--zf-warning)]'
+  return 'border-[var(--zf-danger)]'
 }
 
 function statusIcon(status: string) {
   switch (status) {
-    case 'pass': return <CheckCircle className="w-5 h-5 text-emerald-600" />
-    case 'warning': return <AlertTriangle className="w-5 h-5 text-amber-600" />
-    default: return <XCircle className="w-5 h-5 text-red-600" />
+    case 'pass': return <CheckCircle className="w-5 h-5 text-[var(--zf-success)]" />
+    case 'warning': return <AlertTriangle className="w-5 h-5 text-[var(--zf-warning)]" />
+    default: return <XCircle className="w-5 h-5 text-[var(--zf-danger)]" />
   }
 }
 
 function statusBadge(status: string): string {
   switch (status) {
-    case 'pass': return 'text-emerald-700 bg-emerald-50 border-emerald-200'
-    case 'warning': return 'text-amber-800 bg-amber-50 border-amber-200'
-    default: return 'text-red-700 bg-red-50 border-red-200'
+    case 'pass': return 'text-[var(--zf-success)] bg-[var(--zf-success)]/10 border-[var(--zf-success)]/25'
+    case 'warning': return 'text-[var(--zf-warning)] bg-[var(--zf-warning)]/10 border-[var(--zf-warning)]/25'
+    default: return 'text-[var(--zf-danger)] bg-[var(--zf-danger)]/10 border-[var(--zf-danger)]/25'
   }
 }
 
@@ -103,29 +103,29 @@ export default function ComplianceDashboard() {
         <>
           <div className="grid grid-cols-1 lg:grid-cols-4 gap-3">
             <div className="bg-[var(--zf-surface)] rounded-xl border border-[var(--zf-hairline)] p-6 flex flex-col items-center justify-center">
-              <div className={`w-24 h-24 rounded-full flex items-center justify-center bg-white border-4 ${scoreBorder(data.score)}`}>
+              <div className={`w-24 h-24 rounded-full flex items-center justify-center bg-[var(--zf-surface)] border-4 ${scoreBorder(data.score)}`}>
                 <span className={`text-3xl font-bold ${scoreColor(data.score)}`}>{data.score}</span>
               </div>
               <span className="text-xs text-[var(--zf-muted)] mt-2">Compliance Score</span>
             </div>
             <div className="bg-[var(--zf-surface)] rounded-xl border border-[var(--zf-hairline)] px-4 py-3 flex flex-col justify-center">
-              <div className="text-2xl font-bold text-emerald-600">{data.passed}</div>
+              <div className="text-2xl font-bold text-[var(--zf-success)]">{data.passed}</div>
               <div className="text-xs text-[var(--zf-muted)] mt-1">Passed</div>
             </div>
             <div className="bg-[var(--zf-surface)] rounded-xl border border-[var(--zf-hairline)] px-4 py-3 flex flex-col justify-center">
-              <div className="text-2xl font-bold text-amber-600">{data.warnings}</div>
+              <div className="text-2xl font-bold text-[var(--zf-warning)]">{data.warnings}</div>
               <div className="text-xs text-[var(--zf-muted)] mt-1">Warnings</div>
             </div>
             <div className="bg-[var(--zf-surface)] rounded-xl border border-[var(--zf-hairline)] px-4 py-3 flex flex-col justify-center">
-              <div className="text-2xl font-bold text-red-600">{data.failed}</div>
+              <div className="text-2xl font-bold text-[var(--zf-danger)]">{data.failed}</div>
               <div className="text-xs text-[var(--zf-muted)] mt-1">Failed</div>
             </div>
           </div>
 
           <div className="flex flex-wrap gap-2">
-            <button onClick={() => setSelectedCategory('all')} className={`px-3 py-1.5 text-xs font-medium rounded-lg border transition-colors ${selectedCategory === 'all' ? 'bg-[var(--zf-link)] text-white border-[var(--zf-link)]' : 'text-[var(--zf-muted)] bg-white border-[var(--zf-hairline)] hover:border-[var(--zf-ink)]'}`}>All ({data.checks.length})</button>
+            <button onClick={() => setSelectedCategory('all')} className={`px-3 py-1.5 text-xs font-medium rounded-lg border transition-colors ${selectedCategory === 'all' ? 'bg-[var(--zf-link)] text-white border-[var(--zf-link)]' : 'text-[var(--zf-muted)] bg-[var(--zf-surface)] border-[var(--zf-hairline)] hover:border-[var(--zf-ink)]'}`}>All ({data.checks.length})</button>
             {data.categories.map(cat => (
-              <button key={cat} onClick={() => setSelectedCategory(cat)} className={`px-3 py-1.5 text-xs font-medium rounded-lg border transition-colors ${selectedCategory === cat ? 'bg-[var(--zf-link)] text-white border-[var(--zf-link)]' : 'text-[var(--zf-muted)] bg-white border-[var(--zf-hairline)] hover:border-[var(--zf-ink)]'}`}>{cat}</button>
+              <button key={cat} onClick={() => setSelectedCategory(cat)} className={`px-3 py-1.5 text-xs font-medium rounded-lg border transition-colors ${selectedCategory === cat ? 'bg-[var(--zf-link)] text-white border-[var(--zf-link)]' : 'text-[var(--zf-muted)] bg-[var(--zf-surface)] border-[var(--zf-hairline)] hover:border-[var(--zf-ink)]'}`}>{cat}</button>
             ))}
           </div>
 
