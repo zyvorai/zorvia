@@ -567,8 +567,8 @@ function DisksTab({ vm }: { vm: VM }) {
 
   const columns: DataTableColumn<VmDisk>[] = [
     { key: 'device', header: 'Device', className: 'px-5', render: (disk) => <span className="font-medium text-[var(--zf-ink)]">{disk.name}</span> },
-    { key: 'source', header: 'Source', render: (disk) => disk.source },
-    { key: 'size', header: 'Size', render: (disk) => disk.size ?? '--' },
+    { key: 'source', header: 'Source', render: (disk) => <span className="text-[var(--zf-muted)]">{disk.source}</span> },
+    { key: 'size', header: 'Size', render: (disk) => <span className="text-[var(--zf-muted)]">{disk.size ?? '--'}</span> },
     {
       key: 'type',
       header: 'Type',
@@ -578,7 +578,7 @@ function DisksTab({ vm }: { vm: VM }) {
         </span>
       ),
     },
-    { key: 'bus', header: 'Bus', render: (disk) => disk.bus ?? '--' },
+    { key: 'bus', header: 'Bus', render: (disk) => <span className="text-[var(--zf-muted)]">{disk.bus ?? '--'}</span> },
     {
       key: 'actions',
       header: '',
@@ -725,8 +725,8 @@ function NetworkTabContent({
 
   const interfaceColumns: DataTableColumn<VmInterface>[] = [
     { key: 'name', header: 'Interface', className: 'px-5', render: (iface) => <span className="font-medium text-[var(--zf-ink)]">{iface.name}</span> },
-    { key: 'network', header: 'Network', render: (iface) => iface.network ?? '--' },
-    { key: 'mac', header: 'MAC Address', render: (iface) => <span className="font-mono text-xs">{iface.mac_address ?? '--'}</span> },
+    { key: 'network', header: 'Network', render: (iface) => <span className="text-[var(--zf-muted)]">{iface.network ?? '--'}</span> },
+    { key: 'mac', header: 'MAC Address', render: (iface) => <span className="font-mono text-xs text-[var(--zf-muted)]">{iface.mac_address ?? '--'}</span> },
     {
       key: 'ip',
       header: 'IP Address',
@@ -736,7 +736,7 @@ function NetworkTabContent({
         </span>
       ),
     },
-    { key: 'model', header: 'Model', render: (iface) => iface.model ?? '--' },
+    { key: 'model', header: 'Model', render: (iface) => <span className="text-[var(--zf-muted)]">{iface.model ?? '--'}</span> },
     {
       key: 'type',
       header: 'Type',
@@ -1190,8 +1190,8 @@ function SnapshotsTab({ vm }: { vm: VM }) {
                 </span>
               ),
             },
-            { key: 'created', header: 'Created', render: (snap) => new Date(snap.created).toLocaleString() },
-            { key: 'size', header: 'Size', render: (snap) => <span className="tabular-nums">{formatSize(snap.size_bytes)}</span> },
+            { key: 'created', header: 'Created', render: (snap) => <span className="text-[var(--zf-muted)]">{new Date(snap.created).toLocaleString()}</span> },
+            { key: 'size', header: 'Size', render: (snap) => <span className="text-[var(--zf-muted)] tabular-nums">{formatSize(snap.size_bytes)}</span> },
             {
               key: 'actions',
               header: 'Actions',
