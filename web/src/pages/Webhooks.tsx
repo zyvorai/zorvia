@@ -8,7 +8,7 @@ import { useToastContext } from '../contexts/ToastContext'
 import { useConfirm } from '../hooks/useConfirm'
 import ConfirmDialog from '../components/ConfirmDialog'
 import ErrorBanner from '../components/ErrorBanner'
-import { PageHeader, EmptyState } from '../components/ui'
+import { PageHeader, EmptyState, DataTable } from '../components/ui'
 import { formatUserError } from '../utils/apiError'
 import { toastFailure } from '../utils/toastError'
 import { hintsForError } from '../utils/daemonHints'
@@ -149,13 +149,13 @@ export default function Webhooks() {
                 <div className="flex flex-wrap gap-2">
                   {EVENTS.map(event => (
                     <button key={event} type="button" onClick={() => toggleEvent(event)}
-                      className={`px-2.5 py-1 text-xs font-medium rounded-lg border transition-colors font-mono ${selectedEvents.has(event) ? 'bg-[var(--zf-link)] text-white border-[var(--zf-link)]' : 'text-[var(--zf-muted)] bg-white border-[var(--zf-hairline)] hover:border-[var(--zf-ink)]'}`}>
+                      className={`px-2.5 py-1 text-xs font-medium rounded-lg border transition-colors font-mono ${selectedEvents.has(event) ? 'bg-[var(--zf-link)] text-white border-[var(--zf-link)]' : 'text-[var(--zf-muted)] bg-[var(--zf-surface)] border-[var(--zf-hairline)] hover:border-[var(--zf-ink)]'}`}>
                       {event}
                     </button>
                   ))}
                 </div>
               </div>
-              {createError && <p className="text-sm text-red-600">{createError}</p>}
+              {createError && <p className="text-sm text-[var(--zf-danger)]">{createError}</p>}
               <div className="flex gap-2">
                 <button onClick={handleCreate} disabled={creating} className="zf-btn zf-btn-primary zf-btn-sm">
                   {creating ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
@@ -166,43 +166,44 @@ export default function Webhooks() {
             </div>
           )}
 
-          {webhooks.length === 0 ? (
-            <EmptyState icon={<WebhookIcon className="w-8 h-8" />} title="No webhooks configured" description="Add one to get notified on VM lifecycle events." />
-          ) : (
-            <div className="bg-[var(--zf-surface)] rounded-xl border border-[var(--zf-hairline)] overflow-hidden">
-              <table className="w-full text-sm">
-                <thead><tr className="border-b border-[var(--zf-hairline)]">
-                  <th className="text-left px-5 py-3 text-xs font-medium text-[var(--zf-muted)] uppercase tracking-wider">Name</th>
-                  <th className="text-left px-5 py-3 text-xs font-medium text-[var(--zf-muted)] uppercase tracking-wider">URL</th>
-                  <th className="text-left px-5 py-3 text-xs font-medium text-[var(--zf-muted)] uppercase tracking-wider">Events</th>
-                  <th className="text-left px-5 py-3 text-xs font-medium text-[var(--zf-muted)] uppercase tracking-wider">Success Rate</th>
-                  <th className="text-left px-5 py-3 text-xs font-medium text-[var(--zf-muted)] uppercase tracking-wider">Last Triggered</th>
-                  <th className="text-right px-5 py-3 text-xs font-medium text-[var(--zf-muted)] uppercase tracking-wider">Actions</th>
-                </tr></thead>
-                <tbody className="divide-y divide-[var(--zf-hairline)]/30">
-                  {webhooks.map(w => (
-                    <tr key={w.id} className="hover:bg-black/[0.04] transition-colors">
-                      <td className="px-5 py-3 font-medium text-[var(--zf-ink)]">{w.name}</td>
-                      <td className="px-5 py-3 text-xs text-[var(--zf-muted)] font-mono truncate max-w-[220px]" title={w.url}>{w.url}</td>
-                      <td className="px-5 py-3 text-xs text-[var(--zf-muted)]">{w.events.length} event{w.events.length !== 1 ? 's' : ''}</td>
-                      <td className="px-5 py-3 text-xs text-[var(--zf-muted)]">{w.delivery_count > 0 ? `${w.success_rate.toFixed(0)}%` : '—'}</td>
-                      <td className="px-5 py-3 text-xs text-[var(--zf-muted)]">{w.last_triggered ? new Date(w.last_triggered).toLocaleString() : 'Never'}</td>
-                      <td className="px-5 py-3 text-right">
-                        <div className="flex items-center justify-end gap-1">
-                          <button onClick={() => handleTest(w)} disabled={busyId === w.id} className="p-1.5 text-[var(--zf-muted)] hover:text-[var(--zf-ink)] hover:bg-black/[0.04] rounded-lg transition-colors disabled:opacity-50" title="Send test delivery">
-                            {busyId === w.id ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
-                          </button>
-                          <button onClick={() => handleDelete(w)} disabled={busyId === w.id} className="p-1.5 text-[var(--zf-muted)] hover:text-red-600 hover:bg-red-500/10 rounded-lg transition-colors disabled:opacity-50" title="Delete">
-                            <Trash2 className="w-4 h-4" />
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
+          <div className="bg-[var(--zf-surface)] rounded-xl border border-[var(--zf-hairline)] overflow-hidden">
+            <DataTable
+              columns={[
+                { key: 'name', header: 'Name', className: 'px-5', render: (w) => <span className="font-medium text-[var(--zf-ink)]">{w.name}</span> },
+                {
+                  key: 'url',
+                  header: 'URL',
+                  render: (w) => (
+                    <span className="text-xs text-[var(--zf-muted)] font-mono truncate block max-w-[220px]" title={w.url}>
+                      {w.url}
+                    </span>
+                  ),
+                },
+                { key: 'events', header: 'Events', render: (w) => <span className="text-xs text-[var(--zf-muted)]">{w.events.length} event{w.events.length !== 1 ? 's' : ''}</span> },
+                { key: 'success_rate', header: 'Success Rate', render: (w) => <span className="text-xs text-[var(--zf-muted)]">{w.delivery_count > 0 ? `${w.success_rate.toFixed(0)}%` : '—'}</span> },
+                { key: 'last_triggered', header: 'Last Triggered', render: (w) => <span className="text-xs text-[var(--zf-muted)]">{w.last_triggered ? new Date(w.last_triggered).toLocaleString() : 'Never'}</span> },
+                {
+                  key: 'actions',
+                  header: 'Actions',
+                  className: 'text-right',
+                  render: (w) => (
+                    <div className="flex items-center justify-end gap-1">
+                      <button onClick={() => handleTest(w)} disabled={busyId === w.id} className="p-1.5 text-[var(--zf-muted)] hover:text-[var(--zf-ink)] hover:bg-[var(--zf-hover-tint)] rounded-lg transition-colors disabled:opacity-50" title="Send test delivery">
+                        {busyId === w.id ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
+                      </button>
+                      <button onClick={() => handleDelete(w)} disabled={busyId === w.id} className="p-1.5 text-[var(--zf-muted)] hover:text-[var(--zf-danger)] hover:bg-[var(--zf-danger)]/10 rounded-lg transition-colors disabled:opacity-50" title="Delete">
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
+                  ),
+                },
+              ]}
+              rows={webhooks}
+              getRowKey={(w) => w.id}
+              bordered={false}
+              emptyState={<EmptyState icon={<WebhookIcon className="w-8 h-8" />} title="No webhooks configured" description="Add one to get notified on VM lifecycle events." />}
+            />
+          </div>
         </>
       ) : null}
 
