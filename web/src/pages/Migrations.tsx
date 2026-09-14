@@ -117,6 +117,18 @@ export default function Migrations() {
         }
       />
 
+      {showStartDialog && (
+        <StartMigrationDialog
+          vms={vms}
+          onClose={() => setShowStartDialog(false)}
+          onSuccess={() => {
+            toast.success('Migration started')
+            setShowStartDialog(false)
+            void loadAll(true)
+          }}
+        />
+      )}
+
       {activeMigrations.length > 0 && (
         <div className="space-y-4">
           <h2 className="text-xl font-semibold">Active Migrations</h2>
@@ -156,18 +168,6 @@ export default function Migrations() {
           </div>
         )}
       </div>
-
-      {showStartDialog && (
-        <StartMigrationDialog
-          vms={vms}
-          onClose={() => setShowStartDialog(false)}
-          onSuccess={() => {
-            toast.success('Migration started')
-            setShowStartDialog(false)
-            void loadAll(true)
-          }}
-        />
-      )}
 
       {confirmState && (
         <ConfirmDialog
@@ -271,50 +271,41 @@ function StartMigrationDialog({
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
-      <div className="bg-[var(--zf-surface)] rounded-lg border border-[var(--zf-hairline)] w-full max-w-md">
-        <div className="flex items-center justify-between p-6 border-b border-[var(--zf-hairline)]">
-          <h2 className="text-xl font-bold">Start Migration</h2>
-          <button onClick={onClose} className="p-2 hover:bg-[var(--zf-hover-tint)] rounded transition">
-            <span className="text-2xl">&times;</span>
-          </button>
-        </div>
+    <div className="bg-[var(--zf-surface)] border border-[var(--zf-hairline)] rounded-xl p-5 space-y-4">
+      <h3 className="text-sm font-semibold text-[var(--zf-ink)]">Start Migration</h3>
 
-        <div className="p-6 space-y-4">
-          <div>
-            <label className="block text-sm font-medium text-[var(--zf-ink)] mb-2">VM</label>
-            <select
-              value={vmName}
-              onChange={(e) => setVmName(e.target.value)}
-              className="input-field"
-            >
-              <option value="">Select a VM</option>
-              {vms.map(vm => (
-                <option key={vm.name} value={vm.name}>{vm.name}</option>
-              ))}
-            </select>
-          </div>
-          <p className="text-sm text-[var(--zf-muted)]">
-            KubeVirt live-migrates the VM to a node its scheduler selects; there is no target host to configure.
-          </p>
-        </div>
+      <div>
+        <label className="block text-xs font-medium text-[var(--zf-muted)] mb-1.5">VM</label>
+        <select
+          value={vmName}
+          onChange={(e) => setVmName(e.target.value)}
+          className="input-field text-sm"
+        >
+          <option value="">Select a VM</option>
+          {vms.map(vm => (
+            <option key={vm.name} value={vm.name}>{vm.name}</option>
+          ))}
+        </select>
+      </div>
+      <p className="text-sm text-[var(--zf-muted)]">
+        KubeVirt live-migrates the VM to a node its scheduler selects; there is no target host to configure.
+      </p>
 
-        <div className="flex justify-end gap-2 p-6 border-t border-[var(--zf-hairline)]">
-          <button
-            onClick={onClose}
-            disabled={isStarting}
-            className="zf-btn zf-btn-ghost"
-          >
-            Cancel
-          </button>
-          <button
-            onClick={() => void handleStart()}
-            disabled={isStarting || !vmName}
-            className="zf-btn zf-btn-primary"
-          >
-            {isStarting ? 'Starting...' : 'Start Migration'}
-          </button>
-        </div>
+      <div className="flex gap-2">
+        <button
+          onClick={() => void handleStart()}
+          disabled={isStarting || !vmName}
+          className="zf-btn zf-btn-primary zf-btn-sm"
+        >
+          {isStarting ? 'Starting...' : 'Start Migration'}
+        </button>
+        <button
+          onClick={onClose}
+          disabled={isStarting}
+          className="zf-btn zf-btn-ghost zf-btn-sm"
+        >
+          Cancel
+        </button>
       </div>
     </div>
   )
