@@ -611,12 +611,12 @@ impl KubeClient {
                     "VM '{name}' has no cloudInitNoCloud volume -- it wasn't created with cloud-init enabled"
                 )
             })?;
-        let source = cloudinit.cloud_init_no_cloud.get_or_insert_with(|| {
+        let source = cloudinit.cloud_init_no_cloud.get_or_insert(
             crate::kube::types::CloudInitNoCloudSource {
                 user_data: None,
                 network_data: None,
-            }
-        });
+            },
+        );
         source.user_data = Some(user_data.to_string());
 
         let vms: Api<VirtualMachine> = self.vm_api(namespace);
