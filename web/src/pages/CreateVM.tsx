@@ -1477,107 +1477,95 @@ function GoldenImageModal({ onClose, onCreated }: { onClose: () => void; onCreat
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
-      <div className="bg-[var(--zf-canvas)] rounded-lg border border-[var(--zf-hairline)] w-full max-w-md">
-        <div className="flex items-center justify-between p-6 border-b border-[var(--zf-hairline)]">
-          <div className="flex items-center gap-3">
-            <div className="icon-tile icon-tile-md icon-tile-purple">
-              <Sparkles className="w-5 h-5" />
-            </div>
-            <div>
-              <h2 className="text-lg font-bold text-[var(--zf-ink)]">Create Golden Image</h2>
-              <p className="text-xs text-[var(--zf-muted)]">Materialize a VM's current disk as a reusable catalog image</p>
-            </div>
-          </div>
-          {!submitting && (
-            <button type="button" onClick={onClose} className="p-2 hover:bg-[var(--zf-hover-tint)] rounded transition text-[var(--zf-muted)] hover:text-[var(--zf-ink)]">
-              <X className="w-4 h-4" />
-            </button>
-          )}
+    <div className="bg-[var(--zf-surface)] border border-[var(--zf-hairline)] rounded-xl p-5 space-y-4">
+      <div className="flex items-center gap-3">
+        <div className="icon-tile icon-tile-md icon-tile-purple">
+          <Sparkles className="w-5 h-5" />
         </div>
-        {/* Not a <form> -- this dialog renders inside the wizard's own outer
-            <form>, and nested <form> elements are invalid HTML (the browser
-            drops the inner tag, so a type="submit" button here would submit
-            the OUTER wizard form and reload the page instead). */}
-        <div className="p-6 space-y-4">
-          {error && (
-            <div className="p-3 bg-[var(--zf-danger)]/10 border border-[var(--zf-danger)]/25 rounded-lg text-[var(--zf-danger)] text-sm">
-              {error}
-            </div>
-          )}
-
-          {vmsLoading ? (
-            <div className="h-10 rounded-lg bg-[var(--zf-surface)] animate-pulse" />
-          ) : vms.length === 0 ? (
-            <p className="text-sm text-[var(--zf-muted)]">No VMs exist yet — create a VM first, then come back here to save its disk as a golden image.</p>
-          ) : (
-            <>
-              <div>
-                <label className="block text-sm font-medium text-[var(--zf-ink)] mb-2">Source VM</label>
-                <select
-                  value={vmName}
-                  onChange={(e) => setVmName(e.target.value)}
-                  disabled={submitting}
-                  className="w-full bg-[var(--zf-surface)] border border-[var(--zf-hairline)] rounded-lg py-2 px-4 text-[var(--zf-ink)] focus:outline-none focus:border-[var(--zf-link)]/50 disabled:opacity-50"
-                >
-                  {vms.map((v) => (
-                    <option key={v.name} value={v.name}>{v.name} ({v.state})</option>
-                  ))}
-                </select>
-                <p className="text-xs text-[var(--zf-muted)] mt-1">
-                  The image is an independent copy — the source VM can change or be deleted afterward without affecting it.
-                </p>
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-[var(--zf-ink)] mb-2">Image Name</label>
-                <input
-                  type="text"
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter' && name && vmName && !submitting) handleSubmit()
-                  }}
-                  placeholder="e.g. web-server-golden"
-                  disabled={submitting}
-                  className="w-full bg-[var(--zf-surface)] border border-[var(--zf-hairline)] rounded-lg py-2 px-4 text-[var(--zf-ink)] font-mono text-sm focus:outline-none focus:border-[var(--zf-link)]/50 disabled:opacity-50"
-                  required
-                  autoFocus
-                />
-              </div>
-              {submitting && progress !== null && (
-                <div>
-                  <div className="h-1.5 rounded-full bg-[var(--zf-canvas-alt)] overflow-hidden">
-                    <div
-                      className="h-full bg-[var(--zf-link)] transition-all duration-500"
-                      style={{ width: `${Math.max(5, progress)}%` }}
-                    />
-                  </div>
-                  <p className="text-xs text-[var(--zf-muted)] mt-1.5">Converting disk image…</p>
-                </div>
-              )}
-              <div className="flex justify-end gap-2 pt-2">
-                <button
-                  type="button"
-                  onClick={onClose}
-                  disabled={submitting}
-                  className="zf-btn zf-btn-ghost"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="button"
-                  onClick={handleSubmit}
-                  disabled={submitting || !name || !vmName}
-                  className="zf-btn zf-btn-primary"
-                >
-                  {submitting && <div className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />}
-                  {submitting ? 'Creating…' : 'Create Image'}
-                </button>
-              </div>
-            </>
-          )}
+        <div>
+          <h3 className="text-sm font-semibold text-[var(--zf-ink)]">Create Golden Image</h3>
+          <p className="text-xs text-[var(--zf-muted)]">Materialize a VM's current disk as a reusable catalog image</p>
         </div>
       </div>
+
+      {error && (
+        <div className="p-3 bg-[var(--zf-danger)]/10 border border-[var(--zf-danger)]/25 rounded-lg text-[var(--zf-danger)] text-sm">
+          {error}
+        </div>
+      )}
+
+      {vmsLoading ? (
+        <div className="h-10 rounded-lg bg-[var(--zf-canvas)] animate-pulse" />
+      ) : vms.length === 0 ? (
+        <p className="text-sm text-[var(--zf-muted)]">No VMs exist yet — create a VM first, then come back here to save its disk as a golden image.</p>
+      ) : (
+        <>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-xs font-medium text-[var(--zf-muted)] mb-1.5">Source VM</label>
+              <select
+                value={vmName}
+                onChange={(e) => setVmName(e.target.value)}
+                disabled={submitting}
+                className="input-field text-sm"
+              >
+                {vms.map((v) => (
+                  <option key={v.name} value={v.name}>{v.name} ({v.state})</option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-[var(--zf-muted)] mb-1.5">Image Name</label>
+              <input
+                type="text"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && name && vmName && !submitting) handleSubmit()
+                }}
+                placeholder="e.g. web-server-golden"
+                disabled={submitting}
+                className="input-field text-sm font-mono"
+                required
+                autoFocus
+              />
+            </div>
+          </div>
+          <p className="text-sm text-[var(--zf-muted)]">
+            The image is an independent copy — the source VM can change or be deleted afterward without affecting it.
+          </p>
+          {submitting && progress !== null && (
+            <div>
+              <div className="h-1.5 rounded-full bg-[var(--zf-canvas-alt)] overflow-hidden">
+                <div
+                  className="h-full bg-[var(--zf-link)] transition-all duration-500"
+                  style={{ width: `${Math.max(5, progress)}%` }}
+                />
+              </div>
+              <p className="text-xs text-[var(--zf-muted)] mt-1.5">Converting disk image…</p>
+            </div>
+          )}
+          <div className="flex gap-2">
+            <button
+              type="button"
+              onClick={handleSubmit}
+              disabled={submitting || !name || !vmName}
+              className="zf-btn zf-btn-primary zf-btn-sm"
+            >
+              {submitting && <div className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />}
+              {submitting ? 'Creating…' : 'Create Image'}
+            </button>
+            <button
+              type="button"
+              onClick={onClose}
+              disabled={submitting}
+              className="zf-btn zf-btn-ghost zf-btn-sm"
+            >
+              Cancel
+            </button>
+          </div>
+        </>
+      )}
     </div>
   )
 }
@@ -1664,104 +1652,94 @@ function DownloadImageModal({ existingImages, onClose, onDownloaded }: {
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
-      <div className="bg-[var(--zf-canvas)] rounded-lg border border-[var(--zf-hairline)] w-full max-w-lg">
-        <div className="flex items-center justify-between p-6 border-b border-[var(--zf-hairline)]">
-          <div className="flex items-center gap-3">
-            <div className="icon-tile icon-tile-md icon-tile-cyan">
-              <Download className="w-5 h-5" />
-            </div>
-            <div>
-              <h2 className="text-lg font-bold text-[var(--zf-ink)]">Download an OS Image</h2>
-              <p className="text-xs text-[var(--zf-muted)]">Fetch a ready-made distro image straight into the catalog</p>
-            </div>
-          </div>
-          {!submitting && (
-            <button type="button" onClick={onClose} className="p-2 hover:bg-[var(--zf-hover-tint)] rounded transition text-[var(--zf-muted)] hover:text-[var(--zf-ink)]">
-              <X className="w-4 h-4" />
-            </button>
-          )}
+    <div className="bg-[var(--zf-surface)] border border-[var(--zf-hairline)] rounded-xl p-5 space-y-4">
+      <div className="flex items-center gap-3">
+        <div className="icon-tile icon-tile-md icon-tile-cyan">
+          <Download className="w-5 h-5" />
         </div>
-        <div className="p-6 space-y-4">
-          {error && (
-            <div className="p-3 bg-[var(--zf-danger)]/10 border border-[var(--zf-danger)]/25 rounded-lg text-[var(--zf-danger)] text-sm">
-              {error}
-            </div>
-          )}
-
-          {catalogLoading ? (
-            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-              {[0, 1, 2, 3, 4, 5].map((i) => (
-                <div key={i} className="h-16 rounded-lg bg-[var(--zf-surface)] animate-pulse" />
-              ))}
-            </div>
-          ) : (
-            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-              {catalog.map((img) => {
-                const isSelected = selected?.name === img.name
-                const onDisk = existingImages.some((e) => e.name === img.name)
-                return (
-                  <button
-                    key={img.name}
-                    type="button"
-                    onClick={() => setSelected(img)}
-                    disabled={submitting}
-                    className={`relative text-left p-3 rounded-lg border transition-colors disabled:opacity-50 ${
-                      isSelected
-                        ? 'bg-[var(--zf-link)]/15 border-[var(--zf-link)]/40 ring-1 ring-[var(--zf-link)]/30'
-                        : 'bg-[var(--zf-surface)] border-[var(--zf-hairline)] hover:border-[var(--zf-hairline)]'
-                    }`}
-                  >
-                    {isSelected && (
-                      <div className="absolute top-2 right-2 w-4 h-4 rounded-full bg-[var(--zf-link)] flex items-center justify-center">
-                        <Check className="w-2.5 h-2.5 text-[var(--zf-ink)]" />
-                      </div>
-                    )}
-                    <div className={`icon-tile icon-tile-sm icon-tile-${DISTRO_TILE_COLOR[img.distro] || 'blue'} mb-1.5`}>
-                      <Server className="w-3.5 h-3.5" />
-                    </div>
-                    <p className="text-sm font-medium text-[var(--zf-ink)] truncate capitalize">{img.distro}</p>
-                    <p className="text-xs text-[var(--zf-muted)]">{img.version} · {img.arch}</p>
-                    {onDisk && (
-                      <p className="text-[10px] font-medium text-[var(--zf-success)] mt-1">Already on disk</p>
-                    )}
-                  </button>
-                )
-              })}
-            </div>
-          )}
-
-          {submitting && (
-            <div className="flex items-center gap-2 text-sm text-[var(--zf-muted)]">
-              <div className="w-3.5 h-3.5 border-2 border-[var(--zf-hairline)] border-t-[var(--zf-link)] rounded-full animate-spin" />
-              {statusLabel}
-            </div>
-          )}
-
-          <div className="flex justify-end gap-2 pt-2">
-            <button
-              type="button"
-              onClick={onClose}
-              disabled={submitting}
-              className="zf-btn zf-btn-ghost"
-            >
-              Cancel
-            </button>
-            <button
-              type="button"
-              onClick={handleDownload}
-              disabled={submitting || !selected}
-              className="zf-btn zf-btn-primary"
-            >
-              {submitting && <div className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />}
-              {submitting
-                ? 'Downloading…'
-                : selected && existingImages.some((e) => e.name === selected.name)
-                  ? 'Use Existing'
-                  : 'Download'}
-            </button>
-          </div>
+        <div>
+          <h3 className="text-sm font-semibold text-[var(--zf-ink)]">Download an OS Image</h3>
+          <p className="text-xs text-[var(--zf-muted)]">Fetch a ready-made distro image straight into the catalog</p>
         </div>
+      </div>
+
+      {error && (
+        <div className="p-3 bg-[var(--zf-danger)]/10 border border-[var(--zf-danger)]/25 rounded-lg text-[var(--zf-danger)] text-sm">
+          {error}
+        </div>
+      )}
+
+      {catalogLoading ? (
+        <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+          {[0, 1, 2, 3, 4, 5].map((i) => (
+            <div key={i} className="h-16 rounded-lg bg-[var(--zf-canvas)] animate-pulse" />
+          ))}
+        </div>
+      ) : (
+        <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+          {catalog.map((img) => {
+            const isSelected = selected?.name === img.name
+            const onDisk = existingImages.some((e) => e.name === img.name)
+            return (
+              <button
+                key={img.name}
+                type="button"
+                onClick={() => setSelected(img)}
+                disabled={submitting}
+                className={`relative text-left p-3 rounded-lg border transition-colors disabled:opacity-50 ${
+                  isSelected
+                    ? 'bg-[var(--zf-link)]/15 border-[var(--zf-link)]/40 ring-1 ring-[var(--zf-link)]/30'
+                    : 'bg-[var(--zf-canvas)] border-[var(--zf-hairline)] hover:border-[var(--zf-hairline)]'
+                }`}
+              >
+                {isSelected && (
+                  <div className="absolute top-2 right-2 w-4 h-4 rounded-full bg-[var(--zf-link)] flex items-center justify-center">
+                    <Check className="w-2.5 h-2.5 text-[var(--zf-ink)]" />
+                  </div>
+                )}
+                <div className={`icon-tile icon-tile-sm icon-tile-${DISTRO_TILE_COLOR[img.distro] || 'blue'} mb-1.5`}>
+                  <Server className="w-3.5 h-3.5" />
+                </div>
+                <p className="text-sm font-medium text-[var(--zf-ink)] truncate capitalize">{img.distro}</p>
+                <p className="text-xs text-[var(--zf-muted)]">{img.version} · {img.arch}</p>
+                {onDisk && (
+                  <p className="text-[10px] font-medium text-[var(--zf-success)] mt-1">Already on disk</p>
+                )}
+              </button>
+            )
+          })}
+        </div>
+      )}
+
+      {submitting && (
+        <div className="flex items-center gap-2 text-sm text-[var(--zf-muted)]">
+          <div className="w-3.5 h-3.5 border-2 border-[var(--zf-hairline)] border-t-[var(--zf-link)] rounded-full animate-spin" />
+          {statusLabel}
+        </div>
+      )}
+
+      <div className="flex gap-2">
+        <button
+          type="button"
+          onClick={handleDownload}
+          disabled={submitting || !selected}
+          className="zf-btn zf-btn-primary zf-btn-sm"
+        >
+          {submitting && <div className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />}
+          {submitting
+            ? 'Downloading…'
+            : selected && existingImages.some((e) => e.name === selected.name)
+              ? 'Use Existing'
+              : 'Download'}
+        </button>
+        <button
+          type="button"
+          onClick={onClose}
+          disabled={submitting}
+          className="zf-btn zf-btn-ghost zf-btn-sm"
+        >
+          Cancel
+        </button>
       </div>
     </div>
   )
