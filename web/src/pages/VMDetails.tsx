@@ -597,21 +597,7 @@ function DisksTab({ vm }: { vm: VM }) {
   ]
 
   return (
-    <div className="zf-panel overflow-hidden">
-      <DataTable
-        columns={columns}
-        rows={disks ?? []}
-        getRowKey={(disk) => disk.name}
-        loading={disks === null}
-        bordered={false}
-        emptyState={
-          <EmptyState
-            icon={<HardDrive className="w-10 h-10" />}
-            title="No disks"
-            description={loadError ? `Could not load disks: ${loadError}` : 'No disk information available'}
-          />
-        }
-      />
+    <div className="space-y-4">
       {resizeTarget && (
         <ResizeDiskDialog
           disk={resizeTarget}
@@ -632,6 +618,22 @@ function DisksTab({ vm }: { vm: VM }) {
           }}
         />
       )}
+      <div className="zf-panel overflow-hidden">
+        <DataTable
+          columns={columns}
+          rows={disks ?? []}
+          getRowKey={(disk) => disk.name}
+          loading={disks === null}
+          bordered={false}
+          emptyState={
+            <EmptyState
+              icon={<HardDrive className="w-10 h-10" />}
+              title="No disks"
+              description={loadError ? `Could not load disks: ${loadError}` : 'No disk information available'}
+            />
+          }
+        />
+      </div>
     </div>
   )
 }
@@ -649,30 +651,31 @@ function ResizeDiskDialog({
 }) {
   const [size, setSize] = useState('')
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
-      <div className="bg-[var(--zf-surface)] rounded-lg border border-[var(--zf-hairline)] w-full max-w-sm p-6 space-y-4">
-        <h3 className="text-lg font-bold text-[var(--zf-ink)]">Resize '{disk.name}'</h3>
-        <p className="text-sm text-[var(--zf-muted)]">Current size: {disk.size ?? 'unknown'}. Storage can only grow, never shrink.</p>
+    <div className="bg-[var(--zf-surface)] border border-[var(--zf-hairline)] rounded-xl p-5 space-y-4">
+      <h3 className="text-sm font-semibold text-[var(--zf-ink)]">Resize '{disk.name}'</h3>
+      <div>
+        <label className="block text-xs font-medium text-[var(--zf-muted)] mb-1.5">New size</label>
         <input
           type="text"
           value={size}
           onChange={(e) => setSize(e.target.value)}
           placeholder="e.g. 40Gi"
-          className="w-full px-3 py-2 bg-[var(--zf-surface)] border border-[var(--zf-hairline)] rounded-lg text-sm font-mono"
+          className="input-field text-sm font-mono"
         />
-        <div className="flex justify-end gap-2">
-          <button type="button" onClick={onClose} disabled={busy} className="zf-btn zf-btn-ghost zf-btn-sm">
-            Cancel
-          </button>
-          <button
-            type="button"
-            onClick={() => onSubmit(size.trim())}
-            disabled={busy || !size.trim()}
-            className="zf-btn zf-btn-primary zf-btn-sm"
-          >
-            {busy ? 'Resizing…' : 'Resize'}
-          </button>
-        </div>
+      </div>
+      <p className="text-sm text-[var(--zf-muted)]">Current size: {disk.size ?? 'unknown'}. Storage can only grow, never shrink.</p>
+      <div className="flex gap-2">
+        <button
+          type="button"
+          onClick={() => onSubmit(size.trim())}
+          disabled={busy || !size.trim()}
+          className="zf-btn zf-btn-primary zf-btn-sm"
+        >
+          {busy ? 'Resizing…' : 'Resize'}
+        </button>
+        <button type="button" onClick={onClose} disabled={busy} className="zf-btn zf-btn-ghost zf-btn-sm">
+          Cancel
+        </button>
       </div>
     </div>
   )
