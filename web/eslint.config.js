@@ -13,7 +13,15 @@ export default tseslint.config(
       'react-hooks': reactHooks,
     },
     rules: {
-      ...reactHooks.configs.recommended.rules,
+      // eslint-plugin-react-hooks' 'recommended' preset is its newer React
+      // Compiler ruleset (purity/immutability/set-state-in-effect/etc,
+      // mostly as errors) -- this codebase's existing useEffect
+      // data-fetching patterns predate that and were never written against
+      // it. Declare just the two classic hook-safety rules explicitly
+      // instead of spreading a preset, since the "classic" preset's name
+      // isn't stable across this plugin's major versions.
+      'react-hooks/rules-of-hooks': 'error',
+      'react-hooks/exhaustive-deps': 'warn',
       '@typescript-eslint/no-explicit-any': 'off',
       '@typescript-eslint/no-unused-vars': ['error', { argsIgnorePattern: '^_', varsIgnorePattern: '^_', caughtErrorsIgnorePattern: '^_' }],
     },
