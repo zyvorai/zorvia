@@ -10,15 +10,14 @@ import { usePermissions } from '../hooks/usePermissions'
 import { getTagColor } from './TagEditor'
 import { StatusBadge } from './ui'
 import ConfirmDialog from './ConfirmDialog'
-import TagEditor from './TagEditor'
 
 interface VMCardProps {
   vm: VM
   onUpdate: () => void
+  onManageTags: () => void
 }
 
-export default function VMCard({ vm, onUpdate }: VMCardProps) {
-  const [showTagEditor, setShowTagEditor] = useState(false)
+export default function VMCard({ vm, onUpdate, onManageTags }: VMCardProps) {
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
   const [showMenu, setShowMenu] = useState(false)
   const menuRef = useRef<HTMLDivElement>(null)
@@ -101,7 +100,7 @@ export default function VMCard({ vm, onUpdate }: VMCardProps) {
                     {canWrite && (
                       <>
                     <button
-                      onClick={() => { setShowMenu(false); setShowTagEditor(true) }}
+                      onClick={() => { setShowMenu(false); onManageTags() }}
                       className="w-full flex items-center gap-2 px-3 py-2 text-sm text-[var(--zf-ink)] hover:bg-[var(--zf-hover-tint)] transition-colors"
                     >
                       <Tag className="w-3.5 h-3.5" />
@@ -193,14 +192,6 @@ export default function VMCard({ vm, onUpdate }: VMCardProps) {
         </div>
       </div>
 
-      {showTagEditor && (
-        <TagEditor
-          vmName={vm.name}
-          currentTags={vm.tags || []}
-          onClose={() => setShowTagEditor(false)}
-          onSuccess={onUpdate}
-        />
-      )}
       {showDeleteConfirm && (
         <ConfirmDialog
           title="Delete Virtual Machine"

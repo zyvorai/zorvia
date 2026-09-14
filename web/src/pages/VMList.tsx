@@ -7,7 +7,7 @@ import { listVMs, startVM, stopVM, deleteVM, VM } from '../api/vm'
 import { createBackup } from '../api/backup'
 import { Search, X, Tag, Layers, Monitor, LayoutGrid, List, Play, Square, MoreVertical, Cpu, HardDrive, CheckSquare, Trash2, Archive } from 'lucide-react'
 import VMCard from '../components/VMCard'
-import { getTagColor } from '../components/TagEditor'
+import TagEditor, { getTagColor } from '../components/TagEditor'
 import { PageHeader, EmptyState, StatusBadge, DataTable, type DataTableColumn } from '../components/ui'
 import ErrorBanner from '../components/ErrorBanner'
 import { formatUserError } from '../utils/apiError'
@@ -63,6 +63,7 @@ export default function VMList() {
   const [selectedVMs, setSelectedVMs] = useState<Set<string>>(new Set())
   const [bulkAction, setBulkAction] = useState<'delete' | null>(null)
   const [bulkLoading, setBulkLoading] = useState(false)
+  const [tagEditorVM, setTagEditorVM] = useState<VM | null>(null)
   const toast = useToastContext()
   const { canWrite } = usePermissions()
   const [viewMode, setViewMode] = useState<ViewMode>(() => {
@@ -393,7 +394,7 @@ export default function VMList() {
               </div>
               {viewMode === 'grid' ? (
                 <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-                  {vmsInGroup.map((vm) => (<VMCard key={`${tag}-${vm.name}`} vm={vm} onUpdate={loadVMs} />))}
+                  {vmsInGroup.map((vm) => (<VMCard key={`${tag}-${vm.name}`} vm={vm} onUpdate={loadVMs} onManageTags={() => setTagEditorVM(vm)} />))}
                 </div>
               ) : (
                 <VMTable vms={vmsInGroup} onUpdate={loadVMs} selectedVMs={selectedVMs} onSelect={toggleSelect} canWrite={canWrite} />
@@ -403,10 +404,19 @@ export default function VMList() {
         </div>
       ) : viewMode === 'grid' ? (
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-          {filteredVMs.map((vm) => (<VMCard key={vm.name} vm={vm} onUpdate={loadVMs} />))}
+          {filteredVMs.map((vm) => (<VMCard key={vm.name} vm={vm} onUpdate={loadVMs} onManageTags={() => setTagEditorVM(vm)} />))}
         </div>
       ) : (
         <VMTable vms={filteredVMs} onUpdate={loadVMs} selectedVMs={selectedVMs} onSelect={toggleSelect} canWrite={canWrite} />
+      )}
+
+      {tagEditorVM && (
+        <TagEditor
+          vmName={tagEditorVM.name}
+          currentTags={tagEditorVM.tags || []}
+          onClose={() => setTagEditorVM(null)}
+          onSuccess={loadVMs}
+        />
       )}
 
       {/* Bulk Action Bar */}
