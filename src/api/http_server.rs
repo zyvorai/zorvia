@@ -1356,6 +1356,10 @@ pub mod web {
                     let items: Vec<_> = snapshots
                         .into_iter()
                         .map(|s| {
+                            let warning = s.captured_no_volumes().then(|| format!(
+                                "VM '{}' has no PVC/DataVolume-backed disks -- this snapshot captured only the VM's configuration, not any disk data.",
+                                s.vm_name
+                            ));
                             serde_json::json!({
                                 "id": s.name,
                                 "vm_name": s.vm_name,
@@ -1365,6 +1369,7 @@ pub mod web {
                                 "parent_id": null,
                                 "size_bytes": 0,
                                 "created": s.created_at.map(|t| t.to_rfc3339()).unwrap_or_default(),
+                                "warning": warning,
                             })
                         })
                         .collect();
@@ -1395,6 +1400,10 @@ pub mod web {
                     let items: Vec<_> = snapshots
                         .into_iter()
                         .map(|s| {
+                            let warning = s.captured_no_volumes().then(|| format!(
+                                "VM '{}' has no PVC/DataVolume-backed disks -- this snapshot captured only the VM's configuration, not any disk data.",
+                                vm
+                            ));
                             serde_json::json!({
                                 "id": s.name,
                                 "vm_name": vm,
@@ -1404,6 +1413,7 @@ pub mod web {
                                 "parent_id": null,
                                 "size_bytes": 0,
                                 "created": s.created_at.map(|t| t.to_rfc3339()).unwrap_or_default(),
+                                "warning": warning,
                             })
                         })
                         .collect();

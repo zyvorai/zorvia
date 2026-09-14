@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { useState, useEffect } from 'react'
-import { Camera, Plus, Trash2, RotateCcw } from 'lucide-react'
+import { Camera, Plus, Trash2, RotateCcw, AlertTriangle } from 'lucide-react'
 import {
   listSnapshots,
   createSnapshotWithRetry,
@@ -76,6 +76,11 @@ export default function Snapshots() {
         <div className="flex items-center gap-2">
           <Camera className="w-4 h-4 text-[var(--zf-link)]" />
           <span className="font-medium">{snap.name}</span>
+          {snap.warning && (
+            <span title={snap.warning}>
+              <AlertTriangle className="w-3.5 h-3.5 text-[var(--zf-warning)] shrink-0" />
+            </span>
+          )}
         </div>
       ),
     },

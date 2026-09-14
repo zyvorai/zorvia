@@ -15,6 +15,9 @@ export interface VMSnapshot {
   parent_id: string | null
   size_bytes: number
   created: string
+  /** Set when the source VM has no PVC/DataVolume-backed disks, so this
+   * snapshot captured only VM configuration -- nothing to restore from disk. */
+  warning?: string | null
 }
 
 export interface SnapshotTreeNode {

@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { useState, useEffect, useCallback } from 'react'
-import { Save, Trash2, Plus, Loader2, HardDrive } from 'lucide-react'
+import { Save, Trash2, Plus, Loader2, HardDrive, AlertTriangle } from 'lucide-react'
 import { listBackups, createBackup, deleteBackup, Backup } from '../api/backup'
 import { listVMs, VM } from '../api/vm'
 import { useToastContext } from '../contexts/ToastContext'
@@ -94,7 +94,21 @@ export default function Backups() {
   }
 
   const backupColumns: DataTableColumn<Backup>[] = [
-    { key: 'id', header: 'Backup', className: 'px-5', render: (b) => <span className="font-mono text-xs text-[var(--zf-ink)]">{b.id}</span> },
+    {
+      key: 'id',
+      header: 'Backup',
+      className: 'px-5',
+      render: (b) => (
+        <div className="flex items-center gap-1.5">
+          <span className="font-mono text-xs text-[var(--zf-ink)]">{b.id}</span>
+          {b.warning && (
+            <span title={b.warning}>
+              <AlertTriangle className="w-3.5 h-3.5 text-[var(--zf-warning)] shrink-0" />
+            </span>
+          )}
+        </div>
+      ),
+    },
     { key: 'vm', header: 'VM', render: (b) => <span className="text-[var(--zf-muted)]">{b.vm_name}</span> },
     { key: 'status', header: 'Status', render: (b) => <StatusBadge status={b.status} /> },
     { key: 'size', header: 'Size', render: (b) => <span className="text-[var(--zf-muted)]">{fmtBytes(b.size_bytes)}</span> },

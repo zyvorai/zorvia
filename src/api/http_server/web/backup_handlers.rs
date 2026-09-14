@@ -36,6 +36,12 @@ fn backup_json(s: &SnapshotInfo) -> serde_json::Value {
         (Some(created), Some(days)) => Some((created + chrono::Duration::days(days as i64)).to_rfc3339()),
         _ => None,
     };
+    let warning = s.captured_no_volumes().then(|| {
+        format!(
+            "VM '{}' has no PVC/DataVolume-backed disks -- this backup captured only the VM's configuration, not any disk data. There is nothing to restore from disk.",
+            s.vm_name
+        )
+    });
     json!({
         "id": s.name,
         "vm_name": s.vm_name,
@@ -48,6 +54,7 @@ fn backup_json(s: &SnapshotInfo) -> serde_json::Value {
         "retention_days": retention_days.unwrap_or(0),
         "expires_at": expires_at,
         "metadata": serde_json::Value::Null,
+        "warning": warning,
     })
 }
 
@@ -58,6 +65,12 @@ fn backup_job_json(s: &SnapshotInfo) -> serde_json::Value {
         SnapshotStatus::Failed => "failed",
         SnapshotStatus::Unknown => "running",
     };
+    let warning = s.captured_no_volumes().then(|| {
+        format!(
+            "VM '{}' has no PVC/DataVolume-backed disks -- this backup captured only the VM's configuration, not any disk data. There is nothing to restore from disk.",
+            s.vm_name
+        )
+    });
     json!({
         "id": s.name,
         "backup_id": s.name,
@@ -68,6 +81,7 @@ fn backup_job_json(s: &SnapshotInfo) -> serde_json::Value {
         "started_at": s.created_at.map(|t| t.to_rfc3339()),
         "completed_at": s.completed_at.map(|t| t.to_rfc3339()),
         "error": s.error,
+        "warning": warning,
     })
 }
 

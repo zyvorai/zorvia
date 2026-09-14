@@ -331,6 +331,25 @@ impl SnapshotManager {
             .into_iter()
             .collect();
 
+        // KubeVirt reports both lists on `snapshotVolumes` when the
+        // snapshot has run far enough to know which volumes it could
+        // actually capture (PVC/DataVolume) vs. skip (containerDisk,
+        // emptyDisk, cloud-init...). Their combined length is the VM's
+        // total volume count as of snapshot time -- no extra VM fetch
+        // needed to tell "some excluded" apart from "all excluded".
+        let (included_volumes, excluded_volumes) = snapshot
+            .status
+            .as_ref()
+            .and_then(|s| s.snapshot_volumes.as_ref())
+            .map(|sv| {
+                (
+                    sv.included_volumes.clone().unwrap_or_default(),
+                    sv.excluded_volumes.clone().unwrap_or_default(),
+                )
+            })
+            .unwrap_or_default();
+        let total_volumes = included_volumes.len() + excluded_volumes.len();
+
         SnapshotInfo {
             name,
             vm_name,
@@ -343,6 +362,8 @@ impl SnapshotManager {
             labels,
             ready_to_use,
             error,
+            excluded_volumes,
+            total_volumes,
         }
     }
 }

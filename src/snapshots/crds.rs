@@ -76,6 +76,27 @@ pub struct VirtualMachineSnapshotStatus {
     /// Conditions of the snapshot
     #[serde(skip_serializing_if = "Option::is_none")]
     pub conditions: Option<Vec<SnapshotCondition>>,
+
+    /// Which of the source VM's volumes were included/excluded from the
+    /// snapshot. A volume is excluded when it isn't backed by a PVC/
+    /// DataVolume (e.g. containerDisk, emptyDisk, cloud-init) -- KubeVirt
+    /// still reports the overall snapshot as `Succeeded`/`readyToUse` in
+    /// that case, since only the VM's spec was captured, not any disk data.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(rename = "snapshotVolumes")]
+    pub snapshot_volumes: Option<SnapshotVolumes>,
+}
+
+/// Which volumes a `VirtualMachineSnapshot` actually captured vs. skipped.
+#[derive(Deserialize, Serialize, Clone, Debug, Default, JsonSchema)]
+pub struct SnapshotVolumes {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(rename = "includedVolumes")]
+    pub included_volumes: Option<Vec<String>>,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(rename = "excludedVolumes")]
+    pub excluded_volumes: Option<Vec<String>>,
 }
 
 /// Snapshot error information

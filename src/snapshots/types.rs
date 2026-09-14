@@ -39,9 +39,24 @@ pub struct SnapshotInfo {
     pub labels: HashMap<String, String>,
     pub ready_to_use: bool,
     pub error: Option<String>,
+    /// Volumes KubeVirt excluded from this snapshot because they aren't
+    /// backed by a PVC/DataVolume (containerDisk, emptyDisk, cloud-init...).
+    /// Empty when every volume was captured.
+    pub excluded_volumes: Vec<String>,
+    /// Total number of volumes on the source VM at snapshot time, so
+    /// callers can tell "some volumes excluded" apart from "every volume
+    /// excluded, nothing was actually backed up" without re-fetching the VM.
+    pub total_volumes: usize,
 }
 
 impl SnapshotInfo {
+    /// True when every one of the source VM's volumes was excluded -- the
+    /// snapshot succeeded in KubeVirt's eyes but captured zero disk data,
+    /// only the VM's spec/metadata.
+    pub fn captured_no_volumes(&self) -> bool {
+        self.total_volumes > 0 && self.excluded_volumes.len() >= self.total_volumes
+    }
+
     pub fn new(
         name: impl Into<String>,
         vm_name: impl Into<String>,
@@ -59,6 +74,8 @@ impl SnapshotInfo {
             labels: HashMap::new(),
             ready_to_use: false,
             error: None,
+            excluded_volumes: Vec::new(),
+            total_volumes: 0,
         }
     }
 
@@ -198,5 +215,32 @@ mod tests {
         assert_eq!(format!("{}", SnapshotStatus::InProgress), "InProgress");
         assert_eq!(format!("{}", SnapshotStatus::Succeeded), "Succeeded");
         assert_eq!(format!("{}", SnapshotStatus::Failed), "Failed");
+    }
+
+    #[test]
+    fn test_captured_no_volumes_when_every_volume_excluded() {
+        // Regression: a containerDisk+cloud-init VM's snapshot excludes
+        // every volume (neither is PVC/DataVolume-backed), so it captured
+        // no disk data at all despite KubeVirt reporting it as succeeded.
+        let mut info = SnapshotInfo::new("backup-1", "ubuntu-demo", "default");
+        info.excluded_volumes = vec!["rootdisk".into(), "cloudinitdisk".into()];
+        info.total_volumes = 2;
+        assert!(info.captured_no_volumes());
+    }
+
+    #[test]
+    fn test_captured_no_volumes_false_when_some_volumes_included() {
+        let mut info = SnapshotInfo::new("backup-2", "pvc-vm", "default");
+        info.excluded_volumes = vec!["cloudinitdisk".into()];
+        info.total_volumes = 2; // rootdisk (PVC) + cloudinitdisk (excluded)
+        assert!(!info.captured_no_volumes());
+    }
+
+    #[test]
+    fn test_captured_no_volumes_false_when_status_not_yet_known() {
+        // Before KubeVirt populates snapshotVolumes, both fields are their
+        // zero values -- must not be misread as "captured nothing".
+        let info = SnapshotInfo::new("backup-3", "some-vm", "default");
+        assert!(!info.captured_no_volumes());
     }
 }

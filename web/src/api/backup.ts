@@ -15,6 +15,9 @@ export interface Backup {
   retention_days: number
   expires_at?: string
   metadata?: Record<string, any>
+  /** Set when the source VM has no PVC/DataVolume-backed disks, so this
+   * backup captured only VM configuration -- nothing to restore from disk. */
+  warning?: string | null
 }
 
 export interface CreateBackupRequest {
