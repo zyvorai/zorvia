@@ -99,8 +99,8 @@ pub async fn security_dashboard_handler(State(state): State<SharedState>) -> imp
         .take(100)
         .filter(|e| !e.success && e.severity == crate::audit_trail::AuditSeverity::High)
         .count();
-    let risk_score = (100i64 - (failed_logins.len() as i64 * 5) - (critical_count as i64 * 15))
-        .clamp(0, 100);
+    let risk_score =
+        (100i64 - (failed_logins.len() as i64 * 5) - (critical_count as i64 * 15)).clamp(0, 100);
     drop(trail);
 
     Json(json!({

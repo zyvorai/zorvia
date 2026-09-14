@@ -343,11 +343,9 @@ impl Default for MigrationAssistant {
 /// (e.g. cloud-init) that wasn't in a hardcoded local-type allowlist.
 fn vm_has_only_local_storage(volumes: Option<&[crate::kube::types::Volume]>) -> bool {
     match volumes {
-        Some(vols) => {
-            !vols
-                .iter()
-                .any(|v| v.persistent_volume_claim.is_some() || v.data_volume.is_some())
-        }
+        Some(vols) => !vols
+            .iter()
+            .any(|v| v.persistent_volume_claim.is_some() || v.data_volume.is_some()),
         None => true,
     }
 }

@@ -15,8 +15,8 @@
 //! for its own slice).
 
 use super::*;
-use axum::extract::Json as AxumJson;
 use crate::snapshots::{SnapshotConfig, SnapshotInfo, SnapshotManager, SnapshotStatus};
+use axum::extract::Json as AxumJson;
 use serde_json::json;
 
 const LABEL_RETENTION_DAYS: &str = "zorvia.io/retention-days";
@@ -33,7 +33,9 @@ fn backup_json(s: &SnapshotInfo) -> serde_json::Value {
         .get(LABEL_RETENTION_DAYS)
         .and_then(|v| v.parse().ok());
     let expires_at = match (s.created_at, retention_days) {
-        (Some(created), Some(days)) => Some((created + chrono::Duration::days(days as i64)).to_rfc3339()),
+        (Some(created), Some(days)) => {
+            Some((created + chrono::Duration::days(days as i64)).to_rfc3339())
+        }
         _ => None,
     };
     let warning = s.captured_no_volumes().then(|| {

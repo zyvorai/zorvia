@@ -3,9 +3,9 @@
 //! DataVolumes — no full `kube::CustomResource` typing, since Rook's CRD
 //! schemas are large and this crate only needs a curated subset of fields.
 
-use anyhow::Result;
 #[cfg(feature = "web")]
 use anyhow::bail;
+use anyhow::Result;
 use kube::Client;
 #[cfg(feature = "web")]
 use serde::Deserialize;

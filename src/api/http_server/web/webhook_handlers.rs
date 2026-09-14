@@ -7,8 +7,8 @@
 //! lifecycle handlers `record_audit` already instruments.
 
 use super::*;
-use axum::extract::Json as AxumJson;
 use crate::api::webhooks::{WebhookConfig, WebhookEvent, WebhookManager, WebhookPayload};
+use axum::extract::Json as AxumJson;
 use serde_json::json;
 
 fn webhook_json(w: &WebhookConfig) -> serde_json::Value {
@@ -52,7 +52,13 @@ fn parse_event(s: &str) -> WebhookEvent {
 
 pub async fn list_webhooks_handler() -> impl IntoResponse {
     let mgr = WebhookManager::load();
-    Json(mgr.list().iter().map(|w| webhook_json(w)).collect::<Vec<_>>()).into_response()
+    Json(
+        mgr.list()
+            .iter()
+            .map(|w| webhook_json(w))
+            .collect::<Vec<_>>(),
+    )
+    .into_response()
 }
 
 #[derive(Debug, Deserialize)]

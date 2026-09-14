@@ -31,8 +31,12 @@ async fn patch_vm(
     name: &str,
     patch: &serde_json::Value,
 ) -> Result<crate::kube::types::VirtualMachine, kube::Error> {
-    api.patch(name, &kube::api::PatchParams::default(), &kube::api::Patch::Merge(patch))
-        .await
+    api.patch(
+        name,
+        &kube::api::PatchParams::default(),
+        &kube::api::Patch::Merge(patch),
+    )
+    .await
 }
 
 // ---- Boot config -----------------------------------------------------
@@ -109,7 +113,11 @@ pub async fn fabric_set_boot(
 
     if let Some(fw) = &body.firmware {
         if fw != "bios" && fw != "uefi" {
-            let (st, j) = err_json(400, "INVALID_FIRMWARE", "firmware must be \"bios\" or \"uefi\"");
+            let (st, j) = err_json(
+                400,
+                "INVALID_FIRMWARE",
+                "firmware must be \"bios\" or \"uefi\"",
+            );
             return (st, j).into_response();
         }
     }
@@ -141,7 +149,11 @@ pub async fn fabric_set_boot(
             .map(|f| f == "uefi")
             .unwrap_or(currently_uefi);
         if !want_uefi && body.secure_boot == Some(true) {
-            let (st, j) = err_json(400, "VALIDATION_FAILED", "secure_boot requires UEFI firmware");
+            let (st, j) = err_json(
+                400,
+                "VALIDATION_FAILED",
+                "secure_boot requires UEFI firmware",
+            );
             return (st, j).into_response();
         }
         patch = bootloader_patch(want_uefi, body.secure_boot.unwrap_or(false));
@@ -167,7 +179,8 @@ pub async fn fabric_set_boot(
         }
         let devices_patch = json!({ "disks": disks });
         if patch.get("spec").is_none() {
-            patch["spec"] = json!({ "template": { "spec": { "domain": { "devices": devices_patch } } } });
+            patch["spec"] =
+                json!({ "template": { "spec": { "domain": { "devices": devices_patch } } } });
         } else {
             patch["spec"]["template"]["spec"]["domain"]["devices"] = devices_patch;
         }
@@ -251,7 +264,9 @@ pub struct SetCpuModelBody {
 }
 
 fn cpu_model_json(cpu: Option<&crate::kube::types::CPU>) -> serde_json::Value {
-    let model = cpu.and_then(|c| c.model.clone()).unwrap_or_else(|| "host-model".to_string());
+    let model = cpu
+        .and_then(|c| c.model.clone())
+        .unwrap_or_else(|| "host-model".to_string());
     let mode = match model.as_str() {
         "host-model" | "host-passthrough" => model.clone(),
         _ => "custom".to_string(),
@@ -324,11 +339,18 @@ pub async fn fabric_set_cpu_model(
         Some("custom") => match &body.model {
             Some(m) => m.clone(),
             None => {
-                let (st, j) = err_json(400, "VALIDATION_FAILED", "model is required when mode is \"custom\"");
+                let (st, j) = err_json(
+                    400,
+                    "VALIDATION_FAILED",
+                    "model is required when mode is \"custom\"",
+                );
                 return (st, j).into_response();
             }
         },
-        _ => body.model.or(existing_model).unwrap_or_else(|| "host-model".to_string()),
+        _ => body
+            .model
+            .or(existing_model)
+            .unwrap_or_else(|| "host-model".to_string()),
     };
 
     let mut cpu_patch = json!({ "model": new_model });
@@ -366,7 +388,9 @@ pub async fn fabric_set_cpu_model(
 const VALID_WATCHDOG_MODELS: &[&str] = &["i6300esb"];
 const VALID_WATCHDOG_ACTIONS: &[&str] = &["reset", "shutdown", "poweroff"];
 
-fn watchdog_config_json(watchdog: Option<&crate::kube::types::WatchdogDevice>) -> serde_json::Value {
+fn watchdog_config_json(
+    watchdog: Option<&crate::kube::types::WatchdogDevice>,
+) -> serde_json::Value {
     match watchdog.and_then(|w| w.i6300esb.as_ref()) {
         Some(i6300esb) => json!({
             "model": "i6300esb",
@@ -415,11 +439,19 @@ pub async fn fabric_set_watchdog(
     AxumJson(body): AxumJson<SetWatchdogBody>,
 ) -> impl IntoResponse {
     if !VALID_WATCHDOG_MODELS.contains(&body.model.as_str()) {
-        let (st, j) = err_json(400, "INVALID_MODEL", &format!("model must be one of {VALID_WATCHDOG_MODELS:?}"));
+        let (st, j) = err_json(
+            400,
+            "INVALID_MODEL",
+            &format!("model must be one of {VALID_WATCHDOG_MODELS:?}"),
+        );
         return (st, j).into_response();
     }
     if !VALID_WATCHDOG_ACTIONS.contains(&body.action.as_str()) {
-        let (st, j) = err_json(400, "INVALID_ACTION", &format!("action must be one of {VALID_WATCHDOG_ACTIONS:?}"));
+        let (st, j) = err_json(
+            400,
+            "INVALID_ACTION",
+            &format!("action must be one of {VALID_WATCHDOG_ACTIONS:?}"),
+        );
         return (st, j).into_response();
     }
 
@@ -495,7 +527,10 @@ fn firmware_status_json(vm: &crate::kube::types::VirtualMachine) -> serde_json::
     // guests; not read from this specific cluster, so left empty for BIOS
     // guests rather than implying a per-VM value that doesn't exist.
     let (code_path, vars_path) = if is_uefi {
-        ("/usr/share/OVMF/OVMF_CODE.fd", "/usr/share/OVMF/OVMF_VARS.fd")
+        (
+            "/usr/share/OVMF/OVMF_CODE.fd",
+            "/usr/share/OVMF/OVMF_VARS.fd",
+        )
     } else {
         ("", "")
     };
@@ -566,7 +601,8 @@ fn bootloader_patch(want_uefi: bool, secure_boot: bool) -> serde_json::Value {
         "spec": { "template": { "spec": { "domain": { "firmware": { "bootloader": bootloader } } } } }
     });
     if want_uefi && secure_boot {
-        patch["spec"]["template"]["spec"]["domain"]["features"] = json!({ "smm": { "enabled": true } });
+        patch["spec"]["template"]["spec"]["domain"]["features"] =
+            json!({ "smm": { "enabled": true } });
     }
     patch
 }
@@ -595,7 +631,11 @@ pub async fn fabric_enable_uefi(
     }
 }
 
-async fn set_secure_boot(state: SharedState, name: String, enabled: bool) -> axum::response::Response {
+async fn set_secure_boot(
+    state: SharedState,
+    name: String,
+    enabled: bool,
+) -> axum::response::Response {
     let s = state.read().await;
     let namespace = s.namespace.clone();
     let client = s.client();
@@ -619,7 +659,11 @@ async fn set_secure_boot(state: SharedState, name: String, enabled: bool) -> axu
         .map(|b| b.efi.is_some())
         .unwrap_or(false);
     if !is_uefi {
-        let (st, j) = err_json(400, "VALIDATION_FAILED", "Secure Boot requires UEFI firmware -- enable UEFI first");
+        let (st, j) = err_json(
+            400,
+            "VALIDATION_FAILED",
+            "Secure Boot requires UEFI firmware -- enable UEFI first",
+        );
         return (st, j).into_response();
     }
     let api = vm_api(&client, &namespace);
@@ -633,15 +677,24 @@ async fn set_secure_boot(state: SharedState, name: String, enabled: bool) -> axu
     }
 }
 
-pub async fn fabric_enable_secureboot(State(state): State<SharedState>, Path(name): Path<String>) -> impl IntoResponse {
+pub async fn fabric_enable_secureboot(
+    State(state): State<SharedState>,
+    Path(name): Path<String>,
+) -> impl IntoResponse {
     set_secure_boot(state, name, true).await
 }
 
-pub async fn fabric_disable_secureboot(State(state): State<SharedState>, Path(name): Path<String>) -> impl IntoResponse {
+pub async fn fabric_disable_secureboot(
+    State(state): State<SharedState>,
+    Path(name): Path<String>,
+) -> impl IntoResponse {
     set_secure_boot(state, name, false).await
 }
 
-pub async fn fabric_reset_nvram(State(state): State<SharedState>, Path(name): Path<String>) -> impl IntoResponse {
+pub async fn fabric_reset_nvram(
+    State(state): State<SharedState>,
+    Path(name): Path<String>,
+) -> impl IntoResponse {
     let s = state.read().await;
     let namespace = s.namespace.clone();
     let client = s.client();
@@ -665,7 +718,11 @@ pub async fn fabric_reset_nvram(State(state): State<SharedState>, Path(name): Pa
         .map(|b| b.efi.is_some())
         .unwrap_or(false);
     if !is_uefi {
-        let (st, j) = err_json(400, "VALIDATION_FAILED", "NVRAM reset only applies to UEFI guests");
+        let (st, j) = err_json(
+            400,
+            "VALIDATION_FAILED",
+            "NVRAM reset only applies to UEFI guests",
+        );
         return (st, j).into_response();
     }
     let api = vm_api(&client, &namespace);

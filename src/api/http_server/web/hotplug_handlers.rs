@@ -8,14 +8,17 @@
 //! subresources actually take (not a filesystem path or bridge device).
 
 use super::*;
-use axum::extract::Json as AxumJson;
 use crate::kube::HotplugOutcome;
+use axum::extract::Json as AxumJson;
 use serde_json::json;
 
 /// Merge the live-convergence outcome of a CPU/memory hotplug into the VM's
 /// JSON representation, so the caller can tell "accepted" from "actually
 /// applied" -- see `HotplugOutcome`.
-fn with_hotplug_outcome(mut vm_json: serde_json::Value, outcome: HotplugOutcome) -> axum::response::Response {
+fn with_hotplug_outcome(
+    mut vm_json: serde_json::Value,
+    outcome: HotplugOutcome,
+) -> axum::response::Response {
     let (status, converged, restart_required) = match outcome {
         HotplugOutcome::Converged => (StatusCode::OK, true, false),
         HotplugOutcome::RestartRequired => (StatusCode::ACCEPTED, false, true),

@@ -6,8 +6,8 @@
 //! one and hands its name back.
 
 use super::*;
+use crate::warm_pool::{WarmPool, WarmPoolManager, WarmPoolMember, WarmPoolMemberStatus};
 use axum::extract::Json as AxumJson;
-use crate::warm_pool::{WarmPool, WarmPoolMember, WarmPoolMemberStatus, WarmPoolManager};
 use serde_json::json;
 
 fn member_json(m: &WarmPoolMember) -> serde_json::Value {
@@ -127,7 +127,11 @@ pub async fn claim_warm_pool_handler(
         return (st, j).into_response();
     }
 
-    if let Some(m) = pool.members.iter_mut().find(|m| m.vm_name == member.vm_name) {
+    if let Some(m) = pool
+        .members
+        .iter_mut()
+        .find(|m| m.vm_name == member.vm_name)
+    {
         m.status = WarmPoolMemberStatus::Claimed;
         m.claimed_at = Some(chrono::Utc::now());
     }
@@ -169,9 +173,13 @@ async fn reconcile_pools(namespace: &str, client: &crate::kube::KubeClient) {
             let template = pool.template.clone();
             let member_name = pool.next_member_name();
 
-            let result =
-                super::template_handlers::create_vm_from_template(client, namespace, &template, &member_name)
-                    .await;
+            let result = super::template_handlers::create_vm_from_template(
+                client,
+                namespace,
+                &template,
+                &member_name,
+            )
+            .await;
             let status = if result.is_ok() {
                 WarmPoolMemberStatus::Ready
             } else {

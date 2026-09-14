@@ -7,8 +7,8 @@
 //! the manual `POST /backups` handler uses.
 
 use super::*;
-use axum::extract::Json as AxumJson;
 use crate::backup::schedule::{BackupSchedule, ScheduleManager, ScheduleType, VMSelector};
+use axum::extract::Json as AxumJson;
 use chrono::{Utc, Weekday};
 use serde_json::json;
 
@@ -199,11 +199,7 @@ pub fn spawn_backup_scheduler_loop(state: SharedState) {
 async fn run_due_schedules(namespace: &str) {
     let mgr = ScheduleManager::load();
     let now = Utc::now();
-    let due: Vec<BackupSchedule> = mgr
-        .get_due_schedules(now)
-        .into_iter()
-        .cloned()
-        .collect();
+    let due: Vec<BackupSchedule> = mgr.get_due_schedules(now).into_iter().cloned().collect();
     if due.is_empty() {
         return;
     }
@@ -269,4 +265,3 @@ async fn run_due_schedules(namespace: &str) {
         }
     }
 }
-

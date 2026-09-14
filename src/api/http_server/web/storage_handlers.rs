@@ -42,7 +42,10 @@ pub async fn list_storage_volumes_handler(State(state): State<SharedState>) -> i
                         .map(|p| p.claim_name.clone())
                         .or_else(|| vol.data_volume.as_ref().map(|dv| dv.name.clone()));
                     if let Some(claim_name) = claim_name {
-                        attached_by.entry(claim_name).or_default().push(vm_name.clone());
+                        attached_by
+                            .entry(claim_name)
+                            .or_default()
+                            .push(vm_name.clone());
                     }
                 }
             }

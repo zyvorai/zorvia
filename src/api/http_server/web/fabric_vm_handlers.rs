@@ -753,7 +753,10 @@ pub async fn fabric_cloud_init(
     // The actual fix: rewrite the cloudinitdisk volume's real userData, not
     // just an annotation. Takes effect on the VM's next (re)start, same as
     // the frontend's own "generate ISO, applied on next boot" framing.
-    match client.update_cloud_init(&namespace, &name, &user_data).await {
+    match client
+        .update_cloud_init(&namespace, &name, &user_data)
+        .await
+    {
         Ok(_) => StatusCode::NO_CONTENT.into_response(),
         Err(e) => {
             let (st, j) = err_json(500, "CLOUD_INIT_FAILED", &sanitize_error(&e));
@@ -1222,7 +1225,10 @@ pub async fn fabric_revert_snapshot(
     // it's the thing doing the sanitizing here, same convention as
     // classify_lifecycle_error/classify_migration_error/classify_hotplug_error.
     let result = match crate::snapshots::RestoreManager::new(&namespace).await {
-        Ok(rm) => rm.restore_in_place(&vm, &id).await.map_err(|e| e.to_string()),
+        Ok(rm) => rm
+            .restore_in_place(&vm, &id)
+            .await
+            .map_err(|e| e.to_string()),
         Err(e) => Err(e.to_string()),
     };
     record_audit(
@@ -1238,7 +1244,8 @@ pub async fn fabric_revert_snapshot(
     match result {
         Ok(_) => StatusCode::NO_CONTENT.into_response(),
         Err(raw) => {
-            let (code, kind, msg) = crate::kube::lifecycle::classify_restore_error("revert to this snapshot", &raw);
+            let (code, kind, msg) =
+                crate::kube::lifecycle::classify_restore_error("revert to this snapshot", &raw);
             let (st, j) = err_json(code, kind, &msg);
             (st, j).into_response()
         }
@@ -1253,7 +1260,13 @@ pub(crate) async fn quick_vm_usage(
     client: &crate::kube::KubeClient,
     namespace: &str,
     name: &str,
-) -> (f64, u64, u64, &'static str, crate::kube::guest_metrics::GuestMetrics) {
+) -> (
+    f64,
+    u64,
+    u64,
+    &'static str,
+    crate::kube::guest_metrics::GuestMetrics,
+) {
     let osinfo = client
         .get_vmi_subresource_json(namespace, name, "guestosinfo")
         .await

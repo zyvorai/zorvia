@@ -12,13 +12,14 @@ pub async fn capacity_overview_handler(State(state): State<SharedState>) -> impl
     let client = s.client();
     drop(s);
 
-    let (nodes, workloads) = match super::placement_handlers::build_snapshot(&client, &namespace).await {
-        Ok(v) => v,
-        Err(e) => {
-            let (st, j) = err_json(500, "CAPACITY_FAILED", &sanitize_error(&e));
-            return (st, j).into_response();
-        }
-    };
+    let (nodes, workloads) =
+        match super::placement_handlers::build_snapshot(&client, &namespace).await {
+            Ok(v) => v,
+            Err(e) => {
+                let (st, j) = err_json(500, "CAPACITY_FAILED", &sanitize_error(&e));
+                return (st, j).into_response();
+            }
+        };
 
     let total_cpu: f64 = nodes.iter().map(|n| n.allocatable_cpu).sum();
     let total_memory_gib: f64 = nodes.iter().map(|n| n.allocatable_memory_gib).sum();

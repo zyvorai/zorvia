@@ -91,7 +91,6 @@ pub mod nlp_search;
 pub mod notifications;
 pub mod placement;
 pub mod power_schedule;
-pub mod warm_pool;
 pub mod recommendation;
 pub mod rook;
 pub mod search_history;
@@ -99,6 +98,7 @@ pub mod session_sharing;
 pub mod state_persistence;
 pub mod topology;
 pub mod vcenter_ops;
+pub mod warm_pool;
 
 // Convenience re-exports for public API
 pub use config::{VMConfig, VMConfigBuilder};

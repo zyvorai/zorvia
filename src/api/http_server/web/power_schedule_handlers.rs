@@ -6,9 +6,9 @@
 //! real VM start/stop/restart routes.
 
 use super::*;
-use axum::extract::Json as AxumJson;
 use crate::backup::schedule::ScheduleType;
 use crate::power_schedule::{PowerAction, PowerSchedule, PowerScheduleManager};
+use axum::extract::Json as AxumJson;
 use chrono::{Utc, Weekday};
 use serde_json::json;
 

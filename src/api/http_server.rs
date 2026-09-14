@@ -4,8 +4,8 @@
 
 #[cfg(feature = "web")]
 pub mod web {
-    use crate::api::{ApiResponse, HttpMethod, RequestContext};
     use crate::api::webhooks::WebhookEvent;
+    use crate::api::{ApiResponse, HttpMethod, RequestContext};
     use crate::kube::KubeClient;
     use crate::tui::state::VmInfo;
     use axum::{
@@ -618,14 +618,17 @@ pub mod web {
                 delete(fabric_remove_port_forward),
             )
             .route("/vms/:name/cloud-init", post(fabric_cloud_init))
-            .route(
-                "/vms/:name/tags",
-                put(fabric_set_tags).post(fabric_add_tag),
-            )
+            .route("/vms/:name/tags", put(fabric_set_tags).post(fabric_add_tag))
             .route("/vms/:name/tags/:tag", delete(fabric_remove_tag))
             .route("/vms/:name/clone", post(fabric_clone_vm))
-            .route("/vms/:name/boot", get(fabric_get_boot).post(fabric_set_boot))
-            .route("/vms/:name/display", get(fabric_get_display).post(fabric_set_display))
+            .route(
+                "/vms/:name/boot",
+                get(fabric_get_boot).post(fabric_set_boot),
+            )
+            .route(
+                "/vms/:name/display",
+                get(fabric_get_display).post(fabric_set_display),
+            )
             .route(
                 "/vms/:name/cpu-model",
                 get(fabric_get_cpu_model).post(fabric_set_cpu_model),
@@ -638,7 +641,10 @@ pub mod web {
                 "/vms/:name/serials",
                 get(fabric_get_serials).post(fabric_add_serial),
             )
-            .route("/vms/:name/firmware/status", get(fabric_get_firmware_status))
+            .route(
+                "/vms/:name/firmware/status",
+                get(fabric_get_firmware_status),
+            )
             .route("/vms/:name/firmware/uefi", post(fabric_enable_uefi))
             .route(
                 "/vms/:name/firmware/secureboot",
@@ -647,7 +653,10 @@ pub mod web {
             .route("/vms/:name/firmware/reset", post(fabric_reset_nvram))
             .route("/vms/:name/cpu/affinity", get(fabric_get_cpu_affinity))
             .route("/system/cpu-models", get(fabric_list_cpu_models))
-            .route("/system/firmware/capabilities", get(fabric_firmware_capabilities))
+            .route(
+                "/system/firmware/capabilities",
+                get(fabric_firmware_capabilities),
+            )
             .route(
                 "/vms/:name/snapshots",
                 get(fabric_list_vm_snapshots).post(fabric_create_snapshot),
@@ -679,7 +688,10 @@ pub mod web {
                 "/backups/policies",
                 get(list_backup_policies_handler).post(create_backup_policy_handler),
             )
-            .route("/backups/policies/:name", delete(delete_backup_policy_handler))
+            .route(
+                "/backups/policies/:name",
+                delete(delete_backup_policy_handler),
+            )
             .route(
                 "/backups/policies/:name/enable",
                 post(enable_backup_policy_handler),
@@ -2207,7 +2219,9 @@ pub mod web {
             resource_type: resource_type.to_string(),
             resource_name: resource_name.to_string(),
             namespace,
-            details: message.map(serde_json::Value::String).unwrap_or(serde_json::Value::Null),
+            details: message
+                .map(serde_json::Value::String)
+                .unwrap_or(serde_json::Value::Null),
             ip_address: String::new(),
             success,
             severity: crate::audit_trail::AuditSeverity::Info,

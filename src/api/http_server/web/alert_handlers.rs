@@ -14,10 +14,10 @@
 //! is stored but not enforced) -- a deliberate simplification, not hidden.
 
 use super::*;
-use axum::extract::Json as AxumJson;
 use crate::observability::alerts::{
     Alert, AlertCondition, AlertManager, AlertRule, AlertSeverity, ThresholdOperator,
 };
+use axum::extract::Json as AxumJson;
 use serde_json::json;
 
 fn severity_from_str(s: &str) -> AlertSeverity {
@@ -74,7 +74,13 @@ fn alert_json(a: &Alert) -> serde_json::Value {
 
 pub async fn list_alerts_handler() -> impl IntoResponse {
     let mgr = AlertManager::load();
-    Json(mgr.get_active_alerts().iter().map(|a| alert_json(a)).collect::<Vec<_>>()).into_response()
+    Json(
+        mgr.get_active_alerts()
+            .iter()
+            .map(|a| alert_json(a))
+            .collect::<Vec<_>>(),
+    )
+    .into_response()
 }
 
 pub async fn list_alert_rules_handler() -> impl IntoResponse {
@@ -114,7 +120,11 @@ pub async fn create_alert_rule_handler(
     let condition = match body.condition_type.as_str() {
         "metric_threshold" => {
             let (Some(metric), Some(threshold)) = (body.metric_or_resource, body.threshold) else {
-                let (st, j) = err_json(400, "INVALID_CONDITION", "metric_threshold requires metric_or_resource and threshold");
+                let (st, j) = err_json(
+                    400,
+                    "INVALID_CONDITION",
+                    "metric_threshold requires metric_or_resource and threshold",
+                );
                 return (st, j).into_response();
             };
             AlertCondition::MetricThreshold {
@@ -124,8 +134,13 @@ pub async fn create_alert_rule_handler(
             }
         }
         "resource_usage" => {
-            let (Some(resource), Some(percentage)) = (body.metric_or_resource, body.threshold) else {
-                let (st, j) = err_json(400, "INVALID_CONDITION", "resource_usage requires metric_or_resource and threshold");
+            let (Some(resource), Some(percentage)) = (body.metric_or_resource, body.threshold)
+            else {
+                let (st, j) = err_json(
+                    400,
+                    "INVALID_CONDITION",
+                    "resource_usage requires metric_or_resource and threshold",
+                );
                 return (st, j).into_response();
             };
             AlertCondition::ResourceUsage {
@@ -135,7 +150,11 @@ pub async fn create_alert_rule_handler(
         }
         "vm_state" => {
             let (Some(vm_name), Some(state)) = (body.vm_name, body.state) else {
-                let (st, j) = err_json(400, "INVALID_CONDITION", "vm_state requires vm_name and state");
+                let (st, j) = err_json(
+                    400,
+                    "INVALID_CONDITION",
+                    "vm_state requires vm_name and state",
+                );
                 return (st, j).into_response();
             };
             AlertCondition::VMState { vm_name, state }
@@ -206,7 +225,12 @@ pub fn spawn_alert_evaluation_loop(state: SharedState) {
 
 async fn evaluate_rules(namespace: &str, client: &crate::kube::KubeClient) {
     let mut mgr = AlertManager::load();
-    let rules: Vec<AlertRule> = mgr.get_rules().iter().filter(|r| r.enabled).cloned().collect();
+    let rules: Vec<AlertRule> = mgr
+        .get_rules()
+        .iter()
+        .filter(|r| r.enabled)
+        .cloned()
+        .collect();
     if rules.is_empty() {
         return;
     }

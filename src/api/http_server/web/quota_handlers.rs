@@ -120,7 +120,10 @@ pub async fn create_quota_handler(
     }
 
     let s = state.read().await;
-    let namespace = body.namespace.clone().unwrap_or_else(|| s.namespace.clone());
+    let namespace = body
+        .namespace
+        .clone()
+        .unwrap_or_else(|| s.namespace.clone());
     let client = s.kube_client.client();
     drop(s);
 

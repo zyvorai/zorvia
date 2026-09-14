@@ -210,8 +210,16 @@ pub async fn create_network_policy_handler(
         },
         spec: Some(NetworkPolicySpec {
             pod_selector,
-            ingress: if ingress.is_empty() { None } else { Some(ingress) },
-            egress: if egress.is_empty() { None } else { Some(egress) },
+            ingress: if ingress.is_empty() {
+                None
+            } else {
+                Some(ingress)
+            },
+            egress: if egress.is_empty() {
+                None
+            } else {
+                Some(egress)
+            },
             policy_types: Some(policy_types),
         }),
     };

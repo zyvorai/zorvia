@@ -90,9 +90,15 @@ pub async fn list_audit_logs_handler(
         .iter()
         .filter(|e| {
             q.user.as_deref().map_or(true, |v| e.user == v)
-                && q.resource_type.as_deref().map_or(true, |v| e.resource_type == v)
-                && q.resource_name.as_deref().map_or(true, |v| e.resource_name == v)
-                && q.action.as_deref().map_or(true, |v| action_str(&e.action) == v)
+                && q.resource_type
+                    .as_deref()
+                    .map_or(true, |v| e.resource_type == v)
+                && q.resource_name
+                    .as_deref()
+                    .map_or(true, |v| e.resource_name == v)
+                && q.action
+                    .as_deref()
+                    .map_or(true, |v| action_str(&e.action) == v)
                 && q.status
                     .as_deref()
                     .map_or(true, |v| (v == "success") == e.success)
@@ -120,7 +126,13 @@ pub async fn audit_stats_handler(State(state): State<SharedState>) -> impl IntoR
             .entry(if e.success { "success" } else { "failed" })
             .or_insert(0) += 1;
     }
-    let recent_failures = trail.entries.iter().rev().take(50).filter(|e| !e.success).count();
+    let recent_failures = trail
+        .entries
+        .iter()
+        .rev()
+        .take(50)
+        .filter(|e| !e.success)
+        .count();
 
     Json(json!({
         "total_logs": trail.entries.len(),
