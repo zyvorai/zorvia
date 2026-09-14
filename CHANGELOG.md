@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.2] - 2026-09-14
+
 ### Fixed
 
 - **Resource Optimizer no-op recommendation** — a VM already at the 1-core/1GB right-sizing floor with low usage got a `RightSize` recommendation reading "reduce from 1C/1GB to 1C/1GB" at `High` priority despite `0` potential savings. `analyze_right_sizing` now skips the recommendation once the floor leaves nothing to actually reduce (`src/cost/optimization.rs`).
@@ -18,6 +20,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Clippy failed on a real `unnecessary_lazy_evaluations` lint in `src/kube/mod.rs` (`get_or_insert_with(|| ...)` → `get_or_insert(...)`).
   - `npm ci` failed outright — `typescript@^7.0.2` has no supporting `@typescript-eslint` release yet (checked latest and alpha/canary; all cap at `<6.1.0`). Downgraded to `typescript@^5.9.3`. That unmasked a second problem `npm ci`'s failure had been hiding: `eslint-plugin-react-hooks`'s `recommended` preset had silently become its newer React Compiler ruleset (mostly hard errors) that this codebase's `useEffect` data-fetching patterns were never written against — `eslint.config.js` now declares the two classic hook-safety rules explicitly instead of spreading an unstable preset name, plus one genuine `no-control-regex` false positive fixed in `ansi.ts`.
   - `vitest`/`@vitest/coverage-v8` bumped 4 → 5 while in there (only other outdated deps), full suite re-verified.
+  - `Dockerfile`'s builder image was pinned to `rust:1.76-slim-bookworm`, but `Cargo.lock` has been lockfile format v4 since 0.3.0 — Cargo below 1.78 can't even parse it. Every Docker build off this Dockerfile has been failing since that bump; the `release.yml` `docker` job would have failed the same way on the next tag push. Bumped to `rust:1.98-slim-bookworm` and corrected `rust-version` in `Cargo.toml` (and the README) from 1.76 to 1.78, the real minimum. Also installed `build-essential`/`pkg-config`/`libssl-dev` in the builder stage — the slim image had none of them, which `openssl-sys` and rusqlite's bundled-SQLite build both need.
 
 ### Changed
 
