@@ -69,6 +69,12 @@ urlencoding = { version = "2", optional = true }
 futures-util = { version = "0.3", optional = true }
 tokio-tungstenite = { version = "0.24", optional = true, default-features = false, features = ["connect", "native-tls"] }
 native-tls = { version = "0.2", optional = true }
+# native-tls pulls in openssl-sys on Linux, which needs a system OpenSSL +
+# pkg-config to find it -- fine for a same-arch build, but cross-compiling
+# (e.g. aarch64-unknown-linux-gnu from an x86_64 runner) has no target-arch
+# OpenSSL to find. "vendored" compiles OpenSSL from source for the target
+# instead, so this builds the same way on every target release.yml covers.
+openssl = { version = "0.10", features = ["vendored"], optional = true }
 http = "1"
 reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls"], optional = true }
 secrecy = "0.8"
@@ -80,7 +86,7 @@ web = [
   "axum", "axum-server", "rustls", "tower-http",
   "dep:jsonwebtoken", "dep:bcrypt", "dep:rusqlite", "dep:uuid",
   "dep:totp-rs", "dep:base64", "dep:sha2", "dep:subtle", "dep:urlencoding",
-  "dep:futures-util", "dep:tokio-tungstenite", "dep:native-tls",
+  "dep:futures-util", "dep:tokio-tungstenite", "dep:native-tls", "dep:openssl",
   "dep:reqwest", "dep:pty-process",
 ]
 # PAM host auth (Linux): enable with --features pam and system libpam-dev
