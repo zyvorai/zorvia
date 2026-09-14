@@ -234,6 +234,14 @@ export default function VMDetails() {
         </div>
       </div>
 
+      {showCloneDialog && name && (
+        <CloneVMDialog
+          vmName={name}
+          onClose={() => setShowCloneDialog(false)}
+          onSuccess={loadVM}
+        />
+      )}
+
       {/* Tabs — auto-fill grid wraps into rows; never forces horizontal page scroll */}
       <div className="border-b border-[var(--zf-hairline)] min-w-0 max-w-full">
         <nav
@@ -293,13 +301,6 @@ export default function VMDetails() {
         />
       )}
       <UndoBar pending={pendingDelete} onUndo={undoDelete} />
-      {showCloneDialog && name && (
-        <CloneVMDialog
-          vmName={name}
-          onClose={() => setShowCloneDialog(false)}
-          onSuccess={loadVM}
-        />
-      )}
     </div>
   )
 }

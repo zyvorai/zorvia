@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { useState } from 'react'
-import { X, Copy } from 'lucide-react'
+import { Copy } from 'lucide-react'
 import { cloneVM } from '../api/vm'
 import { useToastContext } from '../contexts/ToastContext'
 import { toastFailure } from '../utils/toastError'
@@ -43,113 +43,91 @@ export default function CloneVMDialog({ vmName, onClose, onSuccess }: CloneVMDia
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
-      <div className="bg-[var(--zf-canvas)] rounded-lg shadow-2xl border border-[var(--zf-hairline)] w-full max-w-md">
-        {/* Header */}
-        <div className="flex items-center justify-between p-6 border-b border-[var(--zf-hairline)]">
-          <div className="flex items-center gap-3">
-            <Copy className="w-6 h-6 text-[var(--zf-link)]" />
-            <h2 className="text-xl font-bold text-[var(--zf-ink)]">Clone VM</h2>
-          </div>
-          <button
-            onClick={onClose}
-            className="p-2 text-[var(--zf-muted)] hover:text-[var(--zf-ink)] hover:bg-[var(--zf-hover-tint)] rounded transition"
-          >
-            <X className="w-5 h-5" />
-          </button>
+    <div className="bg-[var(--zf-surface)] border border-[var(--zf-hairline)] rounded-xl p-5 space-y-4">
+      <h3 className="text-sm font-semibold text-[var(--zf-ink)]">Clone VM</h3>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div>
+          <label className="block text-xs font-medium text-[var(--zf-muted)] mb-1.5">Source VM</label>
+          <input
+            type="text"
+            value={vmName}
+            disabled
+            className="input-field text-sm text-[var(--zf-muted)]"
+          />
         </div>
 
-        {/* Content */}
-        <div className="p-6 space-y-4">
-          <div>
-            <label className="block text-sm font-medium text-[var(--zf-ink)] mb-2">
-              Source VM
-            </label>
-            <input
-              type="text"
-              value={vmName}
-              disabled
-              className="w-full bg-[var(--zf-canvas)] border border-[var(--zf-hairline)] rounded-lg py-2 px-4 text-[var(--zf-muted)]"
-            />
-          </div>
+        <div>
+          <label className="block text-xs font-medium text-[var(--zf-muted)] mb-1.5">New VM Name</label>
+          <input
+            type="text"
+            value={targetName}
+            onChange={(e) => setTargetName(e.target.value)}
+            placeholder="Enter name for cloned VM"
+            className="input-field text-sm"
+          />
+        </div>
+      </div>
 
-          <div>
-            <label className="block text-sm font-medium text-[var(--zf-ink)] mb-2">
-              New VM Name
-            </label>
-            <input
-              type="text"
-              value={targetName}
-              onChange={(e) => setTargetName(e.target.value)}
-              placeholder="Enter name for cloned VM"
-              className="w-full bg-[var(--zf-surface)] border border-[var(--zf-hairline)] rounded-lg py-2 px-4 text-[var(--zf-ink)] focus:outline-none focus:border-[var(--zf-link)]"
-            />
-          </div>
-
-          <div className="space-y-2">
-            <div className="flex items-center gap-2">
-              <input
-                type="checkbox"
-                id="includeSnapshots"
-                checked={includeSnapshots}
-                onChange={(e) => setIncludeSnapshots(e.target.checked)}
-                className="w-4 h-4 text-[var(--zf-link)] bg-[var(--zf-surface)] border-[var(--zf-hairline)] rounded focus:ring-[var(--zf-link)]"
-              />
-              <label htmlFor="includeSnapshots" className="text-sm text-[var(--zf-ink)]">
-                Include snapshots
-              </label>
-            </div>
-
-            <div className="flex items-center gap-2">
-              <input
-                type="checkbox"
-                id="linkedClone"
-                checked={linkedClone}
-                onChange={(e) => setLinkedClone(e.target.checked)}
-                className="w-4 h-4 text-[var(--zf-link)] bg-[var(--zf-surface)] border-[var(--zf-hairline)] rounded focus:ring-[var(--zf-link)]"
-              />
-              <label htmlFor="linkedClone" className="text-sm text-[var(--zf-ink)]">
-                Linked clone (faster, uses less space)
-              </label>
-            </div>
-          </div>
-
-          <div className="bg-[var(--zf-link)]/10 border border-[var(--zf-link)]/20 rounded-lg p-3 text-sm text-[var(--zf-link)]">
-            {linkedClone ? (
-              <p>Linked clone creates a VM that shares disk with the source. Changes won't affect the source.</p>
-            ) : (
-              <p>Full clone creates an independent copy of the VM. This may take some time.</p>
-            )}
-          </div>
+      <div className="space-y-2">
+        <div className="flex items-center gap-2">
+          <input
+            type="checkbox"
+            id="includeSnapshots"
+            checked={includeSnapshots}
+            onChange={(e) => setIncludeSnapshots(e.target.checked)}
+            className="w-4 h-4 text-[var(--zf-link)] bg-[var(--zf-surface)] border-[var(--zf-hairline)] rounded focus:ring-[var(--zf-link)]"
+          />
+          <label htmlFor="includeSnapshots" className="text-sm text-[var(--zf-ink)]">
+            Include snapshots
+          </label>
         </div>
 
-        {/* Footer */}
-        <div className="flex justify-end gap-2 p-6 border-t border-[var(--zf-hairline)]">
-          <button
-            onClick={onClose}
-            disabled={isCloning}
-            className="px-4 py-2 bg-[var(--zf-surface)] border border-[var(--zf-hairline)] hover:bg-[var(--zf-hover-tint)] text-[var(--zf-ink)] rounded-lg transition disabled:opacity-50"
-          >
-            Cancel
-          </button>
-          <button
-            onClick={handleClone}
-            disabled={isCloning}
-            className="px-4 py-2 bg-[var(--zf-link)] hover:bg-[var(--zf-link-hover)] text-white rounded-lg transition disabled:opacity-50 flex items-center gap-2"
-          >
-            {isCloning ? (
-              <>
-                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
-                Cloning...
-              </>
-            ) : (
-              <>
-                <Copy className="w-4 h-4" />
-                Clone VM
-              </>
-            )}
-          </button>
+        <div className="flex items-center gap-2">
+          <input
+            type="checkbox"
+            id="linkedClone"
+            checked={linkedClone}
+            onChange={(e) => setLinkedClone(e.target.checked)}
+            className="w-4 h-4 text-[var(--zf-link)] bg-[var(--zf-surface)] border-[var(--zf-hairline)] rounded focus:ring-[var(--zf-link)]"
+          />
+          <label htmlFor="linkedClone" className="text-sm text-[var(--zf-ink)]">
+            Linked clone (faster, uses less space)
+          </label>
         </div>
+      </div>
+
+      <p className="text-sm text-[var(--zf-muted)]">
+        {linkedClone
+          ? "Linked clone creates a VM that shares disk with the source. Changes won't affect the source."
+          : 'Full clone creates an independent copy of the VM. This may take some time.'}
+      </p>
+
+      <div className="flex gap-2">
+        <button
+          onClick={() => void handleClone()}
+          disabled={isCloning}
+          className="zf-btn zf-btn-primary zf-btn-sm"
+        >
+          {isCloning ? (
+            <>
+              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+              Cloning...
+            </>
+          ) : (
+            <>
+              <Copy className="w-4 h-4" />
+              Clone VM
+            </>
+          )}
+        </button>
+        <button
+          onClick={onClose}
+          disabled={isCloning}
+          className="zf-btn zf-btn-ghost zf-btn-sm"
+        >
+          Cancel
+        </button>
       </div>
     </div>
   )
