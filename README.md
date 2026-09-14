@@ -12,6 +12,7 @@
   <a href="LICENSE"><img src="https://img.shields.io/badge/License-Apache%202.0-blue.svg" alt="License"></a>
   <a href="https://www.rust-lang.org/"><img src="https://img.shields.io/badge/rust-1.78%2B-orange.svg" alt="Rust"></a>
   <a href="https://kubevirt.io/"><img src="https://img.shields.io/badge/KubeVirt-native-6d28d9.svg" alt="KubeVirt"></a>
+  <a href="CHANGELOG.md"><img src="https://img.shields.io/badge/tests-2500%2B%20passing-brightgreen.svg" alt="Tests"></a>
 </p>
 
 <p align="center"><b>Stop hand-writing VM CRDs. Run Kubernetes VMs like a platform, not a YAML pile.</b></p>
@@ -40,7 +41,7 @@ real Kubernetes objects underneath. No fake dashboards, no dead buttons.
   <img src="docs/screenshots/readme-dashboard.png" alt="Zorvia dashboard" width="880">
 </p>
 
-**Contents:** [Install](#install) · [Quick start](#quick-start) · [Why teams pick Zorvia](#why-teams-pick-zorvia) · [Why Zorvia](#why-zorvia) · [Platform surface](#platform-surface) · [Day-2 commands](#day-2-commands) · [Web console & API](#web-console--api) · [Profiles · blueprints · templates](#profiles--blueprints--templates) · [Operator toolkit](#operator-toolkit) · [Config & library](#config--library) · [Develop](#develop) · [Roadmap](#roadmap) · [Project security](#project-security) · [Get involved](#get-involved)
+**Contents:** [Install](#install) · [Quick start](#quick-start) · [Why teams pick Zorvia](#why-teams-pick-zorvia) · [Why Zorvia](#why-zorvia) · [How it stacks up](#how-it-stacks-up) · [Platform surface](#platform-surface) · [Day-2 commands](#day-2-commands) · [Web console & API](#web-console--api) · [Profiles · blueprints · templates](#profiles--blueprints--templates) · [Operator toolkit](#operator-toolkit) · [Config & library](#config--library) · [Develop](#develop) · [Roadmap](#roadmap) · [Project security](#project-security) · [Get involved](#get-involved)
 
 ---
 
@@ -146,15 +147,51 @@ about running it in production.
 
 No OpenShift tax. Same VirtualMachines from terminal or browser.
 
-```text
-  template  →  VirtualMachine  →  Running
-  CLI / TUI / https://host:30152/app
-       │
-       ├─ serial · VNC · SSH
-       ├─ NodePort expose (SSH / VNC / RDP)
-       ├─ snapshot · clone · pause · resume
-       └─ drift · plan · guest-insight · health
+```mermaid
+flowchart LR
+    subgraph You["You"]
+        CLI["CLI\nzorvia create / clone / plan"]
+        TUI["Interactive TUI\nzorvia tui"]
+        WEB["Web console\nhttps://host:30152/app"]
+    end
+
+    subgraph API["Fabric API (same backend for all three)"]
+        AUTH["Auth: admin/user/viewer"]
+        WS["WebSockets: serial · VNC · SSH"]
+    end
+
+    subgraph K8S["Your Kubernetes cluster"]
+        VM["VirtualMachine / VMI\n(KubeVirt)"]
+        SNAP["VirtualMachineSnapshot"]
+        NP["NetworkPolicy"]
+        RQ["ResourceQuota"]
+        PVC["PVC / DataVolume\n(CDI, Rook-Ceph)"]
+    end
+
+    CLI --> API
+    TUI --> API
+    WEB --> API
+    API --> VM
+    API --> SNAP
+    API --> NP
+    API --> RQ
+    API --> PVC
 ```
+
+No separate REST client, no drift between "what the UI can do" and "what the CLI can do" — one Fabric API, three front ends, real objects at the other end every time.
+
+### How it stacks up
+
+|  | Hand-rolled `kubectl`/`virtctl` | Generic K8s dashboards (Lens, Portainer) | OpenShift Virtualization | **Zorvia** |
+|---|---|---|---|---|
+| VM create/day-2 without hand-written YAML | ❌ | ⚠️ view-only for VMs | ✅ | ✅ |
+| Same capability from CLI, TUI, *and* web | ❌ | ❌ (web only) | ⚠️ web + `virtctl`, no TUI | ✅ |
+| Cost/right-sizing, compliance, HA policy built in | ❌ | ❌ | ⚠️ partial, cluster add-ons | ✅ real, on by default |
+| Drift detection + change-plan gating | ❌ | ❌ | ❌ | ✅ (`zorvia drift` / `zorvia plan`) |
+| Runs on any KubeVirt cluster, no platform lock-in | ✅ | ✅ | ❌ OpenShift only | ✅ |
+| Open source, Apache-2.0 | ✅ | varies | ❌ | ✅ |
+
+Zorvia isn't trying to be a general Kubernetes dashboard — it's opinionated about one thing: VMs on KubeVirt, done like a platform.
 
 ---
 
