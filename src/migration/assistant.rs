@@ -206,17 +206,8 @@ impl MigrationAssistant {
         // Check storage accessibility (VM has shared storage, not local)
         for vm_name in &self.selected_vms {
             if let Ok(vm) = client.get_vm(namespace, vm_name).await {
-                let has_local_only = vm
-                    .spec
-                    .template
-                    .spec
-                    .volumes
-                    .as_ref()
-                    .map(|vols| {
-                        vols.iter()
-                            .all(|v| v.empty_disk.is_some() || v.container_disk.is_some())
-                    })
-                    .unwrap_or(true);
+                let has_local_only =
+                    vm_has_only_local_storage(vm.spec.template.spec.volumes.as_deref());
                 if has_local_only {
                     self.pre_check_results.push(PreCheckResult {
                         check_name: format!("VM '{}' storage", vm_name),
@@ -340,5 +331,118 @@ impl MigrationAssistant {
 impl Default for MigrationAssistant {
     fn default() -> Self {
         Self::new()
+    }
+}
+
+/// "Shared storage" means backed by a PVC/DataVolume that outlives the pod
+/// and can be reattached on another node. Every other volume type
+/// (containerDisk, emptyDisk, cloudInitNoCloud, ...) is local/ephemeral to
+/// this pod, so this checks "no volume is a PVC/DataVolume" rather than
+/// "every volume is a known-local type" -- the latter previously
+/// misclassified a VM as having shared storage whenever it had any volume
+/// (e.g. cloud-init) that wasn't in a hardcoded local-type allowlist.
+fn vm_has_only_local_storage(volumes: Option<&[crate::kube::types::Volume]>) -> bool {
+    match volumes {
+        Some(vols) => {
+            !vols
+                .iter()
+                .any(|v| v.persistent_volume_claim.is_some() || v.data_volume.is_some())
+        }
+        None => true,
+    }
+}
+
+#[cfg(test)]
+mod storage_check_tests {
+    use super::vm_has_only_local_storage;
+    use crate::kube::types::{
+        CloudInitNoCloudSource, ContainerDiskSource, DataVolumeSource, EmptyDiskSource,
+        PersistentVolumeClaimVolumeSource, Volume,
+    };
+
+    fn volume(
+        name: &str,
+        container_disk: Option<ContainerDiskSource>,
+        persistent_volume_claim: Option<PersistentVolumeClaimVolumeSource>,
+        data_volume: Option<DataVolumeSource>,
+        cloud_init_no_cloud: Option<CloudInitNoCloudSource>,
+        empty_disk: Option<EmptyDiskSource>,
+    ) -> Volume {
+        Volume {
+            name: name.to_string(),
+            container_disk,
+            persistent_volume_claim,
+            data_volume,
+            cloud_init_no_cloud,
+            empty_disk,
+        }
+    }
+
+    #[test]
+    fn container_disk_plus_cloud_init_is_local_only() {
+        // Regression: a containerDisk VM with a cloud-init volume (no PVC or
+        // DataVolume anywhere) must be reported as local-only, not as using
+        // shared storage.
+        let vols = vec![
+            volume(
+                "rootdisk",
+                Some(ContainerDiskSource {
+                    image: "quay.io/x:latest".into(),
+                    image_pull_policy: None,
+                }),
+                None,
+                None,
+                None,
+                None,
+            ),
+            volume(
+                "cloudinitdisk",
+                None,
+                None,
+                None,
+                Some(CloudInitNoCloudSource {
+                    user_data: Some("#cloud-config".into()),
+                    network_data: None,
+                }),
+                None,
+            ),
+        ];
+        assert!(vm_has_only_local_storage(Some(&vols)));
+    }
+
+    #[test]
+    fn persistent_volume_claim_is_shared_storage() {
+        let vols = vec![volume(
+            "rootdisk",
+            None,
+            Some(PersistentVolumeClaimVolumeSource {
+                claim_name: "my-pvc".into(),
+            }),
+            None,
+            None,
+            None,
+        )];
+        assert!(!vm_has_only_local_storage(Some(&vols)));
+    }
+
+    #[test]
+    fn data_volume_is_shared_storage() {
+        let vols = vec![volume(
+            "rootdisk",
+            None,
+            None,
+            Some(DataVolumeSource {
+                name: "my-dv".into(),
+            }),
+            None,
+            None,
+        )];
+        assert!(!vm_has_only_local_storage(Some(&vols)));
+    }
+
+    #[test]
+    fn no_volumes_is_local_only() {
+        assert!(vm_has_only_local_storage(None));
+        assert!(vm_has_only_local_storage(Some(&[])));
     }
 }
