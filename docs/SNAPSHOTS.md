@@ -2,6 +2,17 @@
 
 Zorvia's VM Snapshots & Backup System provides production-grade snapshot management for disaster recovery and VM lifecycle management.
 
+> **Requires PVC/DataVolume-backed disks.** A snapshot is a real KubeVirt
+> `VirtualMachineSnapshot`, which only captures volumes backed by a
+> `PersistentVolumeClaim` or `DataVolume`. A VM whose disks are all
+> `containerDisk`/`emptyDisk`/cloud-init (no PVC anywhere) still gets a
+> snapshot that reports `Succeeded`, but it captured only the VM's spec —
+> zero disk data, nothing to restore from disk. The web console and API
+> flag this with a `warning` field on the affected backup/snapshot; the CLI
+> does not surface it yet, so check `kubectl get virtualmachinesnapshot
+> <name> -o jsonpath='{.status.snapshotVolumes}'` if a CLI-created snapshot
+> looks suspiciously fast or small.
+
 ---
 
 ## 🎯 Features

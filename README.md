@@ -14,11 +14,19 @@
   <a href="https://kubevirt.io/"><img src="https://img.shields.io/badge/KubeVirt-native-6d28d9.svg" alt="KubeVirt"></a>
 </p>
 
-<p align="center"><b>KubeVirt VMs without the YAML tax.</b></p>
+<p align="center"><b>Stop hand-writing VM CRDs. Run Kubernetes VMs like a platform, not a YAML pile.</b></p>
 
 <p align="center">
-Zorvia is a Rust toolkit for crafting and day-2 managing virtual machines on Kubernetes:<br>
-CLI, interactive TUI, and a signed-in web console on the same Fabric-compatible API.
+Every KubeVirt shop ends up with the same pile of one-off scripts for create, snapshot,<br>
+migrate, backup, and access control. Zorvia replaces that pile with one real backend —<br>
+CLI, interactive TUI, and a signed-in web console, all driving the same API, all wired to<br>
+real Kubernetes objects underneath. No fake dashboards, no dead buttons.
+</p>
+
+<p align="center">
+  <a href="#quick-start"><b>▶ Try it now</b></a> ·
+  <a href="mailto:sales@zyvor.dev"><b>💬 Talk to sales</b></a> ·
+  <a href="https://github.com/zyvorai/zorvia"><b>★ Star on GitHub</b></a>
 </p>
 
 <p align="center">
@@ -32,7 +40,7 @@ CLI, interactive TUI, and a signed-in web console on the same Fabric-compatible 
   <img src="docs/screenshots/readme-dashboard.png" alt="Zorvia dashboard" width="880">
 </p>
 
-**Contents:** [Install](#install) · [Quick start](#quick-start) · [Why Zorvia](#why-zorvia) · [Platform surface](#platform-surface) · [Day-2 commands](#day-2-commands) · [Web console & API](#web-console--api) · [Profiles · blueprints · templates](#profiles--blueprints--templates) · [Operator toolkit](#operator-toolkit) · [Config & library](#config--library) · [Develop](#develop) · [Project security](#project-security) · [Contributing · License](#contributing--license)
+**Contents:** [Install](#install) · [Quick start](#quick-start) · [Why teams pick Zorvia](#why-teams-pick-zorvia) · [Why Zorvia](#why-zorvia) · [Platform surface](#platform-surface) · [Day-2 commands](#day-2-commands) · [Web console & API](#web-console--api) · [Profiles · blueprints · templates](#profiles--blueprints--templates) · [Operator toolkit](#operator-toolkit) · [Config & library](#config--library) · [Develop](#develop) · [Roadmap](#roadmap) · [Project security](#project-security) · [Get involved](#get-involved)
 
 ---
 
@@ -90,6 +98,25 @@ open https://<HOST>:30152/app
 
 ---
 
+## Why teams pick Zorvia
+
+Running VMs on KubeVirt works — *managing* them at scale is where teams get
+stuck. You end up maintaining a spreadsheet of hand-written `VirtualMachine`
+YAML, a Slack thread for "who can restart prod-db," a cron job that may or
+may not still be doing backups, and a dashboard nobody trusts because half
+its buttons don't actually do anything.
+
+Zorvia is what that stack should have been from day one: **one real backend**
+behind a CLI, a TUI, and a web console, all driving actual Kubernetes objects
+— `ResourceQuota`, `NetworkPolicy`, `VirtualMachineSnapshot`, real Node
+capacity, real KubeVirt migration phases. If a page shows a number, that
+number came from the cluster. If a button says it does something, it does
+it. That discipline is why the platform surface below can grow every release
+without turning into the pile of dead mockups it replaced.
+
+Try it in five minutes with the quickstart below, or [talk to us](#get-involved)
+about running it in production.
+
 ## Why Zorvia
 
 | Need | Zorvia |
@@ -106,6 +133,16 @@ open https://<HOST>:30152/app
 | Distributed storage | Rook-Ceph pools/filesystems/object stores + StorageClass provisioning (`/app/storage`) |
 | GitOps | Terraform scaffold + module over the Fabric API |
 | Windows plane | Full Create VM wizard support via Kryton when `KRYTON_URL` is set (`/app/create`, inventory at `/app/windows`) |
+| Fit more VMs, safely | Placement Advisor and Capacity Planning score real Node capacity before you migrate or provision (`/app/placement`, `/app/capacity`) |
+| Stop overpaying for idle VMs | Resource Optimizer right-sizing and idle-VM detection from real usage, with cost basis shown, not hidden (`/app/optimizer`) |
+| Know what's actually running where | Fleet-wide Zones, Analytics (top VMs by real CPU/mem/disk), and Service Map of every exposed port (`/app/zones`, `/app/analytics`, `/app/service-map`) |
+| Enforce real guardrails | `ResourceQuota`-backed Quotas and `NetworkPolicy`-backed segmentation, created and deleted for real (`/app/quotas`, `/app/network-policies`) |
+| Know your compliance posture | PCI-DSS/HIPAA/SOC2 control checks against actual VM specs, on demand (`/app/compliance`) |
+| Back up and recover on autopilot | Backups on real VolumeSnapshots, plus a scheduler that actually runs on a cron, not just stores a config (`/app/backups`, `/app/backup-scheduler`) |
+| Automate power state | Recurring start/stop/restart schedules, checked and run by the server every minute (`/app/schedules`) |
+| Get paged, not surprised | Alerts evaluated every minute against real CPU/memory/phase, and Webhooks that actually deliver over HTTPS with retry (`/app/alerts`, `/app/webhooks`) |
+| Deploy pre-provisioned capacity | Warm Pools of stopped, ready-to-claim VMs from the real template catalog (`/app/warm-pools`) |
+| Prove who did what | Audit trail across VM lifecycle, snapshots, clones, policy, and login events (feeds `/app/vms/:name` activity) |
 
 No OpenShift tax. Same VirtualMachines from terminal or browser.
 
@@ -221,10 +258,19 @@ zorvia tui --interactive
 | `/app/vms/:name` | Power, port-forwards, cloud-init, snapshots, hotplug, disk resize |
 | `/app/vms/:name/console` | Serial · VNC · SSH |
 | `/app/snapshots` | Snapshot browser |
-| `/app/migrations` | Live migration |
-| `/app/storage` | Rook-Ceph storage management |
+| `/app/migrations` · `/app/migrations/readiness` | Live migration · pre-flight readiness checks |
+| `/app/storage` · `/app/volumes` | Rook-Ceph storage management · fleet-wide PVC/volume view |
 | `/app/windows` | Kryton Windows inventory (optional) |
 | `/app/access-control` | User & role management (admin-only) |
+| `/app/quotas` · `/app/network-policies` | Real `ResourceQuota` / `NetworkPolicy` CRUD |
+| `/app/placement` · `/app/capacity` · `/app/zones` | Placement Advisor · capacity headroom · zone grouping |
+| `/app/analytics` · `/app/optimizer` · `/app/cost-estimator` | Top-VM usage · right-sizing/idle detection · cost estimate |
+| `/app/compliance` · `/app/security` | PCI-DSS/HIPAA/SOC2 checks · listening ports + login/audit signal |
+| `/app/backups` · `/app/backup-scheduler` | On-demand backups · recurring backup policies |
+| `/app/ha-policy` · `/app/schedules` · `/app/warm-pools` | Eviction strategy · power schedules · pre-provisioned pools |
+| `/app/webhooks` · `/app/alerts` · `/app/service-map` | HTTPS event delivery · threshold alerting · exposed-port map |
+| `/app/templates` | Real OS template catalog + one-click "deploy as" |
+| `/app/compare` · `/app/batch-import` · `/app/disk-images` | Diff two VMs · bulk create from YAML/JSON · image catalog |
 
 <p align="center">
   <img src="docs/screenshots/readme-vm-console.png" alt="Zorvia in-browser VM console" width="880">
@@ -404,6 +450,27 @@ Architecture notes: [DEVELOPMENT.md](DEVELOPMENT.md).
 
 ---
 
+## Roadmap
+
+Everything documented above is real and wired end-to-end today — this section
+is the honest opposite: capabilities that need genuinely new infrastructure,
+not just a route added to something that already exists, so they're not
+shipped yet.
+
+| Area | What's planned | Why it's not here yet |
+|------|-----------------|------------------------|
+| Disaster recovery | Site failover, cross-site replication | Needs a real DR/replication engine, not just an API surface |
+| Certificates & encryption | Cert lifecycle, disk/volume encryption (KMS) | Needs PKI and key-management integration from scratch |
+| Image upload / convert | Upload a disk image from your browser, format conversion | Needs a CDI upload-proxy client (TLS, multipart streaming) |
+| Autoscaling | Policy-driven automatic VM scaling | Policy engine exists; needs an execution loop against real load |
+| Datacenters & resource pools | vCenter-style hierarchical grouping | No equivalent Kubernetes primitive to build on yet |
+
+If one of these is a blocker for adopting Zorvia in your environment, that's
+exactly the kind of thing worth a conversation — [reach out](#get-involved)
+and tell us what you need.
+
+---
+
 ## Project security
 
 No `unsafe` on the product path. CORS off unless configured. TLS verification enforced.
@@ -414,9 +481,28 @@ or `info@zyvor.dev` — [SECURITY.md](SECURITY.md).
 
 ---
 
-## Contributing · License
+## Get involved
 
-PRs welcome — [CONTRIBUTING.md](CONTRIBUTING.md).
+### Running this in production?
+
+Production support, SLAs, and Zyvor Enterprise products are licensed
+separately. Contact [sales@zyvor.dev](mailto:sales@zyvor.dev) or see
+[zyvor.dev](https://zyvor.dev) — tell us your cluster size and what's on your
+list from the [Roadmap](#roadmap) above, and we'll tell you what's already
+possible today.
+
+### Evaluating it?
+
+Clone it, run the [quickstart](#quick-start), and see for yourself — every
+claim in this README maps to a route or command you can hit right now.
+Questions, bug reports, and feature requests are welcome as
+[GitHub issues](https://github.com/zyvorai/zorvia/issues); if it's useful to
+you, a [star on the repo](https://github.com/zyvorai/zorvia) helps others
+find it.
+
+### Contributing code?
+
+PRs welcome — see [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ### Open source (Apache-2.0)
 
@@ -426,8 +512,3 @@ use at no charge, subject to Apache-2.0 (preserve notices / NOTICE where require
 See [NOTICE](NOTICE) — Apache-2.0 only (not dual-licensed with MIT).
 
 Built on [KubeVirt](https://kubevirt.io/) and [kube-rs](https://github.com/kube-rs/kube).
-
-### Enterprise
-
-Production support, SLAs, and Zyvor Enterprise products are licensed separately.
-Contact [sales@zyvor.dev](mailto:sales@zyvor.dev) or see [zyvor.dev](https://zyvor.dev).

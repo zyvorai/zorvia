@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- **Resource Optimizer no-op recommendation** — a VM already at the 1-core/1GB right-sizing floor with low usage got a `RightSize` recommendation reading "reduce from 1C/1GB to 1C/1GB" at `High` priority despite `0` potential savings. `analyze_right_sizing` now skips the recommendation once the floor leaves nothing to actually reduce (`src/cost/optimization.rs`).
+- **Migration Readiness false "shared storage" pass** — the storage pre-check tested "every volume is `emptyDisk` or `containerDisk`" to decide a VM was local-storage-only; a `containerDisk` VM with a cloud-init volume (present on virtually every cloud-init VM) failed that `all()`, so it fell through to reporting "uses shared storage (PVC/DataVolume)" despite having zero PVC/DataVolume volumes. The check now tests for the actual presence of a PVC/DataVolume instead (`src/migration/assistant.rs`).
+- **Silent no-op backups/snapshots** — a VM with no PVC/DataVolume-backed disks still gets a KubeVirt `VirtualMachineSnapshot` reporting `Succeeded`/`readyToUse: true`, because "succeeded" there just means the VM's spec was captured, not that any disk data was. Backups and Snapshots showed this as a plain "Completed" backup with no indication every volume was excluded. Both the Backups and Snapshots APIs now track `snapshotVolumes.excludedVolumes` from the real CRD status and return a `warning` field when nothing was actually captured; both web pages surface it as a hover-tooltipped warning icon on the affected row (`src/snapshots/`, `src/api/http_server/web/backup_handlers.rs`, `src/api/http_server.rs`, `web/src/pages/Backups.tsx`, `web/src/pages/Snapshots.tsx`). See the new caveat in [docs/SNAPSHOTS.md](docs/SNAPSHOTS.md).
+
+### Changed
+
+- **Inline-panel redesign for 7 "create action" dialogs** — Start Migration, Clone VM, Manage Tags, Resize Disk, Create Snapshot, Create Golden Image, and Download an OS Image each hand-rolled the same `fixed inset-0` popup-modal recipe independently. All seven now use the same bordered inline-expanding-panel pattern already shipped on Quotas/Network Policies/Alerts/Schedules — no backdrop, no overlay, mounted directly in the page's own layout. `ConfirmDialog`, the command palette, and read-only help panels are unchanged; those are a different UX category (destructive confirmations, search, reference).
+
 ## [0.3.1] - 2026-09-11
 
 ### Fixed
