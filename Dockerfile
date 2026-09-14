@@ -1,5 +1,9 @@
 # Multi-stage build for minimal production image
-FROM rust:1.76-slim-bookworm AS builder
+#
+# Cargo.lock is lockfile format v4 (has been since 0.3.0), which needs
+# Cargo 1.78+ to even parse -- `cargo build --locked` fails immediately
+# on anything older, independent of the crate's own rust-version MSRV.
+FROM rust:1.98-slim-bookworm AS builder
 
 WORKDIR /build
 

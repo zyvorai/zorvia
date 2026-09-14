@@ -11,7 +11,7 @@ documentation = "https://docs.rs/zorvia"
 readme = "README.md"
 keywords = ["kubevirt", "kubernetes", "virtual-machine", "kvm", "cli"]
 categories = ["command-line-utilities", "virtualization"]
-rust-version = "1.76"
+rust-version = "1.78"  # Cargo.lock is lockfile v4, which needs Cargo 1.78+ to parse
 
 [[bin]]
 name = "zorvia"
