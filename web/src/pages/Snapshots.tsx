@@ -139,6 +139,16 @@ export default function Snapshots() {
         </div>
       </div>
 
+      {showCreateDialog && (
+        <div className="mb-8">
+          <CreateSnapshotDialog
+            vmName={vmName}
+            onClose={() => setShowCreateDialog(false)}
+            onCreated={loadSnapshots}
+          />
+        </div>
+      )}
+
       {vmName && (
         <div className="zf-panel overflow-hidden">
           <DataTable
@@ -152,14 +162,6 @@ export default function Snapshots() {
             }
           />
         </div>
-      )}
-
-      {showCreateDialog && (
-        <CreateSnapshotDialog
-          vmName={vmName}
-          onClose={() => setShowCreateDialog(false)}
-          onCreated={loadSnapshots}
-        />
       )}
 
       {confirmState && (
@@ -215,48 +217,48 @@ function CreateSnapshotDialog({
   }
 
   return (
-    <div className="modal-backdrop">
-      <div className="modal-card w-full max-w-md">
-        <h2 className="text-2xl font-bold mb-6">Create Snapshot</h2>
-        <form onSubmit={(e) => void handleSubmit(e)}>
-          <div className="mb-4">
-            <label className="block text-sm font-medium mb-2">Snapshot Name</label>
+    <div className="bg-[var(--zf-surface)] border border-[var(--zf-hairline)] rounded-xl p-5 space-y-4">
+      <h3 className="text-sm font-semibold text-[var(--zf-ink)]">Create Snapshot</h3>
+      <form onSubmit={(e) => void handleSubmit(e)} className="space-y-4">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div>
+            <label className="block text-xs font-medium text-[var(--zf-muted)] mb-1.5">Snapshot Name</label>
             <input
               type="text"
               value={name}
               onChange={(e) => setName(e.target.value)}
-              className="w-full bg-[var(--zf-surface)] border border-[var(--zf-hairline)] rounded px-4 py-2"
+              className="input-field text-sm"
               required
             />
           </div>
-          <div className="mb-4">
-            <label className="block text-sm font-medium mb-2">Description</label>
+          <div>
+            <label className="block text-xs font-medium text-[var(--zf-muted)] mb-1.5">Description</label>
             <input
               type="text"
               value={description}
               onChange={(e) => setDescription(e.target.value)}
-              className="w-full bg-[var(--zf-surface)] border border-[var(--zf-hairline)] rounded px-4 py-2"
+              className="input-field text-sm"
             />
           </div>
-          <div className="mb-6">
-            <label className="block text-sm font-medium mb-2">Type</label>
+          <div>
+            <label className="block text-xs font-medium text-[var(--zf-muted)] mb-1.5">Type</label>
             <select
               value={snapshotType}
               onChange={(e) => setSnapshotType(e.target.value as 'Disk' | 'Full')}
-              className="w-full bg-[var(--zf-surface)] border border-[var(--zf-hairline)] rounded px-4 py-2"
+              className="input-field text-sm"
             >
               <option value="Disk">Disk</option>
               <option value="Full">Full</option>
             </select>
           </div>
-          <div className="flex gap-3 justify-end">
-            <button type="button" onClick={onClose} className="zf-btn zf-btn-ghost">Cancel</button>
-            <button type="submit" disabled={submitting || !name} className="zf-btn zf-btn-primary">
-              {submitting ? 'Creating…' : 'Create'}
-            </button>
-          </div>
-        </form>
-      </div>
+        </div>
+        <div className="flex gap-2">
+          <button type="submit" disabled={submitting || !name} className="zf-btn zf-btn-primary zf-btn-sm">
+            {submitting ? 'Creating…' : 'Create'}
+          </button>
+          <button type="button" onClick={onClose} className="zf-btn zf-btn-ghost zf-btn-sm">Cancel</button>
+        </div>
+      </form>
     </div>
   )
 }
