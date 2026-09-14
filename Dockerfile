@@ -5,6 +5,17 @@
 # on anything older, independent of the crate's own rust-version MSRV.
 FROM rust:1.98-slim-bookworm AS builder
 
+# openssl-sys needs pkg-config + the OpenSSL dev headers to find the system
+# OpenSSL, and rusqlite's "bundled" feature compiles SQLite's C amalgamation
+# from source -- the slim base image has none of gcc/pkg-config/libssl-dev
+# (GitHub's hosted runners do, which is why the plain `cargo build` CI job
+# never hit this).
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    build-essential \
+    pkg-config \
+    libssl-dev \
+    && rm -rf /var/lib/apt/lists/*
+
 WORKDIR /build
 
 # Cache dependency compilation
