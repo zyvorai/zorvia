@@ -209,6 +209,12 @@ impl OptimizationEngine {
                 .ceil() as u32)
                 .max(1);
 
+            // A VM already at the 1-core/1GB floor has nothing left to reduce --
+            // don't surface a "reduce from 1C/1GB to 1C/1GB" no-op recommendation.
+            if recommended_cpu >= current_cpu && recommended_memory >= current_memory_gb {
+                return None;
+            }
+
             let savings_percent = ((current_cpu - recommended_cpu) as f64 / current_cpu as f64
                 + (current_memory_gb - recommended_memory) as f64 / current_memory_gb as f64)
                 / 2.0
@@ -440,6 +446,17 @@ mod tests {
     fn test_right_sizing_no_recommendation() {
         // VM with good utilization
         let rec = OptimizationEngine::analyze_right_sizing("good-vm", 4, 8, 75.0, 80.0, 100.0);
+
+        assert!(rec.is_none());
+    }
+
+    #[test]
+    fn test_right_sizing_already_at_floor_no_recommendation() {
+        // A 1-core/1GB VM with zero usage can't be reduced any further --
+        // the 1-core/1GB floor means "recommended" would equal "current",
+        // so no recommendation should be emitted (regression for a bug where
+        // this surfaced a "reduce from 1C/1GB to 1C/1GB" no-op at High priority).
+        let rec = OptimizationEngine::analyze_right_sizing("minimal-vm", 1, 1, 0.0, 0.0, 100.0);
 
         assert!(rec.is_none());
     }
