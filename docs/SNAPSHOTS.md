@@ -224,6 +224,9 @@ zorvia snapshot-restore prod-snapshot \
 
 # Verify test VM
 zorvia status test-db
+
+# Snapshot controller shows on platform status (Snapshots: ✅ OK / ℹ️ disabled)
+zorvia status
 ```
 
 ### Example 4: Disaster Recovery

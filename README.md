@@ -275,6 +275,8 @@ zorvia trends-analyze cpu_usage --window 24
 ```bash
 zorvia list
 zorvia get prod-db
+zorvia status
+zorvia status prod-db --watch
 zorvia pause prod-db && zorvia resume prod-db
 zorvia clone prod-db staging-db --start
 zorvia snapshot-create prod-db --name before-upgrade

@@ -196,6 +196,10 @@ cargo run -- generate my-vm --template fedora --cpus 4 --memory 8Gi
 # Validate a configuration
 cargo run -- validate examples/basic-vm.yaml
 
+# Platform status (Cilium-style logo; needs a kubeconfig)
+cargo run -- status
+cargo run -- status my-vm
+
 # Create from template (dry-run)
 cargo run -- create test-vm --template ubuntu --dry-run
 

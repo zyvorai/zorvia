@@ -190,6 +190,9 @@ zorvia health my-running-vm
 
 # Show detailed checks
 zorvia health my-vm --detailed
+
+# Cluster/platform status (logo, components, features)
+zorvia status
 ```
 
 ### Example Output
@@ -462,5 +465,6 @@ Zorvia's innovative features provide:
 ✅ **Smart Recommendations** - AI-like resource suggestions
 ✅ **Dependency Management** - Automatic VM ordering
 ✅ **All with Themed CLI** - Beautiful colored output
+✅ **Platform status** - `zorvia status` with a Cilium-style colorful logo, component lines, and feature inventory
 
 **No other KubeVirt CLI tool offers these capabilities!** 🚀

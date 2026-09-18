@@ -107,6 +107,8 @@ let bar = resource_bar(75.0, 20);
 println!("CPU: [{}] 75%", bar);
 ```
 
+`zorvia status` (no VM name) does **not** use these helpers. That view matches Cilium's `cilium status`: raw ANSI (`\x1b[31–36m`) on the interlocking `/¯¯\` logo, plus emoji summaries (`✅ OK`, `❌ N errors`, `⚠️ N warnings`, `ℹ️ disabled`). Per-VM `zorvia status <name>` does use `cli::` colors. See [ADVANCED_FEATURES.md](ADVANCED_FEATURES.md).
+
 ### 4. Loading Configuration
 
 ```rust

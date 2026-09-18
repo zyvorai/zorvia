@@ -464,6 +464,9 @@ hubble observe --namespace default
 
 **Interface Not Showing Up:**
 ```bash
+# Cluster components (KubeVirt, CDI, snapshots, …)
+zorvia status
+
 # Check VM status
 zorvia status my-vm
 

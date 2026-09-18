@@ -502,7 +502,7 @@ Many items once listed as “next” here now ship elsewhere:
 | Capability | Where |
 |------------|--------|
 | Snapshots & retention | [SNAPSHOTS.md](SNAPSHOTS.md) |
-| Health & monitoring | CLI `zorvia health` / `zorvia monitor-*`; web metrics |
+| Health & monitoring | CLI `zorvia status` (platform) / `zorvia health` / `zorvia monitor-*`; web metrics |
 | Live migration | CLI `zorvia migrate` / HA helpers |
 | Web console & Fabric API | [WEB_CONSOLE.md](WEB_CONSOLE.md) |
 | Drift / plan / guest insight | [DRIFT_GUARD.md](DRIFT_GUARD.md), [CHANGE_PLANNER.md](CHANGE_PLANNER.md), [GUEST_INSIGHT.md](GUEST_INSIGHT.md) |
