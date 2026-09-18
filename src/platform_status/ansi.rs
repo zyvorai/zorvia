@@ -74,8 +74,10 @@ mod tests {
 
     #[test]
     fn summary_disabled() {
-        let mut e = ErrorCount::default();
-        e.disabled = true;
+        let e = ErrorCount {
+            disabled: true,
+            ..Default::default()
+        };
         assert_eq!(strip_ansi(&e.summary()), "ℹ️  disabled");
     }
 

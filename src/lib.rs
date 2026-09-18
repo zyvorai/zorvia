@@ -287,19 +287,14 @@ pub async fn run(mut cli: Cli) -> Result<()> {
             wait,
             wait_duration,
             interactive,
-        } => {
-            handlers::vm::handle_status(
-                name,
-                watch,
-                interval,
-                &cli.namespace,
-                output,
-                wait,
-                wait_duration,
-                interactive,
-            )
-            .await?;
-        }
+        } => match name {
+            None => {
+                platform_status::display(&output, wait, wait_duration, interactive).await?;
+            }
+            Some(name) => {
+                handlers::vm::handle_status(name, watch, interval, &cli.namespace).await?;
+            }
+        },
 
         Commands::Clone {
             source,
