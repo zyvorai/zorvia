@@ -1,7 +1,8 @@
-.PHONY: build release check test clippy fmt lint clean install help docker deploy
+.PHONY: build release check test clippy fmt lint clean install help docker deploy \
+	ci deploy-remote status
 
 help: ## Show this help
-	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | sort | awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-15s\033[0m %s\n", $$1, $$2}'
+	@grep -E '^[a-zA-Z_-]+:.*## ' $(MAKEFILE_LIST) | sort | awk -F':.*## ' '{printf "  \033[36m%-15s\033[0m %s\n", $$1, $$2}'
 
 build: ## Build debug binary
 	cargo build
@@ -57,3 +58,10 @@ templates: build ## List available templates
 
 profiles: build ## List resource profiles
 	./target/debug/zorvia profiles --details
+
+status: build ## Cilium-style platform status (needs a kubeconfig)
+	./target/debug/zorvia status
+
+deploy-remote: ## Deploy: make deploy-remote H=<host> [U=sus] [ARGS=--quick]
+	@test -n "$(H)" || (echo "Usage: make deploy-remote H=<host> [U=user] [ARGS=--quick]"; exit 1)
+	./scripts/deploy-remote.sh $(H) $(or $(U),sus) $(ARGS)
