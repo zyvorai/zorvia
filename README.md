@@ -69,6 +69,9 @@ zorvia create prod-db \
 zorvia start prod-db
 zorvia wait-ready prod-db --timeout 120
 zorvia guest-insight prod-db
+# Platform status (Cilium-style logo + components + features)
+zorvia status
+# Per-VM status
 zorvia status prod-db --watch
 ```
 
@@ -87,7 +90,8 @@ Open the lab web console (HTTPS NodePort **30152**, self-signed — use `curl -s
 # k8s.yaml directly leaves the __ZORVIA_EXPOSE_HOST__ placeholder in place --
 # substitute it yourself first, e.g.: sed -i "s/__ZORVIA_EXPOSE_HOST__/<HOST>/g" deploy/k8s.yaml
 kubectl apply -f deploy/k8s.yaml
-# or: ./deploy/remote-deploy.sh <host> sus --quick
+# or: ./scripts/deploy-remote.sh <host> sus --quick
+#      (wrapper for ./deploy/remote-deploy.sh)
 open https://<HOST>:30152/app
 ```
 
@@ -480,7 +484,7 @@ make ci
 make release
 make tui
 zorvia commands
-./deploy/remote-deploy.sh <host> sus --quick
+./scripts/deploy-remote.sh <host> sus --quick
 ```
 
 Architecture notes: [DEVELOPMENT.md](DEVELOPMENT.md).

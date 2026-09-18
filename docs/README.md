@@ -16,7 +16,7 @@
 | [SNAPSHOTS.md](SNAPSHOTS.md) | Snapshot create/restore/retention |
 | [DISK_MANAGEMENT.md](DISK_MANAGEMENT.md) | Disks and volumes |
 | [NETWORK_MANAGEMENT.md](NETWORK_MANAGEMENT.md) | Networking |
-| [ADVANCED_FEATURES.md](ADVANCED_FEATURES.md) | Advanced CLI capabilities |
+| [ADVANCED_FEATURES.md](ADVANCED_FEATURES.md) | Platform `zorvia status` (Cilium-style) + advanced CLI |
 | [GUEST_INSIGHT.md](GUEST_INSIGHT.md) | QEMU Guest Agent readiness (`zorvia guest-insight`) |
 | [GOLDEN_IMAGES.md](GOLDEN_IMAGES.md) | quay.io containerdisks + CDI golden (`zorvia image-bundle`) |
 
@@ -56,5 +56,5 @@ Also see root [README.md](../README.md), [QUICK_REFERENCE.md](../QUICK_REFERENCE
 ```text
 https://<HOST>:30152/          # Zorvia UI (NodePort)
 https://<HOST>:30152/api/v1/health
-./deploy/remote-deploy.sh <host> sus --quick
+./scripts/deploy-remote.sh <host> sus --quick
 ```

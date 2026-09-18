@@ -56,6 +56,7 @@ src/
 ├── rook/               (Rook-Ceph CRD client, manifests, operator bootstrap, health)
 ├── golden_images/      (CDI DataVolume/DataSource bundle generation + download jobs)
 ├── kryton/             (Kryton Windows control-plane proxy client)
+├── platform_status/    (Cilium-style `zorvia status` logo + component probe)
 └── [10 more modules]   (networking, finops, edge, secrets, etc.)
 ```
 
@@ -211,7 +212,8 @@ cargo run -- tui --interactive
 cargo run --features web -- api-serve --host 127.0.0.1 --port 5151
 
 # Lab deploy
-./deploy/remote-deploy.sh <host> sus --quick
+./scripts/deploy-remote.sh <host> sus --quick
+# (same as ./deploy/remote-deploy.sh <host> sus --quick)
 ```
 
 See [docs/WEB_CONSOLE.md](docs/WEB_CONSOLE.md) for the HTTP/WS surface.

@@ -224,18 +224,34 @@ pub enum Commands {
         file: String,
     },
 
-    /// Show detailed VM status with resource information
+    /// Show platform status (Cilium-style) or detailed VM status
     Status {
-        /// VM name
-        name: String,
+        /// VM name (omit for cluster/platform status)
+        name: Option<String>,
 
-        /// Watch mode - continuously update status
+        /// Watch mode - continuously update status (VM mode)
         #[arg(short, long)]
         watch: bool,
 
         /// Update interval in seconds (for watch mode)
         #[arg(long, default_value = "3")]
         interval: u64,
+
+        /// Output format: summary or json (platform status)
+        #[arg(short = 'o', long, default_value = "summary")]
+        output: String,
+
+        /// Wait for platform status to report success
+        #[arg(long)]
+        wait: bool,
+
+        /// Maximum time to wait for status
+        #[arg(long, default_value = "5m", value_parser = parse_duration_arg)]
+        wait_duration: std::time::Duration,
+
+        /// Refresh status in place while waiting (platform status)
+        #[arg(long, default_value_t = true, action = clap::ArgAction::Set)]
+        interactive: bool,
     },
 
     /// Clone an existing VM
@@ -2410,6 +2426,25 @@ pub enum Commands {
     CommandList,
 }
 
+/// Parse duration strings like `5m`, `30s`, `1h`, or plain seconds.
+fn parse_duration_arg(s: &str) -> Result<std::time::Duration, String> {
+    let s = s.trim();
+    if s.is_empty() {
+        return Err("empty duration".into());
+    }
+    if let Ok(secs) = s.parse::<u64>() {
+        return Ok(std::time::Duration::from_secs(secs));
+    }
+    let (num, unit) = s.split_at(s.len() - 1);
+    let n: u64 = num.parse().map_err(|_| format!("invalid duration: {s}"))?;
+    match unit {
+        "s" | "S" => Ok(std::time::Duration::from_secs(n)),
+        "m" | "M" => Ok(std::time::Duration::from_secs(n * 60)),
+        "h" | "H" => Ok(std::time::Duration::from_secs(n * 3600)),
+        _ => Err(format!("invalid duration unit in {s} (use s, m, or h)")),
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -2437,6 +2472,61 @@ mod tests {
             }
             _ => panic!("Expected Create command"),
         }
+    }
+
+    #[test]
+    fn test_status_platform_no_name() {
+        let cli = parse(&["zorvia", "status"]).unwrap();
+        match *cli.command {
+            Commands::Status {
+                name, wait, output, ..
+            } => {
+                assert!(name.is_none());
+                assert!(!wait);
+                assert_eq!(output, "summary");
+            }
+            _ => panic!("Expected Status command"),
+        }
+    }
+
+    #[test]
+    fn test_status_vm_name() {
+        let cli = parse(&["zorvia", "status", "myvm", "--watch"]).unwrap();
+        match *cli.command {
+            Commands::Status { name, watch, .. } => {
+                assert_eq!(name.as_deref(), Some("myvm"));
+                assert!(watch);
+            }
+            _ => panic!("Expected Status command"),
+        }
+    }
+
+    #[test]
+    fn test_status_wait_duration() {
+        let cli = parse(&["zorvia", "status", "--wait", "--wait-duration", "30s"]).unwrap();
+        match *cli.command {
+            Commands::Status {
+                wait,
+                wait_duration,
+                ..
+            } => {
+                assert!(wait);
+                assert_eq!(wait_duration, std::time::Duration::from_secs(30));
+            }
+            _ => panic!("Expected Status command"),
+        }
+    }
+
+    #[test]
+    fn test_parse_duration_arg() {
+        assert_eq!(
+            parse_duration_arg("5m").unwrap(),
+            std::time::Duration::from_secs(300)
+        );
+        assert_eq!(
+            parse_duration_arg("90").unwrap(),
+            std::time::Duration::from_secs(90)
+        );
     }
 
     #[test]

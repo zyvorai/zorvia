@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **Cilium-style platform status** — `zorvia status` with no VM name prints a colorful interlocking logo plus KubeVirt / CDI / Zorvia API / Snapshots / Rook Storage (`✅ OK` / `ℹ️ disabled` / `❌ errors` / `⚠️ warnings`), then Deployments/DaemonSets, containers, Cluster VMs, image versions, and an ✨ Features block (Backup, HA, migration, Kryton, …). Flags: `-o summary|json`, `--wait`, `--wait-duration`, `--interactive`. `zorvia status <vm>` remains for per-VM detail (now colorized). New module: `src/platform_status/`. Wrapper: `scripts/deploy-remote.sh` → `deploy/remote-deploy.sh`.
+
 ## [0.3.2] - 2026-09-14
 
 ### Fixed

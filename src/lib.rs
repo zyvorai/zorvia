@@ -68,6 +68,7 @@ pub mod multicloud;
 pub mod multitenancy;
 pub mod networking;
 pub mod observability;
+pub mod platform_status;
 pub mod profiles;
 pub mod secrets;
 pub mod security;
@@ -282,8 +283,22 @@ pub async fn run(mut cli: Cli) -> Result<()> {
             name,
             watch,
             interval,
+            output,
+            wait,
+            wait_duration,
+            interactive,
         } => {
-            handlers::vm::handle_status(name, watch, interval, &cli.namespace).await?;
+            handlers::vm::handle_status(
+                name,
+                watch,
+                interval,
+                &cli.namespace,
+                output,
+                wait,
+                wait_duration,
+                interactive,
+            )
+            .await?;
         }
 
         Commands::Clone {

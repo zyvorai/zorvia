@@ -837,11 +837,21 @@ pub fn handle_validate(file: String) -> Result<()> {
 }
 
 pub async fn handle_status(
-    name: String,
+    name: Option<String>,
     watch: bool,
     interval: u64,
     namespace: &str,
+    output: String,
+    wait: bool,
+    wait_duration: std::time::Duration,
+    interactive: bool,
 ) -> Result<()> {
+    // No VM name → Cilium-style platform status
+    if name.is_none() {
+        return crate::platform_status::display(&output, wait, wait_duration, interactive).await;
+    }
+    let name = name.unwrap();
+
     use crate::kube;
 
     let client = kube::KubeClient::new().await?;

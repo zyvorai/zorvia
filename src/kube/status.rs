@@ -136,79 +136,128 @@ impl VMStatus {
     }
 
     pub fn display(&self) {
-        println!("╔═══════════════════════════════════════════════════════════════╗");
+        use crate::tui::colors::cli as color;
+
         println!(
-            "║              VM Status: {}                    ",
-            self.name
+            "{}",
+            color::header("═══════════════════════════════════════════════════════════════")
         );
-        println!("╚═══════════════════════════════════════════════════════════════╝");
+        println!(
+            "{} {}",
+            color::header("VM Status:"),
+            color::vm_name(&self.name)
+        );
+        println!(
+            "{}",
+            color::header("═══════════════════════════════════════════════════════════════")
+        );
         println!();
-        println!("Basic Information:");
-        println!("  Name:       {}", self.name);
-        println!("  Namespace:  {}", self.namespace);
+        println!("{}", color::label("Basic Information:"));
         println!(
-            "  Running:    {}",
-            if self.running { "Yes ✓" } else { "No ✗" }
+            "  {:<12} {}",
+            color::muted("Name:"),
+            color::vm_name(&self.name)
         );
         println!(
-            "  Ready:      {}",
-            if self.ready { "Yes ✓" } else { "No ✗" }
+            "  {:<12} {}",
+            color::muted("Namespace:"),
+            color::namespace(&self.namespace)
         );
-        println!("  Phase:      {}", self.phase);
+        println!(
+            "  {:<12} {}",
+            color::muted("Running:"),
+            if self.running {
+                color::success("Yes")
+            } else {
+                color::error("No")
+            }
+        );
+        println!(
+            "  {:<12} {}",
+            color::muted("Ready:"),
+            if self.ready {
+                color::success("Yes")
+            } else {
+                color::error("No")
+            }
+        );
+        println!(
+            "  {:<12} {}",
+            color::muted("Phase:"),
+            color::vm_status(&self.phase)
+        );
 
         if let Some(created) = &self.created_at {
-            println!("  Created:    {}", created);
+            println!(
+                "  {:<12} {}",
+                color::muted("Created:"),
+                color::value(created)
+            );
         }
 
         if let Some(node) = &self.node {
-            println!("  Node:       {}", node);
+            println!("  {:<12} {}", color::muted("Node:"), color::value(node));
         }
 
         if let Some(ip) = &self.ip_address {
-            println!("  IP:         {}", ip);
+            println!("  {:<12} {}", color::muted("IP:"), color::value(ip));
         }
 
         println!();
-        println!("Resources:");
-        println!("  CPU Cores:  {}", self.cpu_cores);
-        println!("  Memory:     {}", self.memory);
+        println!("{}", color::label("Resources:"));
+        println!(
+            "  {:<12} {}",
+            color::muted("CPU Cores:"),
+            color::resource(&self.cpu_cores.to_string(), "cpu")
+        );
+        println!(
+            "  {:<12} {}",
+            color::muted("Memory:"),
+            color::resource(&self.memory, "memory")
+        );
 
         if !self.volumes.is_empty() {
             println!();
-            println!("Volumes ({}):", self.volumes.len());
+            println!(
+                "{}",
+                color::label(&format!("Volumes ({}):", self.volumes.len()))
+            );
             for vol in &self.volumes {
-                println!("  • {}", vol);
+                println!("  • {}", color::value(vol));
             }
         }
 
         if !self.networks.is_empty() {
             println!();
-            println!("Networks ({}):", self.networks.len());
+            println!(
+                "{}",
+                color::label(&format!("Networks ({}):", self.networks.len()))
+            );
             for net in &self.networks {
-                println!("  • {}", net);
+                println!("  • {}", color::resource(net, "network"));
             }
         }
 
         if !self.conditions.is_empty() {
             println!();
-            println!("Conditions:");
+            println!("{}", color::label("Conditions:"));
             for cond in &self.conditions {
-                let status_icon = if cond.status == "True" { "✓" } else { "✗" };
-                println!(
-                    "  {} {} - {}",
-                    status_icon, cond.condition_type, cond.status
-                );
+                let status_icon = if cond.status == "True" {
+                    color::success(&cond.condition_type)
+                } else {
+                    color::error(&cond.condition_type)
+                };
+                println!("  {} — {}", status_icon, color::muted(&cond.status));
                 if let Some(reason) = &cond.reason {
-                    println!("      Reason: {}", reason);
+                    println!("      {}: {}", color::muted("Reason"), reason);
                 }
                 if let Some(message) = &cond.message {
-                    println!("      Message: {}", message);
+                    println!("      {}: {}", color::muted("Message"), message);
                 }
             }
         }
     }
 }
-
 /// Resource summary across multiple VMs
 #[derive(Debug, Default)]
 pub struct ResourceSummary {

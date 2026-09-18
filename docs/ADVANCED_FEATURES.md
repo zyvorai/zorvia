@@ -4,11 +4,38 @@ This document covers the advanced features added to **zorvia** in the innovation
 
 ---
 
-## 📊 Status Command - Detailed VM Information
+## 📊 Status Command — Platform + VM
 
-Get comprehensive status information about a VM including resources, volumes, networks, and conditions.
+### Platform status (Cilium-style)
 
-### Usage
+Omit the VM name for a colorful cluster summary — interlocking logo, component
+OK/disabled lines, workloads, and feature inventory:
+
+```bash
+# Platform / cluster status
+zorvia status
+zorvia status -o json
+zorvia status --wait --wait-duration 5m
+```
+
+Example (colors + emojis abbreviated):
+
+```text
+    /¯¯\
+ /¯¯\__/¯¯\    KubeVirt:       ✅ OK
+ \__/¯¯\__/    CDI:            ✅ OK
+ /¯¯\__/¯¯\    Zorvia API:     ✅ OK
+ \__/¯¯\__/    Snapshots:      ℹ️  disabled
+    \__/       Rook Storage:   ℹ️  disabled
+
+🚀 Deployment      virt-api        Desired: 1, Ready: 1/1, Available: 1/1
+📦 DaemonSet       virt-handler    Desired: 3, Ready: 3/3, Available: 3/3
+🖥️  Cluster VMs:    12/15 managed by Zorvia
+✨ Features        Backup          ✅ OK
+                   Kryton          ℹ️  disabled
+```
+
+### Per-VM status
 
 ```bash
 # Show detailed VM status
@@ -21,23 +48,24 @@ zorvia status my-vm --watch
 zorvia status my-vm --watch --interval 5
 ```
 
-### Example Output
+### Example VM output
 
 ```
-╔═══════════════════════════════════════════════════════════════╗
-║              VM Status: web-server-1                          ║
-╚═══════════════════════════════════════════════════════════════╝
+═══════════════════════════════════════════════════════════════
+VM Status: web-server-1
+═══════════════════════════════════════════════════════════════
 
 Basic Information:
   Name:       web-server-1
   Namespace:  production
-  Running:    Yes ✓
-  Ready:      Yes ✓
+  Running:    ✓ Yes
+  Ready:      ✓ Yes
   Phase:      Running
   Created:    2024-02-05T10:30:45Z
 
 Resources:
   CPU Cores:  4
+```
   Memory:     8Gi
 
 Volumes (2):

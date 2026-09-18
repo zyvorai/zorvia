@@ -15,7 +15,7 @@ Default lab bootstrap user (change for non-lab): `admin` / `Admin@321`. The user
 Deploy:
 
 ```bash
-./deploy/remote-deploy.sh <host> sus --quick
+./scripts/deploy-remote.sh <host> sus --quick
 # or (fills in ZORVIA_EXPOSE_HOST/HOST for you; applying k8s.yaml directly
 # leaves the __ZORVIA_EXPOSE_HOST__ placeholder -- substitute it first)
 kubectl apply -f deploy/k8s.yaml

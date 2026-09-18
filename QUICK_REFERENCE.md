@@ -56,7 +56,9 @@ zorvia terraform-scaffold --output ./terraform/zorvia-vm
 zorvia wait-image ubuntu-import --timeout 120
 zorvia wait-ready myvm --timeout 120
 zorvia delete myvm               # Delete VM
-zorvia status myvm               # Detailed status
+zorvia status                    # Platform status (Cilium-style logo + features)
+zorvia status myvm               # Detailed VM status
+zorvia status myvm --watch       # Watch VM status
 zorvia clone source target       # Clone VM
 ```
 
