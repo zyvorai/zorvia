@@ -57,4 +57,5 @@ Also see root [README.md](../README.md), [QUICK_REFERENCE.md](../QUICK_REFERENCE
 https://<HOST>:30152/          # Zorvia UI (NodePort)
 https://<HOST>:30152/api/v1/health
 ./scripts/deploy-remote.sh <host> sus --quick
+make deploy-remote H=<host> U=sus ARGS=--quick
 ```

@@ -483,10 +483,10 @@ fn main() -> anyhow::Result<()> {
 make help
 make test
 make ci
+make status
 make release
 make tui
-zorvia commands
-./scripts/deploy-remote.sh <host> sus --quick
+make deploy-remote H=<host> U=sus
 ```
 
 Architecture notes: [DEVELOPMENT.md](DEVELOPMENT.md).
