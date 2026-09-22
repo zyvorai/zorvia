@@ -50,7 +50,7 @@ owo-colors = "4.0"
 miette = { version = "7.0", features = ["fancy"] }
 toml = "0.8"
 dirs = "5.0"
-rustyline = "17.0"
+rustyline = "18.0"
 
 # Web dashboard dependencies
 axum = { version = "0.7", optional = true, features = ["ws"] }
