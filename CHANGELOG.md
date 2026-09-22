@@ -30,6 +30,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - **CI Clippy** — `handle_status` exceeded Clippy's argument limit after platform-status flags were added; platform status now dispatches from `lib.rs`, and the disabled-state unit test initializes `ErrorCount` in one expression so `-D warnings` stays green.
 
+### Changed
+
+- **Broader dependency refresh** — Rust mid-risk bumps (dialoguer 0.12, indicatif 0.18, ratatui 0.30, rustyline 18, dirs 6, bcrypt 0.17, rusqlite 0.37, tokio-tungstenite 0.26) with WS/TUI adapters; web npm (vitest 5.0.1, eslint 10.11, lucide-react 1.47, react-router 8.4); website lockfile refresh. Deferred: kube/k8s-openapi, axum 0.8, secrecy 0.10, schemars/toml 1.x, TS 7.
+
 ## [0.3.3] - 2026-09-22
 
 ### Security

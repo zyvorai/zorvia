@@ -38,19 +38,19 @@ env_logger = "0.11"
 once_cell = "1.19"
 regex = "1.10"
 chrono = "0.4"
-dialoguer = "0.11"
-indicatif = "0.17"
+dialoguer = "0.12"
+indicatif = "0.18"
 rand = "0.8"
 
 # TUI dependencies
-ratatui = "0.28"
+ratatui = "0.30"
 crossterm = "0.28"
 colored = "3.1"
 owo-colors = "4.0"
 miette = { version = "7.0", features = ["fancy"] }
 toml = "0.8"
-dirs = "5.0"
-rustyline = "17.0"
+dirs = "6.0"
+rustyline = "18.0"
 
 # Web dashboard dependencies
 axum = { version = "0.7", optional = true, features = ["ws"] }
@@ -58,8 +58,8 @@ axum-server = { version = "0.7", features = ["tls-rustls-no-provider"], optional
 rustls = { version = "0.23", default-features = false, features = ["ring", "logging", "std", "tls12"], optional = true }
 tower-http = { version = "0.6", features = ["cors", "timeout", "fs"], optional = true }
 jsonwebtoken = { version = "9", optional = true }
-bcrypt = { version = "0.15", optional = true }
-rusqlite = { version = "0.32", features = ["bundled"], optional = true }
+bcrypt = { version = "0.17", optional = true }
+rusqlite = { version = "0.37", features = ["bundled"], optional = true }
 uuid = { version = "1", features = ["v4"], optional = true }
 totp-rs = { version = "5.7", features = ["gen_secret", "otpauth"], optional = true }
 base64 = { version = "0.22", optional = true }
@@ -67,7 +67,7 @@ sha2 = { version = "0.10", optional = true }
 subtle = { version = "2.6", optional = true }
 urlencoding = { version = "2", optional = true }
 futures-util = { version = "0.3", optional = true }
-tokio-tungstenite = { version = "0.24", optional = true, default-features = false, features = ["connect", "native-tls"] }
+tokio-tungstenite = { version = "0.26", optional = true, default-features = false, features = ["connect", "native-tls"] }
 native-tls = { version = "0.2", optional = true }
 # native-tls pulls in openssl-sys on Linux, which needs a system OpenSSL +
 # pkg-config to find it -- fine for a same-arch build, but cross-compiling
@@ -93,7 +93,7 @@ web = [
 pam = []
 
 [dev-dependencies]
-tempfile = "3.8"
+tempfile = "3.27"
 
 [profile.release]
 lto = true

@@ -11,20 +11,18 @@ use serde::Deserialize;
 use tokio_tungstenite::tungstenite::protocol::{CloseFrame as TCloseFrame, Message as TMsg};
 
 /// Translate a tungstenite close frame (from the KubeVirt side) into an axum one.
-fn to_client_close(
-    frame: Option<TCloseFrame<'_>>,
-) -> Option<axum::extract::ws::CloseFrame<'static>> {
+fn to_client_close(frame: Option<TCloseFrame>) -> Option<axum::extract::ws::CloseFrame<'static>> {
     frame.map(|f| axum::extract::ws::CloseFrame {
         code: f.code.into(),
-        reason: f.reason.into_owned().into(),
+        reason: f.reason.to_string().into(),
     })
 }
 
 /// Translate an axum close frame (from the browser side) into a tungstenite one.
-fn to_kube_close(frame: Option<axum::extract::ws::CloseFrame<'_>>) -> Option<TCloseFrame<'static>> {
+fn to_kube_close(frame: Option<axum::extract::ws::CloseFrame<'_>>) -> Option<TCloseFrame> {
     frame.map(|f| TCloseFrame {
         code: f.code.into(),
-        reason: f.reason.into_owned().into(),
+        reason: f.reason.to_string().into(),
     })
 }
 
@@ -152,10 +150,10 @@ async fn proxy_kube_ws(
     let to_kube = async {
         while let Some(Ok(msg)) = client_stream.next().await {
             let mapped = match msg {
-                Message::Text(t) => TMsg::Text(t),
-                Message::Binary(b) => TMsg::Binary(b),
-                Message::Ping(p) => TMsg::Ping(p),
-                Message::Pong(p) => TMsg::Pong(p),
+                Message::Text(t) => TMsg::Text(t.into()),
+                Message::Binary(b) => TMsg::Binary(b.into()),
+                Message::Ping(p) => TMsg::Ping(p.into()),
+                Message::Pong(p) => TMsg::Pong(p.into()),
                 Message::Close(frame) => {
                     let _ = kube_sink.send(TMsg::Close(to_kube_close(frame))).await;
                     break;
@@ -170,10 +168,10 @@ async fn proxy_kube_ws(
     let to_client = async {
         while let Some(Ok(msg)) = kube_stream.next().await {
             let mapped = match msg {
-                TMsg::Text(t) => Message::Text(t),
-                TMsg::Binary(b) => Message::Binary(b),
-                TMsg::Ping(p) => Message::Ping(p),
-                TMsg::Pong(p) => Message::Pong(p),
+                TMsg::Text(t) => Message::Text(t.to_string()),
+                TMsg::Binary(b) => Message::Binary(b.to_vec()),
+                TMsg::Ping(p) => Message::Ping(p.to_vec()),
+                TMsg::Pong(p) => Message::Pong(p.to_vec()),
                 TMsg::Close(frame) => {
                     let _ = client_sink
                         .send(Message::Close(to_client_close(frame)))

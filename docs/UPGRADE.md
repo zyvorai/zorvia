@@ -47,3 +47,7 @@ curl -sk https://<host>:30152/api/v1/auth/providers   # [] unless OIDC enabled
 | zorvia | 0.3.2 | 0.3.3+ |
 | Kubernetes | 1.28+ | 1.28+ |
 | KubeVirt | 1.2+ | 1.2+ |
+
+### Dependency bumps (0.3.3+)
+
+Mid-risk crates refreshed in-tree (dialoguer 0.12, indicatif 0.18, ratatui 0.30, rustyline 18, dirs 6, bcrypt 0.17, rusqlite 0.37, tokio-tungstenite 0.26). **Deferred:** kube/k8s-openapi pair, axum 0.8, secrecy 0.10, schemars 1.x, toml 1.x, tokio-tungstenite 0.30, TypeScript 7 (website). Web console npm deps aligned with current Dependabot tips (vitest 5.0.1, eslint 10.11, lucide-react 1.47, react-router 8.4).

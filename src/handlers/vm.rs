@@ -1115,7 +1115,7 @@ pub async fn handle_wizard(name: Option<String>, namespace: &str) -> Result<()> 
     // Start immediately?
     let start_vm = Select::new()
         .with_prompt("Start VM immediately?")
-        .items(&["No", "Yes"])
+        .items(["No", "Yes"])
         .default(0)
         .interact()?
         == 1;

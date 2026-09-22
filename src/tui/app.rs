@@ -88,7 +88,9 @@ impl App {
 
         loop {
             // Draw the UI
-            terminal.draw(|f| self.render(f))?;
+            terminal
+                .draw(|f| self.render(f))
+                .map_err(|e| anyhow::anyhow!("draw failed: {e}"))?;
 
             // Handle events with timeout
             if event::poll(Duration::from_millis(100))? {
