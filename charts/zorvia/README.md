@@ -38,4 +38,11 @@ helm upgrade --install zorvia ./charts/zorvia \
 | Persistent audit DB | `/data/audit.db` | same |
 | Rook bootstrap SA | opt-in (`rbac.rookBootstrap`) | opt-in |
 
+### Optional env (set via `extraEnv` / values)
+
+| Variable | Purpose | Docs |
+|----------|---------|------|
+| `ZORVIA_OIDC_ENABLED=1` + issuer/client/secret/redirect | Opt-in OIDC SSO | [docs/OIDC.md](../../docs/OIDC.md) |
+| `ZORVIA_EXPERIMENTAL` + `ZORVIA_FEATURE_*` | Phase 5 plan APIs (non-prod) | [docs/PHASE5_ENTERPRISE.md](../../docs/PHASE5_ENTERPRISE.md) |
+
 Raw manifests in `deploy/k8s.yaml` remain for the existing remote-deploy path.
