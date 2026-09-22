@@ -48,7 +48,7 @@ crossterm = "0.28"
 colored = "3.1"
 owo-colors = "4.0"
 miette = { version = "7.0", features = ["fancy"] }
-toml = "0.8"
+toml = "1.1"
 dirs = "6.0"
 rustyline = "18.0"
 
