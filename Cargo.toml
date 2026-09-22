@@ -44,7 +44,7 @@ rand = "0.8"
 
 # TUI dependencies
 ratatui = "0.30"
-crossterm = "0.28"
+crossterm = "0.29"
 colored = "3.1"
 owo-colors = "4.0"
 miette = { version = "7.0", features = ["fancy"] }
