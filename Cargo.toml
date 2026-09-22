@@ -67,7 +67,7 @@ sha2 = { version = "0.10", optional = true }
 subtle = { version = "2.6", optional = true }
 urlencoding = { version = "2", optional = true }
 futures-util = { version = "0.3", optional = true }
-tokio-tungstenite = { version = "0.26", optional = true, default-features = false, features = ["connect", "native-tls"] }
+tokio-tungstenite = { version = "0.30", optional = true, default-features = false, features = ["connect", "native-tls"] }
 native-tls = { version = "0.2", optional = true }
 # native-tls pulls in openssl-sys on Linux, which needs a system OpenSSL +
 # pkg-config to find it -- fine for a same-arch build, but cross-compiling
