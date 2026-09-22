@@ -77,7 +77,7 @@ native-tls = { version = "0.2", optional = true }
 openssl = { version = "0.10", features = ["vendored"], optional = true }
 http = "1"
 reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls"], optional = true }
-secrecy = "0.8"
+secrecy = "0.10"
 pty-process = { version = "0.5.3", features = ["async"], optional = true }
 
 [features]
