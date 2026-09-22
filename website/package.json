@@ -45,5 +45,11 @@
   },
   "engines": {
     "node": ">=20.0"
+  },
+  "overrides": {
+    "serialize-javascript": "7.0.5",
+    "uuid": "11.1.1",
+    "qs": "6.16.0",
+    "image-size": "2.0.4"
   }
 }

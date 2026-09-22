@@ -17,8 +17,10 @@ jobs:
     name: cargo audit + deny
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: dtolnay/rust-toolchain@stable
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: dtolnay/rust-toolchain@02cb101ec7c40f2c49e1d9714d64511d8e1b74de # stable
+      with:
+        toolchain: stable
       - name: Install cargo-audit
         run: cargo install cargo-audit --locked
       - name: Install cargo-deny
@@ -34,8 +36,10 @@ jobs:
     name: CycloneDX SBOM
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: dtolnay/rust-toolchain@stable
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: dtolnay/rust-toolchain@02cb101ec7c40f2c49e1d9714d64511d8e1b74de # stable
+      with:
+        toolchain: stable
       - name: Install cyclonedx-cargo
         run: cargo install cyclonedx-bom --locked || cargo install cargo-cyclonedx --locked
       - name: Generate SBOM
@@ -46,7 +50,7 @@ jobs:
             cargo cyclonedx -f json --all 2>/dev/null || cargo cyclonedx 2>/dev/null || true
           fi
           ls -la *.cdx.json *.json 2>/dev/null || echo "SBOM tool best-effort"
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: sbom
           path: |
@@ -58,10 +62,10 @@ jobs:
     name: Secret scan
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
         with:
           fetch-depth: 0
-      - uses: gitleaks/gitleaks-action@v3
+      - uses: gitleaks/gitleaks-action@e0c47f4f8be36e29cdc102c57e68cb5cbf0e8d1e # v3
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         continue-on-error: true

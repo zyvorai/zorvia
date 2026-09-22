@@ -203,8 +203,12 @@
     $('remember-wrap').classList.remove('hidden');
     $('back-btn').classList.remove('hidden');
     $('back-user').textContent = $('username').value.trim();
-    $('form-heading').innerHTML = 'Enter the password for <span class="login-apple-host">' +
-      $('username').value.trim() + '</span>';
+    // Build heading with DOM APIs (no innerHTML) so the username cannot inject markup.
+    const heading = $('form-heading');
+    const host = document.createElement('span');
+    host.className = 'login-apple-host';
+    host.textContent = $('username').value.trim();
+    heading.replaceChildren(document.createTextNode('Enter the password for '), host);
     $('submit-label').textContent = 'Sign In';
     $('password').focus();
   }

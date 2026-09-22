@@ -153,13 +153,14 @@ step "Step 1/${TOTAL_STEPS}: Syncing repository to ${HOST}"
 
         if [ -f "$REPO_DIR/web/package.json" ]; then
     if [ ! -f "$REPO_DIR/web/dist/index.html" ]; then
-        echo "  Building web UI (npm run build)…"
-        if (cd "$REPO_DIR/web" && npm ci --legacy-peer-deps >/dev/null 2>&1 || npm install --legacy-peer-deps >/dev/null 2>&1); then
+        echo "  Building web UI (npm ci --legacy-peer-deps && npm run build)…"
+        # Prefer locked install only (no unpinned `npm install`) for supply-chain hygiene.
+        if (cd "$REPO_DIR/web" && npm ci --legacy-peer-deps >/dev/null 2>&1); then
             if ! (cd "$REPO_DIR/web" && npm run build); then
                 warn "web build failed; deploy may serve placeholder UI"
             fi
         else
-            warn "web npm install failed; deploy may serve placeholder UI"
+            warn "web npm ci failed; deploy may serve placeholder UI"
         fi
     else
         echo "  web/dist present — skipping local npm build"

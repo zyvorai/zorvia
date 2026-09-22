@@ -7,7 +7,7 @@ use axum::{
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
-use totp_rs::{Algorithm, Secret, TOTP};
+use totp_rs::{Algorithm, Builder, Secret};
 
 use super::identity::AuthIdentity;
 use super::jwt::{Claims, JwtConfig, Role};
@@ -273,13 +273,21 @@ fn verify_totp(secret: Option<&str>, code: &str) -> bool {
     let Some(secret) = secret else {
         return false;
     };
-    let Ok(raw) = Secret::Encoded(secret.to_string()).to_bytes() else {
+    let Ok(secret) = Secret::try_from_base32(secret) else {
         return false;
     };
-    let Ok(totp) = TOTP::new(Algorithm::SHA1, 6, 1, 30, raw, None, "".into()) else {
+    let Ok(totp) = Builder::new()
+        .with_algorithm(Algorithm::SHA1)
+        .with_digits(6)
+        .with_skew(1)
+        .with_step_duration(30)
+        .with_secret(secret)
+        .with_account_name("")
+        .build()
+    else {
         return false;
     };
-    totp.check_current(code).unwrap_or(false)
+    totp.check_current(code).is_some()
 }
 
 pub async fn me_handler(State(auth): State<SharedAuth>, headers: HeaderMap) -> impl IntoResponse {
@@ -501,26 +509,30 @@ pub async fn totp_setup_handler(
     let Some(claims) = bearer_token(&headers).and_then(|t| auth.validate_bearer(&t)) else {
         return err(StatusCode::UNAUTHORIZED, "Unauthorized").into_response();
     };
-    let secret = Secret::generate_secret();
-    let encoded = secret.to_encoded().to_string();
-    let Ok(raw) = secret.to_bytes() else {
-        return err(StatusCode::INTERNAL_SERVER_ERROR, "TOTP error").into_response();
-    };
-    let Ok(totp) = TOTP::new(
-        Algorithm::SHA1,
-        6,
-        1,
-        30,
-        raw,
-        Some("Zorvia".into()),
-        claims.username.clone(),
-    ) else {
+    let secret = Secret::generate();
+    let encoded = secret.to_base32();
+    let Ok(totp) = Builder::new()
+        .with_algorithm(Algorithm::SHA1)
+        .with_digits(6)
+        .with_skew(1)
+        .with_step_duration(30)
+        .with_secret(secret)
+        .with_issuer(Some("Zorvia"))
+        .with_account_name(claims.username.clone())
+        .build()
+    else {
         return err(StatusCode::INTERNAL_SERVER_ERROR, "TOTP error").into_response();
     };
     let _ = auth.db.set_totp(&claims.sub, &encoded, false);
+    let otpauth_url = match totp.to_url() {
+        Ok(u) => u,
+        Err(_) => {
+            return err(StatusCode::INTERNAL_SERVER_ERROR, "TOTP error").into_response();
+        }
+    };
     Json(serde_json::json!({
         "secret": encoded,
-        "otpauth_url": totp.get_url(),
+        "otpauth_url": otpauth_url,
     }))
     .into_response()
 }

@@ -3,7 +3,7 @@
 # Cargo.lock is lockfile format v4 (has been since 0.3.0), which needs
 # Cargo 1.78+ to even parse -- `cargo build --locked` fails immediately
 # on anything older, independent of the crate's own rust-version MSRV.
-FROM rust:1.98-slim-bookworm AS builder
+FROM rust:1.98-slim-bookworm@sha256:dacc9e51f252243eb59d2fb4cb4ad8b0d3f607b6a82c398cf8a321e59ff778a7 AS builder
 
 # openssl-sys needs pkg-config + the OpenSSL dev headers to find the system
 # OpenSSL, and rusqlite's "bundled" feature compiles SQLite's C amalgamation
@@ -29,7 +29,7 @@ COPY src/ src/
 RUN cargo build --release --locked && strip target/release/zorvia
 
 # Runtime image
-FROM debian:bookworm-slim
+FROM debian:bookworm-slim@sha256:f3034a6ec3c1205360777c4aae76234998866ad18806ae62b63a3f84ccad782b
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
     ca-certificates \
