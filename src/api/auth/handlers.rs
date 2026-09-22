@@ -1,25 +1,33 @@
 use axum::{
     extract::{Path, Query, State},
     http::{header, HeaderMap, StatusCode},
-    response::IntoResponse,
+    response::{IntoResponse, Redirect},
     Json,
 };
 use serde::{Deserialize, Serialize};
-use std::sync::Arc;
+use std::collections::HashMap;
+use std::sync::{Arc, Mutex};
 use totp_rs::{Algorithm, Secret, TOTP};
 
 use super::identity::AuthIdentity;
 use super::jwt::{Claims, JwtConfig, Role};
 use super::lab_guards::{lab_mode, refuse_known_defaults};
-use super::oidc::ProviderInfo;
+use super::oidc::{
+    build_authorize_url, discover, display_username, exchange_code, pkce_challenge_s256,
+    random_urlsafe, verify_id_token, OidcConfig, PendingOidc, ProviderInfo,
+};
 use super::user_db::{ApiTokenRecord, UserDb};
 use crate::api::pam_auth::{authenticate_pam, validate_username};
+
+const OIDC_PENDING_TTL_SECS: u64 = 600;
 
 pub struct AuthState {
     pub jwt: JwtConfig,
     pub db: UserDb,
     /// Lab-only shared API key (honored only when ZORVIA_LAB_MODE=1).
     pub lab_api_key: Option<String>,
+    pub oidc: Option<OidcConfig>,
+    pub oidc_pending: Mutex<HashMap<String, PendingOidc>>,
 }
 
 impl AuthState {
@@ -82,6 +90,8 @@ impl AuthState {
             jwt,
             db,
             lab_api_key,
+            oidc: OidcConfig::from_env(),
+            oidc_pending: Mutex::new(HashMap::new()),
         })
     }
 
@@ -576,21 +586,83 @@ pub async fn totp_disable_handler(
     .into_response()
 }
 
-pub async fn providers_handler(State(_auth): State<SharedAuth>) -> impl IntoResponse {
-    // OIDC disabled — always empty.
-    let list: Vec<ProviderInfo> = Vec::new();
+pub async fn providers_handler(State(auth): State<SharedAuth>) -> impl IntoResponse {
+    let list: Vec<ProviderInfo> = match &auth.oidc {
+        Some(cfg) => vec![ProviderInfo {
+            id: cfg.id.clone(),
+            name: cfg.name.clone(),
+        }],
+        None => Vec::new(),
+    };
     Json(list).into_response()
 }
 
 pub async fn oidc_login_handler(
-    State(_auth): State<SharedAuth>,
-    Path(_id): Path<String>,
+    State(auth): State<SharedAuth>,
+    Path(id): Path<String>,
 ) -> impl IntoResponse {
-    err(
-        StatusCode::NOT_FOUND,
-        "OIDC is disabled in this release pending a secure implementation",
-    )
-    .into_response()
+    let Some(cfg) = auth.oidc.as_ref() else {
+        return err(
+            StatusCode::NOT_FOUND,
+            "OIDC is not configured (set ZORVIA_OIDC_ENABLED=1 and issuer/client/secret/redirect)",
+        )
+        .into_response();
+    };
+    if id != cfg.id && id != "default" {
+        return err(StatusCode::NOT_FOUND, "Unknown OIDC provider").into_response();
+    }
+
+    let endpoints = match discover(cfg).await {
+        Ok(e) => e,
+        Err(e) => {
+            log::error!("OIDC discovery failed: {e:#}");
+            return err(StatusCode::BAD_GATEWAY, "OIDC discovery failed").into_response();
+        }
+    };
+
+    let state = random_urlsafe(32);
+    let nonce = random_urlsafe(32);
+    let verifier = random_urlsafe(48);
+    let challenge = pkce_challenge_s256(&verifier);
+    let now = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|d| d.as_secs())
+        .unwrap_or(0);
+
+    {
+        let mut pending = match auth.oidc_pending.lock() {
+            Ok(p) => p,
+            Err(_) => {
+                return err(
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    "OIDC state store poisoned",
+                )
+                .into_response()
+            }
+        };
+        // Drop expired entries.
+        pending.retain(|_, v| now.saturating_sub(v.created_unix) < OIDC_PENDING_TTL_SECS);
+        pending.insert(
+            state.clone(),
+            PendingOidc {
+                code_verifier: verifier,
+                nonce: nonce.clone(),
+                created_unix: now,
+                token_endpoint: endpoints.token_endpoint.clone(),
+                jwks_uri: endpoints.jwks_uri.clone(),
+                issuer: endpoints.issuer.clone(),
+            },
+        );
+    }
+
+    let url = build_authorize_url(
+        &endpoints.authorization_endpoint,
+        cfg,
+        &state,
+        &nonce,
+        &challenge,
+    );
+    Json(serde_json::json!({ "url": url })).into_response()
 }
 
 #[derive(Debug, Deserialize)]
@@ -601,14 +673,110 @@ pub struct OidcCallbackQuery {
 }
 
 pub async fn oidc_callback_handler(
-    State(_auth): State<SharedAuth>,
-    Query(_q): Query<OidcCallbackQuery>,
+    State(auth): State<SharedAuth>,
+    Query(q): Query<OidcCallbackQuery>,
 ) -> impl IntoResponse {
-    err(
-        StatusCode::NOT_FOUND,
-        "OIDC is disabled in this release pending a secure implementation",
+    let Some(cfg) = auth.oidc.as_ref() else {
+        return err(StatusCode::NOT_FOUND, "OIDC is not configured").into_response();
+    };
+    if let Some(e) = q.error.as_deref() {
+        return err(
+            StatusCode::BAD_REQUEST,
+            &format!("OIDC provider error: {e}"),
+        )
+        .into_response();
+    }
+    let (Some(code), Some(state)) = (q.code.as_deref(), q.state.as_deref()) else {
+        return err(StatusCode::BAD_REQUEST, "Missing code or state").into_response();
+    };
+
+    let pending = {
+        let mut map = match auth.oidc_pending.lock() {
+            Ok(p) => p,
+            Err(_) => {
+                return err(
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    "OIDC state store poisoned",
+                )
+                .into_response()
+            }
+        };
+        match map.remove(state) {
+            Some(p) => p,
+            None => {
+                return err(StatusCode::BAD_REQUEST, "Invalid or expired OIDC state")
+                    .into_response()
+            }
+        }
+    };
+
+    let now = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|d| d.as_secs())
+        .unwrap_or(0);
+    if now.saturating_sub(pending.created_unix) > OIDC_PENDING_TTL_SECS {
+        return err(StatusCode::BAD_REQUEST, "OIDC state expired").into_response();
+    }
+
+    let id_token =
+        match exchange_code(cfg, &pending.token_endpoint, code, &pending.code_verifier).await {
+            Ok(t) => t,
+            Err(e) => {
+                log::error!("OIDC token exchange failed: {e:#}");
+                return err(StatusCode::BAD_GATEWAY, "OIDC token exchange failed").into_response();
+            }
+        };
+
+    let claims = match verify_id_token(
+        &id_token,
+        cfg,
+        &pending.issuer,
+        &pending.nonce,
+        &pending.jwks_uri,
     )
-    .into_response()
+    .await
+    {
+        Ok(c) => c,
+        Err(e) => {
+            log::error!("OIDC id_token verification failed: {e:#}");
+            return err(
+                StatusCode::UNAUTHORIZED,
+                "OIDC id_token verification failed",
+            )
+            .into_response();
+        }
+    };
+
+    let display = display_username(&claims);
+    let user = match auth.db.upsert_oidc_user(&claims.sub, Role::User) {
+        Ok(u) => u,
+        Err(e) => {
+            log::error!("OIDC JIT user upsert failed: {e:#}");
+            return err(
+                StatusCode::INTERNAL_SERVER_ERROR,
+                "Failed to provision user",
+            )
+            .into_response();
+        }
+    };
+    if !user.enabled {
+        return err(StatusCode::FORBIDDEN, "This account has been disabled").into_response();
+    }
+
+    let token = match auth
+        .jwt
+        .generate(&user.id, &display, user.role.clone(), user.token_version)
+    {
+        Ok(t) => t,
+        Err(e) => {
+            log::error!("OIDC JWT mint failed: {e:#}");
+            return err(StatusCode::INTERNAL_SERVER_ERROR, "Failed to mint session")
+                .into_response();
+        }
+    };
+
+    let redirect = format!("/sign-in?oidc_token={}", urlencoding::encode(&token));
+    Redirect::temporary(&redirect).into_response()
 }
 
 // ── API tokens ───────────────────────────────────────────────────

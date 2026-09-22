@@ -16,20 +16,21 @@ Levels used by Zorvia (also exposed at `GET /api/v1/features` when the API is ru
 | `vm-lifecycle` | VM create/start/stop/delete | GA | KubeVirt + server RBAC |
 | `snapshots-restore` | Snapshots & restore | GA | Empty-disk caveat in docs |
 | `live-migration` | Live migration | GA | Needs shared storage |
-| `web-console` | Web console + auth | GA | OIDC disabled pending secure impl |
+| `web-console` | Web console + auth | GA | JWT + tokens; OIDC opt-in |
 | `audit-trail` | Audit trail | Beta | SQLite; no Loki/OTLP export yet |
 | `schedulers` | Backup/power/alert/warm-pool | Beta | Lease election; in-process |
 | `rook-storage` | Rook-Ceph management | Beta | Bootstrap SA optional |
 | `helm-chart` | Helm chart | Beta | Lab + production values |
-| `oidc` | OIDC / SSO | Experimental | Hard-disabled in 0.3.3 |
+| `oidc` | OIDC / SSO | Beta | `ZORVIA_OIDC_ENABLED=1` + PKCE/JWKS |
 | `ai-troubleshoot` | AI troubleshooting | Model only | Rules demo, not ML RCA |
-| `dr-replication` | DR replication pairs | Model only | In-memory; no data movement |
-| `incremental-backup` | Incremental backup fields | Model only | Executions are full snapshots |
-| `s3-immutable-backup` | S3 immutable backups | Experimental | Phase 5 |
-| `cross-cluster-dr` | Cross-cluster DR | Experimental | Phase 5 |
-| `transiva-migration` | Transiva VMware migration | Experimental | Phase 5 scaffold |
-| `golden-image-pipeline` | Golden-image pipeline | Experimental | Phase 5 |
-| `gpu-sriov-numa` | GPU/SR-IOV/NUMA | Experimental | Phase 5 |
-| `fleet-multicluster` | Multi-cluster fleet | Experimental | Phase 5 |
+| `dr-replication` | DR replication pairs | Model only | In-memory; needs experimental |
+| `incremental-backup` | Incremental backup fields | Model only | Executions still full snapshots |
+| `s3-immutable-backup` | S3 immutable backups | Experimental | Plan API only |
+| `cross-cluster-dr` | Cross-cluster DR | Experimental | Plan API only |
+| `transiva-migration` | Transiva migration | Experimental | Plan API only |
+| `golden-image-pipeline` | Golden-image pipeline | Experimental | Plan API; CDI exists |
+| `gpu-sriov-numa` | GPU/SR-IOV/NUMA | Experimental | Plan API only |
+| `fleet-multicluster` | Fleet multi-cluster | Experimental | Inventory stub |
 
 Set `ZORVIA_EXPERIMENTAL=1` only in non-production environments to exercise model-only / experimental surfaces.
+See [PHASE5_ENTERPRISE.md](PHASE5_ENTERPRISE.md) for env flags and endpoints.

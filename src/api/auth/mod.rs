@@ -1,5 +1,5 @@
 //! Authentication: JWT login, bootstrap admin DB, TOTP 2FA, scoped API tokens.
-//! OIDC is disabled pending a secure implementation.
+//! OIDC is opt-in (`ZORVIA_OIDC_ENABLED=1`) with discovery, PKCE, token exchange, and JWKS.
 
 pub mod handlers;
 mod identity;

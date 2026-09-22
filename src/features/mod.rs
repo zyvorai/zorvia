@@ -62,7 +62,7 @@ pub const FEATURES: &[Feature] = &[
         id: "web-console",
         name: "Web console + auth",
         maturity: Maturity::Ga,
-        notes: "JWT + scoped API tokens; OIDC disabled pending secure impl",
+        notes: "JWT + scoped API tokens; OIDC opt-in with PKCE/JWKS",
     },
     Feature {
         id: "audit-trail",
@@ -91,8 +91,8 @@ pub const FEATURES: &[Feature] = &[
     Feature {
         id: "oidc",
         name: "OIDC / enterprise SSO",
-        maturity: Maturity::Experimental,
-        notes: "Disabled in 0.3.3; enable only after PKCE + token exchange",
+        maturity: Maturity::Beta,
+        notes: "Opt-in via ZORVIA_OIDC_ENABLED=1; PKCE + token exchange + JWKS id_token verify",
     },
     Feature {
         id: "ai-troubleshoot",
@@ -116,37 +116,37 @@ pub const FEATURES: &[Feature] = &[
         id: "s3-immutable-backup",
         name: "S3 immutable backups",
         maturity: Maturity::Experimental,
-        notes: "Phase 5 — not implemented",
+        notes: "Phase 5 — plan API at /api/v1/enterprise/s3-backup/plan",
     },
     Feature {
         id: "cross-cluster-dr",
         name: "Cross-cluster VM mobility / DR",
         maturity: Maturity::Experimental,
-        notes: "Phase 5 — not implemented",
+        notes: "Phase 5 — plan API at /api/v1/enterprise/cross-cluster-dr/plan",
     },
     Feature {
         id: "transiva-migration",
         name: "VMware → KubeVirt via Transiva",
         maturity: Maturity::Experimental,
-        notes: "Phase 5 — integration scaffold only",
+        notes: "Phase 5 — plan API at /api/v1/enterprise/transiva/plan",
     },
     Feature {
         id: "golden-image-pipeline",
         name: "Golden-image build/scan/sign/promote",
         maturity: Maturity::Experimental,
-        notes: "Phase 5 — CDI golden images exist; pipeline incomplete",
+        notes: "Phase 5 — plan API; CDI golden images already exist",
     },
     Feature {
         id: "gpu-sriov-numa",
         name: "GPU/SR-IOV/NUMA placement",
         maturity: Maturity::Experimental,
-        notes: "Phase 5 — not implemented",
+        notes: "Phase 5 — plan API at /api/v1/enterprise/placement/gpu-numa",
     },
     Feature {
         id: "fleet-multicluster",
         name: "Multi-cluster fleet inventory",
         maturity: Maturity::Experimental,
-        notes: "Phase 5 — models only",
+        notes: "Phase 5 — GET /api/v1/enterprise/fleet",
     },
 ];
 

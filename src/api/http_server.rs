@@ -829,6 +829,27 @@ pub mod web {
             )
             .route("/v1/health", get(health_handler))
             .route("/v1/features", get(features_registry_handler))
+            .route(
+                "/v1/enterprise/s3-backup/plan",
+                post(enterprise_s3_backup_plan),
+            )
+            .route(
+                "/v1/enterprise/transiva/plan",
+                post(enterprise_transiva_plan),
+            )
+            .route(
+                "/v1/enterprise/golden-pipeline/plan",
+                post(enterprise_golden_pipeline_plan),
+            )
+            .route(
+                "/v1/enterprise/cross-cluster-dr/plan",
+                post(enterprise_cross_cluster_dr_plan),
+            )
+            .route(
+                "/v1/enterprise/placement/gpu-numa",
+                post(enterprise_gpu_numa_plan),
+            )
+            .route("/v1/enterprise/fleet", get(enterprise_fleet_inventory))
             .fallback(fabric_not_implemented)
             .layer(TimeoutLayer::with_status_code(
                 StatusCode::REQUEST_TIMEOUT,
@@ -2145,6 +2166,153 @@ pub mod web {
 
     async fn features_registry_handler() -> impl IntoResponse {
         Json(crate::features::registry_json())
+    }
+
+    fn enterprise_err(msg: String) -> (StatusCode, Json<serde_json::Value>) {
+        (
+            StatusCode::FORBIDDEN,
+            Json(serde_json::json!({
+                "success": false,
+                "status": 403,
+                "error": { "code": "feature_disabled", "message": msg },
+                "data": null
+            })),
+        )
+    }
+
+    #[derive(Deserialize)]
+    struct S3BackupPlanReq {
+        vm_name: String,
+        snapshot_name: String,
+        bucket: String,
+        #[serde(default = "default_region")]
+        region: String,
+        #[serde(default)]
+        prefix: String,
+        #[serde(default = "default_retention")]
+        retention_days: u32,
+    }
+    fn default_region() -> String {
+        "us-east-1".into()
+    }
+    fn default_retention() -> u32 {
+        30
+    }
+
+    async fn enterprise_s3_backup_plan(Json(body): Json<S3BackupPlanReq>) -> impl IntoResponse {
+        match crate::enterprise::S3ImmutableBackupPlan::try_plan(
+            body.vm_name,
+            body.snapshot_name,
+            body.bucket,
+            body.region,
+            body.prefix,
+            body.retention_days,
+        ) {
+            Ok(plan) => Json(serde_json::json!({ "success": true, "data": plan })).into_response(),
+            Err(e) => enterprise_err(e).into_response(),
+        }
+    }
+
+    #[derive(Deserialize)]
+    struct TransivaPlanReq {
+        source_vm: String,
+        vcenter_endpoint: String,
+        #[serde(default = "default_ns")]
+        target_namespace: String,
+    }
+    fn default_ns() -> String {
+        "default".into()
+    }
+
+    async fn enterprise_transiva_plan(Json(body): Json<TransivaPlanReq>) -> impl IntoResponse {
+        match crate::enterprise::TransivaPlan::try_plan(
+            body.source_vm,
+            body.vcenter_endpoint,
+            body.target_namespace,
+        ) {
+            Ok(plan) => Json(serde_json::json!({ "success": true, "data": plan })).into_response(),
+            Err(e) => enterprise_err(e).into_response(),
+        }
+    }
+
+    #[derive(Deserialize)]
+    struct GoldenPipelineReq {
+        image_name: String,
+        version: String,
+        #[serde(default = "default_ns")]
+        namespace: String,
+    }
+
+    async fn enterprise_golden_pipeline_plan(
+        Json(body): Json<GoldenPipelineReq>,
+    ) -> impl IntoResponse {
+        match crate::enterprise::GoldenPipelinePlan::try_plan(
+            body.image_name,
+            body.version,
+            body.namespace,
+        ) {
+            Ok(plan) => Json(serde_json::json!({ "success": true, "data": plan })).into_response(),
+            Err(e) => enterprise_err(e).into_response(),
+        }
+    }
+
+    #[derive(Deserialize)]
+    struct CrossClusterDrReq {
+        source_cluster: String,
+        target_cluster: String,
+        vm_names: Vec<String>,
+        #[serde(default = "default_rpo")]
+        rpo_seconds: u64,
+    }
+    fn default_rpo() -> u64 {
+        300
+    }
+
+    async fn enterprise_cross_cluster_dr_plan(
+        Json(body): Json<CrossClusterDrReq>,
+    ) -> impl IntoResponse {
+        match crate::enterprise::CrossClusterDrPlan::try_plan(
+            body.source_cluster,
+            body.target_cluster,
+            body.vm_names,
+            body.rpo_seconds,
+        ) {
+            Ok(plan) => Json(serde_json::json!({ "success": true, "data": plan })).into_response(),
+            Err(e) => enterprise_err(e).into_response(),
+        }
+    }
+
+    #[derive(Deserialize)]
+    struct GpuNumaReq {
+        vm_name: String,
+        #[serde(default = "default_gpu")]
+        gpu_count: u32,
+        #[serde(default)]
+        sriov_networks: Vec<String>,
+        #[serde(default)]
+        numa_passthrough: bool,
+    }
+    fn default_gpu() -> u32 {
+        1
+    }
+
+    async fn enterprise_gpu_numa_plan(Json(body): Json<GpuNumaReq>) -> impl IntoResponse {
+        match crate::enterprise::GpuSriovNumaPlan::try_plan(
+            body.vm_name,
+            body.gpu_count,
+            body.sriov_networks,
+            body.numa_passthrough,
+        ) {
+            Ok(plan) => Json(serde_json::json!({ "success": true, "data": plan })).into_response(),
+            Err(e) => enterprise_err(e).into_response(),
+        }
+    }
+
+    async fn enterprise_fleet_inventory() -> impl IntoResponse {
+        match crate::enterprise::FleetInventory::try_snapshot() {
+            Ok(inv) => Json(serde_json::json!({ "success": true, "data": inv })).into_response(),
+            Err(e) => enterprise_err(e).into_response(),
+        }
     }
 
     // ── Types ──────────────────────────────────────────────────────

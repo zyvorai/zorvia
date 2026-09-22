@@ -139,6 +139,18 @@ impl UserDb {
         })
     }
 
+    /// Find or create a local user for a verified OIDC subject.
+    /// Username is stable (`oidc:<sub>`) so JIT users participate in token_version revocation.
+    pub fn upsert_oidc_user(&self, subject: &str, role: Role) -> Result<User> {
+        let username = format!("oidc:{}", subject);
+        if let Some(existing) = self.get_by_username(&username)? {
+            return Ok(existing);
+        }
+        // Unusable random password — OIDC users authenticate via IdP only.
+        let pw = format!("oidc-{}", uuid::Uuid::new_v4());
+        self.create_user(&username, &pw, role)
+    }
+
     pub fn get_by_username(&self, username: &str) -> Result<Option<User>> {
         let conn = self.conn.lock().map_err(|e| anyhow::anyhow!("{e}"))?;
         let mut stmt = conn.prepare(

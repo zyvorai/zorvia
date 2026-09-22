@@ -151,6 +151,7 @@ pub fn required_permission(method: &str, path: &str) -> Option<ApiPermission> {
         || path.starts_with("/backups/policies")
         || path.starts_with("/v1/quotas")
         || path.starts_with("/system/compliance")
+        || path.starts_with("/v1/enterprise/")
     {
         return Some(ApiPermission::ClusterAdmin);
     }

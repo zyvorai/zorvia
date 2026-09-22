@@ -56,6 +56,7 @@ pub mod devexp;
 pub mod disk;
 pub mod dr;
 pub mod edge;
+pub mod enterprise;
 pub mod features;
 pub mod finops;
 pub mod gitops;

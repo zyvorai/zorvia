@@ -64,8 +64,11 @@ mod p0_security {
     }
 
     #[test]
-    fn oidc_from_env_always_none() {
-        // Even if env were set in the process, from_env hard-disables.
+    fn oidc_from_env_off_without_enabled_flag() {
+        // Without ZORVIA_OIDC_ENABLED=1, config stays None (even if other vars leak in CI).
+        if std::env::var("ZORVIA_OIDC_ENABLED").ok().as_deref() == Some("1") {
+            return;
+        }
         assert!(zorvia::api::auth::OidcConfig::from_env().is_none());
     }
 
