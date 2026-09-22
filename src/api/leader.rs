@@ -90,7 +90,12 @@ async fn try_acquire_or_renew(
     identity: &str,
     lease_duration: Duration,
 ) -> anyhow::Result<bool> {
-    let now = k8s_openapi::jiff::Timestamp::now();
+    // Kubernetes MicroTime accepts at most microsecond precision; jiff's
+    // Timestamp::now() includes nanoseconds and the apiserver rejects them.
+    let now = {
+        let t = k8s_openapi::jiff::Timestamp::now();
+        k8s_openapi::jiff::Timestamp::from_microsecond(t.as_microsecond()).unwrap_or(t)
+    };
     match api.get(name).await {
         Ok(existing) => {
             let holder = existing
@@ -114,7 +119,11 @@ async fn try_acquire_or_renew(
                     .spec
                     .as_ref()
                     .and_then(|s| s.acquire_time.as_ref())
-                    .map(|t| t.0.to_string())
+                    .map(|t| {
+                        k8s_openapi::jiff::Timestamp::from_microsecond(t.0.as_microsecond())
+                            .unwrap_or(t.0)
+                            .to_string()
+                    })
                     .unwrap_or_else(|| renew.clone());
                 let patch = serde_json::json!({
                     "metadata": { "resourceVersion": resource_version },
