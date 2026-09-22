@@ -31,8 +31,8 @@ const config: Config = {
     locales: ['en'],
   },
 
-  // Serve the repo's existing README screenshots in place instead of duplicating them.
-  staticDirectories: ['static', '../docs/screenshots'],
+  // Serve README screenshots and social/OG cards in place instead of duplicating them.
+  staticDirectories: ['static', '../docs/screenshots', '../docs/social'],
 
   presets: [
     [
@@ -53,6 +53,7 @@ const config: Config = {
   ],
 
   themeConfig: {
+    image: 'zorvia-share-card.png',
     colorMode: {
       respectPrefersColorScheme: true,
     },

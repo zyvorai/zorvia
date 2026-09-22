@@ -54,6 +54,12 @@
 |-----|--------|
 | [client-presentations/](client-presentations/) | HTML decks for client demos |
 
+## Social & README assets
+
+| Doc | Topic |
+|-----|--------|
+| [social/](social/README.md) | Share / OG card (1200×630) and LinkedIn/X card (1600×900); rebuild with `build-social-cards.sh` |
+
 Also see root [README.md](../README.md), [QUICK_REFERENCE.md](../QUICK_REFERENCE.md), [DEVELOPMENT.md](../DEVELOPMENT.md), [CHANGELOG.md](../CHANGELOG.md), [CONTRIBUTING.md](../CONTRIBUTING.md), [SECURITY.md](../SECURITY.md).
 
 ## Lab

@@ -1,47 +1,40 @@
 # Zorvia
 
-<p align="center">
-  <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="web/public/zyvor-logo-on-dark.png">
-    <img src="web/public/zyvor-logo.png" alt="Zorvia" width="220">
-  </picture>
-</p>
+[![CI](https://github.com/zyvorai/zorvia/actions/workflows/ci.yml/badge.svg)](https://github.com/zyvorai/zorvia/actions)
+[![License: Apache 2.0](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](LICENSE)
+[![Rust 1.89+](https://img.shields.io/badge/rust-1.89%2B-orange.svg)](https://www.rust-lang.org/)
+[![KubeVirt-native](https://img.shields.io/badge/KubeVirt-native-6d28d9.svg)](https://kubevirt.io/)
+[![Tests](https://img.shields.io/badge/tests-2500%2B%20passing-brightgreen.svg)](CHANGELOG.md)
 
-<p align="center">
-  <a href="https://github.com/zyvorai/zorvia/actions"><img src="https://github.com/zyvorai/zorvia/workflows/CI/badge.svg" alt="CI"></a>
-  <a href="LICENSE"><img src="https://img.shields.io/badge/License-Apache%202.0-blue.svg" alt="License"></a>
-  <a href="https://www.rust-lang.org/"><img src="https://img.shields.io/badge/rust-1.89%2B-orange.svg" alt="Rust"></a>
-  <a href="https://kubevirt.io/"><img src="https://img.shields.io/badge/KubeVirt-native-6d28d9.svg" alt="KubeVirt"></a>
-  <a href="CHANGELOG.md"><img src="https://img.shields.io/badge/tests-2500%2B%20passing-brightgreen.svg" alt="Tests"></a>
-</p>
+![Zorvia — KubeVirt VM platform](docs/social/zorvia-share-card.png)
 
-<p align="center"><b>Stop hand-writing VM CRDs. Run Kubernetes VMs like a platform, not a YAML pile.</b></p>
+**Stop hand-writing VM CRDs. Run Kubernetes VMs like a platform, not a YAML pile.**
 
-<p align="center">
-Every KubeVirt shop ends up with the same pile of one-off scripts for create, snapshot,<br>
-migrate, backup, and access control. Zorvia replaces that pile with one real backend —<br>
-CLI, interactive TUI, and a signed-in web console, all driving the same API, all wired to<br>
-real Kubernetes objects underneath. No fake dashboards, no dead buttons.
-</p>
+Every KubeVirt shop ends up with the same pile of one-off scripts for create, snapshot, migrate, backup, and access control. Zorvia replaces that pile with one real backend — CLI, interactive TUI, and a signed-in web console — all driving the same API over real Kubernetes objects. No fake dashboards, no dead buttons.
 
-<p align="center">
-  <a href="#quick-start"><b>▶ Try it now</b></a> ·
-  <a href="mailto:sales@zyvor.dev"><b>💬 Talk to sales</b></a> ·
-  <a href="https://github.com/zyvorai/zorvia"><b>★ Star on GitHub</b></a>
-</p>
+[Try it now](#quick-start) · [Talk to sales](mailto:sales@zyvor.dev) · [Star on GitHub](https://github.com/zyvorai/zorvia) · [Docs](https://zyvorai.github.io/zorvia/) · [Changelog](CHANGELOG.md)
 
-<p align="center">
-  <a href="https://github.com/zyvorai/zorvia">Repository</a> ·
-  <a href="https://zyvor.dev">zyvor.dev</a> ·
-  Apache-2.0 only ·
-  <a href="CHANGELOG.md">Changelog</a>
-</p>
+## Contents
 
-<p align="center">
-  <img src="docs/screenshots/readme-dashboard.png" alt="Zorvia dashboard" width="880">
-</p>
+- [Install](#install)
+- [Quick start](#quick-start)
+- [Why teams pick Zorvia](#why-teams-pick-zorvia)
+- [Why Zorvia](#why-zorvia)
+- [How it stacks up](#how-it-stacks-up)
+- [Platform surface](#platform-surface)
+- [Day-2 commands](#day-2-commands)
+- [Web console & API](#web-console--api)
+- [Profiles · blueprints · templates](#profiles--blueprints--templates)
+- [Operator toolkit](#operator-toolkit)
+- [Config & library](#config--library)
+- [Develop](#develop)
+- [Roadmap](#roadmap)
+- [Project security](#project-security)
+- [Get involved](#get-involved)
+- [OIDC lab](docs/OIDC_LAB.md)
+- [Social assets](docs/social/README.md)
 
-**Contents:** [Install](#install) · [Quick start](#quick-start) · [Why teams pick Zorvia](#why-teams-pick-zorvia) · [Why Zorvia](#why-zorvia) · [How it stacks up](#how-it-stacks-up) · [Platform surface](#platform-surface) · [Day-2 commands](#day-2-commands) · [Web console & API](#web-console--api) · [Profiles · blueprints · templates](#profiles--blueprints--templates) · [Operator toolkit](#operator-toolkit) · [Config & library](#config--library) · [Develop](#develop) · [Roadmap](#roadmap) · [Project security](#project-security) · [Get involved](#get-involved)
+![Zorvia dashboard](docs/screenshots/readme-dashboard.png)
 
 ---
 
