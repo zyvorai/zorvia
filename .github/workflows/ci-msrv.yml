@@ -25,16 +25,16 @@ permissions:
 
 jobs:
   msrv:
-    name: MSRV 1.85 check
+    name: MSRV 1.89 check
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@master
         with:
-          toolchain: "1.85.0"
+          toolchain: "1.89.0"
       - uses: Swatinem/rust-cache@v2
         with:
-          key: msrv-185
+          key: msrv-189
       - name: cargo check (MSRV)
-        run: cargo +1.85.0 check --features web --locked
+        run: cargo +1.89.0 check --features web --locked
         continue-on-error: true

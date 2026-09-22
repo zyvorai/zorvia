@@ -188,50 +188,50 @@ pub fn build_default_router() -> Router {
     let mut vm_group = RouteGroup::new("vms", "/vms");
     vm_group.add_route(Route::new("GET", "", "list_vms"));
     vm_group.add_route(Route::new("POST", "", "create_vm").with_middleware("auth"));
-    vm_group.add_route(Route::new("GET", "/:name", "get_vm"));
-    vm_group.add_route(Route::new("PUT", "/:name", "update_vm").with_middleware("auth"));
-    vm_group.add_route(Route::new("DELETE", "/:name", "delete_vm").with_middleware("auth"));
-    vm_group.add_route(Route::new("POST", "/:name/start", "start_vm").with_middleware("auth"));
-    vm_group.add_route(Route::new("POST", "/:name/stop", "stop_vm").with_middleware("auth"));
-    vm_group.add_route(Route::new("POST", "/:name/restart", "restart_vm").with_middleware("auth"));
+    vm_group.add_route(Route::new("GET", "/{name}", "get_vm"));
+    vm_group.add_route(Route::new("PUT", "/{name}", "update_vm").with_middleware("auth"));
+    vm_group.add_route(Route::new("DELETE", "/{name}", "delete_vm").with_middleware("auth"));
+    vm_group.add_route(Route::new("POST", "/{name}/start", "start_vm").with_middleware("auth"));
+    vm_group.add_route(Route::new("POST", "/{name}/stop", "stop_vm").with_middleware("auth"));
+    vm_group.add_route(Route::new("POST", "/{name}/restart", "restart_vm").with_middleware("auth"));
     router.add_group(vm_group);
 
     // Template routes
     let mut template_group = RouteGroup::new("templates", "/templates");
     template_group.add_route(Route::new("GET", "", "list_templates"));
-    template_group.add_route(Route::new("GET", "/:name", "get_template"));
+    template_group.add_route(Route::new("GET", "/{name}", "get_template"));
     router.add_group(template_group);
 
     // Profile routes
     let mut profile_group = RouteGroup::new("profiles", "/profiles");
     profile_group.add_route(Route::new("GET", "", "list_profiles"));
-    profile_group.add_route(Route::new("GET", "/:name", "get_profile"));
+    profile_group.add_route(Route::new("GET", "/{name}", "get_profile"));
     router.add_group(profile_group);
 
     // Blueprint routes
     let mut blueprint_group = RouteGroup::new("blueprints", "/blueprints");
     blueprint_group.add_route(Route::new("GET", "", "list_blueprints"));
-    blueprint_group.add_route(Route::new("GET", "/:name", "get_blueprint"));
+    blueprint_group.add_route(Route::new("GET", "/{name}", "get_blueprint"));
     blueprint_group
-        .add_route(Route::new("POST", "/:name/deploy", "deploy_blueprint").with_middleware("auth"));
+        .add_route(Route::new("POST", "/{name}/deploy", "deploy_blueprint").with_middleware("auth"));
     router.add_group(blueprint_group);
 
     // Snapshot routes
     let mut snapshot_group = RouteGroup::new("snapshots", "/snapshots");
     snapshot_group.add_route(Route::new("GET", "", "list_snapshots"));
     snapshot_group.add_route(Route::new("POST", "", "create_snapshot").with_middleware("auth"));
-    snapshot_group.add_route(Route::new("GET", "/:id", "get_snapshot"));
+    snapshot_group.add_route(Route::new("GET", "/{id}", "get_snapshot"));
     snapshot_group
-        .add_route(Route::new("DELETE", "/:id", "delete_snapshot").with_middleware("auth"));
+        .add_route(Route::new("DELETE", "/{id}", "delete_snapshot").with_middleware("auth"));
     snapshot_group
-        .add_route(Route::new("POST", "/:id/restore", "restore_snapshot").with_middleware("auth"));
+        .add_route(Route::new("POST", "/{id}/restore", "restore_snapshot").with_middleware("auth"));
     router.add_group(snapshot_group);
 
     // Events/Activity routes
     let mut events_group = RouteGroup::new("events", "/events");
     events_group.add_route(Route::new("GET", "", "list_events"));
     events_group.add_route(Route::new("GET", "/recent", "list_recent_events"));
-    events_group.add_route(Route::new("GET", "/vm/:name", "list_vm_events"));
+    events_group.add_route(Route::new("GET", "/vm/{name}", "list_vm_events"));
     router.add_group(events_group);
 
     // RDP routes
@@ -239,43 +239,43 @@ pub fn build_default_router() -> Router {
     rdp_group.add_route(Route::new("GET", "/sessions", "list_rdp_sessions"));
     rdp_group
         .add_route(Route::new("POST", "/sessions", "create_rdp_session").with_middleware("auth"));
-    rdp_group.add_route(Route::new("GET", "/sessions/:id", "get_rdp_session"));
+    rdp_group.add_route(Route::new("GET", "/sessions/{id}", "get_rdp_session"));
     rdp_group.add_route(
-        Route::new("DELETE", "/sessions/:id", "delete_rdp_session").with_middleware("auth"),
+        Route::new("DELETE", "/sessions/{id}", "delete_rdp_session").with_middleware("auth"),
     );
     rdp_group.add_route(Route::new(
         "POST",
-        "/sessions/:id/resize",
+        "/sessions/{id}/resize",
         "resize_rdp_session",
     ));
     rdp_group.add_route(Route::new(
         "GET",
-        "/sessions/:id/clipboard",
+        "/sessions/{id}/clipboard",
         "get_clipboard",
     ));
     rdp_group.add_route(Route::new(
         "POST",
-        "/sessions/:id/clipboard",
+        "/sessions/{id}/clipboard",
         "send_clipboard",
     ));
     rdp_group.add_route(Route::new(
         "GET",
-        "/sessions/:id/stats",
+        "/sessions/{id}/stats",
         "get_session_stats",
     ));
     rdp_group.add_route(Route::new(
         "GET",
-        "/sessions/:id/screenshot",
+        "/sessions/{id}/screenshot",
         "take_screenshot",
     ));
     rdp_group.add_route(Route::new(
         "POST",
-        "/sessions/:id/disconnect",
+        "/sessions/{id}/disconnect",
         "disconnect_rdp_session",
     ));
     rdp_group.add_route(Route::new(
         "POST",
-        "/sessions/:id/reconnect",
+        "/sessions/{id}/reconnect",
         "reconnect_rdp_session",
     ));
     rdp_group.add_route(Route::new("GET", "/vms", "list_rdp_capable_vms"));
@@ -370,10 +370,10 @@ mod tests {
     #[test]
     fn test_route_group_get_routes() {
         let mut group = RouteGroup::new("vms", "/vms").with_middleware("rate-limit");
-        group.add_route(Route::new("GET", "/:id", "get_vm"));
+        group.add_route(Route::new("GET", "/{id}", "get_vm"));
 
         let routes = group.get_routes();
-        assert_eq!(routes[0].path, "/vms/:id");
+        assert_eq!(routes[0].path, "/vms/{id}");
         assert!(routes[0].has_middleware("rate-limit"));
     }
 
@@ -418,7 +418,7 @@ mod tests {
         let mut group = RouteGroup::new("vms", "/vms");
         group.add_route(Route::new("GET", "", "list_vms"));
         group.add_route(Route::new("POST", "", "create_vm"));
-        group.add_route(Route::new("GET", "/:id", "get_vm"));
+        group.add_route(Route::new("GET", "/{id}", "get_vm"));
         router.add_group(group);
 
         let gets = router.routes_by_method("GET");

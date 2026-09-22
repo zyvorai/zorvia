@@ -19,7 +19,7 @@ fn migration_json(m: &crate::kube::types::VirtualMachineInstanceMigration) -> se
         "end_timestamp": state.and_then(|s| s.end_timestamp.clone()),
         "completed": state.and_then(|s| s.completed).unwrap_or(false),
         "failed": state.and_then(|s| s.failed).unwrap_or(false),
-        "created": m.metadata.creation_timestamp.as_ref().map(|t| t.0.to_rfc3339()),
+        "created": m.metadata.creation_timestamp.as_ref().map(|t| t.0.to_string()),
     })
 }
 

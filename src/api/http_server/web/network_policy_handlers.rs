@@ -87,7 +87,7 @@ fn policy_json(p: &NetworkPolicy) -> serde_json::Value {
         "vm_name": vm_name,
         "ingress": ingress,
         "egress": egress,
-        "created": p.metadata.creation_timestamp.as_ref().map(|t| t.0.to_rfc3339()),
+        "created": p.metadata.creation_timestamp.as_ref().map(|t| t.0.to_string()),
     })
 }
 

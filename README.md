@@ -10,7 +10,7 @@
 <p align="center">
   <a href="https://github.com/zyvorai/zorvia/actions"><img src="https://github.com/zyvorai/zorvia/workflows/CI/badge.svg" alt="CI"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/License-Apache%202.0-blue.svg" alt="License"></a>
-  <a href="https://www.rust-lang.org/"><img src="https://img.shields.io/badge/rust-1.85%2B-orange.svg" alt="Rust"></a>
+  <a href="https://www.rust-lang.org/"><img src="https://img.shields.io/badge/rust-1.89%2B-orange.svg" alt="Rust"></a>
   <a href="https://kubevirt.io/"><img src="https://img.shields.io/badge/KubeVirt-native-6d28d9.svg" alt="KubeVirt"></a>
   <a href="CHANGELOG.md"><img src="https://img.shields.io/badge/tests-2500%2B%20passing-brightgreen.svg" alt="Tests"></a>
 </p>
@@ -54,7 +54,7 @@ cargo install --path . --features web   # `web` is the default feature
 # binary also at: cargo build --release --features web → target/release/zorvia
 ```
 
-Requires Rust **1.85+**, a kubeconfig, and a cluster with **KubeVirt** (CDI optional for golden images / CDI clone).
+Requires Rust **1.89+**, a kubeconfig, and a cluster with **KubeVirt** (CDI optional for golden images / CDI clone).
 
 ---
 

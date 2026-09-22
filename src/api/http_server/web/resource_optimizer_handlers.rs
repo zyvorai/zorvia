@@ -102,7 +102,11 @@ pub async fn resource_optimizer_handler(State(state): State<SharedState>) -> imp
             .metadata
             .creation_timestamp
             .as_ref()
-            .map(|t| (chrono::Utc::now() - t.0).num_days().max(0) as u32)
+            .map(|t| {
+                let age_secs =
+                    (k8s_openapi::jiff::Timestamp::now().as_second() - t.0.as_second()).max(0);
+                (age_secs / 86_400) as u32
+            })
             .unwrap_or(0);
         if let Some(rec) = OptimizationEngine::detect_idle_vm(&name, cpu_usage, days_running, cost)
         {

@@ -202,7 +202,7 @@ pub async fn handle_activity(
             .metadata
             .creation_timestamp
             .as_ref()
-            .map(|t| t.0.to_rfc3339())
+            .map(|t| t.0.to_string())
             .unwrap_or_default();
         rows.push(ActivityRecord {
             timestamp: ts,

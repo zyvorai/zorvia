@@ -27,7 +27,7 @@ fn to_summary(q: ResourceQuota) -> QuotaSummary {
         .metadata
         .creation_timestamp
         .as_ref()
-        .map(|t| t.0.to_rfc3339());
+        .map(|t| t.0.to_string());
     let status = q.status.unwrap_or_default();
     // Prefer status.hard (what the API server is actually enforcing); fall
     // back to spec.hard for a quota so new its status hasn't been computed

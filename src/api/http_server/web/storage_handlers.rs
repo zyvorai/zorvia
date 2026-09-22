@@ -75,7 +75,7 @@ pub async fn list_storage_volumes_handler(State(state): State<SharedState>) -> i
                 "storage_class": spec.and_then(|sp| sp.storage_class_name.clone()),
                 "access_modes": spec.and_then(|sp| sp.access_modes.clone()).unwrap_or_default(),
                 "attached_vms": attached_by.get(&name).cloned().unwrap_or_default(),
-                "created": pvc.metadata.creation_timestamp.as_ref().map(|t| t.0.to_rfc3339()),
+                "created": pvc.metadata.creation_timestamp.as_ref().map(|t| t.0.to_string()),
             })
         })
         .collect();

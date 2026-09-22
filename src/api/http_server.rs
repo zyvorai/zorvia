@@ -511,15 +511,15 @@ pub mod web {
         // cover the auth/login routes registered earlier too.
         let admin_only = Router::new()
             .route("/v1/users", get(users_list).post(users_create))
-            .route("/v1/users/:id", delete(users_delete))
-            .route("/v1/users/:id/role", put(users_update_role))
-            .route("/v1/users/:id/enabled", put(users_set_enabled))
+            .route("/v1/users/{id}", delete(users_delete))
+            .route("/v1/users/{id}/role", put(users_update_role))
+            .route("/v1/users/{id}/enabled", put(users_set_enabled))
             .route(
                 "/v1/api-tokens",
                 get(api_tokens_list).post(api_tokens_create),
             )
             .route(
-                "/v1/api-tokens/:id",
+                "/v1/api-tokens/{id}",
                 delete(api_tokens_delete).post(api_tokens_revoke),
             )
             .route_layer(middleware::from_fn(require_admin_middleware));
@@ -533,7 +533,7 @@ pub mod web {
             .route("/v1/auth/totp/verify", post(auth_totp_verify))
             .route("/v1/auth/totp/disable", post(auth_totp_disable))
             .route("/v1/auth/oidc/callback", get(auth_oidc_callback))
-            .route("/v1/auth/oidc/:id", get(auth_oidc_login))
+            .route("/v1/auth/oidc/{id}", get(auth_oidc_login))
             .merge(admin_only)
             .route("/v1/instance", get(instance_handler))
             .route("/instance", get(instance_handler))
@@ -544,36 +544,36 @@ pub mod web {
             .route("/images/cloud/download", post(fabric_start_download))
             // Fabric-compat VM API (unwrapped JSON)
             .route("/vms", get(fabric_list_vms).post(fabric_create_vm))
-            .route("/vms/:name", get(fabric_get_vm).delete(fabric_delete_vm))
-            .route("/vms/:name/start", post(fabric_start_vm))
-            .route("/vms/:name/stop", post(fabric_stop_vm))
-            .route("/vms/:name/restart", post(fabric_restart_vm))
-            .route("/vms/:name/pause", post(fabric_pause_vm))
-            .route("/vms/:name/resume", post(fabric_resume_vm))
-            .route("/vms/:name/hotplug/cpu", post(fabric_hotplug_cpu))
-            .route("/vms/:name/hotplug/memory", post(fabric_hotplug_memory))
-            .route("/vms/:name/hotplug/disk", post(fabric_hotplug_disk))
+            .route("/vms/{name}", get(fabric_get_vm).delete(fabric_delete_vm))
+            .route("/vms/{name}/start", post(fabric_start_vm))
+            .route("/vms/{name}/stop", post(fabric_stop_vm))
+            .route("/vms/{name}/restart", post(fabric_restart_vm))
+            .route("/vms/{name}/pause", post(fabric_pause_vm))
+            .route("/vms/{name}/resume", post(fabric_resume_vm))
+            .route("/vms/{name}/hotplug/cpu", post(fabric_hotplug_cpu))
+            .route("/vms/{name}/hotplug/memory", post(fabric_hotplug_memory))
+            .route("/vms/{name}/hotplug/disk", post(fabric_hotplug_disk))
             .route(
-                "/vms/:name/hotplug/disk/:device_id",
+                "/vms/{name}/hotplug/disk/{device_id}",
                 delete(fabric_hotunplug_disk),
             )
-            .route("/vms/:name/hotplug/nic", post(fabric_hotplug_nic))
+            .route("/vms/{name}/hotplug/nic", post(fabric_hotplug_nic))
             .route(
-                "/vms/:name/hotplug/nic/:device_id",
+                "/vms/{name}/hotplug/nic/{device_id}",
                 delete(fabric_hotunplug_nic),
             )
-            .route("/vms/:name/drift", post(fabric_vm_drift))
-            .route("/vms/:name/plan", post(fabric_vm_change_plan))
-            .route("/vms/:name/disks", get(fabric_list_disks))
+            .route("/vms/{name}/drift", post(fabric_vm_drift))
+            .route("/vms/{name}/plan", post(fabric_vm_change_plan))
+            .route("/vms/{name}/disks", get(fabric_list_disks))
             .route(
-                "/vms/:name/disks/:disk_name/resize",
+                "/vms/{name}/disks/{disk_name}/resize",
                 post(fabric_resize_disk),
             )
-            .route("/vms/:name/interfaces", get(fabric_list_interfaces))
-            .route("/vms/:name/migrate", post(fabric_migrate_vm))
-            .route("/vms/:name/migrations", get(fabric_list_vm_migrations))
-            .route("/migrations/:id", get(fabric_get_migration))
-            .route("/migrations/:id/cancel", post(fabric_cancel_migration))
+            .route("/vms/{name}/interfaces", get(fabric_list_interfaces))
+            .route("/vms/{name}/migrate", post(fabric_migrate_vm))
+            .route("/vms/{name}/migrations", get(fabric_list_vm_migrations))
+            .route("/migrations/{id}", get(fabric_get_migration))
+            .route("/migrations/{id}/cancel", post(fabric_cancel_migration))
             .route("/migrations/readiness", get(migration_readiness_handler))
             // Rook-Ceph distributed storage
             .route("/storage/rook/bootstrap", post(rook_bootstrap))
@@ -587,13 +587,13 @@ pub mod web {
                 "/storage/rook/pools",
                 get(rook_list_pools).post(rook_create_pool),
             )
-            .route("/storage/rook/pools/:name", delete(rook_delete_pool))
+            .route("/storage/rook/pools/{name}", delete(rook_delete_pool))
             .route(
                 "/storage/rook/filesystems",
                 get(rook_list_filesystems).post(rook_create_filesystem),
             )
             .route(
-                "/storage/rook/filesystems/:name",
+                "/storage/rook/filesystems/{name}",
                 delete(rook_delete_filesystem),
             )
             .route(
@@ -601,7 +601,7 @@ pub mod web {
                 get(rook_list_object_stores).post(rook_create_object_store),
             )
             .route(
-                "/storage/rook/objectstores/:name",
+                "/storage/rook/objectstores/{name}",
                 delete(rook_delete_object_store),
             )
             .route(
@@ -612,65 +612,65 @@ pub mod web {
                 "/storage/rook/volume-snapshot-classes",
                 post(rook_create_volume_snapshot_class),
             )
-            .route("/vms/:name/metrics", get(fabric_vm_metrics))
-            .route("/vms/:name/guest-insight", get(fabric_guest_insight))
-            .route("/vms/:name/wait-ready", post(fabric_wait_guest_ready))
-            .route("/vms/:name/logs", get(fabric_vm_logs))
-            .route("/datavolumes/:name/wait", post(fabric_wait_data_volume))
+            .route("/vms/{name}/metrics", get(fabric_vm_metrics))
+            .route("/vms/{name}/guest-insight", get(fabric_guest_insight))
+            .route("/vms/{name}/wait-ready", post(fabric_wait_guest_ready))
+            .route("/vms/{name}/logs", get(fabric_vm_logs))
+            .route("/datavolumes/{name}/wait", post(fabric_wait_data_volume))
             .route("/readyz", get(fabric_readyz))
             .route("/metrics", get(fabric_prom_metrics))
-            .route("/vms/:name/port-forwards", post(fabric_add_port_forward))
+            .route("/vms/{name}/port-forwards", post(fabric_add_port_forward))
             .route(
-                "/vms/:name/port-forwards/:host_port",
+                "/vms/{name}/port-forwards/{host_port}",
                 delete(fabric_remove_port_forward),
             )
-            .route("/vms/:name/cloud-init", post(fabric_cloud_init))
-            .route("/vms/:name/tags", put(fabric_set_tags).post(fabric_add_tag))
-            .route("/vms/:name/tags/:tag", delete(fabric_remove_tag))
-            .route("/vms/:name/clone", post(fabric_clone_vm))
+            .route("/vms/{name}/cloud-init", post(fabric_cloud_init))
+            .route("/vms/{name}/tags", put(fabric_set_tags).post(fabric_add_tag))
+            .route("/vms/{name}/tags/{tag}", delete(fabric_remove_tag))
+            .route("/vms/{name}/clone", post(fabric_clone_vm))
             .route(
-                "/vms/:name/boot",
+                "/vms/{name}/boot",
                 get(fabric_get_boot).post(fabric_set_boot),
             )
             .route(
-                "/vms/:name/display",
+                "/vms/{name}/display",
                 get(fabric_get_display).post(fabric_set_display),
             )
             .route(
-                "/vms/:name/cpu-model",
+                "/vms/{name}/cpu-model",
                 get(fabric_get_cpu_model).post(fabric_set_cpu_model),
             )
             .route(
-                "/vms/:name/watchdog",
+                "/vms/{name}/watchdog",
                 get(fabric_get_watchdog).post(fabric_set_watchdog),
             )
             .route(
-                "/vms/:name/serials",
+                "/vms/{name}/serials",
                 get(fabric_get_serials).post(fabric_add_serial),
             )
             .route(
-                "/vms/:name/firmware/status",
+                "/vms/{name}/firmware/status",
                 get(fabric_get_firmware_status),
             )
-            .route("/vms/:name/firmware/uefi", post(fabric_enable_uefi))
+            .route("/vms/{name}/firmware/uefi", post(fabric_enable_uefi))
             .route(
-                "/vms/:name/firmware/secureboot",
+                "/vms/{name}/firmware/secureboot",
                 post(fabric_enable_secureboot).delete(fabric_disable_secureboot),
             )
-            .route("/vms/:name/firmware/reset", post(fabric_reset_nvram))
-            .route("/vms/:name/cpu/affinity", get(fabric_get_cpu_affinity))
+            .route("/vms/{name}/firmware/reset", post(fabric_reset_nvram))
+            .route("/vms/{name}/cpu/affinity", get(fabric_get_cpu_affinity))
             .route("/system/cpu-models", get(fabric_list_cpu_models))
             .route(
                 "/system/firmware/capabilities",
                 get(fabric_firmware_capabilities),
             )
             .route(
-                "/vms/:name/snapshots",
+                "/vms/{name}/snapshots",
                 get(fabric_list_vm_snapshots).post(fabric_create_snapshot),
             )
-            .route("/vms/:name/snapshots/:id", delete(fabric_delete_snapshot))
+            .route("/vms/{name}/snapshots/{id}", delete(fabric_delete_snapshot))
             .route(
-                "/vms/:name/snapshots/:id/revert",
+                "/vms/{name}/snapshots/{id}/revert",
                 post(fabric_revert_snapshot),
             )
             .route("/snapshots", get(fabric_list_snapshots))
@@ -681,14 +681,14 @@ pub mod web {
                 "/backups",
                 get(list_backups_handler).post(create_backup_handler),
             )
-            .route("/backups/:id", delete(delete_backup_handler))
+            .route("/backups/{id}", delete(delete_backup_handler))
             .route("/backups/restore", post(restore_backup_handler))
             .route("/backups/jobs", get(list_backup_jobs_handler))
-            .route("/backups/jobs/:id", get(get_backup_job_handler))
+            .route("/backups/jobs/{id}", get(get_backup_job_handler))
             .route("/placement/rebalance", get(placement_rebalance_handler))
-            .route("/placement/:vm", get(placement_recommend_handler))
+            .route("/placement/{vm}", get(placement_recommend_handler))
             .route(
-                "/vms/:name/ha",
+                "/vms/{name}/ha",
                 get(get_ha_policy_handler).put(set_ha_policy_handler),
             )
             .route(
@@ -696,15 +696,15 @@ pub mod web {
                 get(list_backup_policies_handler).post(create_backup_policy_handler),
             )
             .route(
-                "/backups/policies/:name",
+                "/backups/policies/{name}",
                 delete(delete_backup_policy_handler),
             )
             .route(
-                "/backups/policies/:name/enable",
+                "/backups/policies/{name}/enable",
                 post(enable_backup_policy_handler),
             )
             .route(
-                "/backups/policies/:name/disable",
+                "/backups/policies/{name}/disable",
                 post(disable_backup_policy_handler),
             )
             .route("/storage/volumes", get(list_storage_volumes_handler))
@@ -713,7 +713,7 @@ pub mod web {
                 get(list_network_policies_handler).post(create_network_policy_handler),
             )
             .route(
-                "/network-policies/:name",
+                "/network-policies/{name}",
                 delete(delete_network_policy_handler),
             )
             .route("/system/compliance", get(compliance_dashboard_handler))
@@ -731,44 +731,44 @@ pub mod web {
                 get(resource_optimizer_handler),
             )
             .route("/templates", get(list_templates_handler))
-            .route("/templates/:name", get(get_template_handler))
-            .route("/templates/:name/deploy", post(deploy_template_handler))
+            .route("/templates/{name}", get(get_template_handler))
+            .route("/templates/{name}/deploy", post(deploy_template_handler))
             .route(
                 "/schedules/power",
                 get(list_power_schedules_handler).post(create_power_schedule_handler),
             )
             .route(
-                "/schedules/power/:name",
+                "/schedules/power/{name}",
                 delete(delete_power_schedule_handler),
             )
             .route(
-                "/schedules/power/:name/enable",
+                "/schedules/power/{name}/enable",
                 post(enable_power_schedule_handler),
             )
             .route(
-                "/schedules/power/:name/disable",
+                "/schedules/power/{name}/disable",
                 post(disable_power_schedule_handler),
             )
             .route(
                 "/webhooks",
                 get(list_webhooks_handler).post(create_webhook_handler),
             )
-            .route("/webhooks/:id", delete(delete_webhook_handler))
-            .route("/webhooks/:id/test", post(test_webhook_handler))
+            .route("/webhooks/{id}", delete(delete_webhook_handler))
+            .route("/webhooks/{id}/test", post(test_webhook_handler))
             .route("/alerts", get(list_alerts_handler))
             .route(
                 "/alerts/rules",
                 get(list_alert_rules_handler).post(create_alert_rule_handler),
             )
-            .route("/alerts/rules/:id", delete(delete_alert_rule_handler))
-            .route("/alerts/:id/resolve", post(resolve_alert_handler))
-            .route("/alerts/:id/silence", post(silence_alert_handler))
+            .route("/alerts/rules/{id}", delete(delete_alert_rule_handler))
+            .route("/alerts/{id}/resolve", post(resolve_alert_handler))
+            .route("/alerts/{id}/silence", post(silence_alert_handler))
             .route(
                 "/warm-pools",
                 get(list_warm_pools_handler).post(create_warm_pool_handler),
             )
-            .route("/warm-pools/:name", delete(delete_warm_pool_handler))
-            .route("/warm-pools/:name/claim", post(claim_warm_pool_handler))
+            .route("/warm-pools/{name}", delete(delete_warm_pool_handler))
+            .route("/warm-pools/{name}/claim", post(claim_warm_pool_handler))
             .route("/events", get(fabric_list_events))
             .route("/events/stream", get(fabric_events_stream))
             .route("/capabilities", get(fabric_capabilities))
@@ -776,15 +776,15 @@ pub mod web {
             .route("/dashboard/overview", get(fabric_overview))
             // Native Zorvia v1 API
             .route("/v1/vms", get(list_vms_handler))
-            .route("/v1/vms/:ns/:name", get(get_vm_handler))
-            .route("/v1/vms/:ns/:name", delete(delete_vm_handler))
-            .route("/v1/vms/:ns/:name/start", post(start_vm_handler))
-            .route("/v1/vms/:ns/:name/stop", post(stop_vm_handler))
-            .route("/v1/vms/:ns/:name/restart", post(restart_vm_handler))
+            .route("/v1/vms/{ns}/{name}", get(get_vm_handler))
+            .route("/v1/vms/{ns}/{name}", delete(delete_vm_handler))
+            .route("/v1/vms/{ns}/{name}/start", post(start_vm_handler))
+            .route("/v1/vms/{ns}/{name}/stop", post(stop_vm_handler))
+            .route("/v1/vms/{ns}/{name}/restart", post(restart_vm_handler))
             .route("/v1/snapshots", get(list_snapshots_handler))
-            .route("/v1/snapshots/:ns/:vm", get(list_vm_snapshots_handler))
+            .route("/v1/snapshots/{ns}/{vm}", get(list_vm_snapshots_handler))
             .route(
-                "/v1/snapshots/:ns/:name/delete",
+                "/v1/snapshots/{ns}/{name}/delete",
                 post(delete_snapshot_handler),
             )
             .route("/v1/events", get(list_events_handler))
@@ -794,7 +794,7 @@ pub mod web {
                 "/v1/quotas",
                 get(list_quotas_handler).post(create_quota_handler),
             )
-            .route("/v1/quotas/:ns/:name", delete(delete_quota_handler))
+            .route("/v1/quotas/{ns}/{name}", delete(delete_quota_handler))
             // Kryton Windows control plane (server-side token; Zorvia auth at edge)
             .route("/v1/kryton/status", get(kryton_status))
             .route("/v1/kryton/capabilities", get(kryton_capabilities))
@@ -806,25 +806,25 @@ pub mod web {
                 get(kryton_list_machines).post(kryton_create_machine),
             )
             .route(
-                "/v1/kryton/machines/:id",
+                "/v1/kryton/machines/{id}",
                 get(kryton_get_machine).delete(kryton_delete_machine),
             )
-            .route("/v1/kryton/machines/:id/start", post(kryton_start_machine))
-            .route("/v1/kryton/machines/:id/stop", post(kryton_stop_machine))
+            .route("/v1/kryton/machines/{id}/start", post(kryton_start_machine))
+            .route("/v1/kryton/machines/{id}/stop", post(kryton_stop_machine))
             .route(
-                "/v1/kryton/machines/:id/snapshot",
+                "/v1/kryton/machines/{id}/snapshot",
                 post(kryton_snapshot_machine),
             )
             .route(
-                "/v1/kryton/machines/:id/snapshots",
+                "/v1/kryton/machines/{id}/snapshots",
                 get(kryton_list_snapshots),
             )
             .route(
-                "/v1/kryton/machines/:id/snapshots/:sid/restore",
+                "/v1/kryton/machines/{id}/snapshots/{sid}/restore",
                 post(kryton_restore_snapshot),
             )
             .route(
-                "/v1/kryton/machines/:id/snapshots/:sid",
+                "/v1/kryton/machines/{id}/snapshots/{sid}",
                 delete(kryton_delete_snapshot),
             )
             .route("/v1/health", get(health_handler))
@@ -862,9 +862,9 @@ pub mod web {
                 "/dashboard",
                 get(|| async { axum::response::Redirect::temporary("/app") }),
             )
-            .route("/ws/console/:name", get(ws_console))
-            .route("/ws/vnc/:name", get(ws_vnc))
-            .route("/ws/ssh/:name", get(ws_ssh))
+            .route("/ws/console/{name}", get(ws_console))
+            .route("/ws/vnc/{name}", get(ws_vnc))
+            .route("/ws/ssh/{name}", get(ws_ssh))
             .nest("/api", api)
             .fallback_service(spa)
             .layer(middleware::from_fn(security_headers_middleware))
@@ -1530,8 +1530,8 @@ pub mod web {
                             "message": e.message.unwrap_or_default(),
                             "object": e.involved_object.name.unwrap_or_default(),
                             "timestamp": e.last_timestamp
-                                .map(|t| t.0.to_rfc3339())
-                                .or_else(|| e.metadata.creation_timestamp.map(|t| t.0.to_rfc3339()))
+                                .map(|t| t.0.to_string())
+                                .or_else(|| e.metadata.creation_timestamp.map(|t| t.0.to_string()))
                                 .unwrap_or_default(),
                         })
                     })
@@ -1571,9 +1571,9 @@ pub mod web {
                     "detail": e.message.clone(),
                     "timestamp": e.last_timestamp
                         .as_ref()
-                        .map(|t| t.0.to_rfc3339())
+                        .map(|t| t.0.to_string())
                         .or_else(|| {
-                            e.metadata.creation_timestamp.as_ref().map(|t| t.0.to_rfc3339())
+                            e.metadata.creation_timestamp.as_ref().map(|t| t.0.to_string())
                         })
                         .unwrap_or_default(),
                 });
@@ -1781,7 +1781,7 @@ pub mod web {
                     vmi_status: vmi_detail.and_then(|v| v.status),
                 };
 
-                let ctx = req_ctx(HttpMethod::GET, "/api/v1/vms/:ns/:name");
+                let ctx = req_ctx(HttpMethod::GET, "/api/v1/vms/{ns}/{name}");
                 ok_json(&ApiResponse::success(&detail, &ctx.request_id))
             }
             Err(e) => {
@@ -1808,7 +1808,7 @@ pub mod web {
 
         match client.start_vm(&ns, &name).await {
             Ok(_) => {
-                let ctx = req_ctx(HttpMethod::POST, "/api/v1/vms/:ns/:name/start");
+                let ctx = req_ctx(HttpMethod::POST, "/api/v1/vms/{ns}/{name}/start");
                 ok_json(&ApiResponse::success(
                     &serde_json::json!({"message": format!("VM '{}' started", name)}),
                     &ctx.request_id,
@@ -1831,7 +1831,7 @@ pub mod web {
 
         match client.stop_vm(&ns, &name).await {
             Ok(_) => {
-                let ctx = req_ctx(HttpMethod::POST, "/api/v1/vms/:ns/:name/stop");
+                let ctx = req_ctx(HttpMethod::POST, "/api/v1/vms/{ns}/{name}/stop");
                 ok_json(&ApiResponse::success(
                     &serde_json::json!({"message": format!("VM '{}' stopped", name)}),
                     &ctx.request_id,
@@ -1854,7 +1854,7 @@ pub mod web {
 
         match client.restart_vm(&ns, &name).await {
             Ok(_) => {
-                let ctx = req_ctx(HttpMethod::POST, "/api/v1/vms/:ns/:name/restart");
+                let ctx = req_ctx(HttpMethod::POST, "/api/v1/vms/{ns}/{name}/restart");
                 ok_json(&ApiResponse::success(
                     &serde_json::json!({"message": format!("VM '{}' restarted", name)}),
                     &ctx.request_id,
@@ -1877,7 +1877,7 @@ pub mod web {
 
         match client.delete_vm(&ns, &name).await {
             Ok(_) => {
-                let ctx = req_ctx(HttpMethod::DELETE, "/api/v1/vms/:ns/:name");
+                let ctx = req_ctx(HttpMethod::DELETE, "/api/v1/vms/{ns}/{name}");
                 ok_json(&ApiResponse::success(
                     &serde_json::json!({"message": format!("VM '{}' deleted", name)}),
                     &ctx.request_id,
@@ -1951,7 +1951,7 @@ pub mod web {
                             }
                         })
                         .collect();
-                    let ctx = req_ctx(HttpMethod::GET, "/api/v1/snapshots/:ns/:vm");
+                    let ctx = req_ctx(HttpMethod::GET, "/api/v1/snapshots/{ns}/{vm}");
                     ok_json(&ApiResponse::success(&items, &ctx.request_id))
                 }
                 Err(e) => err_json(500, "INTERNAL_ERROR", &sanitize_error(&e)),
@@ -1970,7 +1970,7 @@ pub mod web {
         match crate::snapshots::SnapshotManager::new(&ns).await {
             Ok(manager) => match manager.delete_snapshot(&name).await {
                 Ok(_) => {
-                    let ctx = req_ctx(HttpMethod::POST, "/api/v1/snapshots/:ns/:name/delete");
+                    let ctx = req_ctx(HttpMethod::POST, "/api/v1/snapshots/{ns}/{name}/delete");
                     ok_json(&ApiResponse::success(
                         &serde_json::json!({"message": format!("Snapshot '{}' deleted", name)}),
                         &ctx.request_id,
@@ -2016,8 +2016,8 @@ pub mod web {
                         involved_object: e.involved_object.name.unwrap_or_default(),
                         timestamp: e
                             .last_timestamp
-                            .map(|t| t.0.to_rfc3339())
-                            .or_else(|| e.metadata.creation_timestamp.map(|t| t.0.to_rfc3339()))
+                            .map(|t| t.0.to_string())
+                            .or_else(|| e.metadata.creation_timestamp.map(|t| t.0.to_string()))
                             .unwrap_or_default(),
                     })
                     .collect();
@@ -2039,7 +2039,8 @@ pub mod web {
         let lp = kube::api::ListParams::default();
         match events_api.list(&lp).await {
             Ok(event_list) => {
-                let one_hour_ago = chrono::Utc::now() - chrono::TimeDelta::hours(1);
+                let one_hour_ago_secs =
+                    k8s_openapi::jiff::Timestamp::now().as_second() - 3600;
                 let items: Vec<EventItem> = event_list
                     .items
                     .into_iter()
@@ -2051,7 +2052,7 @@ pub mod web {
                             .map(|t| t.0)
                             .or_else(|| e.metadata.creation_timestamp.as_ref().map(|t| t.0));
                         match ts {
-                            Some(t) => t >= one_hour_ago,
+                            Some(t) => t.as_second() >= one_hour_ago_secs,
                             None => false, // exclude events with no timestamp
                         }
                     })
@@ -2063,8 +2064,8 @@ pub mod web {
                         involved_object: e.involved_object.name.unwrap_or_default(),
                         timestamp: e
                             .last_timestamp
-                            .map(|t| t.0.to_rfc3339())
-                            .or_else(|| e.metadata.creation_timestamp.map(|t| t.0.to_rfc3339()))
+                            .map(|t| t.0.to_string())
+                            .or_else(|| e.metadata.creation_timestamp.map(|t| t.0.to_string()))
                             .unwrap_or_default(),
                     })
                     .collect();

@@ -208,7 +208,7 @@ fn build_cloud_init_yaml(ci: &FabricCloudInit, hostname_fallback: &str) -> Strin
 }
 
 fn memory_to_kube(mib: u64) -> String {
-    if mib >= 1024 && mib % 1024 == 0 {
+    if mib >= 1024 && mib.is_multiple_of(1024) {
         format!("{}Gi", mib / 1024)
     } else {
         format!("{}Mi", mib)

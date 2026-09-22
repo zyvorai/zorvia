@@ -38,6 +38,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - **Full remaining Dependabot stack** — kube 2.0 + k8s-openapi 0.26 + schemars 1 + toml 1 + secrecy 0.10 + thiserror 2 + tokio-tungstenite 0.30; website TypeScript 7; deploy `ubuntu:26.04` + `alpine/openssl:3.5.8`; MSRV **1.85**.
 
+- **kube 4.x + axum 0.8** — kube **4.2** / k8s-openapi **0.28** (v1_32, jiff timestamps), axum **0.8** / axum-server **0.8** (route `{param}` syntax, WS Utf8Bytes); MSRV **1.89**.
+
 ## [0.3.3] - 2026-09-22
 
 ### Security

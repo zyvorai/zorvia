@@ -63,7 +63,7 @@ pub fn field_matches(field: &str, value: u32, max: u32) -> bool {
             };
 
             if range_part == "*" {
-                if value % step == 0 {
+                if value.is_multiple_of(step) {
                     return true;
                 }
             } else if let Some((start_str, end_str)) = range_part.split_once('-') {
@@ -77,7 +77,7 @@ pub fn field_matches(field: &str, value: u32, max: u32) -> bool {
                 };
                 // Check if value is in range with step
                 if start <= end {
-                    if value >= start && value <= end && (value - start) % step == 0 {
+                    if value >= start && value <= end && (value - start).is_multiple_of(step) {
                         return true;
                     }
                 } else {
@@ -88,13 +88,13 @@ pub fn field_matches(field: &str, value: u32, max: u32) -> bool {
                         } else {
                             value + (max - start)
                         };
-                        if offset % step == 0 {
+                        if offset.is_multiple_of(step) {
                             return true;
                         }
                     }
                 }
             } else if let Ok(start) = range_part.parse::<u32>() {
-                if value >= start && (value - start) % step == 0 {
+                if value >= start && (value - start).is_multiple_of(step) {
                     return true;
                 }
             }

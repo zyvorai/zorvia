@@ -109,7 +109,7 @@ impl VMStatus {
             .metadata
             .creation_timestamp
             .as_ref()
-            .map(|ts| ts.0.format("%Y-%m-%d %H:%M:%S UTC").to_string());
+            .map(|ts| ts.0.to_string());
 
         Self {
             name,

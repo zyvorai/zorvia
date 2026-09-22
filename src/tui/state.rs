@@ -136,12 +136,11 @@ impl VmInfo {
             .creation_timestamp
             .as_ref()
             .map(|created| {
-                let now = Utc::now();
-                let duration = now.signed_duration_since(created.0);
-
-                let days = duration.num_days();
-                let hours = duration.num_hours() % 24;
-                let minutes = duration.num_minutes() % 60;
+                let age_secs =
+                    (k8s_openapi::jiff::Timestamp::now().as_second() - created.0.as_second()).max(0);
+                let days = age_secs / 86_400;
+                let hours = (age_secs % 86_400) / 3600;
+                let minutes = (age_secs % 3600) / 60;
 
                 if days > 0 {
                     format!("{}d{}h", days, hours)

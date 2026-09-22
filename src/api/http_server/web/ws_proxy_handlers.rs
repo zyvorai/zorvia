@@ -11,7 +11,7 @@ use serde::Deserialize;
 use tokio_tungstenite::tungstenite::protocol::{CloseFrame as TCloseFrame, Message as TMsg};
 
 /// Translate a tungstenite close frame (from the KubeVirt side) into an axum one.
-fn to_client_close(frame: Option<TCloseFrame>) -> Option<axum::extract::ws::CloseFrame<'static>> {
+fn to_client_close(frame: Option<TCloseFrame>) -> Option<axum::extract::ws::CloseFrame> {
     frame.map(|f| axum::extract::ws::CloseFrame {
         code: f.code.into(),
         reason: f.reason.to_string().into(),
@@ -19,7 +19,7 @@ fn to_client_close(frame: Option<TCloseFrame>) -> Option<axum::extract::ws::Clos
 }
 
 /// Translate an axum close frame (from the browser side) into a tungstenite one.
-fn to_kube_close(frame: Option<axum::extract::ws::CloseFrame<'_>>) -> Option<TCloseFrame> {
+fn to_kube_close(frame: Option<axum::extract::ws::CloseFrame>) -> Option<TCloseFrame> {
     frame.map(|f| TCloseFrame {
         code: f.code.into(),
         reason: f.reason.to_string().into(),
@@ -135,7 +135,7 @@ async fn proxy_kube_ws(
         Ok(ws) => ws,
         Err(e) => {
             let _ = client_ws
-                .send(Message::Text(format!(
+                .send(Message::text(format!(
                     "error: cannot open {subresource} for '{name}' (is the VMI running?): {e}"
                 )))
                 .await;
@@ -150,10 +150,10 @@ async fn proxy_kube_ws(
     let to_kube = async {
         while let Some(Ok(msg)) = client_stream.next().await {
             let mapped = match msg {
-                Message::Text(t) => TMsg::Text(t.into()),
-                Message::Binary(b) => TMsg::Binary(b.into()),
-                Message::Ping(p) => TMsg::Ping(p.into()),
-                Message::Pong(p) => TMsg::Pong(p.into()),
+                Message::Text(t) => TMsg::Text(t.to_string().into()),
+                Message::Binary(b) => TMsg::Binary(b.to_vec().into()),
+                Message::Ping(p) => TMsg::Ping(p.to_vec().into()),
+                Message::Pong(p) => TMsg::Pong(p.to_vec().into()),
                 Message::Close(frame) => {
                     let _ = kube_sink.send(TMsg::Close(to_kube_close(frame))).await;
                     break;
@@ -168,10 +168,10 @@ async fn proxy_kube_ws(
     let to_client = async {
         while let Some(Ok(msg)) = kube_stream.next().await {
             let mapped = match msg {
-                TMsg::Text(t) => Message::Text(t.to_string()),
-                TMsg::Binary(b) => Message::Binary(b.to_vec()),
-                TMsg::Ping(p) => Message::Ping(p.to_vec()),
-                TMsg::Pong(p) => Message::Pong(p.to_vec()),
+                TMsg::Text(t) => Message::text(t.to_string()),
+                TMsg::Binary(b) => Message::binary(b.to_vec()),
+                TMsg::Ping(p) => Message::Ping(p.to_vec().into()),
+                TMsg::Pong(p) => Message::Pong(p.to_vec().into()),
                 TMsg::Close(frame) => {
                     let _ = client_sink
                         .send(Message::Close(to_client_close(frame)))
@@ -265,7 +265,7 @@ async fn proxy_ssh(
         Ok(Some(ip)) => match crate::kube::ssh::ssh_argv(&user, &ip, port) {
             Ok(v) => v,
             Err(e) => {
-                let _ = client_ws.send(Message::Text(format!("error: {e}"))).await;
+                let _ = client_ws.send(Message::text(format!("error: {e}"))).await;
                 let _ = client_ws.close().await;
                 return;
             }
@@ -273,7 +273,7 @@ async fn proxy_ssh(
         _ => match crate::kube::ssh::virtctl_ssh_argv(&user, &name, &namespace) {
             Ok(v) => v,
             Err(e) => {
-                let _ = client_ws.send(Message::Text(format!("error: {e}"))).await;
+                let _ = client_ws.send(Message::text(format!("error: {e}"))).await;
                 let _ = client_ws.close().await;
                 return;
             }
@@ -281,7 +281,7 @@ async fn proxy_ssh(
     };
 
     let _ = client_ws
-        .send(Message::Text(format!(
+        .send(Message::text(format!(
             "Connecting via {} …\r\n",
             argv.first().cloned().unwrap_or_else(|| "ssh".into())
         )))
@@ -298,7 +298,7 @@ async fn proxy_ssh(
         Ok(p) => p,
         Err(e) => {
             let _ = client_ws
-                .send(Message::Text(format!(
+                .send(Message::text(format!(
                     "error: failed to allocate pty: {e}\r\n"
                 )))
                 .await;
@@ -317,7 +317,7 @@ async fn proxy_ssh(
         Ok(c) => c,
         Err(e) => {
             let _ = client_ws
-                .send(Message::Text(format!(
+                .send(Message::text(format!(
                     "error: failed to spawn {}: {e} (install openssh-client or virtctl)\r\n",
                     argv[0]
                 )))
@@ -335,8 +335,8 @@ async fn proxy_ssh(
         use tokio::io::AsyncWriteExt;
         while let Some(Ok(msg)) = stream.next().await {
             let bytes = match msg {
-                Message::Text(t) => t.into_bytes(),
-                Message::Binary(b) => b,
+                Message::Text(t) => t.as_bytes().to_vec(),
+                Message::Binary(b) => b.to_vec(),
                 Message::Close(_) => break,
                 _ => continue,
             };
@@ -356,7 +356,7 @@ async fn proxy_ssh(
                     if sink
                         .lock()
                         .await
-                        .send(Message::Binary(buf[..n].to_vec()))
+                        .send(Message::binary(buf[..n].to_vec()))
                         .await
                         .is_err()
                     {

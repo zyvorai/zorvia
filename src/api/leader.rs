@@ -90,7 +90,7 @@ async fn try_acquire_or_renew(
     identity: &str,
     lease_duration: Duration,
 ) -> anyhow::Result<bool> {
-    let now = chrono::Utc::now();
+    let now = k8s_openapi::jiff::Timestamp::now();
     match api.get(name).await {
         Ok(existing) => {
             let holder = existing
@@ -104,17 +104,17 @@ async fn try_acquire_or_renew(
                 .and_then(|s| s.renew_time.as_ref())
                 .map(|t| t.0);
             let expired = renew_time
-                .map(|t| now > t + chrono::Duration::from_std(lease_duration).unwrap_or_default())
+                .map(|t| now.as_second() > t.as_second() + lease_duration.as_secs() as i64)
                 .unwrap_or(true);
 
             if holder == identity || expired || holder.is_empty() {
                 let resource_version = existing.metadata.resource_version.clone();
-                let renew = now.to_rfc3339_opts(chrono::SecondsFormat::Nanos, true);
+                let renew = now.to_string();
                 let acquire = existing
                     .spec
                     .as_ref()
                     .and_then(|s| s.acquire_time.as_ref())
-                    .map(|t| t.0.to_rfc3339_opts(chrono::SecondsFormat::Nanos, true))
+                    .map(|t| t.0.to_string())
                     .unwrap_or_else(|| renew.clone());
                 let patch = serde_json::json!({
                     "metadata": { "resourceVersion": resource_version },
