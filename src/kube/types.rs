@@ -32,8 +32,8 @@ pub struct VirtualMachineInstanceTemplateSpec {
     pub spec: VirtualMachineInstanceSpec,
 }
 
-fn metadata_schema(_gen: &mut schemars::gen::SchemaGenerator) -> schemars::schema::Schema {
-    schemars::schema::Schema::Bool(true)
+fn metadata_schema(_gen: &mut schemars::SchemaGenerator) -> schemars::Schema {
+    true.into()
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]

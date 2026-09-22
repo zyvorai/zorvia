@@ -90,9 +90,9 @@ pub fn filter_and_limit(
         filter
             .target
             .as_ref()
-            .map_or(true, |t| &r.resource_name == t)
-            && filter.min_severity.map_or(true, |s| r.severity >= s)
-            && filter.kind.map_or(true, |k| r.kind == k)
+            .is_none_or( |t| &r.resource_name == t)
+            && filter.min_severity.is_none_or( |s| r.severity >= s)
+            && filter.kind.is_none_or( |k| r.kind == k)
     });
     rows.sort_by(|a, b| b.timestamp.cmp(&a.timestamp));
     rows.truncate(limit);

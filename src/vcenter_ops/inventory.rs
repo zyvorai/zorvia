@@ -69,9 +69,9 @@ impl InventoryFilter {
     pub fn matches(&self, vm: &InventoryVm) -> bool {
         self.datacenter
             .as_ref()
-            .map_or(true, |v| v == &vm.datacenter)
-            && self.cluster.as_ref().map_or(true, |v| v == &vm.cluster)
-            && self.folder.as_ref().map_or(true, |v| v == &vm.folder)
+            .is_none_or( |v| v == &vm.datacenter)
+            && self.cluster.as_ref().is_none_or( |v| v == &vm.cluster)
+            && self.folder.as_ref().is_none_or( |v| v == &vm.folder)
     }
 }
 

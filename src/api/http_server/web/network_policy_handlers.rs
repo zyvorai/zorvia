@@ -68,8 +68,8 @@ fn policy_json(p: &NetworkPolicy) -> serde_json::Value {
     let spec = p.spec.clone().unwrap_or_default();
     let vm_name = spec
         .pod_selector
-        .match_labels
         .as_ref()
+        .and_then(|s| s.match_labels.as_ref())
         .and_then(|m| m.get(VM_POD_LABEL))
         .cloned();
     let ingress = rules_out(
@@ -209,7 +209,7 @@ pub async fn create_network_policy_handler(
             ..Default::default()
         },
         spec: Some(NetworkPolicySpec {
-            pod_selector,
+            pod_selector: Some(pod_selector),
             ingress: if ingress.is_empty() {
                 None
             } else {

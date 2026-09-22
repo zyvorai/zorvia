@@ -34,6 +34,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - **Broader dependency refresh** — Rust mid-risk bumps (dialoguer 0.12, indicatif 0.18, ratatui 0.30, rustyline 18, dirs 6, bcrypt 0.17, rusqlite 0.37, tokio-tungstenite 0.26) with WS/TUI adapters; web npm (vitest 5.0.1, eslint 10.11, lucide-react 1.47, react-router 8.4); website lockfile refresh. Deferred: kube/k8s-openapi, axum 0.8, secrecy 0.10, schemars/toml 1.x, TS 7.
 
+### Changed (follow-up)
+
+- **Full remaining Dependabot stack** — kube 2.0 + k8s-openapi 0.26 + schemars 1 + toml 1 + secrecy 0.10 + thiserror 2 + tokio-tungstenite 0.30; website TypeScript 7; deploy `ubuntu:26.04` + `alpine/openssl:3.5.8`; MSRV **1.85**.
+
 ## [0.3.3] - 2026-09-22
 
 ### Security

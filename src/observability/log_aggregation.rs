@@ -95,10 +95,10 @@ impl LogAggregator {
         self.entries
             .iter()
             .rev()
-            .filter(|e| source.map_or(true, |s| e.source == s))
-            .filter(|e| level.map_or(true, |l| e.level >= *l))
+            .filter(|e| source.is_none_or( |s| e.source == s))
+            .filter(|e| level.is_none_or( |l| e.level >= *l))
             .filter(|e| {
-                search.map_or(true, |s| {
+                search.is_none_or( |s| {
                     e.message.to_lowercase().contains(&s.to_lowercase())
                 })
             })

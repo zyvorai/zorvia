@@ -1377,7 +1377,11 @@ pub async fn handle_network_policies(
 
             // Extract pod selector labels (which select VMs in KubeVirt)
             if let Some(ref spec) = p.spec {
-                if let Some(ref labels) = spec.pod_selector.match_labels {
+                if let Some(labels) = spec
+                    .pod_selector
+                    .as_ref()
+                    .and_then(|s| s.match_labels.as_ref())
+                {
                     for (k, v) in labels {
                         selector = selector.with_label(k.clone(), v.clone());
                     }

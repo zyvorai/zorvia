@@ -60,7 +60,7 @@ ingress:
 tls:
   # In-pod self-signed cert via init container (lab). Disable when using Ingress TLS.
   inPod: true
-  initImage: alpine/openssl:3.3.2
+  initImage: alpine/openssl:3.5.8
 
 persistence:
   enabled: true

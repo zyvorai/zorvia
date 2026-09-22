@@ -250,7 +250,7 @@ _ssh "
 
     # Build/import local image for k3s (zorvia:local) when container tooling exists.
     # Prefer docker; fall back to podman (common on Ubuntu labs without docker).
-    # Use ubuntu:24.04 so host-built binaries (glibc 2.39+) run.
+    # Use ubuntu:26.04 so host-built binaries (glibc 2.39+) run.
     BUILDER=""
     if command -v docker >/dev/null 2>&1; then
         BUILDER=docker

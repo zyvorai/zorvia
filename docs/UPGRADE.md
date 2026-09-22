@@ -50,4 +50,4 @@ curl -sk https://<host>:30152/api/v1/auth/providers   # [] unless OIDC enabled
 
 ### Dependency bumps (0.3.3+)
 
-Mid-risk crates refreshed in-tree (dialoguer 0.12, indicatif 0.18, ratatui 0.30, rustyline 18, dirs 6, bcrypt 0.17, rusqlite 0.37, tokio-tungstenite 0.26). **Deferred:** kube/k8s-openapi pair, axum 0.8, secrecy 0.10, schemars 1.x, toml 1.x, tokio-tungstenite 0.30, TypeScript 7 (website). Web console npm deps aligned with current Dependabot tips (vitest 5.0.1, eslint 10.11, lucide-react 1.47, react-router 8.4).
+Mid-risk crates refreshed earlier (dialoguer 0.12, indicatif 0.18, ratatui 0.30, rustyline 18, dirs 6, bcrypt 0.17, rusqlite 0.37). **Follow-up:** kube **2.0** / k8s-openapi **0.26** / schemars **1** / toml **1** / secrecy **0.10** / thiserror **2** / tokio-tungstenite **0.30**; website TypeScript **7**; deploy images `ubuntu:26.04` and `alpine/openssl:3.5.8`. MSRV is now **Rust 1.85+**. Deferred still: axum 0.8, kube 3+/4.x.
