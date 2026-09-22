@@ -84,18 +84,39 @@ async fn run_election_loop() -> anyhow::Result<()> {
     }
 }
 
+fn format_k8s_micro_time(ts: k8s_openapi::jiff::Timestamp) -> String {
+    // Kubernetes MicroTime parsing expects RFC3339 with *exactly* 6 fractional
+    // digits (`.000000`). jiff's Display omits trailing zeros, which the
+    // apiserver rejects.
+    let s = ts.to_string();
+    let body = s.trim_end_matches('Z');
+    if let Some((date, frac)) = body.split_once('.') {
+        let mut digits: String = frac
+            .chars()
+            .filter(|c| c.is_ascii_digit())
+            .take(6)
+            .collect();
+        while digits.len() < 6 {
+            digits.push('0');
+        }
+        format!("{date}.{digits}Z")
+    } else {
+        format!("{body}.000000Z")
+    }
+}
+
+fn micro_now() -> k8s_openapi::jiff::Timestamp {
+    let t = k8s_openapi::jiff::Timestamp::now();
+    k8s_openapi::jiff::Timestamp::from_microsecond(t.as_microsecond()).unwrap_or(t)
+}
+
 async fn try_acquire_or_renew(
     api: &Api<Lease>,
     name: &str,
     identity: &str,
     lease_duration: Duration,
 ) -> anyhow::Result<bool> {
-    // Kubernetes MicroTime accepts at most microsecond precision; jiff's
-    // Timestamp::now() includes nanoseconds and the apiserver rejects them.
-    let now = {
-        let t = k8s_openapi::jiff::Timestamp::now();
-        k8s_openapi::jiff::Timestamp::from_microsecond(t.as_microsecond()).unwrap_or(t)
-    };
+    let now = micro_now();
     match api.get(name).await {
         Ok(existing) => {
             let holder = existing
@@ -114,16 +135,12 @@ async fn try_acquire_or_renew(
 
             if holder == identity || expired || holder.is_empty() {
                 let resource_version = existing.metadata.resource_version.clone();
-                let renew = now.to_string();
+                let renew = format_k8s_micro_time(now);
                 let acquire = existing
                     .spec
                     .as_ref()
                     .and_then(|s| s.acquire_time.as_ref())
-                    .map(|t| {
-                        k8s_openapi::jiff::Timestamp::from_microsecond(t.0.as_microsecond())
-                            .unwrap_or(t.0)
-                            .to_string()
-                    })
+                    .map(|t| format_k8s_micro_time(t.0))
                     .unwrap_or_else(|| renew.clone());
                 let patch = serde_json::json!({
                     "metadata": { "resourceVersion": resource_version },
