@@ -267,10 +267,10 @@ impl AuditTrail {
         self.entries
             .iter()
             .filter(|e| {
-                user.is_none_or( |u| e.user == u)
-                    && action.is_none_or( |a| e.action == *a)
-                    && namespace.is_none_or( |ns| e.namespace == ns)
-                    && min_severity.is_none_or( |s| e.severity >= *s)
+                user.is_none_or(|u| e.user == u)
+                    && action.is_none_or(|a| e.action == *a)
+                    && namespace.is_none_or(|ns| e.namespace == ns)
+                    && min_severity.is_none_or(|s| e.severity >= *s)
             })
             .collect()
     }

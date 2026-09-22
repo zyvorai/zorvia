@@ -67,11 +67,9 @@ pub struct InventoryFilter {
 
 impl InventoryFilter {
     pub fn matches(&self, vm: &InventoryVm) -> bool {
-        self.datacenter
-            .as_ref()
-            .is_none_or( |v| v == &vm.datacenter)
-            && self.cluster.as_ref().is_none_or( |v| v == &vm.cluster)
-            && self.folder.as_ref().is_none_or( |v| v == &vm.folder)
+        self.datacenter.as_ref().is_none_or(|v| v == &vm.datacenter)
+            && self.cluster.as_ref().is_none_or(|v| v == &vm.cluster)
+            && self.folder.as_ref().is_none_or(|v| v == &vm.folder)
     }
 }
 

@@ -212,8 +212,9 @@ pub fn build_default_router() -> Router {
     let mut blueprint_group = RouteGroup::new("blueprints", "/blueprints");
     blueprint_group.add_route(Route::new("GET", "", "list_blueprints"));
     blueprint_group.add_route(Route::new("GET", "/{name}", "get_blueprint"));
-    blueprint_group
-        .add_route(Route::new("POST", "/{name}/deploy", "deploy_blueprint").with_middleware("auth"));
+    blueprint_group.add_route(
+        Route::new("POST", "/{name}/deploy", "deploy_blueprint").with_middleware("auth"),
+    );
     router.add_group(blueprint_group);
 
     // Snapshot routes

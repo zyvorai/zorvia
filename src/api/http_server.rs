@@ -625,7 +625,10 @@ pub mod web {
                 delete(fabric_remove_port_forward),
             )
             .route("/vms/{name}/cloud-init", post(fabric_cloud_init))
-            .route("/vms/{name}/tags", put(fabric_set_tags).post(fabric_add_tag))
+            .route(
+                "/vms/{name}/tags",
+                put(fabric_set_tags).post(fabric_add_tag),
+            )
             .route("/vms/{name}/tags/{tag}", delete(fabric_remove_tag))
             .route("/vms/{name}/clone", post(fabric_clone_vm))
             .route(
@@ -2039,8 +2042,7 @@ pub mod web {
         let lp = kube::api::ListParams::default();
         match events_api.list(&lp).await {
             Ok(event_list) => {
-                let one_hour_ago_secs =
-                    k8s_openapi::jiff::Timestamp::now().as_second() - 3600;
+                let one_hour_ago_secs = k8s_openapi::jiff::Timestamp::now().as_second() - 3600;
                 let items: Vec<EventItem> = event_list
                     .items
                     .into_iter()

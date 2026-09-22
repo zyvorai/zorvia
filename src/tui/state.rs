@@ -136,8 +136,9 @@ impl VmInfo {
             .creation_timestamp
             .as_ref()
             .map(|created| {
-                let age_secs =
-                    (k8s_openapi::jiff::Timestamp::now().as_second() - created.0.as_second()).max(0);
+                let age_secs = (k8s_openapi::jiff::Timestamp::now().as_second()
+                    - created.0.as_second())
+                .max(0);
                 let days = age_secs / 86_400;
                 let hours = (age_secs % 86_400) / 3600;
                 let minutes = (age_secs % 3600) / 60;

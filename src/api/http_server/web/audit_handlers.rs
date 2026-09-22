@@ -89,19 +89,19 @@ pub async fn list_audit_logs_handler(
         .entries
         .iter()
         .filter(|e| {
-            q.user.as_deref().is_none_or( |v| e.user == v)
+            q.user.as_deref().is_none_or(|v| e.user == v)
                 && q.resource_type
                     .as_deref()
-                    .is_none_or( |v| e.resource_type == v)
+                    .is_none_or(|v| e.resource_type == v)
                 && q.resource_name
                     .as_deref()
-                    .is_none_or( |v| e.resource_name == v)
+                    .is_none_or(|v| e.resource_name == v)
                 && q.action
                     .as_deref()
-                    .is_none_or( |v| action_str(&e.action) == v)
+                    .is_none_or(|v| action_str(&e.action) == v)
                 && q.status
                     .as_deref()
-                    .is_none_or( |v| (v == "success") == e.success)
+                    .is_none_or(|v| (v == "success") == e.success)
         })
         .collect();
     // Newest first -- entries are recorded in chronological order.

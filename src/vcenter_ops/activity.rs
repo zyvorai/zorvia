@@ -87,12 +87,9 @@ pub fn filter_and_limit(
     limit: usize,
 ) -> Vec<ActivityRecord> {
     rows.retain(|r| {
-        filter
-            .target
-            .as_ref()
-            .is_none_or( |t| &r.resource_name == t)
-            && filter.min_severity.is_none_or( |s| r.severity >= s)
-            && filter.kind.is_none_or( |k| r.kind == k)
+        filter.target.as_ref().is_none_or(|t| &r.resource_name == t)
+            && filter.min_severity.is_none_or(|s| r.severity >= s)
+            && filter.kind.is_none_or(|k| r.kind == k)
     });
     rows.sort_by(|a, b| b.timestamp.cmp(&a.timestamp));
     rows.truncate(limit);
