@@ -89,7 +89,7 @@ spec:
         fsGroup: 10001
       initContainers:
         - name: gen-cert
-          image: alpine/openssl:3.3.2
+          image: alpine/openssl:3.5.8
           command: ["/bin/sh", "-c"]
           args:
             - |
