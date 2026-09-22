@@ -61,7 +61,7 @@ jsonwebtoken = { version = "9", optional = true }
 bcrypt = { version = "0.17", optional = true }
 rusqlite = { version = "0.37", features = ["bundled"], optional = true }
 uuid = { version = "1", features = ["v4"], optional = true }
-totp-rs = { version = "5.7", features = ["gen_secret", "otpauth"], optional = true }
+totp-rs = { version = "6.0", features = ["gen_secret", "otpauth"], optional = true }
 base64 = { version = "0.22", optional = true }
 sha2 = { version = "0.10", optional = true }
 subtle = { version = "2.6", optional = true }
