@@ -10,6 +10,21 @@ use ratatui::{
 };
 
 pub fn render(f: &mut Frame, area: Rect) {
+    if !crate::features::allow_non_ga("ai-troubleshoot") {
+        let msg = Paragraph::new(Line::from(vec![Span::styled(
+            "AI Troubleshooting is model-only. Set ZORVIA_EXPERIMENTAL=1 to open this demo.",
+            Style::default().fg(Color::Yellow),
+        )]))
+        .alignment(Alignment::Center)
+        .block(
+            Block::default()
+                .borders(Borders::ALL)
+                .title(" Feature gated "),
+        );
+        f.render_widget(msg, area);
+        return;
+    }
+
     let chunks = Layout::default()
         .direction(Direction::Vertical)
         .constraints([

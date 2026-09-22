@@ -321,7 +321,14 @@ pub fn handle_workflow_create(
     let mut workflow = if let Some(tmpl) = template {
         match tmpl.as_str() {
             "provisioning" => WorkflowTemplates::vm_provisioning(),
-            "disaster-recovery" => WorkflowTemplates::disaster_recovery(),
+            "disaster-recovery" => {
+                if !crate::features::allow_non_ga("dr-replication") {
+                    anyhow::bail!(
+                        "Disaster-recovery workflow is model-only. Set ZORVIA_EXPERIMENTAL=1 to exercise this demo."
+                    );
+                }
+                WorkflowTemplates::disaster_recovery()
+            }
             "maintenance" => WorkflowTemplates::maintenance(),
             _ => Workflow::new(&name),
         }
@@ -346,7 +353,14 @@ pub fn handle_workflow_get(workflow: String, output: String) -> Result<()> {
 
     let wf = match workflow.as_str() {
         "vm-provisioning" | "vm_provisioning" => WorkflowTemplates::vm_provisioning(),
-        "disaster-recovery" | "disaster_recovery" => WorkflowTemplates::disaster_recovery(),
+        "disaster-recovery" | "disaster_recovery" => {
+            if !crate::features::allow_non_ga("dr-replication") {
+                anyhow::bail!(
+                    "Disaster-recovery workflow is model-only. Set ZORVIA_EXPERIMENTAL=1 to exercise this demo."
+                );
+            }
+            WorkflowTemplates::disaster_recovery()
+        }
         "maintenance" => WorkflowTemplates::maintenance(),
         _ => {
             println!("Workflow '{}' not found", workflow);
@@ -379,7 +393,14 @@ pub fn handle_workflow_run(workflow: String, _watch: bool) -> Result<()> {
 
     let wf = match workflow.as_str() {
         "vm-provisioning" | "vm_provisioning" => WorkflowTemplates::vm_provisioning(),
-        "disaster-recovery" | "disaster_recovery" => WorkflowTemplates::disaster_recovery(),
+        "disaster-recovery" | "disaster_recovery" => {
+            if !crate::features::allow_non_ga("dr-replication") {
+                anyhow::bail!(
+                    "Disaster-recovery workflow is model-only. Set ZORVIA_EXPERIMENTAL=1 to exercise this demo."
+                );
+            }
+            WorkflowTemplates::disaster_recovery()
+        }
         "maintenance" => WorkflowTemplates::maintenance(),
         other => {
             return Err(anyhow::anyhow!(

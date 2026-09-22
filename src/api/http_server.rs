@@ -388,6 +388,7 @@ pub mod web {
                 | "/api/metrics"
                 | "/api/v1/auth/login"
                 | "/api/v1/auth/providers"
+                | "/api/v1/features"
                 | "/api/v1/instance"
                 | "/api/instance"
         ) || path.starts_with("/api/v1/auth/oidc/")
@@ -827,6 +828,7 @@ pub mod web {
                 delete(kryton_delete_snapshot),
             )
             .route("/v1/health", get(health_handler))
+            .route("/v1/features", get(features_registry_handler))
             .fallback(fabric_not_implemented)
             .layer(TimeoutLayer::with_status_code(
                 StatusCode::REQUEST_TIMEOUT,
@@ -2139,6 +2141,10 @@ pub mod web {
             "service": "zorvia-api"
         });
         ok_json(&ApiResponse::success(&health, &ctx.request_id))
+    }
+
+    async fn features_registry_handler() -> impl IntoResponse {
+        Json(crate::features::registry_json())
     }
 
     // ── Types ──────────────────────────────────────────────────────

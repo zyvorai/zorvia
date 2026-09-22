@@ -495,18 +495,21 @@ Architecture notes: [DEVELOPMENT.md](DEVELOPMENT.md).
 
 ## Roadmap
 
-Everything documented above is real and wired end-to-end today — this section
-is the honest opposite: capabilities that need genuinely new infrastructure,
-not just a route added to something that already exists, so they're not
-shipped yet.
+See **[docs/FEATURE_MATURITY.md](docs/FEATURE_MATURITY.md)** for GA / Beta / Experimental / Model-only.
+Only **GA** and documented **Beta** paths are production promises. Query
+`GET /api/v1/features` on a running API for the live registry.
+
+Capabilities that need genuinely new infrastructure (not yet shipped):
 
 | Area | What's planned | Why it's not here yet |
 |------|-----------------|------------------------|
-| Disaster recovery | Site failover, cross-site replication | Needs a real DR/replication engine, not just an API surface |
+| Disaster recovery | Site failover, cross-site replication | Needs a real DR/replication engine (`dr-replication` is model-only) |
 | Certificates & encryption | Cert lifecycle, disk/volume encryption (KMS) | Needs PKI and key-management integration from scratch |
 | Image upload / convert | Upload a disk image from your browser, format conversion | Needs a CDI upload-proxy client (TLS, multipart streaming) |
 | Autoscaling | Policy-driven automatic VM scaling | Policy engine exists; needs an execution loop against real load |
 | Datacenters & resource pools | vCenter-style hierarchical grouping | No equivalent Kubernetes primitive to build on yet |
+| Enterprise SSO | OIDC/SAML with PKCE + JWKS | Unsafe OIDC removed in 0.3.3; secure path tracked as experimental |
+| S3 immutable backup / Transiva / GPU-NUMA | See Phase 5 | [docs/PHASE5_ENTERPRISE.md](docs/PHASE5_ENTERPRISE.md) |
 
 If one of these is a blocker for adopting Zorvia in your environment, that's
 exactly the kind of thing worth a conversation — [reach out](#get-involved)

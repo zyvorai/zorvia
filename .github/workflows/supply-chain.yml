@@ -1,0 +1,67 @@
+# Supply-chain / security scanning (Phase 3)
+name: Supply chain
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  schedule:
+    - cron: "0 6 * * 1"
+
+permissions:
+  contents: read
+
+jobs:
+  rust-audit:
+    name: cargo audit + deny
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Install cargo-audit
+        run: cargo install cargo-audit --locked
+      - name: Install cargo-deny
+        run: cargo install cargo-deny --locked
+      - name: cargo audit
+        run: cargo audit
+        continue-on-error: true
+      - name: cargo deny
+        run: cargo deny check
+        continue-on-error: true
+
+  sbom:
+    name: CycloneDX SBOM
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Install cyclonedx-cargo
+        run: cargo install cyclonedx-bom --locked || cargo install cargo-cyclonedx --locked
+      - name: Generate SBOM
+        run: |
+          if command -v cyclonedx-bom >/dev/null; then
+            cyclonedx-bom --input-type cargo --input-file Cargo.lock --output-format json --output-file zorvia.cdx.json || true
+          else
+            cargo cyclonedx -f json --all 2>/dev/null || cargo cyclonedx 2>/dev/null || true
+          fi
+          ls -la *.cdx.json *.json 2>/dev/null || echo "SBOM tool best-effort"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: sbom
+          path: |
+            *.cdx.json
+            **/bom.json
+          if-no-files-found: ignore
+
+  gitleaks:
+    name: Secret scan
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        continue-on-error: true

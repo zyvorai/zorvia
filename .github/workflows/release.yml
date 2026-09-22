@@ -13,6 +13,7 @@ env:
 permissions:
   contents: write
   packages: write
+  id-token: write
 
 jobs:
   test:
@@ -96,14 +97,42 @@ jobs:
         id: version
         run: echo "version=${GITHUB_REF_NAME#v}" >> $GITHUB_OUTPUT
 
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
       - name: Build and push
+        id: push
         uses: docker/build-push-action@v5
         with:
           context: .
           push: true
+          provenance: true
+          sbom: true
           tags: |
             ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.version.outputs.version }}
             ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
+
+      - name: Write image digest
+        run: |
+          echo "${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}@${{ steps.push.outputs.digest }}" > image-digest.txt
+          cat image-digest.txt
+
+      - name: Upload digest artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: image-digest
+          path: image-digest.txt
+
+      - name: Install cosign
+        uses: sigstore/cosign-installer@v3
+        continue-on-error: true
+
+      - name: Cosign sign image (keyless)
+        continue-on-error: true
+        env:
+          COSIGN_YES: "true"
+        run: |
+          cosign sign --yes ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}@${{ steps.push.outputs.digest }}
 
   release:
     name: GitHub Release
@@ -117,6 +146,18 @@ jobs:
         with:
           path: dist
 
+      - name: Checksums
+        run: |
+          find dist -type f -name 'zorvia-*' -print0 | sort -z | xargs -0 sha256sum | tee SHA256SUMS
+          cat SHA256SUMS
+
+      - name: Download image digest
+        uses: actions/download-artifact@v4
+        with:
+          name: image-digest
+          path: .
+        continue-on-error: true
+
       - name: Create release
         uses: softprops/action-gh-release@v2
         with:
@@ -126,3 +167,5 @@ jobs:
             dist/zorvia-linux-arm64/zorvia-linux-arm64
             dist/zorvia-darwin-amd64/zorvia-darwin-amd64
             dist/zorvia-darwin-arm64/zorvia-darwin-arm64
+            SHA256SUMS
+            image-digest.txt

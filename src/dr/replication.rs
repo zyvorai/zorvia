@@ -146,10 +146,23 @@ pub struct ReplicationManager {
 }
 
 impl ReplicationManager {
+    /// Unchecked constructor for unit tests and internal model use.
     pub fn new() -> Self {
         Self {
             pairs: HashMap::new(),
         }
+    }
+
+    /// Operator-facing constructor — refuses unless `ZORVIA_EXPERIMENTAL=1`
+    /// (feature `dr-replication` is model-only).
+    pub fn try_new() -> Result<Self, String> {
+        if !crate::features::allow_non_ga("dr-replication") {
+            return Err(
+                "DR replication is model-only. Set ZORVIA_EXPERIMENTAL=1 to exercise this demo."
+                    .into(),
+            );
+        }
+        Ok(Self::new())
     }
 
     pub fn add_pair(&mut self, pair: ReplicationPair) -> String {
@@ -200,6 +213,14 @@ impl Default for ReplicationManager {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn try_new_blocked_without_experimental() {
+        if crate::features::experimental_enabled() {
+            return;
+        }
+        assert!(ReplicationManager::try_new().is_err());
+    }
 
     #[test]
     fn test_replication_mode_display() {

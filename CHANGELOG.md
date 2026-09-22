@@ -9,6 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Feature maturity registry** — `GET /api/v1/features` and `docs/FEATURE_MATURITY.md` (GA / Beta / Experimental / Model-only). Model-only surfaces (`ai-troubleshoot`, `dr-replication`) require `ZORVIA_EXPERIMENTAL=1`.
+- **Phase 5 enterprise scaffolds** — env flags in `docs/PHASE5_ENTERPRISE.md` (`ZORVIA_FEATURE_*`); no production implementations yet.
+- **Supply-chain CI** — Dependabot, CODEOWNERS, `deny.toml`, `.github/workflows/supply-chain.yml` (audit/deny/SBOM/gitleaks).
+- **E2E skeletons** — Playwright console smoke (`web/e2e`) and kind/KubeVirt workflow stubs.
+- **Release hardening** — GHCR image digests, optional cosign keyless sign, `SHA256SUMS` on GitHub Releases; Helm `image.digest` pinning for production.
+- **Upgrade guide** — `docs/UPGRADE.md` for 0.3.2 → 0.3.3+.
 - **Helm chart** (`charts/zorvia`) with `values-lab.yaml` and `values-production.yaml`: Ingress/cert-manager hooks, PDB, NetworkPolicy, topology spread, namespace-scoped RBAC mode, optional Rook bootstrap SA, Lease RBAC for scheduler leader election.
 - **Persistent audit trail** — SQLite at `ZORVIA_AUDIT_DB` (default alongside auth.db) survives restarts.
 - **Scheduler leader election** — Kubernetes Lease (`ZORVIA_LEADER_ELECTION=1`) so only one API replica runs backup/power/alert/warm-pool loops.
