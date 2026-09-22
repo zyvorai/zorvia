@@ -416,6 +416,10 @@ zorvia placement-advisor --cpu 2 --memory-gib 4
 | Change plans | [docs/CHANGE_PLANNER.md](docs/CHANGE_PLANNER.md) |
 | Guest insight | [docs/GUEST_INSIGHT.md](docs/GUEST_INSIGHT.md) |
 | Golden images | [docs/GOLDEN_IMAGES.md](docs/GOLDEN_IMAGES.md) |
+| OIDC SSO | [docs/OIDC.md](docs/OIDC.md) |
+| Feature maturity | [docs/FEATURE_MATURITY.md](docs/FEATURE_MATURITY.md) |
+| Enterprise plans | [docs/PHASE5_ENTERPRISE.md](docs/PHASE5_ENTERPRISE.md) |
+| Upgrade | [docs/UPGRADE.md](docs/UPGRADE.md) |
 | Terraform | [docs/TERRAFORM.md](docs/TERRAFORM.md) |
 | Kryton | [docs/KRYTON_INTEGRATION.md](docs/KRYTON_INTEGRATION.md) |
 | Inventory | [docs/VCENTER_FEATURE_MATRIX.md](docs/VCENTER_FEATURE_MATRIX.md) |

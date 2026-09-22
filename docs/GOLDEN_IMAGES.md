@@ -138,3 +138,16 @@ kubectl apply -f fixtures/golden-images/out/
 2. Validate the imported PVC with a disposable VM.
 3. Apply the stable `DataSource` alias only after validation succeeds.
 4. Keep the previous versioned PVC until rollback retention expires.
+
+### Phase 5 pipeline plan (experimental)
+
+For a dry-run build → scan → sign → promote plan (does not run scanners or cosign):
+
+```bash
+# Requires ZORVIA_EXPERIMENTAL=1 and ZORVIA_FEATURE_GOLDEN_PIPELINE=1 on the API
+curl -sk -X POST -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' \
+  -d '{"image_name":"ubuntu-golden","version":"24.04","namespace":"default"}' \
+  https://HOST:30152/api/v1/enterprise/golden-pipeline/plan
+```
+
+See [PHASE5_ENTERPRISE.md](PHASE5_ENTERPRISE.md).

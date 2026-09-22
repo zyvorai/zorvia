@@ -68,11 +68,23 @@ zorvia clone source target       # Clone VM
 open https://HOST:30152/app/create
 open https://HOST:30152/app/vms/myvm/console
 
-# Auth + list
+# Auth + list (lab password may be random — see Secret zorvia-auth)
 curl -sk -X POST https://HOST:30152/api/v1/auth/login \
   -H 'Content-Type: application/json' \
-  -d '{"username":"admin","password":"Admin@321"}'
+  -d '{"username":"admin","password":"YOUR_PASSWORD"}'
+TOKEN=$(… | jq -r .token)
 curl -sk -H "Authorization: Bearer $TOKEN" https://HOST:30152/api/vms
+
+# Feature maturity registry
+curl -sk https://HOST:30152/api/v1/features | jq .
+
+# OIDC providers (empty unless ZORVIA_OIDC_ENABLED=1 — docs/OIDC.md)
+curl -sk https://HOST:30152/api/v1/auth/providers
+
+# Phase 5 enterprise plans need ZORVIA_EXPERIMENTAL=1 + ZORVIA_FEATURE_* (docs/PHASE5_ENTERPRISE.md)
+curl -sk -X POST -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' \
+  -d '{"vm_name":"app","snapshot_name":"s1","bucket":"b"}' \
+  https://HOST:30152/api/v1/enterprise/s3-backup/plan
 
 # Power
 curl -sk -X POST -H "Authorization: Bearer $TOKEN" \

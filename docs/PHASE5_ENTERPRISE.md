@@ -1,7 +1,13 @@
 # Phase 5 — Enterprise capabilities
 
-Tracked in [FEATURE_MATURITY.md](FEATURE_MATURITY.md). All require
-`ZORVIA_EXPERIMENTAL=1` **and** the per-capability flag.
+Tracked in [FEATURE_MATURITY.md](FEATURE_MATURITY.md). All Phase 5 endpoints require:
+
+1. `ZORVIA_EXPERIMENTAL=1`
+2. The per-capability `ZORVIA_FEATURE_*=1` flag
+3. An authenticated caller with **`cluster.admin`** (admin JWT or scoped token)
+
+Responses are **dry-run plans** (JSON intent). They do not upload to S3, call
+vCenter/Transiva, or mutate remote clusters yet.
 
 | Capability | Env flag | API |
 |------------|----------|-----|
@@ -12,21 +18,98 @@ Tracked in [FEATURE_MATURITY.md](FEATURE_MATURITY.md). All require
 | GPU/SR-IOV/NUMA | `ZORVIA_FEATURE_GPU_NUMA=1` | `POST /api/v1/enterprise/placement/gpu-numa` |
 | Fleet multi-cluster | `ZORVIA_FEATURE_FLEET=1` | `GET /api/v1/enterprise/fleet` |
 
-Plans are **dry-run / documentation of intent**. They do not upload to S3, talk to
-vCenter, or mutate remote clusters yet. Admin RBAC (`cluster.admin`) is required.
+Implementation module: `src/enterprise/mod.rs`. Live registry: `GET /api/v1/features`.
 
-## OIDC (Beta)
-
-Secure OIDC is separate from Phase 5 flags:
+## Example requests
 
 ```bash
-export ZORVIA_OIDC_ENABLED=1
-export ZORVIA_OIDC_ISSUER=https://idp.example.com
-export ZORVIA_OIDC_CLIENT_ID=...
-export ZORVIA_OIDC_CLIENT_SECRET=...
-export ZORVIA_OIDC_REDIRECT_URI=https://zorvia.example.com/api/v1/auth/oidc/callback
-# optional: ZORVIA_OIDC_NAME ZORVIA_OIDC_SCOPES
+TOKEN=$(curl -sk -X POST https://HOST:30152/api/v1/auth/login \
+  -H 'Content-Type: application/json' \
+  -d '{"username":"admin","password":"…"}' | jq -r .token)
+
+# Without flags → 403 feature_disabled
+curl -sk -X POST https://HOST:30152/api/v1/enterprise/s3-backup/plan \
+  -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' \
+  -d '{"vm_name":"app","snapshot_name":"snap-1","bucket":"zorvia-backups","region":"us-east-1","retention_days":30}'
+
+# With ZORVIA_EXPERIMENTAL=1 and ZORVIA_FEATURE_S3_BACKUP=1 on the API pod → 200 plan
 ```
 
-Flow: discovery → PKCE authorize → code exchange → JWKS `id_token` verify
-(iss/aud/nonce/exp) → JIT local user (`oidc:<sub>`) → mint Zorvia JWT.
+### Bodies
+
+**S3 backup plan**
+
+```json
+{
+  "vm_name": "app",
+  "snapshot_name": "snap-1",
+  "bucket": "zorvia-backups",
+  "region": "us-east-1",
+  "prefix": "prod",
+  "retention_days": 30
+}
+```
+
+**Transiva plan**
+
+```json
+{
+  "source_vm": "win-sql",
+  "vcenter_endpoint": "https://vcenter.example.com",
+  "target_namespace": "migrated"
+}
+```
+
+**Golden pipeline plan**
+
+```json
+{
+  "image_name": "ubuntu-golden",
+  "version": "24.04-20260922",
+  "namespace": "default"
+}
+```
+
+**Cross-cluster DR plan**
+
+```json
+{
+  "source_cluster": "dc1",
+  "target_cluster": "dc2",
+  "vm_names": ["app", "db"],
+  "rpo_seconds": 300
+}
+```
+
+**GPU / SR-IOV / NUMA plan**
+
+```json
+{
+  "vm_name": "ml-worker",
+  "gpu_count": 1,
+  "sriov_networks": ["sriov-net"],
+  "numa_passthrough": true
+}
+```
+
+**Fleet inventory** — `GET /api/v1/enterprise/fleet` (no body); returns an empty
+cluster list until multi-kubeconfig discovery is configured.
+
+## Enabling on a lab Deployment
+
+```yaml
+env:
+  - name: ZORVIA_EXPERIMENTAL
+    value: "1"
+  - name: ZORVIA_FEATURE_S3_BACKUP
+    value: "1"
+  # add other ZORVIA_FEATURE_* as needed
+```
+
+Do **not** leave `ZORVIA_EXPERIMENTAL=1` on production clusters.
+
+## Related
+
+- CDI golden images (shipping today): [GOLDEN_IMAGES.md](GOLDEN_IMAGES.md)
+- OIDC SSO (separate from Phase 5 flags): [OIDC.md](OIDC.md)
+- Roadmap wording: root [README.md](../README.md)

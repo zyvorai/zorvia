@@ -9,12 +9,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- **Secure OIDC (Beta)** — opt-in with `ZORVIA_OIDC_ENABLED=1`: OpenID discovery, PKCE S256, authorization-code token exchange, JWKS-verified `id_token` (iss/aud/nonce/exp), JIT local user (`oidc:<sub>`), then mint a normal Zorvia JWT with `token_version` revocation.
-- **Phase 5 enterprise plan APIs** — gated by `ZORVIA_EXPERIMENTAL=1` + `ZORVIA_FEATURE_*`: S3 immutable backup, Transiva, golden pipeline, cross-cluster DR, GPU/NUMA placement, fleet inventory (`/api/v1/enterprise/...`). Dry-run plans only; admin RBAC required.
+- **Secure OIDC (Beta)** — opt-in with `ZORVIA_OIDC_ENABLED=1`: OpenID discovery, PKCE S256, authorization-code token exchange, JWKS-verified `id_token` (iss/aud/nonce/exp), JIT local user (`oidc:<sub>`), then mint a normal Zorvia JWT with `token_version` revocation. Docs: [docs/OIDC.md](docs/OIDC.md).
+- **Phase 5 enterprise plan APIs** — gated by `ZORVIA_EXPERIMENTAL=1` + `ZORVIA_FEATURE_*`: S3 immutable backup, Transiva, golden pipeline, cross-cluster DR, GPU/NUMA placement, fleet inventory (`/api/v1/enterprise/...`). Dry-run plans only; admin RBAC required. Docs: [docs/PHASE5_ENTERPRISE.md](docs/PHASE5_ENTERPRISE.md).
 - **Expanded GitHub CI** — Helm lint/template, ShellCheck, actionlint, Hadolint, typos, kubeconform, CodeQL, Scorecard, Trivy, Semgrep, coverage, MSRV, nightly, rustdoc, feature matrix, Docker on PRs, dependency-review, PR labeler/stale/title lint, lockfile checks, license/docs gates, security-secret scan, web/website dedicated workflows.
 - **CI hardening follow-ups** — remote deploy generates random lab auth secrets (no fixed JWT/password in tree); Playwright config valid for ESLint; Scorecard/Trivy action pins fixed.
 - **Feature maturity registry** — `GET /api/v1/features` and `docs/FEATURE_MATURITY.md` (GA / Beta / Experimental / Model-only). Model-only surfaces (`ai-troubleshoot`, `dr-replication`) require `ZORVIA_EXPERIMENTAL=1`.
-- **Phase 5 enterprise scaffolds** — env flags in `docs/PHASE5_ENTERPRISE.md` (`ZORVIA_FEATURE_*`); no production implementations yet.
 - **Supply-chain CI** — Dependabot, CODEOWNERS, `deny.toml`, `.github/workflows/supply-chain.yml` (audit/deny/SBOM/gitleaks).
 - **E2E skeletons** — Playwright console smoke (`web/e2e`) and kind/KubeVirt workflow stubs.
 - **Release hardening** — GHCR image digests, optional cosign keyless sign, `SHA256SUMS` on GitHub Releases; Helm `image.digest` pinning for production.

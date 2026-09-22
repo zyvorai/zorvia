@@ -152,7 +152,7 @@ src/
 
 ### API & Interface
 - [x] REST API server with OpenAPI spec
-- [x] API key + JWT login (TOTP/OIDC/PAM hooks)
+- [x] API key + JWT login (TOTP / PAM / opt-in OIDC with PKCE+JWKS — `docs/OIDC.md`)
 - [x] Fabric-compatible `/api/vms` create, power, port-forwards, cloud-init, clone, snapshots, hotplug, disk resize, migration
 - [x] `/api/vms` create accepts the full CLI `VMConfig` surface (firmware, CPU model, hugepages, TPM/RNG, HyperV, multiple disks/NICs), not just the single-disk/NIC wizard defaults
 - [x] Web SPA (`web/`) — Dashboard, VMs, Create VM (Linux + Kryton Windows), Console (serial+VNC+SSH), Snapshots, Migrations, Storage (Rook-Ceph)

@@ -10,12 +10,27 @@ Sign-in: https://<HOST>:30152/sign-in
 Health:  https://<HOST>:30152/api/v1/health
 ```
 
-Default lab bootstrap (only when `ZORVIA_LAB_MODE=1`): `admin` / `Admin@321`.
-Outside lab mode the API refuses those known defaults — create credentials with
+Default lab bootstrap (only when `ZORVIA_LAB_MODE=1`): historically
+`admin` / `Admin@321`. Fresh remote deploys that create `zorvia-auth` now mint
+**random** admin passwords (printed once in deploy logs) — read them from the
+Secret if needed:
+
+```bash
+kubectl -n zorvia-system get secret zorvia-auth -o jsonpath='{.data.admin-password}' | base64 -d; echo
+```
+
+Outside lab mode the API refuses known lab defaults — create credentials with
 `./scripts/create-auth-secret.sh` before applying manifests. The user database
 (`ZORVIA_AUTH_DB`, sqlite) lives on a `PersistentVolumeClaim` (`zorvia-auth-data`
 in `deploy/k8s.yaml`), so accounts created after bootstrap survive pod restarts
-and redeploys. OIDC is disabled in 0.3.3 pending a secure implementation.
+and redeploys.
+
+**OIDC (Beta)** is opt-in — see [OIDC.md](OIDC.md). Without `ZORVIA_OIDC_ENABLED=1`,
+`/api/v1/auth/providers` is empty and password login remains the only path.
+
+**Feature maturity** — `GET /api/v1/features` lists GA / Beta / Experimental /
+Model-only capabilities ([FEATURE_MATURITY.md](FEATURE_MATURITY.md)). Phase 5
+enterprise plan APIs are documented in [PHASE5_ENTERPRISE.md](PHASE5_ENTERPRISE.md).
 
 Deploy:
 
@@ -35,6 +50,9 @@ Useful env on the API pod:
 | `ZORVIA_JWT_SECRET` | JWT signing secret |
 | `ZORVIA_ADMIN_USER` / `ZORVIA_ADMIN_PASSWORD` | Bootstrap admin |
 | `ZORVIA_AUTH_DB` | Path to the sqlite user database (default `/data/auth.db` in the deploy manifest, backed by a PVC) |
+| `ZORVIA_LAB_MODE` | `1` to allow lab defaults / shared API key |
+| `ZORVIA_OIDC_*` | Opt-in SSO — see [OIDC.md](OIDC.md) |
+| `ZORVIA_EXPERIMENTAL` / `ZORVIA_FEATURE_*` | Phase 5 plan APIs — see [PHASE5_ENTERPRISE.md](PHASE5_ENTERPRISE.md) |
 
 ## SPA routes (Core)
 

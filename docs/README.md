@@ -5,6 +5,10 @@
 | Doc | Topic |
 |-----|--------|
 | [WEB_CONSOLE.md](WEB_CONSOLE.md) | SPA, Fabric HTTP API, console/VNC/SSH WebSockets, NodePort expose, hotplug, migration, Rook-Ceph storage, user & role management |
+| [OIDC.md](OIDC.md) | Opt-in OIDC SSO (PKCE + token exchange + JWKS) |
+| [FEATURE_MATURITY.md](FEATURE_MATURITY.md) | GA / Beta / Experimental / Model-only registry (`GET /api/v1/features`) |
+| [PHASE5_ENTERPRISE.md](PHASE5_ENTERPRISE.md) | Enterprise plan APIs (S3, Transiva, DR, GPU, fleet) |
+| [UPGRADE.md](UPGRADE.md) | 0.3.2 → 0.3.3+ operator notes |
 | [OS_TEMPLATES.md](OS_TEMPLATES.md) | 43 OS templates |
 | [INNOVATIVE_FEATURES.md](INNOVATIVE_FEATURES.md) | Profiles, blueprints, health, recommendations |
 | [THEME.md](THEME.md) | CLI/TUI theme |
@@ -56,6 +60,7 @@ Also see root [README.md](../README.md), [QUICK_REFERENCE.md](../QUICK_REFERENCE
 ```text
 https://<HOST>:30152/          # Zorvia UI (NodePort)
 https://<HOST>:30152/api/v1/health
+https://<HOST>:30152/api/v1/features
 ./scripts/deploy-remote.sh <host> sus --quick
 make deploy-remote H=<host> U=sus ARGS=--quick
 ```

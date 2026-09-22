@@ -27,8 +27,18 @@
 ```bash
 curl -sk https://<host>:30152/api/v1/health
 curl -sk https://<host>:30152/api/v1/features | jq .
+curl -sk https://<host>:30152/api/v1/auth/providers   # [] unless OIDC enabled
 # Viewer must get 403 on POST /api/vms
+# Enterprise plans return 403 without ZORVIA_EXPERIMENTAL + ZORVIA_FEATURE_*
 ```
+
+### New optional surfaces (0.3.3+)
+
+| Surface | How to enable | Docs |
+|---------|---------------|------|
+| OIDC SSO | `ZORVIA_OIDC_ENABLED=1` + issuer/client/secret/redirect | [OIDC.md](OIDC.md) |
+| Enterprise plan APIs | `ZORVIA_EXPERIMENTAL=1` + `ZORVIA_FEATURE_*` | [PHASE5_ENTERPRISE.md](PHASE5_ENTERPRISE.md) |
+| Feature registry | always on | [FEATURE_MATURITY.md](FEATURE_MATURITY.md) |
 
 ### Matrix
 
