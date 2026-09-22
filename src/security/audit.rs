@@ -28,8 +28,8 @@ impl AuditEvent {
         action: impl Into<String>,
     ) -> Self {
         let event_id = {
-            use rand::Rng;
-            let random: u32 = rand::thread_rng().gen();
+            use rand::RngExt;
+            let random: u32 = rand::rng().random();
             format!("evt-{}-{:08x}", Utc::now().format("%Y%m%d-%H%M%S"), random)
         };
         Self {
@@ -182,8 +182,8 @@ pub struct AuditLog {
 impl AuditLog {
     pub fn new(vm_name: Option<String>) -> Self {
         let log_id = {
-            use rand::Rng;
-            let random: u16 = rand::thread_rng().gen();
+            use rand::RngExt;
+            let random: u16 = rand::rng().random();
             format!(
                 "log-{}-{:04x}",
                 Utc::now().format("%Y%m%d-%H%M%S%f"),

@@ -178,8 +178,8 @@ pub fn random_urlsafe(nbytes: usize) -> String {
 }
 
 fn getrandom_fill(buf: &mut [u8]) {
-    use rand::RngCore;
-    rand::thread_rng().fill_bytes(buf);
+    use rand::Rng;
+    rand::rng().fill_bytes(buf);
 }
 
 pub fn pkce_challenge_s256(verifier: &str) -> String {

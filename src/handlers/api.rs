@@ -366,8 +366,8 @@ pub fn handle_api_key_create(
         .collect();
 
     // Generate a cryptographically random API key
-    use rand::Rng;
-    let random_bytes: Vec<u8> = (0..32).map(|_| rand::thread_rng().gen::<u8>()).collect();
+    use rand::RngExt;
+    let random_bytes: Vec<u8> = (0..32).map(|_| rand::rng().random::<u8>()).collect();
     let key_hash: String = random_bytes.iter().map(|b| format!("{:02x}", b)).collect();
 
     let mut key = ApiKey::new(&name, key_hash.clone()).with_permissions(perms.clone());

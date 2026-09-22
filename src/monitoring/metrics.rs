@@ -292,15 +292,15 @@ impl MetricsCollector {
         total_memory_bytes: u64,
         total_disk_bytes: u64,
     ) -> VMMetrics {
-        use rand::Rng;
-        let mut rng = rand::thread_rng();
+        use rand::RngExt;
+        let mut rng = rand::rng();
 
-        let cpu_usage: f64 = rng.gen_range(30.0..85.0);
+        let cpu_usage: f64 = rng.random_range(30.0..85.0);
         let system_upper = cpu_usage.clamp(6.0, 15.0); // Ensure range is at least 5.0..6.0
-        let system_pct: f64 = rng.gen_range(5.0..system_upper);
+        let system_pct: f64 = rng.random_range(5.0..system_upper);
         let user_pct: f64 = cpu_usage - system_pct;
-        let mem_usage: f64 = rng.gen_range(50.0..80.0);
-        let disk_usage: f64 = rng.gen_range(40.0..75.0);
+        let mem_usage: f64 = rng.random_range(50.0..80.0);
+        let disk_usage: f64 = rng.random_range(40.0..75.0);
 
         let used_memory = (total_memory_bytes as f64 * mem_usage / 100.0) as u64;
         let used_disk = (total_disk_bytes as f64 * disk_usage / 100.0) as u64;
@@ -320,23 +320,23 @@ impl MetricsCollector {
                 used_bytes: used_memory,
                 available_bytes: total_memory_bytes - used_memory,
                 total_bytes: total_memory_bytes,
-                cache_bytes: rng.gen_range(500_000_000..2_000_000_000),
-                swap_used_bytes: rng.gen_range(0..500_000_000),
+                cache_bytes: rng.random_range(500_000_000..2_000_000_000),
+                swap_used_bytes: rng.random_range(0..500_000_000),
             },
             disk: DiskMetrics {
-                read_bytes_per_sec: rng.gen_range(5_000_000..50_000_000),
-                write_bytes_per_sec: rng.gen_range(2_000_000..20_000_000),
-                read_ops_per_sec: rng.gen_range(100..1000),
-                write_ops_per_sec: rng.gen_range(50..500),
+                read_bytes_per_sec: rng.random_range(5_000_000..50_000_000),
+                write_bytes_per_sec: rng.random_range(2_000_000..20_000_000),
+                read_ops_per_sec: rng.random_range(100..1000),
+                write_ops_per_sec: rng.random_range(50..500),
                 usage_percent: disk_usage,
                 used_bytes: used_disk,
                 total_bytes: total_disk_bytes,
             },
             network: NetworkMetrics {
-                rx_bytes_per_sec: rng.gen_range(500_000..5_000_000),
-                tx_bytes_per_sec: rng.gen_range(1_000_000..8_000_000),
-                rx_packets_per_sec: rng.gen_range(500..5000),
-                tx_packets_per_sec: rng.gen_range(800..6000),
+                rx_bytes_per_sec: rng.random_range(500_000..5_000_000),
+                tx_bytes_per_sec: rng.random_range(1_000_000..8_000_000),
+                rx_packets_per_sec: rng.random_range(500..5000),
+                tx_packets_per_sec: rng.random_range(800..6000),
                 rx_errors: 0,
                 tx_errors: 0,
             },
