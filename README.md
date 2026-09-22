@@ -2,20 +2,36 @@
 
 [![CI](https://github.com/zyvorai/zorvia/actions/workflows/ci.yml/badge.svg)](https://github.com/zyvorai/zorvia/actions)
 [![License: Apache 2.0](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](LICENSE)
-[![Rust 1.89+](https://img.shields.io/badge/rust-1.89%2B-orange.svg)](https://www.rust-lang.org/)
+[![Version](https://img.shields.io/github/v/release/zyvorai/zorvia?label=version&color=informational)](CHANGELOG.md)
 [![KubeVirt-native](https://img.shields.io/badge/KubeVirt-native-6d28d9.svg)](https://kubevirt.io/)
-[![Tests](https://img.shields.io/badge/tests-2500%2B%20passing-brightgreen.svg)](CHANGELOG.md)
+[![Rust 1.89+](https://img.shields.io/badge/rust-1.89%2B-orange.svg)](https://www.rust-lang.org/)
 
 ![Zorvia — KubeVirt VM platform](docs/social/zorvia-share-card.png)
 
 **The control plane for KubeVirt VMs.**
 
-Zorvia is how you create, operate, and govern Kubernetes VMs end to end — CLI, interactive TUI, and a signed-in web console on one API. Templates and profiles to ship, hotplug and live migrate to run, console/VNC/SSH to reach the guest, RBAC and quotas to stay safe, audit export to prove who did what. Every action hits live cluster objects.
+**[Read the full docs](https://zyvorai.github.io/zorvia/)** — web console, day-2 ops, OIDC, Helm, and feature maturity.
 
-[Try it now](#quick-start) · [Talk to sales](mailto:sales@zyvor.dev) · [Star on GitHub](https://github.com/zyvorai/zorvia) · [Docs](https://zyvorai.github.io/zorvia/) · [Changelog](CHANGELOG.md)
+Zorvia is how you **create, operate, and govern** Kubernetes VMs end to end — CLI, interactive TUI, and a signed-in web console on **one API**. Templates and profiles to ship, hotplug and live migrate to run, console/VNC/SSH to reach the guest, RBAC and quotas to stay safe, audit export to prove who did what. Every action hits live cluster objects — not a parallel mock store.
+
+[Try it now](#quick-start) · [Console gallery](#console-gallery) · [Talk to sales](mailto:sales@zyvor.dev) · [Star on GitHub](https://github.com/zyvorai/zorvia) · [Changelog](CHANGELOG.md)
+
+## What you get
+
+| Step | Surface | What it does |
+|------|---------|--------------|
+| **1 · Create** | Templates · profiles · blueprints | 43 OS templates, workload profiles, multi-VM stacks — no hand-written VM CRDs |
+| **2 · Day-2** | Hotplug · migrate · snapshot | CPU/memory/disk/NIC hotplug, live migration, snapshots, disk resize |
+| **3 · Access** | Console · VNC · SSH | Authenticated WebSockets into the guest from the signed-in console |
+| **4 · Guard** | RBAC · quotas · NetworkPolicy | Server-side roles, `ResourceQuota`, `NetworkPolicy` — not client-only checks |
+| **5 · Audit** | Trail · JSONL export | Persistent audit DB + `GET /api/audit/export` for SIEM shippers |
+
+![Zorvia dashboard](docs/screenshots/readme-dashboard.png)
 
 ## Contents
 
+- [What you get](#what-you-get)
+- [Console gallery](#console-gallery)
 - [Install](#install)
 - [Quick start](#quick-start)
 - [Why teams pick Zorvia](#why-teams-pick-zorvia)
@@ -31,10 +47,19 @@ Zorvia is how you create, operate, and govern Kubernetes VMs end to end — CLI,
 - [Roadmap](#roadmap)
 - [Project security](#project-security)
 - [Get involved](#get-involved)
-- [OIDC lab](docs/OIDC_LAB.md)
-- [Social assets](docs/social/README.md)
+- [Lab deploy](docs/LAB.md) · [OIDC lab](docs/OIDC_LAB.md) · [Social assets](docs/social/README.md)
 
-![Zorvia dashboard](docs/screenshots/readme-dashboard.png)
+## Console gallery
+
+Live UI captures from a lab deployment (HTTPS NodePort **30152**) — not mockups:
+
+![VM list](docs/screenshots/readme-vms-list.png)
+
+![In-browser console](docs/screenshots/readme-vm-console.png)
+
+![VM metrics](docs/screenshots/readme-vm-metrics.png)
+
+![Template catalog](docs/screenshots/readme-templates.png)
 
 ---
 
@@ -44,17 +69,26 @@ Zorvia is how you create, operate, and govern Kubernetes VMs end to end — CLI,
 git clone https://github.com/zyvorai/zorvia.git
 cd zorvia
 cargo install --path . --features web   # `web` is the default feature
-# binary also at: cargo build --release --features web → target/release/zorvia
+# or: cargo build --release --features web → target/release/zorvia
 ```
 
 Requires Rust **1.89+**, a kubeconfig, and a cluster with **KubeVirt** (CDI optional for golden images / CDI clone).
+
+**Helm (cluster install):**
+
+```bash
+helm upgrade --install zorvia charts/zorvia -n zorvia-system --create-namespace \
+  -f charts/zorvia/values-lab.yaml
+```
+
+Production values: `charts/zorvia/values-production.yaml`. Lab remote deploy: [docs/LAB.md](docs/LAB.md).
 
 ---
 
 ## Quick start
 
 ```bash
-# Size from a profile, then create (create takes explicit resources)
+# Size from a profile, then create
 zorvia profile database
 zorvia create prod-db \
   --template ubuntu-22.04 \
@@ -62,13 +96,11 @@ zorvia create prod-db \
 zorvia start prod-db
 zorvia wait-ready prod-db --timeout 120
 zorvia guest-insight prod-db
-# Platform status (Cilium-style logo + components + features)
-zorvia status
-# Per-VM status
+zorvia status                 # platform components + features
 zorvia status prod-db --watch
 ```
 
-Deploy a multi-VM stack:
+Multi-VM stack:
 
 ```bash
 zorvia blueprints
@@ -76,15 +108,11 @@ zorvia deploy lamp --prefix myapp --start
 zorvia list
 ```
 
-Open the lab web console (HTTPS NodePort **30152**, self-signed — use `curl -sk`):
+Web console (HTTPS NodePort **30152**, self-signed — use `curl -sk`):
 
 ```bash
-# remote-deploy.sh fills in ZORVIA_EXPOSE_HOST/HOST automatically; applying
-# k8s.yaml directly leaves the __ZORVIA_EXPOSE_HOST__ placeholder in place --
-# substitute it yourself first, e.g.: sed -i "s/__ZORVIA_EXPOSE_HOST__/<HOST>/g" deploy/k8s.yaml
-kubectl apply -f deploy/k8s.yaml
-# or: ./scripts/deploy-remote.sh <host> sus --quick
-#      (wrapper for ./deploy/remote-deploy.sh)
+./scripts/deploy-remote.sh <host> sus --quick
+# or: make deploy-remote H=<host> U=sus ARGS=--quick
 open https://<HOST>:30152/app
 ```
 
@@ -93,6 +121,19 @@ open https://<HOST>:30152/app
 | **30152** | Cluster front door (UI + API) |
 | **5151** | In-pod listen / `zorvia api-serve --tls --port 5151` |
 | **8080** | Config-file default when `--port` is omitted |
+
+```bash
+# Health + login + list VMs
+curl -sk https://HOST:30152/api/v1/health | jq .
+TOKEN=$(curl -sk -X POST https://HOST:30152/api/v1/auth/login \
+  -H 'Content-Type: application/json' \
+  -d '{"username":"admin","password":"…"}' | jq -r .token)
+curl -sk -H "Authorization: Bearer $TOKEN" https://HOST:30152/api/vms | jq .
+curl -sk -H "Authorization: Bearer $TOKEN" \
+  'https://HOST:30152/api/audit/export?format=jsonl' | head
+```
+
+Lab admin password comes from the `zorvia-auth` Secret (printed once on first deploy) — see [docs/LAB.md](docs/LAB.md). Change credentials before anything shared.
 
 ---
 
@@ -108,7 +149,7 @@ a web console, all driving actual Kubernetes objects (`ResourceQuota`,
 migration phases). If a page shows a number, it came from the cluster. If a
 button says it does something, it does it.
 
-Try it in five minutes with the quickstart below, or [talk to us](#get-involved)
+Try it in five minutes with the quickstart above, or [talk to us](#get-involved)
 about running it in production.
 
 ## Why Zorvia
@@ -123,20 +164,21 @@ about running it in production.
 | Who can do what | Admin/user/viewer accounts (`/app/access-control`), admin-only user management, last-admin-lockout protection |
 | Day-2 without downtime | Hotplug CPU/memory/disk/NIC, live migration, disk resize — CLI and web console |
 | Catch drift | `zorvia drift` + `zorvia plan` |
-| Golden library | quay.io containerdisks + CDI `image-bundle`; web console download now applies real DataVolumes |
+| Golden library | quay.io containerdisks + CDI `image-bundle`; web console download applies real DataVolumes |
 | Distributed storage | Rook-Ceph pools/filesystems/object stores + StorageClass provisioning (`/app/storage`) |
 | GitOps | Terraform scaffold + module over the Fabric API |
-| Windows plane | Full Create VM wizard support via Kryton when `KRYTON_URL` is set (`/app/create`, inventory at `/app/windows`) |
-| Fit more VMs, safely | Placement Advisor and Capacity Planning score real Node capacity before you migrate or provision (`/app/placement`, `/app/capacity`) |
-| Stop overpaying for idle VMs | Resource Optimizer right-sizing and idle-VM detection from real usage, with cost basis shown, not hidden (`/app/optimizer`) |
-| Know what's actually running where | Fleet-wide Zones, Analytics (top VMs by real CPU/mem/disk), and Service Map of every exposed port (`/app/zones`, `/app/analytics`, `/app/service-map`) |
-| Enforce real guardrails | `ResourceQuota`-backed Quotas and `NetworkPolicy`-backed segmentation, created and deleted for real (`/app/quotas`, `/app/network-policies`) |
-| Know your compliance posture | PCI-DSS/HIPAA/SOC2 control checks against actual VM specs, on demand (`/app/compliance`) |
-| Back up and recover on autopilot | Backups on real VolumeSnapshots, plus a scheduler that actually runs on a cron, not just stores a config (`/app/backups`, `/app/backup-scheduler`) |
-| Automate power state | Recurring start/stop/restart schedules, checked and run by the server every minute (`/app/schedules`) |
-| Get paged, not surprised | Alerts evaluated every minute against real CPU/memory/phase, and Webhooks that actually deliver over HTTPS with retry (`/app/alerts`, `/app/webhooks`) |
-| Deploy pre-provisioned capacity | Warm Pools of stopped, ready-to-claim VMs from the real template catalog (`/app/warm-pools`) |
-| Prove who did what | Audit trail across VM lifecycle, snapshots, clones, policy, and login events (feeds `/app/vms/:name` activity) |
+| Windows plane | Create VM wizard via Kryton when `KRYTON_URL` is set (`/app/create`, inventory at `/app/windows`) |
+| Fit more VMs, safely | Placement Advisor and Capacity Planning on real Node capacity (`/app/placement`, `/app/capacity`) |
+| Stop overpaying for idle VMs | Resource Optimizer right-sizing from real usage (`/app/optimizer`) |
+| Know what's running where | Zones, Analytics, Service Map (`/app/zones`, `/app/analytics`, `/app/service-map`) |
+| Enforce real guardrails | `ResourceQuota` and `NetworkPolicy` CRUD (`/app/quotas`, `/app/network-policies`) |
+| Compliance posture | PCI-DSS/HIPAA/SOC2 checks against actual VM specs (`/app/compliance`) |
+| Backup & recover | VolumeSnapshots + scheduled backups (`/app/backups`, `/app/backup-scheduler`) |
+| Automate power state | Recurring start/stop/restart (`/app/schedules`) |
+| Get paged | Alerts + HTTPS webhooks with retry (`/app/alerts`, `/app/webhooks`) |
+| Warm capacity | Warm Pools of ready-to-claim VMs (`/app/warm-pools`) |
+| Prove who did what | Persistent audit trail + JSONL export (`/api/audit/export`) |
+| SSO | Opt-in OIDC Beta (`ZORVIA_OIDC_ENABLED=1`) |
 
 No OpenShift tax. Same VirtualMachines from terminal or browser.
 
@@ -149,7 +191,7 @@ flowchart LR
     end
 
     subgraph API["Fabric API (same backend for all three)"]
-        AUTH["Auth: admin/user/viewer"]
+        AUTH["Auth · RBAC · audit"]
         WS["WebSockets: serial · VNC · SSH"]
     end
 
@@ -171,20 +213,20 @@ flowchart LR
     API --> PVC
 ```
 
-No separate REST client, no drift between "what the UI can do" and "what the CLI can do" — one Fabric API, three front ends, real objects at the other end every time.
+One Fabric API, three front ends, real objects at the other end every time.
 
-### How it stacks up
+## How it stacks up
 
-|  | Hand-rolled `kubectl`/`virtctl` | Generic K8s dashboards (Lens, Portainer) | OpenShift Virtualization | **Zorvia** |
+|  | Hand-rolled `kubectl`/`virtctl` | Generic K8s dashboards | OpenShift Virtualization | **Zorvia** |
 |---|---|---|---|---|
 | VM create/day-2 without hand-written YAML | ❌ | ⚠️ view-only for VMs | ✅ | ✅ |
 | Same capability from CLI, TUI, *and* web | ❌ | ❌ (web only) | ⚠️ web + `virtctl`, no TUI | ✅ |
-| Cost/right-sizing, compliance, HA policy built in | ❌ | ❌ | ⚠️ partial, cluster add-ons | ✅ real, on by default |
+| Cost/right-sizing, compliance, HA built in | ❌ | ❌ | ⚠️ partial add-ons | ✅ real, on by default |
 | Drift detection + change-plan gating | ❌ | ❌ | ❌ | ✅ (`zorvia drift` / `zorvia plan`) |
-| Runs on any KubeVirt cluster, no platform lock-in | ✅ | ✅ | ❌ OpenShift only | ✅ |
+| Runs on any KubeVirt cluster | ✅ | ✅ | ❌ OpenShift only | ✅ |
 | Open source, Apache-2.0 | ✅ | varies | ❌ | ✅ |
 
-Zorvia isn't trying to be a general Kubernetes dashboard — it's opinionated about one thing: VMs on KubeVirt, done like a platform.
+Zorvia isn't a general Kubernetes dashboard — it's opinionated about one thing: VMs on KubeVirt, done like a platform.
 
 ---
 
@@ -275,38 +317,25 @@ zorvia plan desired.yaml --vm prod-db
 zorvia tui --interactive
 ```
 
-<p align="center">
-  <img src="docs/screenshots/readme-vms-list.png" alt="Zorvia VM list" width="880">
-</p>
-
 ---
 
 ## Web console & API
 
+Signed-in SPA on the same NodePort as the API. Full route map: [docs/WEB_CONSOLE.md](docs/WEB_CONSOLE.md).
+
 | Route | Purpose |
 |-------|---------|
 | `/app` | Dashboard |
-| `/app/create` | Linux (cloud-init) or Windows (Kryton golden images) create |
-| `/app/vms/:name` | Power, port-forwards, cloud-init, snapshots, hotplug, disk resize |
+| `/app/create` | Linux (cloud-init) or Windows (Kryton) create |
+| `/app/vms/:name` | Power, expose, cloud-init, snapshots, hotplug, resize |
 | `/app/vms/:name/console` | Serial · VNC · SSH |
-| `/app/snapshots` | Snapshot browser |
-| `/app/migrations` · `/app/migrations/readiness` | Live migration · pre-flight readiness checks |
-| `/app/storage` · `/app/volumes` | Rook-Ceph storage management · fleet-wide PVC/volume view |
-| `/app/windows` | Kryton Windows inventory (optional) |
-| `/app/access-control` | User & role management (admin-only) |
-| `/app/quotas` · `/app/network-policies` | Real `ResourceQuota` / `NetworkPolicy` CRUD |
-| `/app/placement` · `/app/capacity` · `/app/zones` | Placement Advisor · capacity headroom · zone grouping |
-| `/app/analytics` · `/app/optimizer` · `/app/cost-estimator` | Top-VM usage · right-sizing/idle detection · cost estimate |
-| `/app/compliance` · `/app/security` | PCI-DSS/HIPAA/SOC2 checks · listening ports + login/audit signal |
-| `/app/backups` · `/app/backup-scheduler` | On-demand backups · recurring backup policies |
-| `/app/ha-policy` · `/app/schedules` · `/app/warm-pools` | Eviction strategy · power schedules · pre-provisioned pools |
-| `/app/webhooks` · `/app/alerts` · `/app/service-map` | HTTPS event delivery · threshold alerting · exposed-port map |
-| `/app/templates` | Real OS template catalog + one-click "deploy as" |
-| `/app/compare` · `/app/batch-import` · `/app/disk-images` | Diff two VMs · bulk create from YAML/JSON · image catalog |
-
-<p align="center">
-  <img src="docs/screenshots/readme-vm-console.png" alt="Zorvia in-browser VM console" width="880">
-</p>
+| `/app/snapshots` · `/app/migrations` | Snapshots · live migration |
+| `/app/storage` · `/app/volumes` | Rook-Ceph · fleet PVCs |
+| `/app/access-control` | Users & roles (admin) |
+| `/app/quotas` · `/app/network-policies` | Real `ResourceQuota` / `NetworkPolicy` |
+| `/app/templates` · `/app/windows` | OS catalog · Kryton inventory |
+| `/app/placement` · `/app/capacity` · `/app/optimizer` | Placement · headroom · right-sizing |
+| `/app/backups` · `/app/schedules` · `/app/alerts` | Backup · power cron · alerts |
 
 ```text
 wss://<HOST>:30152/ws/console/<vm>?token=<jwt>
@@ -314,21 +343,20 @@ wss://<HOST>:30152/ws/vnc/<vm>?token=<jwt>
 wss://<HOST>:30152/ws/ssh/<vm>?token=<jwt>&user=ubuntu
 ```
 
-Set `ZORVIA_EXPOSE_HOST` so the UI shows the right host for NodePort SSH/VNC/RDP.
-Details: [docs/WEB_CONSOLE.md](docs/WEB_CONSOLE.md).
+Set `ZORVIA_EXPOSE_HOST` for correct NodePort SSH/VNC/RDP hostnames in the UI.
 
-```bash
-TOKEN=$(curl -sk -X POST https://HOST:30152/api/v1/auth/login \
-  -H 'Content-Type: application/json' \
-  -d '{"username":"admin","password":"Admin@321"}' | jq -r .token)
-curl -sk -H "Authorization: Bearer $TOKEN" https://HOST:30152/api/vms
-```
+**Fabric API (same auth as the console):**
 
-Lab bootstrap credentials are for labs only — change them before anything shared.
+| Method | Path | Notes |
+|--------|------|-------|
+| POST | `/api/v1/auth/login` | JWT |
+| GET | `/api/v1/health` · `/api/v1/features` | Liveness · maturity registry |
+| GET/POST | `/api/vms` | List / create |
+| POST | `/api/vms/:name/start\|stop\|restart` | Power |
+| GET/POST | `/api/vms/:name/snapshots` | Snapshots |
+| GET | `/api/audit/export` | JSONL audit trail (`?format=jsonl`) |
 
-<p align="center">
-  <img src="docs/screenshots/readme-vm-metrics.png" alt="Zorvia VM metrics" width="880">
-</p>
+Password from `zorvia-auth` — not committed defaults. Lab smoke: [docs/LAB.md](docs/LAB.md).
 
 ---
 
@@ -376,11 +404,7 @@ zorvia templates
 zorvia template ubuntu-24.04
 ```
 
-<p align="center">
-  <img src="docs/screenshots/readme-templates.png" alt="Zorvia template catalog" width="880">
-</p>
-
-Catalog: [docs/OS_TEMPLATES.md](docs/OS_TEMPLATES.md)
+Catalog: [docs/OS_TEMPLATES.md](docs/OS_TEMPLATES.md) · gallery shot above under [Console gallery](#console-gallery).
 
 ---
 

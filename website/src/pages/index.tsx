@@ -35,6 +35,11 @@ function HomepageHeader() {
             </Link>
             <Link
               className="button button--outline button--lg button--secondary"
+              to="/docs/LAB">
+              Read the docs
+            </Link>
+            <Link
+              className="button button--outline button--lg button--secondary"
               to="https://github.com/zyvorai/zorvia">
               View on GitHub
             </Link>

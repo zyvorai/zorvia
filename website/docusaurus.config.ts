@@ -84,6 +84,7 @@ const config: Config = {
         {
           title: 'Docs',
           items: [
+            {label: 'Lab deploy', to: '/docs/LAB'},
             {label: 'Web console', to: '/docs/WEB_CONSOLE'},
             {label: 'Interactive TUI', to: '/docs/INTERACTIVE_TUI'},
             {label: 'Snapshots', to: '/docs/SNAPSHOTS'},

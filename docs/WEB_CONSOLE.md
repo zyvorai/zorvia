@@ -174,6 +174,17 @@ The user database is a local sqlite file (`ZORVIA_AUTH_DB`, see env table above)
 
 Native v1 routes remain under `/api/v1/…` (auth, health, namespaced VM power, snapshots, events, user & role management — see [User & role management](#user--role-management) above).
 
+### Audit export
+
+Persistent audit SQLite (`ZORVIA_AUDIT_DB`) backs the trail. Admins can pull events for SIEM shippers:
+
+```bash
+curl -sk -H "Authorization: Bearer $TOKEN" \
+  'https://HOST:30152/api/audit/export?format=jsonl&limit=100'
+```
+
+Optional append-only JSONL file via `ZORVIA_AUDIT_JSONL`. Feature id `audit-trail` appears in `GET /api/v1/features`. Lab smoke covers this path — see [LAB.md](LAB.md).
+
 ## WebSockets
 
 ```text

@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- **README + docs polish** — Netra-style hero (docs CTA, five-step “What you get”, live console gallery), Helm install + Fabric API quick table, new [docs/LAB.md](docs/LAB.md) (deploy, auth Secret, `lab-smoke.sh`), docs index refresh, audit export section in [docs/WEB_CONSOLE.md](docs/WEB_CONSOLE.md).
+
+### Fixed
+
+- **JWT / Lease lab auth** — `jsonwebtoken` rust_crypto feature; Kubernetes Lease `MicroTime` formatted with exactly six fractional digits so leader election renew succeeds.
+
 ### Added
 
 - **Social / README share cards** — rebuildable HTML → PNG/JPG under [`docs/social/`](docs/social/README.md) (`zorvia-share-card.png` for README hero + docs Open Graph; `zorvia-social-card.jpg` for LinkedIn/X). Website serves `../docs/social` and sets `themeConfig.image`.
