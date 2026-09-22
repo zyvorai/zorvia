@@ -216,13 +216,40 @@ impl AuditTrail {
                 );
             }
         }
-        self.entries.push(entry);
+        self.entries.push(entry.clone());
+        #[cfg(feature = "web")]
+        append_jsonl_sidecar(&entry);
         if self.entries.len() > self.max_entries {
             let excess = self.entries.len().saturating_sub(self.max_entries);
             if excess > 0 {
                 self.entries.drain(0..excess);
             }
         }
+    }
+
+    /// Serialize matching entries as newline-delimited JSON (newest first).
+    pub fn export_jsonl(
+        &self,
+        user: Option<&str>,
+        resource_type: Option<&str>,
+        limit: usize,
+    ) -> String {
+        let mut lines = Vec::new();
+        for e in self.entries.iter().rev() {
+            if user.is_some_and(|u| e.user != u) {
+                continue;
+            }
+            if resource_type.is_some_and(|t| e.resource_type != t) {
+                continue;
+            }
+            if let Ok(line) = serde_json::to_string(e) {
+                lines.push(line);
+            }
+            if lines.len() >= limit {
+                break;
+            }
+        }
+        lines.join("\n")
     }
 
     pub fn log_action(
@@ -406,6 +433,32 @@ fn severity_from_str(s: &str) -> AuditSeverity {
     }
 }
 
+/// Optional append-only JSONL sidecar (`ZORVIA_AUDIT_JSONL=/path/audit.jsonl`).
+#[cfg(feature = "web")]
+fn append_jsonl_sidecar(entry: &AuditEntry) {
+    let Ok(path) = std::env::var("ZORVIA_AUDIT_JSONL") else {
+        return;
+    };
+    if path.trim().is_empty() {
+        return;
+    }
+    let Ok(line) = serde_json::to_string(entry) else {
+        return;
+    };
+    use std::io::Write;
+    let path = std::path::Path::new(&path);
+    if let Some(parent) = path.parent() {
+        let _ = std::fs::create_dir_all(parent);
+    }
+    if let Ok(mut f) = std::fs::OpenOptions::new()
+        .create(true)
+        .append(true)
+        .open(path)
+    {
+        let _ = writeln!(f, "{line}");
+    }
+}
+
 #[cfg(all(test, feature = "web"))]
 mod tests {
     use super::*;
@@ -423,5 +476,19 @@ mod tests {
         assert_eq!(trail2.entries.len(), 1);
         assert_eq!(trail2.entries[0].user, "admin");
         assert_eq!(trail2.entries[0].action, AuditAction::Login);
+    }
+
+    #[test]
+    fn export_jsonl_newest_first() {
+        let mut trail = AuditTrail::new(100);
+        trail.log_action("a", AuditAction::Login, "auth", "1", "ns", true);
+        trail.log_action("b", AuditAction::Create, "vm", "vm1", "ns", true);
+        let out = trail.export_jsonl(None, None, 10);
+        let lines: Vec<_> = out.lines().collect();
+        assert_eq!(lines.len(), 2);
+        assert!(lines[0].contains("\"user\":\"b\""));
+        assert!(lines[1].contains("\"user\":\"a\""));
+        let filtered = trail.export_jsonl(Some("b"), Some("vm"), 10);
+        assert_eq!(filtered.lines().count(), 1);
     }
 }

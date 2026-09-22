@@ -105,6 +105,11 @@ pub fn required_permission(method: &str, path: &str) -> Option<ApiPermission> {
         return None;
     }
 
+    // Audit JSONL export is admin-only even on GET
+    if path == "/audit/export" || path.ends_with("/audit/export") {
+        return Some(ApiPermission::ClusterAdmin);
+    }
+
     // User administration
     if path.starts_with("/v1/users") {
         return Some(ApiPermission::UsersAdmin);
@@ -221,6 +226,15 @@ mod tests {
             &Role::Admin,
             ApiPermission::ClusterAdmin
         ));
+    }
+
+    #[test]
+    fn audit_export_requires_cluster_admin() {
+        assert_eq!(
+            required_permission("GET", "/audit/export"),
+            Some(ApiPermission::ClusterAdmin)
+        );
+        assert_eq!(required_permission("GET", "/audit/logs"), None);
     }
 
     #[test]

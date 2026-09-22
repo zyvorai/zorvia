@@ -680,6 +680,7 @@ pub mod web {
             .route("/services/map", get(list_service_map_handler))
             .route("/audit/logs", get(list_audit_logs_handler))
             .route("/audit/stats", get(audit_stats_handler))
+            .route("/audit/export", get(export_audit_logs_handler))
             .route(
                 "/backups",
                 get(list_backups_handler).post(create_backup_handler),
@@ -843,6 +844,10 @@ pub mod web {
             .route(
                 "/v1/enterprise/golden-pipeline/plan",
                 post(enterprise_golden_pipeline_plan),
+            )
+            .route(
+                "/v1/enterprise/golden-pipeline/run",
+                post(enterprise_golden_pipeline_run),
             )
             .route(
                 "/v1/enterprise/cross-cluster-dr/plan",
@@ -2255,6 +2260,43 @@ pub mod web {
             body.namespace,
         ) {
             Ok(plan) => Json(serde_json::json!({ "success": true, "data": plan })).into_response(),
+            Err(e) => enterprise_err(e).into_response(),
+        }
+    }
+
+    #[derive(Deserialize)]
+    struct GoldenPipelineRunReq {
+        image_name: String,
+        version: String,
+        /// Registry path (`quay.io/...`) or `docker://` / `https://` source.
+        source: String,
+        #[serde(default = "default_ns")]
+        namespace: String,
+        #[serde(default = "default_golden_size")]
+        size: String,
+    }
+    fn default_golden_size() -> String {
+        "20Gi".into()
+    }
+
+    async fn enterprise_golden_pipeline_run(
+        State(state): State<SharedState>,
+        Json(body): Json<GoldenPipelineRunReq>,
+    ) -> impl IntoResponse {
+        let s = state.read().await;
+        let client = s.kube_client.clone();
+        drop(s);
+        match crate::enterprise::GoldenPipelineRun::try_run(
+            body.image_name,
+            body.version,
+            body.namespace,
+            body.source,
+            body.size,
+            &client,
+        )
+        .await
+        {
+            Ok(run) => Json(serde_json::json!({ "success": true, "data": run })).into_response(),
             Err(e) => enterprise_err(e).into_response(),
         }
     }

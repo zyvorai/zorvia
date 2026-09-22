@@ -24,7 +24,11 @@ spec:
     spec:
       serviceAccountName: {{ include "zorvia.serviceAccountName" . }}
       securityContext:
+        {{- if .Values.podSecurityContext }}
+        {{- toYaml .Values.podSecurityContext | nindent 8 }}
+        {{- else }}
         fsGroup: 10001
+        {{- end }}
       {{- with .Values.nodeSelector }}
       nodeSelector:
         {{- toYaml . | nindent 8 }}
@@ -119,6 +123,10 @@ spec:
               value: /data/auth.db
             - name: ZORVIA_AUDIT_DB
               value: {{ .Values.api.auditDbPath | quote }}
+            {{- if .Values.api.auditJsonlPath }}
+            - name: ZORVIA_AUDIT_JSONL
+              value: {{ .Values.api.auditJsonlPath | quote }}
+            {{- end }}
             {{- if .Values.api.leaderElection }}
             - name: ZORVIA_LEADER_ELECTION
               value: "1"

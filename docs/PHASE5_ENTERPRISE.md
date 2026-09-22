@@ -14,7 +14,7 @@ vCenter/Transiva, or mutate remote clusters yet.
 | S3 immutable backups | `ZORVIA_FEATURE_S3_BACKUP=1` | `POST /api/v1/enterprise/s3-backup/plan` |
 | Cross-cluster DR | `ZORVIA_FEATURE_CROSS_CLUSTER_DR=1` | `POST /api/v1/enterprise/cross-cluster-dr/plan` |
 | Transiva VMware migration | `ZORVIA_FEATURE_TRANSIVA=1` | `POST /api/v1/enterprise/transiva/plan` |
-| Golden-image pipeline | `ZORVIA_FEATURE_GOLDEN_PIPELINE=1` | `POST /api/v1/enterprise/golden-pipeline/plan` |
+| Golden-image pipeline | `ZORVIA_FEATURE_GOLDEN_PIPELINE=1` | `POST /api/v1/enterprise/golden-pipeline/plan` and `/run` |
 | GPU/SR-IOV/NUMA | `ZORVIA_FEATURE_GPU_NUMA=1` | `POST /api/v1/enterprise/placement/gpu-numa` |
 | Fleet multi-cluster | `ZORVIA_FEATURE_FLEET=1` | `GET /api/v1/enterprise/fleet` |
 
@@ -67,6 +67,18 @@ curl -sk -X POST https://HOST:30152/api/v1/enterprise/s3-backup/plan \
   "image_name": "ubuntu-golden",
   "version": "24.04-20260922",
   "namespace": "default"
+}
+```
+
+**Golden pipeline run** (applies CDI DataVolume + DataSource)
+
+```json
+{
+  "image_name": "ubuntu-golden",
+  "version": "24.04-20260922",
+  "namespace": "default",
+  "source": "quay.io/containerdisks/ubuntu:24.04",
+  "size": "20Gi"
 }
 ```
 

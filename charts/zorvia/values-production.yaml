@@ -1,17 +1,11 @@
-# Production overrides — use with:
-#   helm upgrade --install zorvia ./charts/zorvia -n zorvia-system \
-#     -f charts/zorvia/values-production.yaml \
-#     --set auth.existingSecret=zorvia-auth \
-#     --set image.repository=ghcr.io/zyvorai/zorvia \
-#     --set image.tag=0.3.3 \
-#     --set image.digest=sha256:...
-
 labMode: false
 replicaCount: 2
 
 image:
   repository: ghcr.io/zyvorai/zorvia
   tag: "0.3.3"
+  # Prefer digest pinning in real prod:
+  # digest: sha256:...
   pullPolicy: IfNotPresent
 
 service:
@@ -26,6 +20,8 @@ ingress:
   className: nginx
   annotations:
     cert-manager.io/cluster-issuer: letsencrypt-prod
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    nginx.ingress.kubernetes.io/force-ssl-redirect: "true"
   hosts:
     - host: zorvia.example.com
       paths:
@@ -51,6 +47,12 @@ podDisruptionBudget:
 networkPolicy:
   enabled: true
 
+# Pod-level hardening (container securityContext already drops ALL caps).
+podSecurityContext:
+  fsGroup: 10001
+  seccompProfile:
+    type: RuntimeDefault
+
 affinity:
   podAntiAffinity:
     preferredDuringSchedulingIgnoredDuringExecution:
@@ -74,6 +76,12 @@ topologySpreadConstraints:
 api:
   leaderElection: true
   jwtTtlMinutes: "60"
+  # Optional append-only JSONL for SIEM shippers (alongside SQLite).
+  # auditJsonlPath: /data/audit.jsonl
 
 rbac:
   rookBootstrap: false
+
+# Production must supply auth.existingSecret (never lab defaults).
+auth:
+  existingSecret: zorvia-auth

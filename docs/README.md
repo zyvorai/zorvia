@@ -6,6 +6,7 @@
 |-----|--------|
 | [WEB_CONSOLE.md](WEB_CONSOLE.md) | SPA, Fabric HTTP API, console/VNC/SSH WebSockets, NodePort expose, hotplug, migration, Rook-Ceph storage, user & role management |
 | [OIDC.md](OIDC.md) | Opt-in OIDC SSO (PKCE + token exchange + JWKS) |
+| [OIDC_LAB.md](OIDC_LAB.md) | Lab IdP bake-off (Dex/Keycloak) |
 | [FEATURE_MATURITY.md](FEATURE_MATURITY.md) | GA / Beta / Experimental / Model-only registry (`GET /api/v1/features`) |
 | [PHASE5_ENTERPRISE.md](PHASE5_ENTERPRISE.md) | Enterprise plan APIs (S3, Transiva, DR, GPU, fleet) |
 | [UPGRADE.md](UPGRADE.md) | 0.3.2 → 0.3.3+ operator notes |

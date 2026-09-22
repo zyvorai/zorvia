@@ -71,4 +71,4 @@ Successful callback redirects to `/sign-in?oidc_token=…` (SPA stores the JWT).
 - JWT still appears in the redirect query string (prefer short-lived exchange in a later release)
 - Role is `user` for JIT accounts (promote via Access Control)
 
-See also [FEATURE_MATURITY.md](FEATURE_MATURITY.md), [SECURITY.md](../SECURITY.md), [UPGRADE.md](UPGRADE.md).
+See also [FEATURE_MATURITY.md](FEATURE_MATURITY.md), [OIDC_LAB.md](OIDC_LAB.md), [SECURITY.md](../SECURITY.md), [UPGRADE.md](UPGRADE.md).

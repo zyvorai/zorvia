@@ -92,6 +92,8 @@ nodeSelector: {}
 tolerations: []
 podAnnotations: {}
 podLabels: {}
+# Optional pod-level securityContext override (fsGroup / seccomp).
+podSecurityContext: {}
 
 # API process behaviour
 api:
@@ -99,6 +101,8 @@ api:
   exposeHost: ""
   # Persist audit trail alongside auth.db on the data volume.
   auditDbPath: /data/audit.db
+  # Optional append-only JSONL sidecar for SIEM (Loki/Fluent Bit). Empty = off.
+  auditJsonlPath: ""
   # Kubernetes Lease-based leader election for background schedulers.
   leaderElection: true
   leaderElectionLease: zorvia-schedulers

@@ -136,9 +136,90 @@ impl GoldenPipelinePlan {
             ],
             notes: vec![
                 format!(
-                    "CDI DataVolume/DataSource for {image_name}:{version} can be built with existing golden_images APIs."
+                    "POST /api/v1/enterprise/golden-pipeline/run applies CDI DataVolume+DataSource for {image_name}:{version}."
                 ),
-                "Scan/sign/promote orchestration (cosign + policy) is not automated yet.".into(),
+                "Scan/sign (cosign) remain operator-owned; promote is the stable DataSource alias.".into(),
+            ],
+        })
+    }
+}
+
+/// Result of executing the build+promote stages against the cluster.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct GoldenPipelineRun {
+    pub image_name: String,
+    pub version: String,
+    pub namespace: String,
+    pub versioned_name: String,
+    pub data_volume_applied: bool,
+    pub data_source_applied: bool,
+    pub stages_completed: Vec<String>,
+    pub notes: Vec<String>,
+}
+
+impl GoldenPipelineRun {
+    /// Build golden-image manifests and apply them via the KubeVirt/CDI client.
+    pub async fn try_run(
+        image_name: impl Into<String>,
+        version: impl Into<String>,
+        namespace: impl Into<String>,
+        source: impl Into<String>,
+        size: impl Into<String>,
+        client: &crate::kube::KubeClient,
+    ) -> Result<Self, String> {
+        require("ZORVIA_FEATURE_GOLDEN_PIPELINE")?;
+        let image_name = image_name.into();
+        let version = version.into();
+        let namespace = namespace.into();
+        let source = source.into();
+        let size = size.into();
+        let source_type = if source.starts_with("http://") || source.starts_with("https://") {
+            crate::golden_images::ImageSourceType::Http
+        } else {
+            crate::golden_images::ImageSourceType::Registry
+        };
+        let source = if source_type == crate::golden_images::ImageSourceType::Registry
+            && !source.starts_with("docker://")
+        {
+            format!("docker://{source}")
+        } else {
+            source
+        };
+        let spec = crate::golden_images::GoldenImageSpec {
+            name: image_name.clone(),
+            version: version.clone(),
+            namespace: namespace.clone(),
+            source_type,
+            source,
+            size: if size.trim().is_empty() {
+                "20Gi".into()
+            } else {
+                size
+            },
+            storage_class: None,
+            checksum: None,
+        };
+        let bundle = crate::golden_images::GoldenImageBundle::build(spec)
+            .map_err(|e| format!("bundle build failed: {e}"))?;
+        client
+            .apply_data_volume(&namespace, &bundle.data_volume)
+            .await
+            .map_err(|e| format!("DataVolume apply failed: {e}"))?;
+        client
+            .apply_data_source(&namespace, &bundle.data_source)
+            .await
+            .map_err(|e| format!("DataSource apply failed: {e}"))?;
+        Ok(Self {
+            image_name,
+            version,
+            namespace,
+            versioned_name: bundle.versioned_name,
+            data_volume_applied: true,
+            data_source_applied: true,
+            stages_completed: vec!["build".into(), "promote".into()],
+            notes: vec![
+                "build+promote applied via CDI. scan/sign skipped (no cosign hook in this release)."
+                    .into(),
             ],
         })
     }

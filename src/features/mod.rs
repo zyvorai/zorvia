@@ -67,8 +67,8 @@ pub const FEATURES: &[Feature] = &[
     Feature {
         id: "audit-trail",
         name: "Audit trail",
-        maturity: Maturity::Beta,
-        notes: "SQLite persistence; export to Loki/OTLP not yet wired",
+        maturity: Maturity::Ga,
+        notes: "SQLite persistence; GET /audit/export JSONL; optional ZORVIA_AUDIT_JSONL sidecar",
     },
     Feature {
         id: "schedulers",
@@ -92,7 +92,7 @@ pub const FEATURES: &[Feature] = &[
         id: "oidc",
         name: "OIDC / enterprise SSO",
         maturity: Maturity::Beta,
-        notes: "Opt-in via ZORVIA_OIDC_ENABLED=1; PKCE + token exchange + JWKS id_token verify",
+        notes: "Opt-in via ZORVIA_OIDC_ENABLED=1; PKCE + JWKS; see docs/OIDC_LAB.md",
     },
     Feature {
         id: "ai-troubleshoot",
@@ -134,7 +134,7 @@ pub const FEATURES: &[Feature] = &[
         id: "golden-image-pipeline",
         name: "Golden-image build/scan/sign/promote",
         maturity: Maturity::Experimental,
-        notes: "Phase 5 — plan API; CDI golden images already exist",
+        notes: "Plan + POST /api/v1/enterprise/golden-pipeline/run applies CDI DV/DS; scan/sign deferred",
     },
     Feature {
         id: "gpu-sriov-numa",

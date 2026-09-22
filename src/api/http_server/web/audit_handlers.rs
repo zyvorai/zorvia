@@ -143,3 +143,43 @@ pub async fn audit_stats_handler(State(state): State<SharedState>) -> impl IntoR
     }))
     .into_response()
 }
+
+#[derive(Debug, Deserialize, Default)]
+pub struct AuditExportQuery {
+    #[serde(default)]
+    pub user: Option<String>,
+    #[serde(default)]
+    pub resource_type: Option<String>,
+    #[serde(default = "default_export_limit")]
+    pub limit: usize,
+}
+fn default_export_limit() -> usize {
+    5000
+}
+
+/// Admin-only JSONL export of the audit trail (for SIEM / Loki import).
+pub async fn export_audit_logs_handler(
+    State(state): State<SharedState>,
+    Query(q): Query<AuditExportQuery>,
+) -> impl IntoResponse {
+    let s = state.read().await;
+    let audit = s.audit.clone();
+    drop(s);
+    let trail = audit.read().await;
+    let limit = q.limit.clamp(1, 50_000);
+    let body = trail.export_jsonl(q.user.as_deref(), q.resource_type.as_deref(), limit);
+    (
+        [
+            (
+                axum::http::header::CONTENT_TYPE,
+                "application/x-ndjson; charset=utf-8",
+            ),
+            (
+                axum::http::header::CONTENT_DISPOSITION,
+                "attachment; filename=\"zorvia-audit.jsonl\"",
+            ),
+        ],
+        body,
+    )
+        .into_response()
+}
