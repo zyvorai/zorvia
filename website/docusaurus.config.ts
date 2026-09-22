@@ -4,7 +4,7 @@ import type * as Preset from '@docusaurus/preset-classic';
 
 const config: Config = {
   title: 'Zorvia',
-  tagline: 'Run Kubernetes VMs like a platform, not a YAML pile — CLI, TUI, and web console over real KubeVirt objects.',
+  tagline: 'The control plane for KubeVirt VMs — create, operate, and govern from CLI, TUI, and web.',
   favicon: 'img/favicon.svg',
 
   future: {

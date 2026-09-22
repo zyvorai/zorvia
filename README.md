@@ -8,9 +8,9 @@
 
 ![Zorvia — KubeVirt VM platform](docs/social/zorvia-share-card.png)
 
-**Stop hand-writing VM CRDs. Run Kubernetes VMs like a platform, not a YAML pile.**
+**The control plane for KubeVirt VMs.**
 
-Every KubeVirt shop ends up with the same pile of one-off scripts for create, snapshot, migrate, backup, and access control. Zorvia replaces that pile with one real backend — CLI, interactive TUI, and a signed-in web console — all driving the same API over real Kubernetes objects. No fake dashboards, no dead buttons.
+Zorvia is how you create, operate, and govern Kubernetes VMs end to end — CLI, interactive TUI, and a signed-in web console on one API. Templates and profiles to ship, hotplug and live migrate to run, console/VNC/SSH to reach the guest, RBAC and quotas to stay safe, audit export to prove who did what. Every action hits live cluster objects.
 
 [Try it now](#quick-start) · [Talk to sales](mailto:sales@zyvor.dev) · [Star on GitHub](https://github.com/zyvorai/zorvia) · [Docs](https://zyvorai.github.io/zorvia/) · [Changelog](CHANGELOG.md)
 
@@ -98,19 +98,15 @@ open https://<HOST>:30152/app
 
 ## Why teams pick Zorvia
 
-Running VMs on KubeVirt works — *managing* them at scale is where teams get
-stuck. You end up maintaining a spreadsheet of hand-written `VirtualMachine`
-YAML, a Slack thread for "who can restart prod-db," a cron job that may or
-may not still be doing backups, and a dashboard nobody trusts because half
-its buttons don't actually do anything.
+KubeVirt is excellent at running VMs. The missing piece is the control plane
+around them: who can create what, how you hotplug and migrate without
+downtime, how you reach the guest, and how you prove who did what.
 
-Zorvia is what that stack should have been from day one: **one real backend**
-behind a CLI, a TUI, and a web console, all driving actual Kubernetes objects
-— `ResourceQuota`, `NetworkPolicy`, `VirtualMachineSnapshot`, real Node
-capacity, real KubeVirt migration phases. If a page shows a number, that
-number came from the cluster. If a button says it does something, it does
-it. That discipline is why the platform surface below can grow every release
-without turning into the pile of dead mockups it replaced.
+Zorvia is that control plane — **one real backend** behind a CLI, a TUI, and
+a web console, all driving actual Kubernetes objects (`ResourceQuota`,
+`NetworkPolicy`, `VirtualMachineSnapshot`, real Node capacity, real KubeVirt
+migration phases). If a page shows a number, it came from the cluster. If a
+button says it does something, it does it.
 
 Try it in five minutes with the quickstart below, or [talk to us](#get-involved)
 about running it in production.
@@ -119,7 +115,7 @@ about running it in production.
 
 | Need | Zorvia |
 |------|--------|
-| Skip hand-written VM CRDs | **43** named OS templates |
+| Ship without custom CRDs | **43** named OS templates |
 | Size by workload | **8** resource profiles (apply via `--cpus` / `--memory` / `--disk-size`, or blueprints) |
 | Ship a stack | **5** blueprints (LAMP, 3-tier, k8s-cluster, CI/CD, dev-stack) |
 | Browser ops | Web console — create, power, console, expose, snapshots |

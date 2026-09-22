@@ -15,17 +15,17 @@ function HomepageHeader() {
       <div className="container">
         <div className={clsx(styles.heroText, 'text--center')}>
           <Heading as="h1" className="hero__title">
-            Run Kubernetes VMs
+            The control plane
             <br />
-            like a platform.
+            for KubeVirt VMs.
           </Heading>
           <p className="hero__subtitle">
-            Every KubeVirt shop ends up with the same pile of one-off
-            scripts for create, snapshot, migrate, backup, and access
-            control. Zorvia replaces that pile with one real backend — CLI,
-            interactive TUI, and a signed-in web console, all driving the
-            same API, all wired to real Kubernetes objects underneath. No
-            fake dashboards, no dead buttons.
+            Create, operate, and govern Kubernetes VMs end to end — CLI,
+            interactive TUI, and a signed-in web console on one API.
+            Templates and profiles to ship, hotplug and live migrate to run,
+            console/VNC/SSH to reach the guest, RBAC and quotas to stay safe,
+            audit export to prove who did what. Every action hits live
+            cluster objects.
           </p>
           <div className={styles.buttons}>
             <Link
@@ -63,20 +63,18 @@ function ProblemStatement() {
         <div className="row">
           <div className="col col--8 col--offset-2 text--center">
             <Heading as="h2" className={styles.sectionHeading}>
-              Stop hand-writing VM CRDs
+              KubeVirt runs the VMs. Zorvia runs the platform.
             </Heading>
             <p>
               KubeVirt gives you the primitives — VirtualMachine,
-              VirtualMachineInstance, DataVolume — but not an operator
-              experience. Teams end up writing their own scripts for the
-              same handful of operations, over and over, with no shared
-              backend and no consistent access control.
+              VirtualMachineInstance, DataVolume. Zorvia gives you the
+              operator surface: shared auth, day-2 lifecycle, guest access,
+              guardrails, and audit on top of those same objects.
             </p>
             <p>
-              Zorvia is that backend: one real API behind the CLI, the
-              interactive TUI, and the web console, all reading and
-              writing real Kubernetes objects — not a parallel state store
-              that can drift from the cluster.
+              One real API behind the CLI, the interactive TUI, and the web
+              console — reading and writing live cluster state, not a
+              parallel store that can drift from the cluster.
             </p>
           </div>
         </div>

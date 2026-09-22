@@ -10,6 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - **Social / README share cards** — rebuildable HTML → PNG/JPG under [`docs/social/`](docs/social/README.md) (`zorvia-share-card.png` for README hero + docs Open Graph; `zorvia-social-card.jpg` for LinkedIn/X). Website serves `../docs/social` and sets `themeConfig.image`.
+- **Positioning refresh** — tagline and about copy centered on “the control plane for KubeVirt VMs” (README, docs site hero, social cards).
 - **Secure OIDC (Beta)** — opt-in with `ZORVIA_OIDC_ENABLED=1`: OpenID discovery, PKCE S256, authorization-code token exchange, JWKS-verified `id_token` (iss/aud/nonce/exp), JIT local user (`oidc:<sub>`), then mint a normal Zorvia JWT with `token_version` revocation. Docs: [docs/OIDC.md](docs/OIDC.md).
 - **Phase 5 enterprise plan APIs** — gated by `ZORVIA_EXPERIMENTAL=1` + `ZORVIA_FEATURE_*`: S3 immutable backup, Transiva, golden pipeline, cross-cluster DR, GPU/NUMA placement, fleet inventory (`/api/v1/enterprise/...`). Dry-run plans only; admin RBAC required. Docs: [docs/PHASE5_ENTERPRISE.md](docs/PHASE5_ENTERPRISE.md).
 - **Expanded GitHub CI** — Helm lint/template, ShellCheck, actionlint, Hadolint, typos, kubeconform, CodeQL, Scorecard, Trivy, Semgrep, coverage, MSRV, nightly, rustdoc, feature matrix, Docker on PRs, dependency-review, PR labeler/stale/title lint, lockfile checks, license/docs gates, security-secret scan, web/website dedicated workflows.
