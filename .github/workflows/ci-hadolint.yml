@@ -1,0 +1,37 @@
+name: CI Hadolint
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "Dockerfile"
+      - "deploy/Dockerfile*"
+      - ".github/workflows/ci-hadolint.yml"
+  pull_request:
+    branches: [main]
+    paths:
+      - "Dockerfile"
+      - "deploy/Dockerfile*"
+      - ".github/workflows/ci-hadolint.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  hadolint:
+    name: Dockerfile lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: hadolint/hadolint-action@v3.1.0
+        with:
+          dockerfile: Dockerfile
+          failure-threshold: warning
+        continue-on-error: true
+      - name: Lint deploy/Dockerfile.local if present
+        uses: hadolint/hadolint-action@v3.1.0
+        with:
+          dockerfile: deploy/Dockerfile.local
+          failure-threshold: warning
+        continue-on-error: true

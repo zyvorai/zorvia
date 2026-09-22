@@ -1,0 +1,44 @@
+name: CI Website
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "website/**"
+      - ".github/workflows/ci-website.yml"
+  pull_request:
+    branches: [main]
+    paths:
+      - "website/**"
+      - ".github/workflows/ci-website.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  website:
+    name: Build + typecheck
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: website/package-lock.json
+      - run: npm ci
+        working-directory: website
+      - name: Lint (if script exists)
+        working-directory: website
+        run: |
+          if npm run | grep -q ' lint'; then npm run lint; else echo "no lint script"; fi
+        continue-on-error: true
+      - run: npm run build
+        working-directory: website
+      - name: Upload build
+        uses: actions/upload-artifact@v4
+        with:
+          name: website-build
+          path: website/build
+          if-no-files-found: ignore

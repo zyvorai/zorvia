@@ -1,0 +1,37 @@
+name: CI Nightly Rust
+
+on:
+  schedule:
+    - cron: "0 4 * * 1"
+  workflow_dispatch:
+  pull_request:
+    branches: [main]
+    paths:
+      - ".github/workflows/ci-nightly.yml"
+
+env:
+  CARGO_TERM_COLOR: always
+  RUST_MIN_STACK: 8388608
+
+permissions:
+  contents: read
+
+jobs:
+  nightly:
+    name: Nightly clippy + test
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@nightly
+        with:
+          components: clippy, rustfmt
+      - uses: Swatinem/rust-cache@v2
+        with:
+          key: nightly
+      - name: fmt
+        run: cargo +nightly fmt --all -- --check
+      - name: clippy
+        run: cargo +nightly clippy --all-targets -- -D warnings
+      - name: test (lib only, faster)
+        run: cargo +nightly test --features web --lib

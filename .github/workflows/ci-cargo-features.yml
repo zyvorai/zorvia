@@ -1,0 +1,51 @@
+name: CI Cargo Features
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "Cargo.toml"
+      - "Cargo.lock"
+      - "src/**"
+      - ".github/workflows/ci-cargo-features.yml"
+  pull_request:
+    branches: [main]
+    paths:
+      - "Cargo.toml"
+      - "Cargo.lock"
+      - "src/**"
+      - ".github/workflows/ci-cargo-features.yml"
+  workflow_dispatch:
+
+env:
+  CARGO_TERM_COLOR: always
+
+permissions:
+  contents: read
+
+jobs:
+  features:
+    name: Feature matrix (${{ matrix.features }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        features:
+          - ""
+          - "web"
+          - "default"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          key: feat-${{ matrix.features || 'none' }}
+      - name: cargo check
+        run: |
+          if [ -z "${{ matrix.features }}" ]; then
+            cargo check --no-default-features --locked
+          elif [ "${{ matrix.features }}" = "default" ]; then
+            cargo check --locked
+          else
+            cargo check --no-default-features --features ${{ matrix.features }} --locked
+          fi

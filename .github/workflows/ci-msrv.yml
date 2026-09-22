@@ -1,0 +1,40 @@
+name: CI MSRV
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "Cargo.toml"
+      - "Cargo.lock"
+      - "src/**"
+      - ".github/workflows/ci-msrv.yml"
+  pull_request:
+    branches: [main]
+    paths:
+      - "Cargo.toml"
+      - "Cargo.lock"
+      - "src/**"
+      - ".github/workflows/ci-msrv.yml"
+  workflow_dispatch:
+
+env:
+  CARGO_TERM_COLOR: always
+
+permissions:
+  contents: read
+
+jobs:
+  msrv:
+    name: MSRV 1.78 check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: "1.78.0"
+      - uses: Swatinem/rust-cache@v2
+        with:
+          key: msrv-178
+      - name: cargo check (MSRV)
+        run: cargo +1.78.0 check --features web --locked
+        continue-on-error: true

@@ -1,0 +1,42 @@
+name: CI Rustdoc
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "src/**"
+      - "Cargo.toml"
+      - ".github/workflows/ci-rustdoc.yml"
+  pull_request:
+    branches: [main]
+    paths:
+      - "src/**"
+      - "Cargo.toml"
+      - ".github/workflows/ci-rustdoc.yml"
+  workflow_dispatch:
+
+env:
+  CARGO_TERM_COLOR: always
+  RUSTDOCFLAGS: "-D warnings"
+
+permissions:
+  contents: read
+
+jobs:
+  rustdoc:
+    name: cargo doc
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - name: Build docs
+        run: cargo doc --features web --no-deps --document-private-items
+        continue-on-error: true
+      - name: Upload rustdoc
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: rustdoc
+          path: target/doc
+          if-no-files-found: ignore

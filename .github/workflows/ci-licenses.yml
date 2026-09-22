@@ -1,0 +1,27 @@
+name: CI Licenses
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  license-headers:
+    name: Apache-2.0 LICENSE present
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify LICENSE
+        run: |
+          grep -q 'Apache License' LICENSE
+          grep -q 'Version 2.0' LICENSE
+          test -f NOTICE || echo "NOTICE optional"
+      - name: package.json licenses
+        run: |
+          node -e "const p=require('./web/package.json'); if(p.license!=='Apache-2.0') process.exit(1)"
+          node -e "try{const p=require('./website/package.json'); console.log(p.license||'unset')}catch(e){console.log('no website pkg')}"

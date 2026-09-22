@@ -1,0 +1,57 @@
+# Helm chart lint + template render (lab + production values)
+name: CI Helm
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "charts/**"
+      - ".github/workflows/ci-helm.yml"
+  pull_request:
+    branches: [main]
+    paths:
+      - "charts/**"
+      - ".github/workflows/ci-helm.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  helm:
+    name: Lint & template
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: azure/setup-helm@v4
+        with:
+          version: v3.16.2
+      - name: helm lint
+        run: |
+          helm lint charts/zorvia
+          helm lint charts/zorvia -f charts/zorvia/values-lab.yaml
+          helm lint charts/zorvia -f charts/zorvia/values-production.yaml
+      - name: helm template (lab)
+        run: |
+          helm template zorvia charts/zorvia \
+            -f charts/zorvia/values-lab.yaml \
+            --set auth.existingSecret=zorvia-auth \
+            > /tmp/zorvia-lab.yaml
+          wc -l /tmp/zorvia-lab.yaml
+      - name: helm template (production)
+        run: |
+          helm template zorvia charts/zorvia \
+            -f charts/zorvia/values-production.yaml \
+            --set auth.existingSecret=zorvia-auth \
+            --set image.repository=ghcr.io/zyvorai/zorvia \
+            --set image.tag=0.3.3 \
+            --set image.pullPolicy=IfNotPresent \
+            > /tmp/zorvia-prod.yaml
+          wc -l /tmp/zorvia-prod.yaml
+      - name: Upload rendered manifests
+        uses: actions/upload-artifact@v4
+        with:
+          name: helm-rendered
+          path: |
+            /tmp/zorvia-lab.yaml
+            /tmp/zorvia-prod.yaml

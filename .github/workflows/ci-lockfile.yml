@@ -1,0 +1,70 @@
+name: CI Lockfile & Deps
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "Cargo.toml"
+      - "Cargo.lock"
+      - "web/package.json"
+      - "web/package-lock.json"
+      - "website/package.json"
+      - "website/package-lock.json"
+      - ".github/workflows/ci-lockfile.yml"
+  pull_request:
+    branches: [main]
+    paths:
+      - "Cargo.toml"
+      - "Cargo.lock"
+      - "web/package.json"
+      - "web/package-lock.json"
+      - "website/package.json"
+      - "website/package-lock.json"
+      - ".github/workflows/ci-lockfile.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  cargo-locked:
+    name: cargo metadata --locked
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - run: cargo metadata --format-version 1 --locked >/dev/null
+
+  cargo-machete:
+    name: Unused deps (machete)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: bnjbvr/cargo-machete@main
+        continue-on-error: true
+
+  npm-ci-web:
+    name: web npm ci
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+      - run: npm ci
+        working-directory: web
+
+  npm-ci-website:
+    name: website npm ci
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: website/package-lock.json
+      - run: npm ci
+        working-directory: website

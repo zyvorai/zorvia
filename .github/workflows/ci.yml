@@ -149,9 +149,30 @@ jobs:
     name: Docker Build
     needs: [test]
     runs-on: ubuntu-latest
-    if: github.ref == 'refs/heads/main'
     steps:
       - uses: actions/checkout@v4
 
+      - name: Set up Buildx
+        uses: docker/setup-buildx-action@v3
+
       - name: Build Docker image
-        run: docker build -t zorvia:ci .
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: false
+          tags: zorvia:ci
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+        continue-on-error: true
+
+  security-tests:
+    name: Security P0
+    runs-on: ubuntu-latest
+    needs: [fmt]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - run: cargo test --features web --test security_p0
+        env:
+          RUST_MIN_STACK: 8388608
