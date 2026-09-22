@@ -11,7 +11,7 @@ We release patches for security vulnerabilities for the following versions:
 | 0.1.x   | :x:                |
 
 **0.3.3** hardens authentication and authorization (server-side RBAC, scoped API
-tokens, JWT revocation, OIDC disabled pending a secure implementation, lab
+tokens, JWT revocation, optional secure OIDC (`ZORVIA_OIDC_ENABLED=1`), lab
 credential guards, webhook SSRF hardening). Upgrade from 0.3.2 as soon as
 practical.
 
@@ -71,8 +71,9 @@ When deploying Zorvia:
 5. Run Zorvia with least-privilege Kubernetes RBAC — apply
    `deploy/rook-bootstrap-rbac.yaml` only when intentionally bootstrapping Rook.
 6. Restrict webhook destinations with `ZORVIA_WEBHOOK_ALLOWLIST` when possible.
-7. **OIDC is disabled** in 0.3.3; do not set `ZORVIA_OIDC_*` expecting SSO until
-   a secure OIDC implementation ships.
+7. **OIDC is opt-in** — set `ZORVIA_OIDC_ENABLED=1` with issuer/client/secret/redirect
+   for PKCE + token exchange + JWKS verification. Without the enable flag, OIDC
+   env vars are ignored.
 
 ## Known Security Considerations
 
