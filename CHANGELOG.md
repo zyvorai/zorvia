@@ -9,6 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Helm chart** (`charts/zorvia`) with `values-lab.yaml` and `values-production.yaml`: Ingress/cert-manager hooks, PDB, NetworkPolicy, topology spread, namespace-scoped RBAC mode, optional Rook bootstrap SA, Lease RBAC for scheduler leader election.
+- **Persistent audit trail** — SQLite at `ZORVIA_AUDIT_DB` (default alongside auth.db) survives restarts.
+- **Scheduler leader election** — Kubernetes Lease (`ZORVIA_LEADER_ELECTION=1`) so only one API replica runs backup/power/alert/warm-pool loops.
+
+### Added (earlier)
+
 - **Cilium-style platform status** — `zorvia status` with no VM name prints a colorful interlocking logo plus KubeVirt / CDI / Zorvia API / Snapshots / Rook Storage (`✅ OK` / `ℹ️ disabled` / `❌ errors` / `⚠️ warnings`), then Deployments/DaemonSets, containers, Cluster VMs, image versions, and an ✨ Features block (Backup, HA, migration, Kryton, …). Flags: `-o summary|json`, `--wait`, `--wait-duration`, `--interactive`. `zorvia status <vm>` remains for per-VM detail (now colorized). New module: `src/platform_status/`. `make status` and `make deploy-remote H=<host> U=sus` wrap the same commands. `make help` lists every target.
 
 ### Fixed

@@ -190,6 +190,9 @@ pub fn spawn_backup_scheduler_loop(state: SharedState) {
     tokio::spawn(async move {
         loop {
             tokio::time::sleep(std::time::Duration::from_secs(60)).await;
+            if crate::api::leader::skip_if_follower("backup-scheduler") {
+                continue;
+            }
             let namespace = state.read().await.namespace.clone();
             run_due_schedules(&namespace).await;
         }

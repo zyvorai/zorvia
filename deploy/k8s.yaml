@@ -89,6 +89,10 @@ rules:
   - apiGroups: ["scheduling.k8s.io"]
     resources: ["priorityclasses"]
     verbs: ["get", "list", "watch", "create", "update", "patch"]
+  # Scheduler leader election
+  - apiGroups: ["coordination.k8s.io"]
+    resources: ["leases"]
+    verbs: ["get", "list", "watch", "create", "update", "patch"]
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
@@ -225,6 +229,22 @@ spec:
               value: /usr/share/zorvia/web
             - name: ZORVIA_AUTH_DB
               value: /data/auth.db
+            - name: ZORVIA_AUDIT_DB
+              value: /data/audit.db
+            - name: ZORVIA_LEADER_ELECTION
+              value: "1"
+            - name: ZORVIA_LEADER_LEASE
+              value: zorvia-schedulers
+            - name: ZORVIA_LEADER_NAMESPACE
+              value: zorvia-system
+            - name: POD_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+            - name: POD_NAMESPACE
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.namespace
             - name: ZORVIA_ADMIN_USER
               valueFrom:
                 secretKeyRef:

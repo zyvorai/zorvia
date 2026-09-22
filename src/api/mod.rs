@@ -3,6 +3,8 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
 pub mod http_server;
+#[cfg(feature = "web")]
+pub mod leader;
 pub mod middleware;
 pub mod openapi;
 pub mod pagination;

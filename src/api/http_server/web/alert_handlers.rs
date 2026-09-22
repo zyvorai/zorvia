@@ -214,6 +214,9 @@ pub fn spawn_alert_evaluation_loop(state: SharedState) {
     tokio::spawn(async move {
         loop {
             tokio::time::sleep(std::time::Duration::from_secs(60)).await;
+            if crate::api::leader::skip_if_follower("alert-evaluator") {
+                continue;
+            }
             let (namespace, client) = {
                 let s = state.read().await;
                 (s.namespace.clone(), s.client())

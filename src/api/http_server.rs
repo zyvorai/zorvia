@@ -4,6 +4,7 @@
 
 #[cfg(feature = "web")]
 pub mod web {
+    use crate::api::leader::spawn_leader_election;
     use crate::api::webhooks::WebhookEvent;
     use crate::api::{ApiResponse, HttpMethod, RequestContext};
     use crate::kube::KubeClient;
@@ -243,7 +244,7 @@ pub mod web {
                 lab_api_key,
                 auth,
                 kryton,
-                audit: Arc::new(RwLock::new(crate::audit_trail::AuditTrail::default())),
+                audit: Arc::new(RwLock::new(crate::audit_trail::AuditTrail::from_env())),
                 rate_limiter: RateLimiterState::new(rate_limit_per_minute, 60),
             })
         }
@@ -873,6 +874,7 @@ pub mod web {
         let state = Arc::new(RwLock::new(
             WebState::new(namespace, rate_limit_per_minute).await?,
         ));
+        spawn_leader_election();
         spawn_backup_scheduler_loop(state.clone());
         spawn_power_schedule_loop(state.clone());
         spawn_alert_evaluation_loop(state.clone());

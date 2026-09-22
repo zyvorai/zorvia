@@ -1,0 +1,111 @@
+# Default values — lab-friendly. Override with values-production.yaml for prod.
+
+nameOverride: ""
+fullnameOverride: ""
+
+# Create the release namespace if missing (useful for first install).
+createNamespace: false
+
+image:
+  repository: zorvia
+  tag: local
+  pullPolicy: Never
+
+# Lab mode allows known bootstrap credentials and the shared API key.
+labMode: true
+
+replicaCount: 1
+
+serviceAccount:
+  create: true
+  name: ""
+  annotations: {}
+
+# cluster = ClusterRole (default). namespace = Role limited to release namespace.
+rbac:
+  create: true
+  scope: cluster
+  # Optional near-cluster-admin SA for Rook operator bootstrap only.
+  rookBootstrap: false
+
+auth:
+  # Existing Secret name (must provide admin-user, admin-password, jwt-secret).
+  # Leave empty to rely on an externally managed Secret named <fullname>-auth.
+  existingSecret: ""
+  secretName: "" # computed; set to override
+  # When true and existingSecret empty, chart fails NOTES with create instructions.
+  # Secrets are never generated into committed values.
+
+service:
+  type: NodePort
+  port: 443
+  targetPort: https
+  nodePort: 30152
+  annotations: {}
+
+ingress:
+  enabled: false
+  className: ""
+  annotations: {}
+  hosts:
+    - host: zorvia.example.com
+      paths:
+        - path: /
+          pathType: Prefix
+  tls: []
+  # - secretName: zorvia-tls
+  #   hosts:
+  #     - zorvia.example.com
+
+tls:
+  # In-pod self-signed cert via init container (lab). Disable when using Ingress TLS.
+  inPod: true
+  initImage: alpine/openssl:3.3.2
+
+persistence:
+  enabled: true
+  size: 1Gi
+  storageClassName: ""
+  accessModes:
+    - ReadWriteOnce
+
+resources:
+  requests:
+    cpu: 50m
+    memory: 64Mi
+  limits:
+    cpu: 500m
+    memory: 256Mi
+
+podDisruptionBudget:
+  enabled: false
+  minAvailable: 1
+
+networkPolicy:
+  enabled: false
+  # Allow ingress from anywhere on the service port when enabled with empty from.
+  ingressFrom: []
+
+affinity: {}
+topologySpreadConstraints: []
+nodeSelector: {}
+tolerations: []
+podAnnotations: {}
+podLabels: {}
+
+# API process behaviour
+api:
+  port: 5151
+  exposeHost: ""
+  # Persist audit trail alongside auth.db on the data volume.
+  auditDbPath: /data/audit.db
+  # Kubernetes Lease-based leader election for background schedulers.
+  leaderElection: true
+  leaderElectionLease: zorvia-schedulers
+  jwtTtlMinutes: "60"
+
+kryton:
+  existingSecret: ""
+  # Keys: url, token, project (optional)
+
+extraEnv: []
