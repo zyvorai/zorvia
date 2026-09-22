@@ -68,7 +68,7 @@ pub const FEATURES: &[Feature] = &[
         id: "audit-trail",
         name: "Audit trail",
         maturity: Maturity::Ga,
-        notes: "SQLite persistence; GET /audit/export JSONL; optional ZORVIA_AUDIT_JSONL sidecar",
+        notes: "SQLite persistence; GET /api/audit/export JSONL; optional ZORVIA_AUDIT_JSONL sidecar",
     },
     Feature {
         id: "schedulers",

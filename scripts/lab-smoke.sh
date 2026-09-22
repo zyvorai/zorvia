@@ -18,6 +18,6 @@ TOKEN=$(curl -skf -X POST "${BASE}/api/v1/auth/login" \
   -d "{\"username\":\"${USER}\",\"password\":\"${PASS}\"}" | jq -r .token)
 test -n "$TOKEN" && test "$TOKEN" != null
 echo "== audit export =="
-curl -skf -H "Authorization: Bearer ${TOKEN}" "${BASE}/api/v1/audit/export?limit=5" | head -c 400
+curl -skf -H "Authorization: Bearer ${TOKEN}" "${BASE}/api/audit/export?limit=5" | head -c 400
 echo
 echo "OK lab smoke ${BASE}"

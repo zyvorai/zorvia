@@ -106,7 +106,11 @@ pub fn required_permission(method: &str, path: &str) -> Option<ApiPermission> {
     }
 
     // Audit JSONL export is admin-only even on GET
-    if path == "/audit/export" || path.ends_with("/audit/export") {
+    if path == "/audit/export"
+        || path.ends_with("/audit/export")
+        || path == "/audit/logs/export"
+        || path.ends_with("/audit/logs/export")
+    {
         return Some(ApiPermission::ClusterAdmin);
     }
 

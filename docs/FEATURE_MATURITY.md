@@ -17,7 +17,7 @@ Levels used by Zorvia (also exposed at `GET /api/v1/features` when the API is ru
 | `snapshots-restore` | Snapshots & restore | GA | Empty-disk caveat in docs |
 | `live-migration` | Live migration | GA | Needs shared storage |
 | `web-console` | Web console + auth | GA | JWT + tokens; OIDC opt-in |
-| `audit-trail` | Audit trail | GA | SQLite + `GET /audit/export` JSONL; optional `ZORVIA_AUDIT_JSONL` sidecar |
+| `audit-trail` | Audit trail | GA | SQLite + `GET /api/audit/export` JSONL; optional `ZORVIA_AUDIT_JSONL` sidecar |
 | `schedulers` | Backup/power/alert/warm-pool | Beta | Lease election; in-process |
 | `rook-storage` | Rook-Ceph management | Beta | Bootstrap SA optional |
 | `helm-chart` | Helm chart | Beta | Lab + hardened production values |

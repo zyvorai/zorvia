@@ -681,6 +681,7 @@ pub mod web {
             .route("/audit/logs", get(list_audit_logs_handler))
             .route("/audit/stats", get(audit_stats_handler))
             .route("/audit/export", get(export_audit_logs_handler))
+            .route("/audit/logs/export", get(export_audit_logs_handler))
             .route(
                 "/backups",
                 get(list_backups_handler).post(create_backup_handler),

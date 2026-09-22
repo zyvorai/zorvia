@@ -41,7 +41,7 @@ test.describe('live lab API', () => {
     const { token } = await login.json()
     expect(token).toBeTruthy()
 
-    const exportRes = await request.get(`${liveBase}/api/v1/audit/export`, {
+    const exportRes = await request.get(`${liveBase}/api/audit/export`, {
       headers: { Authorization: `Bearer ${token}` },
     })
     expect([200, 401, 403]).toContain(exportRes.status())

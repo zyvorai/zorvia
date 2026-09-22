@@ -40,7 +40,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - **kube 4.x + axum 0.8** — kube **4.2** / k8s-openapi **0.28** (v1_32, jiff timestamps), axum **0.8** / axum-server **0.8** (route `{param}` syntax, WS Utf8Bytes); MSRV **1.89**.
 
-- **Beta→GA / Phase 5 deepen / lab E2E** — audit JSONL export (`GET /audit/export`, `ZORVIA_AUDIT_JSONL`); Helm production hardening; OIDC lab bake-off doc; golden-pipeline `/run` applies CDI; `scripts/lab-smoke.sh` + Playwright live suite.
+- **Beta→GA / Phase 5 deepen / lab E2E** — audit JSONL export (`GET /api/audit/export`, `ZORVIA_AUDIT_JSONL`); Helm production hardening; OIDC lab bake-off doc; golden-pipeline `/run` applies CDI; `scripts/lab-smoke.sh` + Playwright live suite.
 
 ## [0.3.3] - 2026-09-22
 
