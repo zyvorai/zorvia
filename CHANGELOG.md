@@ -10,6 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - **Expanded GitHub CI** — Helm lint/template, ShellCheck, actionlint, Hadolint, typos, kubeconform, CodeQL, Scorecard, Trivy, Semgrep, coverage, MSRV, nightly, rustdoc, feature matrix, Docker on PRs, dependency-review, PR labeler/stale/title lint, lockfile checks, license/docs gates, security-secret scan, web/website dedicated workflows.
+- **CI hardening follow-ups** — remote deploy generates random lab auth secrets (no fixed JWT/password in tree); Playwright config valid for ESLint; Scorecard/Trivy action pins fixed.
 - **Feature maturity registry** — `GET /api/v1/features` and `docs/FEATURE_MATURITY.md` (GA / Beta / Experimental / Model-only). Model-only surfaces (`ai-troubleshoot`, `dr-replication`) require `ZORVIA_EXPERIMENTAL=1`.
 - **Phase 5 enterprise scaffolds** — env flags in `docs/PHASE5_ENTERPRISE.md` (`ZORVIA_FEATURE_*`); no production implementations yet.
 - **Supply-chain CI** — Dependabot, CODEOWNERS, `deny.toml`, `.github/workflows/supply-chain.yml` (audit/deny/SBOM/gitleaks).

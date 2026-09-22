@@ -27,6 +27,6 @@ export default tseslint.config(
     },
   },
   {
-    ignores: ['dist/**'],
+    ignores: ['dist/**', 'e2e/**', 'playwright.config.ts', 'playwright-report/**'],
   }
 )

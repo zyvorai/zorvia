@@ -151,12 +151,16 @@ echo ""
 # ── Step 1: Rsync repo ──
 step "Step 1/${TOTAL_STEPS}: Syncing repository to ${HOST}"
 
-if [ -f "$REPO_DIR/web/package.json" ]; then
+        if [ -f "$REPO_DIR/web/package.json" ]; then
     if [ ! -f "$REPO_DIR/web/dist/index.html" ]; then
         echo "  Building web UI (npm run build)…"
-        (cd "$REPO_DIR/web" && npm ci --legacy-peer-deps >/dev/null 2>&1 || npm install --legacy-peer-deps >/dev/null 2>&1) \
-          && (cd "$REPO_DIR/web" && npm run build) \
-          || warn "web build failed; deploy may serve placeholder UI"
+        if (cd "$REPO_DIR/web" && npm ci --legacy-peer-deps >/dev/null 2>&1 || npm install --legacy-peer-deps >/dev/null 2>&1); then
+            if ! (cd "$REPO_DIR/web" && npm run build); then
+                warn "web build failed; deploy may serve placeholder UI"
+            fi
+        else
+            warn "web npm install failed; deploy may serve placeholder UI"
+        fi
     else
         echo "  web/dist present — skipping local npm build"
     fi
@@ -289,15 +293,19 @@ _ssh "
         # to a different one (this bit us: ZORVIA_EXPOSE_HOST/HOST left
         # pointing at an old host after redeploying elsewhere).
         sed -i "s/__ZORVIA_EXPOSE_HOST__/$HOST/g" deploy/k8s.yaml
-        # Auth Secret is no longer in k8s.yaml — create lab defaults if missing.
-        # Deployment sets ZORVIA_LAB_MODE=1 so known lab credentials are allowed.
+        # Auth Secret is no longer in k8s.yaml — create random lab creds if missing.
+        # Deployment sets ZORVIA_LAB_MODE=1 (shared API key still lab-only).
         $SUDO env KUBECONFIG=/etc/rancher/k3s/k3s.yaml kubectl create namespace zorvia-system --dry-run=client -o yaml | $SUDO env KUBECONFIG=/etc/rancher/k3s/k3s.yaml kubectl apply -f -
         if ! $SUDO env KUBECONFIG=/etc/rancher/k3s/k3s.yaml kubectl -n zorvia-system get secret zorvia-auth >/dev/null 2>&1; then
+            # Generate unique lab credentials (never commit fixed defaults).
+            _lab_pw=\$(openssl rand -base64 18 | tr -d '/+=' | head -c 18)
+            _lab_jwt=\$(openssl rand -hex 32)
             $SUDO env KUBECONFIG=/etc/rancher/k3s/k3s.yaml kubectl -n zorvia-system create secret generic zorvia-auth \
               --from-literal=admin-user=admin \
-              --from-literal=admin-password=Admin@321 \
-              --from-literal=jwt-secret=zorvia-lab-jwt-change-me-30152
-            echo 'auth secret: created lab defaults (ZORVIA_LAB_MODE=1)'
+              --from-literal=admin-password=\"\$_lab_pw\" \
+              --from-literal=jwt-secret=\"\$_lab_jwt\"
+            echo \"auth secret: created random lab credentials (admin password: \$_lab_pw)\"
+            echo 'auth secret: store the password; ZORVIA_LAB_MODE=1 is set on the Deployment'
         else
             echo 'auth secret: already present'
         fi

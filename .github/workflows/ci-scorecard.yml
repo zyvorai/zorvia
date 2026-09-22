@@ -1,7 +1,6 @@
 name: CI Scorecard
 
 on:
-  branch_protection_rule:
   schedule:
     - cron: "30 5 * * 1"
   push:
@@ -14,6 +13,8 @@ jobs:
   analysis:
     name: OpenSSF Scorecard
     runs-on: ubuntu-latest
+    # Image pull from gcr.io has been flaky / billing-gated for some runners.
+    continue-on-error: true
     permissions:
       security-events: write
       id-token: write
@@ -23,7 +24,7 @@ jobs:
       - uses: actions/checkout@v4
         with:
           persist-credentials: false
-      - uses: ossf/scorecard-action@v2.4.0
+      - uses: ossf/scorecard-action@v2.4.4
         with:
           results_file: results.sarif
           results_format: sarif

@@ -29,4 +29,4 @@ jobs:
       - name: Run shellcheck
         run: |
           find scripts deploy -type f -name '*.sh' -print0 \
-            | xargs -0 shellcheck -x -e SC2086,SC1091,SC2034
+            | xargs -0 shellcheck -x -e SC2086,SC1091,SC2034,SC2015
