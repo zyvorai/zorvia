@@ -59,7 +59,7 @@ rustls = { version = "0.23", default-features = false, features = ["ring", "logg
 tower-http = { version = "0.6", features = ["cors", "timeout", "fs"], optional = true }
 jsonwebtoken = { version = "9", optional = true }
 bcrypt = { version = "0.17", optional = true }
-rusqlite = { version = "0.37", features = ["bundled"], optional = true }
+rusqlite = { version = "0.40", features = ["bundled"], optional = true }
 uuid = { version = "1", features = ["v4"], optional = true }
 totp-rs = { version = "5.7", features = ["gen_secret", "otpauth"], optional = true }
 base64 = { version = "0.22", optional = true }
