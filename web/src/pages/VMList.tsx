@@ -65,7 +65,7 @@ export default function VMList() {
   const [bulkLoading, setBulkLoading] = useState(false)
   const [tagEditorVM, setTagEditorVM] = useState<VM | null>(null)
   const toast = useToastContext()
-  const { canWrite } = usePermissions()
+  const { canWrite, canAdmin } = usePermissions()
   const [viewMode, setViewMode] = useState<ViewMode>(() => {
     return (localStorage.getItem('vm-view-mode') as ViewMode) || 'grid'
   })
@@ -453,6 +453,7 @@ export default function VMList() {
               <Archive className="w-3.5 h-3.5" />
               Backup {selectedCount}
             </button>
+            {canAdmin && (
             <button
               onClick={() => setBulkAction('delete')}
               disabled={bulkLoading}
@@ -461,6 +462,7 @@ export default function VMList() {
               <Trash2 className="w-3.5 h-3.5" />
               Delete
             </button>
+            )}
             <div className="w-px h-5 bg-[var(--zf-hairline)]" />
             <button
               onClick={clearSelection}

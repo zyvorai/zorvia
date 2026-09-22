@@ -10,7 +10,12 @@ Sign-in: https://<HOST>:30152/sign-in
 Health:  https://<HOST>:30152/api/v1/health
 ```
 
-Default lab bootstrap user (change for non-lab): `admin` / `Admin@321`. The user database (`ZORVIA_AUTH_DB`, sqlite) lives on a `PersistentVolumeClaim` (`zorvia-auth-data` in `deploy/k8s.yaml`), so accounts created after this bootstrap survive pod restarts and redeploys.
+Default lab bootstrap (only when `ZORVIA_LAB_MODE=1`): `admin` / `Admin@321`.
+Outside lab mode the API refuses those known defaults — create credentials with
+`./scripts/create-auth-secret.sh` before applying manifests. The user database
+(`ZORVIA_AUTH_DB`, sqlite) lives on a `PersistentVolumeClaim` (`zorvia-auth-data`
+in `deploy/k8s.yaml`), so accounts created after bootstrap survive pod restarts
+and redeploys. OIDC is disabled in 0.3.3 pending a secure implementation.
 
 Deploy:
 

@@ -80,33 +80,12 @@ rules:
   - apiGroups: ["snapshot.storage.k8s.io"]
     resources: ["volumesnapshotclasses"]
     verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
-  # Rook-Ceph: managing an existing (or Zorvia-bootstrapped) CephCluster and
-  # its pools/filesystems/object stores.
+  # Rook-Ceph: manage an existing CephCluster and pools/filesystems/object stores.
+  # Operator bootstrap (CRDs, ClusterRoles, Deployments) lives in the optional
+  # deploy/rook-bootstrap-rbac.yaml — never grant those to the core API SA.
   - apiGroups: ["ceph.rook.io"]
     resources: ["cephclusters", "cephblockpools", "cephfilesystems", "cephobjectstores"]
     verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
-  # Rook operator bootstrap (POST /api/storage/rook/bootstrap): Zorvia can
-  # install the Rook operator + its CRDs from scratch, not just manage an
-  # already-running one. That needs broad, near-cluster-admin permissions —
-  # CRD installation, and creating the operator's own ServiceAccount/
-  # ClusterRole/ClusterRoleBinding/Deployment. Kubernetes' RBAC escalation
-  # guard means this ServiceAccount can still only grant permissions it
-  # already holds via this same ClusterRole, but this is nonetheless a
-  # significant trust expansion — omit this block (and skip the bootstrap
-  # endpoint) if Zorvia should only ever attach to a Rook install that's
-  # already running.
-  - apiGroups: ["apiextensions.k8s.io"]
-    resources: ["customresourcedefinitions"]
-    verbs: ["get", "list", "watch", "create", "update", "patch"]
-  - apiGroups: ["rbac.authorization.k8s.io"]
-    resources: ["clusterroles", "clusterrolebindings", "roles", "rolebindings"]
-    verbs: ["get", "list", "watch", "create", "update", "patch"]
-  - apiGroups: ["apps"]
-    resources: ["deployments", "daemonsets"]
-    verbs: ["get", "list", "watch", "create", "update", "patch"]
-  - apiGroups: [""]
-    resources: ["serviceaccounts", "configmaps"]
-    verbs: ["get", "list", "watch", "create", "update", "patch"]
   - apiGroups: ["scheduling.k8s.io"]
     resources: ["priorityclasses"]
     verbs: ["get", "list", "watch", "create", "update", "patch"]
@@ -240,6 +219,8 @@ spec:
               cpu: 500m
               memory: 256Mi
           env:
+            - name: ZORVIA_LAB_MODE
+              value: "1"
             - name: ZORVIA_WEB_DIR
               value: /usr/share/zorvia/web
             - name: ZORVIA_AUTH_DB
@@ -308,19 +289,15 @@ spec:
           persistentVolumeClaim:
             claimName: zorvia-auth-data
 ---
-# Lab bootstrap credentials (change for non-lab). admin / Admin@321
-apiVersion: v1
-kind: Secret
-metadata:
-  name: zorvia-auth
-  namespace: zorvia-system
-  labels:
-    app.kubernetes.io/name: zorvia
-type: Opaque
-stringData:
-  admin-user: admin
-  admin-password: Admin@321
-  jwt-secret: zorvia-lab-jwt-change-me-30152
+# Auth Secret is NOT committed. Create it before apply:
+#   ./scripts/create-auth-secret.sh
+# or:
+#   kubectl -n zorvia-system create secret generic zorvia-auth \
+#     --from-literal=admin-user=admin \
+#     --from-literal=admin-password="$(openssl rand -base64 24)" \
+#     --from-literal=jwt-secret="$(openssl rand -hex 32)"
+# Lab deploys set ZORVIA_LAB_MODE=1 (above). Production must omit lab mode
+# and supply unique credentials — the API refuses known lab defaults otherwise.
 ---
 apiVersion: v1
 kind: Service

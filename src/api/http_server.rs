@@ -213,7 +213,8 @@ pub mod web {
     pub struct WebState {
         pub namespace: String,
         pub kube_client: KubeClient,
-        pub api_key: Option<String>,
+        /// Present only when ZORVIA_LAB_MODE=1 and ZORVIA_API_KEY is set.
+        pub lab_api_key: Option<String>,
         pub auth: crate::api::auth::SharedAuth,
         pub kryton: Option<crate::kryton::Client>,
         pub audit: SharedAuditTrail,
@@ -223,12 +224,9 @@ pub mod web {
     impl WebState {
         pub async fn new(namespace: String, rate_limit_per_minute: u64) -> anyhow::Result<Self> {
             let auth = Arc::new(crate::api::auth::AuthState::from_env()?);
-            let api_key = auth.api_key.clone();
-            if api_key.is_none() && std::env::var("ZORVIA_ADMIN_PASSWORD").is_err() {
-                log::warn!(
-                    "Neither ZORVIA_API_KEY nor custom ZORVIA_ADMIN_PASSWORD set; \
-                     using lab default admin/Admin@321 for login"
-                );
+            let lab_api_key = auth.lab_api_key.clone();
+            if crate::api::auth::lab_mode() {
+                log::warn!("ZORVIA_LAB_MODE=1: lab credentials and shared API key are permitted");
             }
             let kube_client = KubeClient::new().await?;
             let kryton = crate::kryton::Client::from_env()?;
@@ -242,7 +240,7 @@ pub mod web {
             Ok(Self {
                 namespace,
                 kube_client,
-                api_key,
+                lab_api_key,
                 auth,
                 kryton,
                 audit: Arc::new(RwLock::new(crate::audit_trail::AuditTrail::default())),
@@ -298,79 +296,81 @@ pub mod web {
 
     // ── Auth middleware ──────────────────────────────────────────
 
-    /// Authentication middleware: JWT Bearer, or shared API key.
-    /// Public: health, auth login/OIDC, static SPA/dashboard assets.
+    /// Authentication + RBAC middleware: JWT Bearer, scoped API token, or
+    /// lab-only shared API key. Inserts `AuthIdentity` and enforces
+    /// `required_permission` for mutating routes.
     async fn auth_middleware(
         State(state): State<SharedState>,
         headers: HeaderMap,
-        request: axum::extract::Request,
+        mut request: axum::extract::Request,
         next: middleware::Next,
     ) -> impl IntoResponse {
         let path = request.uri().path().to_string();
+        let method = request.method().clone();
 
-        if is_public_path(&path) || request.method() == axum::http::Method::OPTIONS {
+        if is_public_path(&path) || method == axum::http::Method::OPTIONS {
             return next.run(request).await.into_response();
         }
 
         let s = state.read().await;
-
-        if let Some(key) = headers.get("x-api-key").and_then(|v| v.to_str().ok()) {
-            if s.auth.api_key_ok(key) {
-                drop(s);
-                return next.run(request).await.into_response();
-            }
-        }
-
-        if let Some(token) = headers
-            .get(header::AUTHORIZATION)
-            .and_then(|v| v.to_str().ok())
-            .and_then(|v| v.strip_prefix("Bearer "))
-        {
-            if s.auth.api_key_ok(token) || s.auth.validate_bearer(token).is_some() {
-                drop(s);
-                return next.run(request).await.into_response();
-            }
-        }
-
-        drop(s);
-        let (status, json) = err_json(401, "UNAUTHORIZED", "Invalid or missing credentials");
-        (status, json).into_response()
-    }
-
-    /// Requires a valid JWT Bearer with `Role::Admin`. Applied via
-    /// `route_layer` to the `/v1/users*` group -- centralizes admin-gating
-    /// at the router level so a future admin-only route is protected by
-    /// being added to that group, rather than by each handler remembering
-    /// to self-check.
-    async fn require_admin_middleware(
-        State(state): State<SharedState>,
-        headers: HeaderMap,
-        request: axum::extract::Request,
-        next: middleware::Next,
-    ) -> impl IntoResponse {
-        let s = state.read().await;
         let auth = s.auth.clone();
         drop(s);
 
-        let Some(token) = headers
-            .get(header::AUTHORIZATION)
+        let credential = headers
+            .get("x-api-key")
             .and_then(|v| v.to_str().ok())
-            .and_then(|v| v.strip_prefix("Bearer "))
-        else {
+            .map(|s| s.to_string())
+            .or_else(|| {
+                headers
+                    .get(header::AUTHORIZATION)
+                    .and_then(|v| v.to_str().ok())
+                    .and_then(|v| v.strip_prefix("Bearer ").map(|s| s.to_string()))
+            });
+
+        let Some(credential) = credential else {
             let (status, json) = err_json(401, "UNAUTHORIZED", "Invalid or missing credentials");
             return (status, json).into_response();
         };
 
-        let Some(claims) = auth.validate_bearer(token) else {
+        let Some(identity) = auth.resolve_credential(&credential) else {
             let (status, json) = err_json(401, "UNAUTHORIZED", "Invalid or missing credentials");
             return (status, json).into_response();
         };
 
-        if claims.role != crate::api::auth::Role::Admin {
+        // Path under /api nest: strip /api prefix for permission map
+        let api_path = path.strip_prefix("/api").unwrap_or(&path);
+        if let Some(required) =
+            crate::api::auth::permissions::required_permission(method.as_str(), api_path)
+        {
+            if !identity.has_permission(required) {
+                let (status, json) = err_json(
+                    403,
+                    "FORBIDDEN",
+                    &format!("Missing permission: {}", required.as_str()),
+                );
+                return (status, json).into_response();
+            }
+        }
+
+        request.extensions_mut().insert(identity);
+        next.run(request).await.into_response()
+    }
+
+    /// Requires `users.admin` (Admin role). Applied via `route_layer` to
+    /// `/v1/users*` and `/v1/api-tokens*`.
+    async fn require_admin_middleware(
+        request: axum::extract::Request,
+        next: middleware::Next,
+    ) -> impl IntoResponse {
+        let allowed = request
+            .extensions()
+            .get::<crate::api::auth::AuthIdentity>()
+            .map(|id| id.has_permission(crate::api::auth::ApiPermission::UsersAdmin))
+            .unwrap_or(false);
+        if !allowed {
             let (status, json) = err_json(403, "FORBIDDEN", "Admin role required");
             return (status, json).into_response();
         }
-
         next.run(request).await.into_response()
     }
 
@@ -512,10 +512,15 @@ pub mod web {
             .route("/v1/users/:id", delete(users_delete))
             .route("/v1/users/:id/role", put(users_update_role))
             .route("/v1/users/:id/enabled", put(users_set_enabled))
-            .route_layer(middleware::from_fn_with_state(
-                state.clone(),
-                require_admin_middleware,
-            ));
+            .route(
+                "/v1/api-tokens",
+                get(api_tokens_list).post(api_tokens_create),
+            )
+            .route(
+                "/v1/api-tokens/:id",
+                delete(api_tokens_delete).post(api_tokens_revoke),
+            )
+            .route_layer(middleware::from_fn(require_admin_middleware));
 
         let api = Router::new()
             // Auth (Zorvia)
@@ -967,10 +972,49 @@ pub mod web {
     async fn auth_totp_disable(
         State(state): State<SharedState>,
         headers: HeaderMap,
+        Json(body): Json<crate::api::auth::TotpDisableRequest>,
     ) -> impl IntoResponse {
         let auth = auth_shared(&state).await;
-        crate::api::auth::totp_disable_handler(axum::extract::State(auth), headers).await
+        crate::api::auth::totp_disable_handler(axum::extract::State(auth), headers, Json(body))
+            .await
     }
+
+    async fn api_tokens_list(
+        State(state): State<SharedState>,
+        headers: HeaderMap,
+    ) -> impl IntoResponse {
+        let auth = auth_shared(&state).await;
+        crate::api::auth::list_api_tokens_handler(axum::extract::State(auth), headers).await
+    }
+
+    async fn api_tokens_create(
+        State(state): State<SharedState>,
+        headers: HeaderMap,
+        Json(body): Json<crate::api::auth::handlers::CreateApiTokenRequest>,
+    ) -> impl IntoResponse {
+        let auth = auth_shared(&state).await;
+        crate::api::auth::create_api_token_handler(axum::extract::State(auth), headers, Json(body))
+            .await
+    }
+
+    async fn api_tokens_revoke(
+        State(state): State<SharedState>,
+        Path(id): Path<String>,
+    ) -> impl IntoResponse {
+        let auth = auth_shared(&state).await;
+        crate::api::auth::revoke_api_token_handler(axum::extract::State(auth), Path(id)).await
+    }
+
+    async fn api_tokens_delete(
+        State(state): State<SharedState>,
+        Path(id): Path<String>,
+    ) -> impl IntoResponse {
+        let auth = auth_shared(&state).await;
+        crate::api::auth::delete_api_token_handler(axum::extract::State(auth), Path(id)).await
+    }
+
+    // ── Admin-only user management ──────────────────────────────────────
+    // Protected by require_admin_middleware (users.admin) and auth_middleware RBAC.
 
     async fn auth_oidc_login(
         State(state): State<SharedState>,
@@ -989,9 +1033,7 @@ pub mod web {
     }
 
     // ── Admin-only user management ──────────────────────────────────────
-    // Every handler here re-validates the bearer token itself and requires
-    // Role::Admin -- there is no role-checking middleware in this server,
-    // `is_public_path` only distinguishes authenticated vs. not.
+    // Protected by require_admin_middleware (users.admin) and auth_middleware RBAC.
 
     async fn users_list(State(state): State<SharedState>, headers: HeaderMap) -> impl IntoResponse {
         let auth = auth_shared(&state).await;
@@ -1534,7 +1576,8 @@ pub mod web {
         let s = state.read().await;
         let namespace = s.namespace.clone();
         let client = s.client();
-        let auth_configured = s.api_key.is_some() || std::env::var("ZORVIA_ADMIN_PASSWORD").is_ok();
+        let auth_configured =
+            s.lab_api_key.is_some() || std::env::var("ZORVIA_ADMIN_PASSWORD").is_ok();
         drop(s);
 
         let vm_driver = match client.list_vms(&namespace).await {
@@ -2182,11 +2225,13 @@ pub mod web {
             .and_then(|v| v.to_str().ok())
             .and_then(|v| v.strip_prefix("Bearer "))
         {
-            if let Some(claims) = auth.validate_bearer(token) {
-                return claims.username;
+            if let Some(identity) = auth.resolve_credential(token) {
+                return identity.username.unwrap_or_else(|| "api-token".to_string());
             }
-            if auth.api_key_ok(token) {
-                return "api-key".to_string();
+        }
+        if let Some(key) = headers.get("x-api-key").and_then(|v| v.to_str().ok()) {
+            if let Some(identity) = auth.resolve_credential(key) {
+                return identity.username.unwrap_or_else(|| "api-token".to_string());
             }
         }
         "unknown".to_string()

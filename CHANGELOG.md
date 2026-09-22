@@ -15,6 +15,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - **CI Clippy** — `handle_status` exceeded Clippy's argument limit after platform-status flags were added; platform status now dispatches from `lib.rs`, and the disabled-state unit test initializes `ErrorCount` in one expression so `-D warnings` stays green.
 
+## [0.3.3] - 2026-09-22
+
+### Security
+
+- **Server-side RBAC** — JWT roles (`admin` / `user` / `viewer`) map to coarse permissions (`vm.read`, `vm.power`, `vm.create`, `vm.delete`, `storage.admin`, `cluster.admin`, `users.admin`) enforced in `auth_middleware`. Viewer accounts can no longer call mutating APIs.
+- **OIDC disabled** — the unsafe callback that minted a local JWT without token exchange is removed. `ZORVIA_OIDC_*` is ignored; OIDC routes return 404 until a secure implementation lands.
+- **Lab credential guards** — known defaults (`Admin@321`, `zorvia-lab-jwt-change-me-30152`) refuse startup unless `ZORVIA_LAB_MODE=1`. Auth Secrets are no longer committed; use `./scripts/create-auth-secret.sh`.
+- **Scoped API tokens** — `POST/GET/DELETE /api/v1/api-tokens` stores SHA-256 hashes with role, scopes, and optional expiry. Shared `ZORVIA_API_KEY` is ignored outside lab mode.
+- **JWT revocation** — `token_version` on users; access TTL defaults to 60 minutes (`ZORVIA_JWT_TTL_MINUTES`). Disable/delete/role/password/TOTP-disable bumps the version so outstanding JWTs fail validation.
+- **TOTP disable step-up** — requires password + current TOTP code and revokes sessions.
+- **Rook privilege split** — core ClusterRole no longer creates CRDs/ClusterRoles/workloads; optional `deploy/rook-bootstrap-rbac.yaml` for bootstrap only.
+- **Webhook SSRF** — DNS resolution, private-IP rejection, connect pinning, redirect revalidation, optional `ZORVIA_WEBHOOK_ALLOWLIST`.
+
+### Added
+
+- Regression suite `tests/security_p0.rs` and Cursor rule `.cursor/rules/zorvia-pr-security.mdc`.
+
 ## [0.3.2] - 2026-09-14
 
 ### Fixed

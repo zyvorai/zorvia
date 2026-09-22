@@ -45,7 +45,7 @@ export default function VMDetails() {
   const { name } = useParams<{ name: string }>()
   const navigate = useNavigate()
   const toast = useToastContext()
-  const { canWrite } = usePermissions()
+  const { canWrite, canAdmin } = usePermissions()
   const [vm, setVM] = useState<VM | null>(null)
   const [loading, setLoading] = useState(true)
   const [loadError, setLoadError] = useState<string | null>(null)
@@ -222,7 +222,7 @@ export default function VMDetails() {
             <Terminal className="w-3.5 h-3.5" />
             Console
           </Link>
-          {canWrite && (
+          {canAdmin && (
             <button
               onClick={() => setShowDeleteConfirm(true)}
               className="p-1.5 rounded-lg text-[var(--zf-muted)] hover:text-[var(--zf-danger)] hover:bg-[var(--zf-danger)]/10 transition-colors"

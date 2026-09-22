@@ -289,6 +289,18 @@ _ssh "
         # to a different one (this bit us: ZORVIA_EXPOSE_HOST/HOST left
         # pointing at an old host after redeploying elsewhere).
         sed -i "s/__ZORVIA_EXPOSE_HOST__/$HOST/g" deploy/k8s.yaml
+        # Auth Secret is no longer in k8s.yaml — create lab defaults if missing.
+        # Deployment sets ZORVIA_LAB_MODE=1 so known lab credentials are allowed.
+        $SUDO env KUBECONFIG=/etc/rancher/k3s/k3s.yaml kubectl create namespace zorvia-system --dry-run=client -o yaml | $SUDO env KUBECONFIG=/etc/rancher/k3s/k3s.yaml kubectl apply -f -
+        if ! $SUDO env KUBECONFIG=/etc/rancher/k3s/k3s.yaml kubectl -n zorvia-system get secret zorvia-auth >/dev/null 2>&1; then
+            $SUDO env KUBECONFIG=/etc/rancher/k3s/k3s.yaml kubectl -n zorvia-system create secret generic zorvia-auth \
+              --from-literal=admin-user=admin \
+              --from-literal=admin-password=Admin@321 \
+              --from-literal=jwt-secret=zorvia-lab-jwt-change-me-30152
+            echo 'auth secret: created lab defaults (ZORVIA_LAB_MODE=1)'
+        else
+            echo 'auth secret: already present'
+        fi
         $SUDO env KUBECONFIG=/etc/rancher/k3s/k3s.yaml kubectl apply -f deploy/k8s.yaml
         # Clean up legacy namespace/manifest names from earlier HTTP NodePort deploys
         $SUDO env KUBECONFIG=/etc/rancher/k3s/k3s.yaml kubectl delete namespace zorvia --ignore-not-found 2>/dev/null || true

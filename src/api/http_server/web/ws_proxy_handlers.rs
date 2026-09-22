@@ -39,7 +39,7 @@ fn authorize(state: &WebState, token: Option<&str>) -> bool {
     let Some(token) = token.filter(|t| !t.is_empty()) else {
         return false;
     };
-    state.auth.api_key_ok(token) || state.auth.validate_bearer(token).is_some()
+    state.auth.resolve_credential(token).is_some()
 }
 
 /// TLS connector that trusts the Kubernetes API server CA from kubeconfig / in-cluster config.

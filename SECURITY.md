@@ -6,14 +6,20 @@ We release patches for security vulnerabilities for the following versions:
 
 | Version | Supported          |
 | ------- | ------------------ |
-| 0.2.x   | :white_check_mark: |
+| 0.3.x   | :white_check_mark: |
+| 0.2.x   | :x:                |
 | 0.1.x   | :x:                |
+
+**0.3.3** hardens authentication and authorization (server-side RBAC, scoped API
+tokens, JWT revocation, OIDC disabled pending a secure implementation, lab
+credential guards, webhook SSRF hardening). Upgrade from 0.3.2 as soon as
+practical.
 
 ## Reporting a Vulnerability
 
 We take the security of Zorvia seriously. If you have discovered a security vulnerability, please follow these steps:
 
-### 🔒 Private Disclosure
+### Private Disclosure
 
 **Please do not report security vulnerabilities through public GitHub issues.**
 
@@ -28,98 +34,56 @@ Instead, please report them via one of the following methods:
    - Send an email to: info@zyvor.dev
    - Include as much information as possible (see below)
 
-### 📝 What to Include
+### What to Include
 
 Please include the following information:
 
-- **Type of vulnerability** (e.g., buffer overflow, SQL injection, XSS, etc.)
+- **Type of vulnerability** (e.g. authorization bypass, SSRF, credential exposure)
 - **Full paths of source file(s)** related to the vulnerability
 - **Location of the affected source code** (tag/branch/commit or direct URL)
 - **Step-by-step instructions to reproduce** the issue
 - **Proof-of-concept or exploit code** (if possible)
 - **Impact of the issue**, including how an attacker might exploit it
 
-### ⏱️ Response Timeline
+### Response Timeline
 
-- **Initial Response**: Within 48 hours
-- **Assessment**: Within 1 week
-- **Fix Timeline**: Depends on severity
-  - Critical: Within 7 days
-  - High: Within 14 days
-  - Medium: Within 30 days
-  - Low: Next regular release
+- We aim to acknowledge reports within **72 hours**
+- We aim to provide an initial assessment within **7 days**
+- Critical issues will be prioritized for immediate patching
 
-### 🛡️ Security Update Process
+### Disclosure Policy
 
-1. **Acknowledgment**: We'll acknowledge receipt of your vulnerability report
-2. **Investigation**: We'll investigate and assess the severity
-3. **Fix Development**: We'll develop a fix (with your help if desired)
-4. **Notification**: We'll notify you when the fix is ready
-5. **Release**: We'll release a security update
-6. **Disclosure**: We'll publish a security advisory (crediting you if you wish)
+- We request that you give us reasonable time to address the issue before public disclosure
+- We will credit researchers who responsibly disclose vulnerabilities (unless anonymity is requested)
+- Once a fix is available, we will publish a security advisory with details
 
-### 🏆 Credit
+## Security Best Practices
 
-We believe in giving credit where credit is due. If you report a valid security issue:
+When deploying Zorvia:
 
-- We'll acknowledge your contribution in the security advisory
-- We'll include your name (or handle) in the CHANGELOG
-- You can choose to remain anonymous if you prefer
+1. **Do not use lab defaults in production** — omit `ZORVIA_LAB_MODE`, set unique
+   `ZORVIA_JWT_SECRET` and `ZORVIA_ADMIN_PASSWORD`, and create auth Secrets via
+   `./scripts/create-auth-secret.sh` (never commit Secret manifests).
+2. Prefer **scoped API tokens** (`POST /api/v1/api-tokens`) over a shared
+   `ZORVIA_API_KEY` (lab mode only).
+3. Use TLS in production (Ingress/cert-manager preferred over NodePort self-signed).
+4. Keep dependencies updated (`cargo update`, Dependabot/Renovate).
+5. Run Zorvia with least-privilege Kubernetes RBAC — apply
+   `deploy/rook-bootstrap-rbac.yaml` only when intentionally bootstrapping Rook.
+6. Restrict webhook destinations with `ZORVIA_WEBHOOK_ALLOWLIST` when possible.
+7. **OIDC is disabled** in 0.3.3; do not set `ZORVIA_OIDC_*` expecting SSO until
+   a secure OIDC implementation ships.
 
-### 🔐 Security Best Practices
+## Known Security Considerations
 
-When using zorvia:
+- JWT access tokens default to a **60-minute** TTL (`ZORVIA_JWT_TTL_MINUTES`);
+  local-user disable/role/password/TOTP changes bump `token_version` and revoke
+  outstanding sessions.
+- TOTP disable requires password + current TOTP code and revokes sessions.
+- The shared env API key is ignored unless `ZORVIA_LAB_MODE=1`.
+- Webhook delivery resolves DNS, pins the address, and re-validates redirects;
+  private/link-local destinations are rejected.
 
-1. **Keep Updated**: Always use the latest version
-2. **Least Privilege**: Run with minimum required permissions
-3. **Review Configs**: Validate VM configurations before applying
-4. **Audit Logs**: Monitor zorvia operations in production
-5. **Secure Credentials**: Never commit credentials or secrets to git
-6. **Network Security**: Use appropriate network policies in Kubernetes
+## Contact
 
-### 🚨 Known Security Considerations
-
-#### Kubernetes Access
-- zorvia requires access to Kubernetes API
-- Use appropriate RBAC policies to limit access
-- Review and restrict service account permissions
-
-#### Configuration Files
-- Configuration files may contain sensitive data
-- Use `.gitignore` to exclude sensitive configs
-- Never commit cloud-init user-data with passwords
-
-#### Container Images
-- Container disk images are pulled from registries
-- Verify image sources and use trusted registries
-- Consider using private registries for production
-
-#### Cloud-Init
-- Cloud-init user-data can execute arbitrary code in VMs
-- Review cloud-init scripts before deployment
-- Avoid hardcoded credentials in cloud-init
-
-#### Web console & API
-- Protect JWT secrets and bootstrap admin credentials (`ZORVIA_JWT_SECRET`, auth secret)
-- Prefer short-lived tokens; WebSocket URLs carry `?token=` — treat logs and browser history carefully
-- ClusterRole must include console/VNC subresources and `services` only where intended (see `deploy/k8s.yaml`)
-- Lab NodePort TLS is self-signed; use real certificates in production
-- NodePort expose publishes guest ports on the node — firewall accordingly (`ZORVIA_EXPOSE_HOST`)
-
-### 📚 Security Resources
-
-- [Kubernetes Security Best Practices](https://kubernetes.io/docs/concepts/security/)
-- [KubeVirt Security](https://kubevirt.io/user-guide/security/)
-- [Rust Security Guidelines](https://anssi-fr.github.io/rust-guide/)
-
-### 🤝 Security Hall of Fame
-
-We'd like to thank the following people for responsibly disclosing security issues:
-
-<!-- Will be updated as security reports are received and fixed -->
-
-*No security issues reported yet.*
-
----
-
-Thank you for helping keep Zorvia and our users safe!
+For security-related inquiries: info@zyvor.dev

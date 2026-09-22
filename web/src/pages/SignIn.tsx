@@ -305,14 +305,16 @@ export default function SignIn() {
               . Retrieve password from Secret{' '}
               <span className="font-mono">zorvia-auth</span>
               {' '}
-              (<span className="font-mono">kubectl get secret zorvia-auth -n zorvia-system …</span>). Lab default{' '}
-              <span className="font-mono">admin</span> / <span className="font-mono">Admin@321</span>.
+              (<span className="font-mono">kubectl get secret zorvia-auth -n zorvia-system …</span>). Lab mode only:{' '}
+              <span className="font-mono">admin</span> / <span className="font-mono">Admin@321</span>
+              {' '}(requires <span className="font-mono">ZORVIA_LAB_MODE=1</span>).
             </>
           ) : (
             <>
               Signing into <span className="font-mono">{instance?.product ?? 'Zorvia'}</span> on
-              this host. Lab default{' '}
-              <span className="font-mono">admin</span> / <span className="font-mono">Admin@321</span>.
+              this host. Lab mode only:{' '}
+              <span className="font-mono">admin</span> / <span className="font-mono">Admin@321</span>
+              {' '}(requires <span className="font-mono">ZORVIA_LAB_MODE=1</span>).
             </>
           )
         ) : null

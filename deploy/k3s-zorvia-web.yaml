@@ -157,6 +157,8 @@ spec:
               cpu: 500m
               memory: 256Mi
           env:
+            - name: ZORVIA_LAB_MODE
+              value: "1"
             - name: ZORVIA_WEB_DIR
               value: /usr/share/zorvia/web
             - name: ZORVIA_AUTH_DB
@@ -212,18 +214,9 @@ spec:
         - name: auth-data
           emptyDir: {}
 ---
-apiVersion: v1
-kind: Secret
-metadata:
-  name: zorvia-auth
-  namespace: zorvia-system
-  labels:
-    app.kubernetes.io/name: zorvia
-type: Opaque
-stringData:
-  admin-user: admin
-  admin-password: Admin@321
-  jwt-secret: zorvia-lab-jwt-change-me-30152
+# Auth Secret is NOT committed. Create it before apply:
+#   ./scripts/create-auth-secret.sh
+# For lab only, you may set ZORVIA_LAB_MODE=1 on the Deployment.
 ---
 apiVersion: v1
 kind: Service

@@ -1,18 +1,19 @@
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
+use std::net::{IpAddr, SocketAddr, ToSocketAddrs};
 
 /// Check if an IP address is private/internal
-fn is_private_ip(ip: &std::net::IpAddr) -> bool {
+fn is_private_ip(ip: &IpAddr) -> bool {
     match ip {
-        std::net::IpAddr::V4(v4) => {
+        IpAddr::V4(v4) => {
             v4.is_loopback()           // 127.0.0.0/8
             || v4.is_private()         // 10.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16
             || v4.is_link_local()      // 169.254.0.0/16
             || v4.is_broadcast()       // 255.255.255.255
             || v4.is_unspecified() // 0.0.0.0
         }
-        std::net::IpAddr::V6(v6) => {
+        IpAddr::V6(v6) => {
             v6.is_loopback()           // ::1
             || v6.is_unspecified()     // ::
             // fc00::/7 (unique local) and fe80::/10 (link-local)
@@ -22,46 +23,126 @@ fn is_private_ip(ip: &std::net::IpAddr) -> bool {
     }
 }
 
-/// Validate that a webhook URL is safe (HTTPS, no internal/private addresses)
+fn webhook_allowlist() -> Vec<String> {
+    std::env::var("ZORVIA_WEBHOOK_ALLOWLIST")
+        .ok()
+        .map(|s| {
+            s.split(',')
+                .map(|p| p.trim().to_ascii_lowercase())
+                .filter(|p| !p.is_empty())
+                .collect()
+        })
+        .unwrap_or_default()
+}
+
+fn host_allowed(host: &str, allowlist: &[String]) -> bool {
+    if allowlist.is_empty() {
+        return true;
+    }
+    let lower = host.to_ascii_lowercase();
+    allowlist.iter().any(|entry| {
+        if let Some(suffix) = entry.strip_prefix('.') {
+            lower == suffix || lower.ends_with(&format!(".{}", suffix)) || lower.ends_with(entry)
+        } else {
+            lower == *entry || lower.ends_with(&format!(".{}", entry))
+        }
+    })
+}
+
+fn extract_webhook_host(url: &str) -> anyhow::Result<(String, u16)> {
+    let after_scheme = url
+        .strip_prefix("https://")
+        .ok_or_else(|| anyhow::anyhow!("Webhook URL must use HTTPS"))?;
+    let host_port = after_scheme.split('/').next().unwrap_or("");
+    let (host, port) = if host_port.starts_with('[') {
+        let end = host_port
+            .find(']')
+            .ok_or_else(|| anyhow::anyhow!("Webhook URL has invalid IPv6 host"))?;
+        let host = host_port[1..end].to_string();
+        let port = if host_port[end + 1..].starts_with(':') {
+            host_port[end + 2..].parse().unwrap_or(443)
+        } else {
+            443
+        };
+        (host, port)
+    } else if let Some((h, p)) = host_port.rsplit_once(':') {
+        if h.chars().all(|c| c.is_ascii_digit() || c == '.') {
+            // host:port for IPv4
+            (h.to_string(), p.parse().unwrap_or(443))
+        } else if p.chars().all(|c| c.is_ascii_digit()) {
+            (h.to_string(), p.parse().unwrap_or(443))
+        } else {
+            (host_port.to_string(), 443)
+        }
+    } else {
+        (host_port.to_string(), 443)
+    };
+    if host.is_empty() {
+        anyhow::bail!("Webhook URL has no host");
+    }
+    Ok((host, port))
+}
+
+/// Validate that a webhook URL is safe (HTTPS, allowlist, no private addresses
+/// after DNS resolution).
 fn validate_webhook_url(url: &str) -> anyhow::Result<()> {
-    // Must be HTTPS
     if !url.starts_with("https://") {
         anyhow::bail!("Webhook URL must use HTTPS");
     }
 
-    // Extract host from URL
-    let after_scheme = url.strip_prefix("https://").unwrap_or(url);
-    let host_port = after_scheme.split('/').next().unwrap_or("");
-    let host = if host_port.starts_with('[') {
-        // IPv6 bracket notation: [::1]:8080
-        host_port
-            .split(']')
-            .next()
-            .unwrap_or("")
-            .trim_start_matches('[')
-    } else {
-        host_port.split(':').next().unwrap_or("")
-    };
-
-    if host.is_empty() {
-        anyhow::bail!("Webhook URL has no host");
-    }
-
-    // Reject known dangerous hostnames
+    let (host, port) = extract_webhook_host(url)?;
     let lower = host.to_lowercase();
     if lower == "localhost" || lower.ends_with(".localhost") || lower == "metadata.google.internal"
     {
         anyhow::bail!("Webhook URL must not point to internal addresses");
     }
 
-    // If host parses as an IP, check if it's private
-    if let Ok(ip) = host.parse::<std::net::IpAddr>() {
+    let allowlist = webhook_allowlist();
+    if !host_allowed(&lower, &allowlist) {
+        anyhow::bail!("Webhook host is not on ZORVIA_WEBHOOK_ALLOWLIST");
+    }
+
+    // Literal IP
+    if let Ok(ip) = host.parse::<IpAddr>() {
         if is_private_ip(&ip) {
             anyhow::bail!("Webhook URL must not point to private/internal IP addresses");
+        }
+        return Ok(());
+    }
+
+    // Resolve DNS and reject any private answer (blocks naive rebinding at register time).
+    let addrs: Vec<SocketAddr> = (host.as_str(), port)
+        .to_socket_addrs()
+        .map_err(|e| anyhow::anyhow!("Webhook DNS resolution failed: {e}"))?
+        .collect();
+    if addrs.is_empty() {
+        anyhow::bail!("Webhook DNS resolution returned no addresses");
+    }
+    for addr in &addrs {
+        if is_private_ip(&addr.ip()) {
+            anyhow::bail!("Webhook URL resolves to a private/internal IP address");
         }
     }
 
     Ok(())
+}
+
+/// Resolve destination and pick a public pinned address for connect.
+fn resolve_public_pin(host: &str, port: u16) -> anyhow::Result<SocketAddr> {
+    let addrs: Vec<SocketAddr> = (host, port)
+        .to_socket_addrs()
+        .map_err(|e| anyhow::anyhow!("Webhook DNS resolution failed: {e}"))?
+        .collect();
+    for addr in addrs {
+        if !is_private_ip(&addr.ip()) {
+            return Ok(addr);
+        }
+    }
+    anyhow::bail!("Webhook URL resolves only to private/internal addresses")
+}
+
+fn validate_destination_url(url: &str) -> anyhow::Result<()> {
+    validate_webhook_url(url)
 }
 
 /// Webhook event types
@@ -361,11 +442,29 @@ impl Default for WebhookManager {
     }
 }
 
-/// A single delivery attempt.
+/// A single delivery attempt with DNS pin + redirect revalidation.
 #[cfg(feature = "web")]
 pub async fn deliver_once(config: &WebhookConfig, payload: &WebhookPayload) -> anyhow::Result<()> {
+    // Re-validate at delivery time (DNS may have changed / rebinding).
+    validate_destination_url(&config.url)?;
+    let (host, port) = extract_webhook_host(&config.url)?;
+    let pinned = resolve_public_pin(&host, port)?;
+
+    let redirect_policy = reqwest::redirect::Policy::custom(|attempt| {
+        let next = attempt.url().as_str();
+        if validate_destination_url(next).is_err() {
+            attempt.error(anyhow::anyhow!(
+                "webhook redirect to disallowed destination"
+            ))
+        } else {
+            attempt.follow()
+        }
+    });
+
     let client = reqwest::Client::builder()
         .timeout(std::time::Duration::from_secs(config.timeout_secs))
+        .redirect(redirect_policy)
+        .resolve(&host, pinned)
         .build()?;
     let mut req = client.post(&config.url).json(payload);
     if let Some(secret) = &config.secret {
@@ -448,6 +547,7 @@ mod tests {
         assert!(WebhookConfig::new("test", "https://169.254.169.254/latest").is_err());
         assert!(WebhookConfig::new("test", "https://192.168.1.1/hook").is_err());
         assert!(WebhookConfig::new("test", "https://10.0.0.1/hook").is_err());
+        assert!(WebhookConfig::new("test", "https://[::1]/hook").is_err());
     }
 
     #[test]
