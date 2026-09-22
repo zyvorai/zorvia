@@ -23,6 +23,12 @@ export default defineConfig({
     target: 'es2022',
   },
   test: {
+    exclude: [
+      '**/node_modules/**',
+      '**/dist/**',
+      '**/e2e/**',
+      '**/.{idea,git,cache,output,temp}/**',
+    ],
     coverage: {
       provider: 'v8',
       reporter: ['text', 'lcov', 'html'],

@@ -16,7 +16,7 @@ permissions:
 
 jobs:
   security-p0:
-    name: security_p0 + features
+    name: security_p0 and features
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -26,7 +26,6 @@ jobs:
         run: cargo test --features web --test security_p0 -- --nocapture
       - name: Feature maturity unit tests
         run: cargo test --features web --lib features::
-      - name: Lab guard / auth module tests
-        run: |
-          cargo test --features web --lib api::auth -- --nocapture
+      - name: Lab guard and auth module tests
         continue-on-error: true
+        run: cargo test --features web --lib api::auth -- --nocapture
