@@ -138,6 +138,20 @@ test.describe('lab console crawl', () => {
     expect(health.status()).toBe(200)
   })
 
+  test('disk images: terminal listing', async ({ page }) => {
+    await page.setViewportSize({ width: 1440, height: 1000 })
+    await page.goto('/app/disk-images')
+    const term = page.getByTestId('disk-images-terminal')
+    await expect(term).toContainText('zorvia images ls -l')
+    await expect(term.locator('tbody tr').first()).toBeVisible({ timeout: 20_000 })
+    await page.getByLabel('Search disk images').fill('ubuntu')
+    await expect(term).toContainText('grep -i "ubuntu"')
+    await page.getByLabel('Search disk images').fill('')
+    await term.locator('tbody tr').first().click()
+    await expect(term.locator('tbody tr.is-on')).toHaveCount(1)
+    await page.screenshot({ path: 'test-results/disk-images.png', fullPage: true })
+  })
+
   test('pods: list, logs and exec', async ({ page }) => {
     test.setTimeout(120_000)
     await page.setViewportSize({ width: 1440, height: 1000 })
