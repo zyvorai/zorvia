@@ -7,6 +7,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.4] - 2026-09-27
+
+### Added
+
+- **Golden image capture from a running VM** — `POST /api/images/from-vm/:vm_name` clones a VM's PVC/DataVolume-backed disk into a standalone CDI DataVolume (`GET /api/images/convert/:id` polls the job). The Create VM "save as golden image" flow previously called routes that were never implemented server-side and silently 404'd. VMs with only an ephemeral (blank/containerdisk) disk now get a clear `400 NO_PERSISTENT_DISK` instead.
+
+### Fixed
+
+- **CDI PVC-clone missing `accessModes`** — `data_volume_clone_manifest()` (shared by the new golden-image route and the existing Clone VM feature) didn't set an explicit `accessModes` on the clone DataVolume's storage spec, so cloning a PVC-backed VM's disk failed with `ErrClaimNotValid` on any StorageClass without a StorageProfile default (e.g. k3s's built-in `local-path`) — the same fix already applied to the cloud-image-download path.
+
+### Changed
+
+- **README rewrite** — tighter marketing pitch (five-verb hook: create/operate/reach/govern/prove), the 24-row "Why Zorvia" table regrouped into six scannable highlight clusters under a new "What's inside" heading, a live demo GIF added to the Console gallery, and regenerated social preview cards.
+
+### Removed
+
+- **Dead frontend API functions** — `getSnapshotTree`, `getAuditLog`, `getBackup`, `getBackupStats` called backend routes that never existed and were unused by any page.
+
 ### Changed
 
 - **README + docs polish** — Netra-style hero (docs CTA, five-step “What you get”, live console gallery), Helm install + Fabric API quick table, new [docs/LAB.md](docs/LAB.md) (deploy, auth Secret, `lab-smoke.sh`), docs index refresh, audit export section in [docs/WEB_CONSOLE.md](docs/WEB_CONSOLE.md).
