@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **Atlas storage integration (optional)** — `ATLAS_URL`/`ATLAS_TOKEN` wires
+  Zorvia to Atlas, the Zyvor-suite storage control plane, mirroring the
+  existing Kryton integration pattern. Read-only inventory (backends,
+  clusters, pools, Ceph status/capacity, storage classes, volumes) plus one
+  write path (volume creation, tagged with `owner: {product: "zorvia", ...}`
+  so it's traceable back to a Zorvia VM in Atlas's own inventory). New
+  `src/atlas/` client module, `/api/v1/atlas/*` routes (always registered,
+  `503 ATLAS_DISABLED` when unconfigured), an Atlas section on the existing
+  Storage page (`/app/storage`) alongside Rook-Ceph, an `Atlas` platform-status
+  line, and [docs/ATLAS_INTEGRATION.md](docs/ATLAS_INTEGRATION.md). Absent by
+  default — nothing changes unless `ATLAS_URL` is set.
+
 ## [0.3.4] - 2026-09-27
 
 ### Added

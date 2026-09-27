@@ -227,6 +227,9 @@ Two dozen capabilities, grouped by the job they do — not one wall of a table.
 ### Bring your own infrastructure
 - Distributed storage: Rook-Ceph pools, filesystems, and object stores, plus
   StorageClass provisioning (`/app/storage`).
+- Optional pluggable storage control plane via Atlas (`ATLAS_URL`) — Ceph/NFS/ZFS
+  backends, capacity overview, and volume provisioning alongside Rook-Ceph
+  (`/app/storage`).
 - GitOps: a Terraform scaffold and module over the Fabric API.
 
 No OpenShift tax. Same `VirtualMachine` objects, whether you're at a
@@ -505,6 +508,7 @@ zorvia placement-advisor --cpu 2 --memory-gib 4
 | Upgrade | [docs/UPGRADE.md](docs/UPGRADE.md) |
 | Terraform | [docs/TERRAFORM.md](docs/TERRAFORM.md) |
 | Kryton | [docs/KRYTON_INTEGRATION.md](docs/KRYTON_INTEGRATION.md) |
+| Atlas storage | [docs/ATLAS_INTEGRATION.md](docs/ATLAS_INTEGRATION.md) |
 | Inventory | [docs/VCENTER_FEATURE_MATRIX.md](docs/VCENTER_FEATURE_MATRIX.md) |
 | Snapshots | [docs/SNAPSHOTS.md](docs/SNAPSHOTS.md) |
 | TUI | [docs/INTERACTIVE_TUI.md](docs/INTERACTIVE_TUI.md) |

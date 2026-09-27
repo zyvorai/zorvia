@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { useEffect, useState } from 'react'
-import { Database, HardDrive, FolderTree, Archive, Plus, Trash2, Rocket } from 'lucide-react'
+import { Database, HardDrive, FolderTree, Archive, Plus, Trash2, Rocket, Layers } from 'lucide-react'
 import {
   bootstrapRook,
   getClusterStatus,
@@ -22,9 +22,24 @@ import {
   RookFilesystem,
   RookObjectStore,
 } from '../api/rook'
+import {
+  getAtlasStatus,
+  listAtlasBackends,
+  listAtlasClusters,
+  listAtlasPools,
+  listAtlasVolumes,
+  createAtlasVolume,
+  atlasVolumeOwnerForVm,
+  AtlasStatus,
+  AtlasBackend,
+  AtlasCluster,
+  AtlasPool,
+  AtlasVolume,
+} from '../api/atlas'
 import { useToastContext } from '../contexts/ToastContext'
 import { toastFailure } from '../utils/toastError'
 import { formatUserError } from '../utils/apiError'
+import { formatBytes } from '../utils/format'
 import ErrorBanner from '../components/ErrorBanner'
 import { PageHeader } from '../components/ui/PageHeader'
 import { useConfirm } from '../hooks/useConfirm'
@@ -266,6 +281,8 @@ export default function RookStorage() {
         }
       />
 
+      <AtlasSection />
+
       {confirmState && (
         <ConfirmDialog
           title={confirmState.title}
@@ -466,4 +483,246 @@ function CreateNamedForm({
       </button>
     </div>
   )
+}
+
+const ATLAS_HEALTH_STYLES: Record<string, string> = {
+  ok: 'text-[var(--zf-success)] bg-[var(--zf-success)]/10 border-[var(--zf-success)]/25',
+  warn: 'text-[var(--zf-warning)] bg-[var(--zf-warning)]/10 border-[var(--zf-warning)]/25',
+  critical: 'text-[var(--zf-danger)] bg-[var(--zf-danger)]/10 border-[var(--zf-danger)]/25',
+  unknown: 'text-[var(--zf-muted)] bg-[var(--zf-canvas)] border-[var(--zf-hairline)]',
+}
+
+function AtlasSection() {
+  const toast = useToastContext()
+  const [status, setStatus] = useState<AtlasStatus | null>(null)
+  const [backends, setBackends] = useState<AtlasBackend[]>([])
+  const [clusters, setClusters] = useState<AtlasCluster[]>([])
+  const [pools, setPools] = useState<AtlasPool[]>([])
+  const [volumes, setVolumes] = useState<AtlasVolume[]>([])
+  const [loading, setLoading] = useState(true)
+  const [busy, setBusy] = useState<string | null>(null)
+
+  const load = async () => {
+    try {
+      const s = await getAtlasStatus()
+      setStatus(s)
+      if (!s.enabled || !s.connected) {
+        setBackends([])
+        setClusters([])
+        setPools([])
+        setVolumes([])
+        return
+      }
+      const [b, c, p, v] = await Promise.all([
+        listAtlasBackends().catch(() => []),
+        listAtlasClusters().catch(() => []),
+        listAtlasPools().catch(() => []),
+        listAtlasVolumes().catch(() => []),
+      ])
+      setBackends(b)
+      setClusters(c)
+      setPools(p)
+      setVolumes(v)
+    } catch {
+      // Status fetch itself failing (network/auth) leaves status null; the
+      // section below just shows "Not configured" rather than an alarming
+      // banner — Atlas is an optional secondary integration on this page.
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  useEffect(() => {
+    void load()
+    const interval = setInterval(() => void load(), 15000)
+    return () => clearInterval(interval)
+  }, [])
+
+  if (loading) return null
+
+  const enabled = status?.enabled ?? false
+  const connected = status?.connected ?? false
+
+  return (
+    <div className="bg-[var(--zf-surface)] rounded-lg border border-[var(--zf-hairline)] p-6 space-y-4">
+      <div className="flex items-center justify-between flex-wrap gap-3">
+        <h2 className="flex items-center gap-2 text-sm font-semibold text-[var(--zf-ink)]">
+          <Layers className="w-4 h-4 text-[var(--zf-muted)]" />
+          Atlas
+        </h2>
+        <span
+          className={`px-3 py-1 rounded-full text-xs font-medium border ${
+            !enabled
+              ? ATLAS_HEALTH_STYLES.unknown
+              : connected
+                ? ATLAS_HEALTH_STYLES.ok
+                : ATLAS_HEALTH_STYLES.critical
+          }`}
+        >
+          {!enabled ? 'Not configured' : connected ? 'Connected' : 'Unreachable'}
+        </span>
+      </div>
+
+      {!enabled && (
+        <p className="text-sm text-[var(--zf-muted)]">
+          Optional pluggable storage control plane for Ceph/NFS/ZFS with multi-backend governance
+          and capacity forecasting. Set <code>ATLAS_URL</code> (and <code>ATLAS_TOKEN</code>) on
+          the Zorvia server to enable — see{' '}
+          <a href="/docs/ATLAS_INTEGRATION.md" className="underline">
+            docs/ATLAS_INTEGRATION.md
+          </a>
+          .
+        </p>
+      )}
+
+      {enabled && !connected && (
+        <p className="text-sm text-[var(--zf-warning)] bg-[var(--zf-warning)]/10 border border-[var(--zf-warning)]/25 rounded px-3 py-2">
+          {status?.error || 'Could not reach the configured Atlas control plane.'}
+        </p>
+      )}
+
+      {enabled && connected && (
+        <>
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+            <StatTile label="Backends" value={backends.length} />
+            <StatTile label="Clusters" value={clusters.length} />
+            <StatTile label="Pools" value={pools.length} />
+            <StatTile label="Volumes" value={volumes.length} />
+          </div>
+
+          {backends.length > 0 && (
+            <div className="divide-y divide-[var(--zf-hairline)]">
+              {backends.map((b) => (
+                <div key={b.id} className="flex items-center justify-between py-2 gap-3">
+                  <div>
+                    <div className="font-medium text-sm text-[var(--zf-ink)]">{b.name}</div>
+                    <div className="text-xs text-[var(--zf-muted)]">
+                      {b.backend_type} · {b.mode}
+                      {b.cordoned ? ' · cordoned' : ''}
+                    </div>
+                  </div>
+                  <span
+                    className={`px-2 py-0.5 rounded-full text-xs font-medium border ${
+                      b.cordoned ? ATLAS_HEALTH_STYLES.warn : ATLAS_HEALTH_STYLES.ok
+                    }`}
+                  >
+                    {b.status}
+                  </span>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {volumes.length > 0 && (
+            <div>
+              <h3 className="text-xs font-medium text-[var(--zf-muted)] mb-2">Volumes</h3>
+              <div className="divide-y divide-[var(--zf-hairline)]">
+                {volumes.map((v) => (
+                  <div key={v.id} className="flex items-center justify-between py-2 gap-3">
+                    <div>
+                      <div className="font-medium text-sm text-[var(--zf-ink)]">{v.name}</div>
+                      <div className="text-xs text-[var(--zf-muted)]">
+                        {v.kind} · {formatBytes(v.size_bytes)}
+                        {v.storage_class_name ? ` · ${v.storage_class_name}` : ''}
+                      </div>
+                    </div>
+                    <span
+                      className={`px-2 py-0.5 rounded-full text-xs font-medium border ${ATLAS_HEALTH_STYLES[v.health] ?? ATLAS_HEALTH_STYLES.unknown}`}
+                    >
+                      {v.state}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          <CreateAtlasVolumeForm
+            disabled={busy !== null}
+            onCreate={(req) => {
+              setBusy('create-volume')
+              createAtlasVolume(req)
+                .then(() => {
+                  toast.success(`Volume '${req.name}' create requested`)
+                  return load()
+                })
+                .catch((e) => toastFailure(toast, 'Failed to create volume', e))
+                .finally(() => setBusy(null))
+            }}
+          />
+        </>
+      )}
+    </div>
+  )
+}
+
+function StatTile({ label, value }: { label: string; value: number }) {
+  return (
+    <div className="bg-[var(--zf-canvas)] rounded-md border border-[var(--zf-hairline)] px-3 py-2">
+      <div className="text-lg font-semibold text-[var(--zf-ink)]">{value}</div>
+      <div className="text-xs text-[var(--zf-muted)]">{label}</div>
+    </div>
+  )
+}
+
+function CreateAtlasVolumeForm({
+  disabled,
+  onCreate,
+}: {
+  disabled: boolean
+  onCreate: (req: ReturnType<typeof buildCreateAtlasVolumeRequest>) => void
+}) {
+  const [name, setName] = useState('')
+  const [sizeGiB, setSizeGiB] = useState(20)
+  const [vmName, setVmName] = useState('')
+
+  return (
+    <div className="flex items-end gap-2 flex-wrap pt-2 border-t border-[var(--zf-hairline)]">
+      <div>
+        <label className="block text-xs text-[var(--zf-muted)] mb-1">Name</label>
+        <input
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          placeholder="app-data"
+          className="w-36 px-2.5 py-1.5 bg-[var(--zf-surface)] border border-[var(--zf-hairline)] rounded-md text-sm"
+        />
+      </div>
+      <div>
+        <label className="block text-xs text-[var(--zf-muted)] mb-1">Size (GiB)</label>
+        <input
+          type="number"
+          min={1}
+          value={sizeGiB}
+          onChange={(e) => setSizeGiB(parseInt(e.target.value) || 1)}
+          className="w-24 px-2.5 py-1.5 bg-[var(--zf-surface)] border border-[var(--zf-hairline)] rounded-md text-sm"
+        />
+      </div>
+      <div>
+        <label className="block text-xs text-[var(--zf-muted)] mb-1">Attribute to VM (optional)</label>
+        <input
+          value={vmName}
+          onChange={(e) => setVmName(e.target.value)}
+          placeholder="prod-db"
+          className="w-40 px-2.5 py-1.5 bg-[var(--zf-surface)] border border-[var(--zf-hairline)] rounded-md text-sm"
+        />
+      </div>
+      <button
+        type="button"
+        disabled={disabled || !name.trim() || sizeGiB < 1}
+        onClick={() => onCreate(buildCreateAtlasVolumeRequest(name.trim(), sizeGiB, vmName.trim()))}
+        className="zf-btn zf-btn-primary zf-btn-sm"
+      >
+        <Plus className="w-4 h-4" />
+        Create volume
+      </button>
+    </div>
+  )
+}
+
+function buildCreateAtlasVolumeRequest(name: string, sizeGiB: number, vmName: string) {
+  return {
+    name,
+    size_bytes: sizeGiB * 1024 * 1024 * 1024,
+    ...(vmName ? { owner: atlasVolumeOwnerForVm(vmName) } : {}),
+  }
 }

@@ -308,6 +308,9 @@ fn collect_features(status: &PlatformStatus) -> Vec<FeatureStatus> {
     let kryton = std::env::var("KRYTON_URL")
         .map(|v| !v.trim().is_empty())
         .unwrap_or(false);
+    let atlas = std::env::var("ATLAS_URL")
+        .map(|v| !v.trim().is_empty())
+        .unwrap_or(false);
 
     let ok = || ErrorCount::default();
     let disabled = || ErrorCount {
@@ -358,6 +361,10 @@ fn collect_features(status: &PlatformStatus) -> Vec<FeatureStatus> {
         FeatureStatus {
             name: "Kryton".into(),
             state: from_bool(kryton),
+        },
+        FeatureStatus {
+            name: "Atlas".into(),
+            state: from_bool(atlas),
         },
         FeatureStatus {
             name: "GitOps".into(),
