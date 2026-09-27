@@ -7,7 +7,8 @@ Start here: root [README.md](../README.md) (hero, gallery, quick start) · live 
 | Doc | Topic |
 |-----|--------|
 | [LAB.md](LAB.md) | Remote deploy, auth Secret, NodePort **30152**, `lab-smoke.sh` |
-| [WEB_CONSOLE.md](WEB_CONSOLE.md) | SPA, Fabric HTTP API, console/VNC/SSH WebSockets, hotplug, migration, Rook, RBAC, audit export |
+| [WEB_CONSOLE.md](WEB_CONSOLE.md) | SPA, Fabric HTTP API, console/VNC/SSH/pod WebSockets, Disk Images, hotplug, migration, Rook, RBAC, audit export |
+| [PODS.md](PODS.md) | Pods page: all-namespace inventory, Terminal.app logs + exec, WebSocket protocol, RBAC, audit |
 | [OIDC.md](OIDC.md) | Opt-in OIDC SSO (PKCE + token exchange + JWKS) |
 | [OIDC_LAB.md](OIDC_LAB.md) | Lab IdP bake-off (Dex/Keycloak) |
 | [FEATURE_MATURITY.md](FEATURE_MATURITY.md) | GA / Beta / Experimental / Model-only (`GET /api/v1/features`) |

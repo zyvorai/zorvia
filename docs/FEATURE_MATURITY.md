@@ -18,6 +18,7 @@ Levels used by Zorvia (also exposed at `GET /api/v1/features` when the API is ru
 | `live-migration` | Live migration | GA | Needs shared storage |
 | `web-console` | Web console + auth | GA | JWT + tokens; OIDC opt-in |
 | `audit-trail` | Audit trail | GA | SQLite + `GET /api/audit/export` JSONL; optional `ZORVIA_AUDIT_JSONL` sidecar |
+| `pod-ops` | Pods: live logs + exec | Beta | `cluster.admin` only; `pods/log` + `pods/exec` RBAC; exec audited — [PODS.md](PODS.md) |
 | `schedulers` | Backup/power/alert/warm-pool | Beta | Lease election; in-process |
 | `rook-storage` | Rook-Ceph management | Beta | Bootstrap SA optional |
 | `helm-chart` | Helm chart | Beta | Lab + hardened production values |

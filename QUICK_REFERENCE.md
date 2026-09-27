@@ -100,6 +100,18 @@ VNC: `wss://HOST:30152/ws/vnc/myvm?token=$TOKEN`
 SSH: `wss://HOST:30152/ws/ssh/myvm?token=$TOKEN&user=ubuntu`  
 Expose: port-forwards API → NodePort (`ZORVIA_EXPOSE_HOST`). See `docs/WEB_CONSOLE.md`.
 
+### Pods: logs & exec (admin-only)
+```bash
+open https://HOST:30152/app/pods                     # top nav → Pods
+curl -sk -H "Authorization: Bearer $TOKEN" 'https://HOST:30152/api/v1/pods?namespace=all' | jq .count
+curl -sk -H "Authorization: Bearer $TOKEN" https://HOST:30152/api/v1/namespaces
+# Live logs:  wss://HOST:30152/ws/pods/<ns>/<pod>/logs?token=$TOKEN&container=<c>&tail=500&timestamps=1
+# Shell:      wss://HOST:30152/ws/pods/<ns>/<pod>/exec?token=$TOKEN&container=<c>&shell=auto
+# SA needs pods/log get + pods/exec create,get:
+kubectl auth can-i create pods --subresource=exec --as=system:serviceaccount:zorvia-system:zorvia -A
+```
+See `docs/PODS.md` (colorizing, frame protocol, audit, troubleshooting).
+
 ### Hotplug, resize & migration (web console + API)
 ```bash
 # Hotplug CPU / memory (needs cpu.maxSockets/memory.maxGuest headroom, set by default at create)
@@ -299,6 +311,7 @@ export KUBECONFIG=~/.kube/config
 ## More Info
 
 - `docs/WEB_CONSOLE.md` - Web UI, Fabric API, console/VNC/SSH, expose
+- `docs/PODS.md` - Pods page: logs + exec terminals, WebSockets, RBAC, audit
 - `docs/KRYTON_INTEGRATION.md` - Windows plane via Kryton
 - `docs/TERRAFORM.md` - Terraform scaffold + module
 - `docs/DRIFT_GUARD.md` / `docs/CHANGE_PLANNER.md` / `docs/GUEST_INSIGHT.md`

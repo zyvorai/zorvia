@@ -86,6 +86,7 @@ const config: Config = {
           items: [
             {label: 'Lab deploy', to: '/docs/LAB'},
             {label: 'Web console', to: '/docs/WEB_CONSOLE'},
+            {label: 'Pods: logs & exec', to: '/docs/PODS'},
             {label: 'Interactive TUI', to: '/docs/INTERACTIVE_TUI'},
             {label: 'Snapshots', to: '/docs/SNAPSHOTS'},
           ],
