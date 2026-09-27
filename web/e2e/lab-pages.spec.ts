@@ -138,6 +138,16 @@ test.describe('lab console crawl', () => {
     expect(health.status()).toBe(200)
   })
 
+  test('top nav links to pods', async ({ page }) => {
+    await page.setViewportSize({ width: 1440, height: 1000 })
+    await page.goto('/app')
+    await page.getByRole('navigation', { name: 'Console' }).getByRole('link', { name: 'Pods', exact: true }).click()
+    await expect(page).toHaveURL(/\/app\/pods/)
+    await expect(page.getByRole('heading', { name: 'Pods' })).toBeVisible()
+    await expect(page.locator('tbody tr').first()).toBeVisible({ timeout: 20_000 })
+    await page.screenshot({ path: 'test-results/pods-page.png' })
+  })
+
   test('disk images: terminal listing', async ({ page }) => {
     await page.setViewportSize({ width: 1440, height: 1000 })
     await page.goto('/app/disk-images')

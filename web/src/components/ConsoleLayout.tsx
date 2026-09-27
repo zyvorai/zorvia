@@ -182,6 +182,7 @@ export default function ConsoleLayout({ children }: { children: ReactNode }) {
           {TOP_NAV.map((entry) => {
             if (entry.kind === 'link') {
               const item = entry.item
+              if (item.adminOnly && !canAdmin) return null
               return (
                 <NavLink
                   key={item.path}
