@@ -40,6 +40,21 @@ curl -sk https://<host>:30152/api/v1/auth/providers   # [] unless OIDC enabled
 | Enterprise plan APIs | `ZORVIA_EXPERIMENTAL=1` + `ZORVIA_FEATURE_*` | [PHASE5_ENTERPRISE.md](PHASE5_ENTERPRISE.md) |
 | Feature registry | always on | [FEATURE_MATURITY.md](FEATURE_MATURITY.md) |
 | Pods page (logs, exec, events, YAML, restart/delete) | admin role + `pods` delete / `pods/log` / `pods/exec` RBAC | [PODS.md](PODS.md) |
+| Rescue mode (hostname/SSH-key/enable-SSH) | admin role + `batch/jobs` RBAC | [RESCUE.md](RESCUE.md) |
+
+### Rescue mode
+
+The admin-only **Rescue** tab (on a VM's detail page) needs one new rule on
+the `zorvia` role — `batch` `jobs` (get, list, watch, create, delete), used
+to run a short-lived privileged Job per rescue request. It ships in
+`deploy/k8s.yaml`, `deploy/k3s-zorvia-web.yaml` and the Helm chart; `helm
+upgrade` / `kubectl apply` picks it up. For an in-place patch of a live
+cluster see [RESCUE.md → Kubernetes RBAC](RESCUE.md#kubernetes-rbac).
+Without it, `POST /vms/:name/rescue` returns `403 FORBIDDEN`; everything
+else keeps working. This also needs the `rescue-agent` container image
+(`ghcr.io/zyvorai/zorvia-rescue-agent`) to be reachable from your cluster —
+see [RESCUE.md → The guestkit dependency](RESCUE.md#the-guestkit-dependency)
+for how it's built.
 
 ### Pods page (logs & exec)
 

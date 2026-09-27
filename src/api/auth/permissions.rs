@@ -129,6 +129,14 @@ pub fn required_permission(method: &str, path: &str) -> Option<ApiPermission> {
         return Some(ApiPermission::ClusterAdmin);
     }
 
+    // Rescue mode creates a privileged Kubernetes Job that mounts a VM's
+    // own PVC and runs arbitrary offline guest-disk mutations -- exec-
+    // equivalent sensitivity, admin-only even on GET (job-status polling
+    // still reveals whether/what a rescue op did).
+    if path.starts_with("/vms/") && path.contains("/rescue") {
+        return Some(ApiPermission::ClusterAdmin);
+    }
+
     if method == "GET" || method == "HEAD" {
         return None;
     }
@@ -350,5 +358,27 @@ mod tests {
             &Role::Viewer,
             ApiPermission::ClusterAdmin
         ));
+    }
+
+    #[test]
+    fn rescue_mode_requires_cluster_admin_even_on_get() {
+        for (method, path) in [
+            ("POST", "/vms/web-01/rescue"),
+            ("GET", "/vms/web-01/rescue/zorvia-rescue-web-01-abc123"),
+            ("DELETE", "/vms/web-01/rescue/zorvia-rescue-web-01-abc123"),
+        ] {
+            assert_eq!(
+                required_permission(method, path),
+                Some(ApiPermission::ClusterAdmin),
+                "{method} {path}"
+            );
+        }
+        // A VM's other routes stay under the normal fabric rules -- this
+        // isn't a blanket "everything under /vms/ is admin-only" change.
+        assert_eq!(required_permission("GET", "/vms/web-01"), None);
+        assert_eq!(
+            required_permission("POST", "/vms/web-01/start"),
+            Some(ApiPermission::VmPower)
+        );
     }
 }

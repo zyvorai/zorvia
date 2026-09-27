@@ -42,6 +42,11 @@ rules:
   - apiGroups: [""]
     resources: ["pods/exec"]
     verbs: ["create", "get"]
+  # Rescue mode (cluster.admin only in the API): a privileged Job per
+  # request that mounts a VM's own PVC and runs GuestKit against it.
+  - apiGroups: ["batch"]
+    resources: ["jobs"]
+    verbs: ["get", "list", "watch", "create", "delete"]
   # Quotas feature: real ResourceQuota objects.
   - apiGroups: [""]
     resources: ["resourcequotas"]

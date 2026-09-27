@@ -9,6 +9,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Rescue mode** — the Rescue tab's frontend (built but never wired) now
+  has a real backend: `POST /api/vms/:name/rescue` (set-hostname,
+  inject-ssh-key, enable-ssh) creates a privileged Kubernetes Job that
+  mounts the VM's own PVC and runs a new `rescue-agent` binary against it
+  via [GuestKit](https://github.com/zyvorai/guestkit) (`Guestfs::set_hostname`/
+  `set_ssh_authorized_keys`, and the same systemd-enable symlink trick
+  GuestKit's own CLI uses). `GET`/`DELETE /api/vms/:name/rescue/:job_name`
+  poll/clean up the job. `cluster.admin`-gated end to end, same as the Pods
+  page — see [docs/RESCUE.md](docs/RESCUE.md). Reset-password,
+  install-packages, and disk-inspect stay on the tab marked "Not yet
+  available" rather than calling a route that doesn't exist — each needs
+  its own follow-up (Linux has no direct password mutator in GuestKit;
+  package install needs guest network egress from inside a privileged Job;
+  inspect needs its own API research).
+  `guestkit` is pinned to a `git` revision of `zyvorai/guestkit`, not a
+  crates.io version — the published `guestkit` crate is stale, from a
+  different repo, and LGPL-3.0-or-later, not the Apache-2.0 source this is
+  pinned to — and is only pulled in by the new opt-in `rescue-agent` Cargo
+  feature/binary, never the main server's dependency graph. New
+  `deploy/rescue-agent.Dockerfile` + a best-effort CI job build and push
+  its container image independently of the main release.
+
 - **Atlas DataBridge (cloud-to-edge DB migration)** — the final piece of the
   Atlas storage integration plan. `GET|POST /api/v1/atlas/databridge/
   sources`, `GET|DELETE .../sources/:id`, `POST .../sources/:id/discover`,

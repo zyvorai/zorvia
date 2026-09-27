@@ -392,7 +392,7 @@ map lives in [docs/WEB_CONSOLE.md](docs/WEB_CONSOLE.md).
 |-------|---------|
 | `/app` | Dashboard |
 | `/app/create` | Linux (cloud-init) or Windows (Kryton) create |
-| `/app/vms/:name` | Power, expose, cloud-init, snapshots, hotplug, resize |
+| `/app/vms/:name` | Power, expose, cloud-init, snapshots, hotplug, resize, Rescue mode (admin) — [docs/RESCUE.md](docs/RESCUE.md) |
 | `/app/vms/:name/console` | Serial · VNC · SSH |
 | `/app/snapshots` · `/app/migrations` | Snapshots · live migration |
 | `/app/storage` · `/app/volumes` | Rook-Ceph · fleet PVCs · optional Atlas backend/RBD/object-store/DR/governance |
