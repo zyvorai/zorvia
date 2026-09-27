@@ -296,4 +296,78 @@ mod tests {
         assert!(matches!(client.tenant_id(None), Err(Error::MissingTenant)));
         assert_eq!(client.tenant_id(Some("acme")).unwrap(), "acme");
     }
+
+    // ── Live-instance checks -- not run by default, no Atlas instance in CI.
+    // Start one first: `cd ../atlas && cargo run -p atlas-gateway` (dev config,
+    // fake Ceph driver, no auth required, listens on 127.0.0.1:5110 by default
+    // -- see `../atlas/README.md`'s Quickstart), then:
+    //   cargo test --features web -p zorvia atlas::client::tests::live -- --ignored --nocapture
+
+    fn live_client() -> Client {
+        Client::new(Config {
+            base_url: "http://127.0.0.1:5110".into(),
+            token: None,
+            default_tenant_id: Some("global".into()),
+            timeout: Duration::from_secs(5),
+            allow_invalid_tls: false,
+        })
+        .unwrap()
+    }
+
+    #[tokio::test]
+    #[ignore]
+    async fn live_health_and_version() {
+        let c = live_client();
+        let health = c.health().await.unwrap();
+        assert_eq!(health["status"], "ok");
+        c.version().await.unwrap();
+    }
+
+    #[tokio::test]
+    #[ignore]
+    async fn live_list_backends_matches_real_contract() {
+        let c = live_client();
+        let backends = c.list_backends().await.unwrap();
+        assert!(!backends.is_empty(), "fake driver seeds one backend");
+        assert_eq!(backends[0].backend_type, BackendType::Ceph);
+    }
+
+    #[tokio::test]
+    #[ignore]
+    async fn live_list_clusters_pools_volumes() {
+        let c = live_client();
+        let clusters = c.list_clusters().await.unwrap();
+        assert!(clusters.as_array().is_some_and(|a| !a.is_empty()));
+        let pools = c.list_pools().await.unwrap();
+        assert!(pools.as_array().is_some_and(|a| !a.is_empty()));
+        // Fake driver seeds volumes too; this just confirms the route/shape,
+        // not a specific count.
+        c.list_volumes().await.unwrap();
+    }
+
+    #[tokio::test]
+    #[ignore]
+    async fn live_create_volume_round_trips() {
+        let c = live_client();
+        let name = format!("zorvia-live-test-{}", chrono::Utc::now().timestamp_millis());
+        let result = c
+            .create_volume(CreateVolumeRequest {
+                tenant_id: String::new(), // filled from default_tenant_id
+                name: name.clone(),
+                size_bytes: 1024 * 1024 * 1024,
+                kind: VolumeKind::Block,
+                policy: None,
+                pool: None,
+                owner: Some(Owner::for_vm("zorvia-live-test-vm")),
+                kubernetes: None,
+            })
+            .await
+            .unwrap();
+        // create_volume's handler returns (StatusCode, Json<Value>) -- assert
+        // it's a real object, not an error envelope masquerading as 200.
+        assert!(
+            result.get("error").is_none(),
+            "unexpected error in response: {result:?}"
+        );
+    }
 }

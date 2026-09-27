@@ -51,7 +51,7 @@ If `ATLAS_URL` is absent, Zorvia starts normally and the integration reports `en
 - `GET /api/v1/atlas/storage-classes`
 - `GET|POST /api/v1/atlas/volumes` — `POST` is the one write route in this integration
 
-`POST /api/v1/atlas/volumes` accepts `{name, size_bytes, policy?, pool?, owner?, kubernetes?}` and forwards to Atlas's `CreateVolumeRequest`. When called in the context of a VM, populate `owner: {product: "zorvia", resource_type: "vm", resource_id: <vm name>, role: "data_disk"}` (the web UI's "Attribute to VM" field does this) — that's what makes the volume traceable back to Zorvia in Atlas's own inventory, not a cosmetic detail. All `/api/v1/atlas/*` routes are protected by Zorvia's existing auth middleware; `POST /volumes` additionally requires the `storage.admin` permission (same permission that gates Rook administration).
+`POST /api/v1/atlas/volumes` accepts `{name, size_bytes, policy?, pool?, owner?, kubernetes?}` and forwards to Atlas's `CreateVolumeRequest`. It returns `202` with Atlas's job envelope (`{"job_id", "state":"queued", "resource": {"volume_id", "pvc", ...}, "links": {"job": "/api/atlas/v1/jobs/:id"}}`), not a finished volume — creation is genuinely async on Atlas's side (see "Deliberately not proxied yet" below: Zorvia doesn't poll the job). When called in the context of a VM, populate `owner: {product: "zorvia", resource_type: "vm", resource_id: <vm name>, role: "data_disk"}` (the web UI's "Attribute to VM" field does this) — that's what makes the volume traceable back to Zorvia in Atlas's own inventory, not a cosmetic detail. All `/api/v1/atlas/*` routes are protected by Zorvia's existing auth middleware; `POST /volumes` additionally requires the `storage.admin` permission (same permission that gates Rook administration).
 
 ## Deliberately not proxied yet
 
@@ -73,4 +73,15 @@ If any of these become a real need, they follow the same pattern as `create_volu
 2. Keep `ATLAS_TOKEN` in a Kubernetes Secret, minted with a `product.service.zorvia`-style role and the correct `tenant_id`.
 3. Rotate the Atlas token independently of Zorvia user credentials.
 4. Keep `ATLAS_TLS_INSECURE=false` outside isolated labs.
-5. Confirm volume creation actually provisions against your Atlas instance's configured backend before relying on it — Atlas's own write path matures backend-by-backend (Ceph first).
+5. `POST /volumes` is genuinely async: a successful call returns `202` with a
+   `job_id` (`{"state":"queued", "resource":{"volume_id":..., "pvc":...}, ...}`),
+   not a finished volume — Zorvia's response mirrors that `202` as-is and
+   doesn't poll the job to completion. Verified live against a local
+   `atlas-gateway` (fake Ceph driver): the request is accepted correctly, but
+   the job then fails with `"no Kubernetes cluster is attached; cannot run
+   the write path"` when Atlas itself has no `ATLAS_KUBECONFIG` configured —
+   Atlas needs a real Kubernetes cluster attached (via `ATLAS_KUBECONFIG` or
+   in-cluster config) to actually create the PVC, independent of anything on
+   Zorvia's side. Confirm your Atlas instance has that before relying on
+   volume creation from Zorvia, and don't assume a `202` means the volume
+   exists yet.
