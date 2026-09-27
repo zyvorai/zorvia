@@ -77,6 +77,12 @@ pub const FEATURES: &[Feature] = &[
         notes: "cluster.admin only; needs pods delete + pods/log + pods/exec RBAC; exec/restart/delete audited; see docs/PODS.md",
     },
     Feature {
+        id: "rescue-mode",
+        name: "Rescue mode: hostname/SSH-key/enable-SSH via a Job-mounted disk",
+        maturity: Maturity::Beta,
+        notes: "cluster.admin only; needs batch/jobs RBAC; 3 of 5 UI operations wired (reset-password, install-packages, inspect deferred); see docs/RESCUE.md",
+    },
+    Feature {
         id: "schedulers",
         name: "Backup/power/alert/warm-pool schedulers",
         maturity: Maturity::Beta,

@@ -6,6 +6,7 @@ pub mod guest_metrics;
 pub mod guest_ready;
 pub mod lifecycle;
 pub mod prom;
+pub mod rescue;
 pub mod ssh;
 pub mod status;
 pub mod types;

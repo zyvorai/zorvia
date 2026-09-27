@@ -19,6 +19,7 @@ Levels used by Zorvia (also exposed at `GET /api/v1/features` when the API is ru
 | `web-console` | Web console + auth | GA | JWT + tokens; OIDC opt-in |
 | `audit-trail` | Audit trail | GA | SQLite + `GET /api/audit/export` JSONL; optional `ZORVIA_AUDIT_JSONL` sidecar |
 | `pod-ops` | Pods: logs, exec, events, YAML, restart/delete | Beta | `cluster.admin` only; `pods` delete + `pods/log` + `pods/exec` RBAC; exec, restart and delete audited — [PODS.md](PODS.md) |
+| `rescue-mode` | Rescue mode: hostname/SSH-key/enable-SSH via a Job-mounted disk | Beta | `cluster.admin` only; 3 of 5 UI operations wired (reset-password, install-packages, inspect deferred); needs on-cluster verification of the mounted PVC's disk-image path before trusting it against a production VM — [RESCUE.md](RESCUE.md) |
 | `schedulers` | Backup/power/alert/warm-pool | Beta | Lease election; in-process |
 | `rook-storage` | Rook-Ceph management | Beta | Bootstrap SA optional |
 | `helm-chart` | Helm chart | Beta | Lab + hardened production values |

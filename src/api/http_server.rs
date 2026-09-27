@@ -68,6 +68,10 @@ pub mod web {
     mod disk_network_handlers;
     use disk_network_handlers::*;
 
+    #[path = "rescue_handlers.rs"]
+    mod rescue_handlers;
+    use rescue_handlers::{delete_rescue_job_handler, get_rescue_job_handler, rescue_vm_handler};
+
     #[path = "drift_handlers.rs"]
     mod drift_handlers;
     use drift_handlers::*;
@@ -721,6 +725,11 @@ pub mod web {
             .route(
                 "/vms/{name}/ha",
                 get(get_ha_policy_handler).put(set_ha_policy_handler),
+            )
+            .route("/vms/{name}/rescue", post(rescue_vm_handler))
+            .route(
+                "/vms/{name}/rescue/{job_name}",
+                get(get_rescue_job_handler).delete(delete_rescue_job_handler),
             )
             .route(
                 "/backups/policies",

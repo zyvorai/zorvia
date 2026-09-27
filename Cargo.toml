@@ -17,6 +17,14 @@ rust-version = "1.89"  # kube 4.x MSRV
 name = "zorvia"
 path = "src/main.rs"
 
+# Runs inside a privileged Kubernetes Job pod for Rescue mode (offline
+# guest-disk operations via GuestKit) -- never part of the main zorvia
+# server binary's dependency graph, since `guestkit` is only needed here.
+[[bin]]
+name = "rescue-agent"
+path = "src/bin/rescue_agent.rs"
+required-features = ["rescue-agent"]
+
 [lib]
 name = "zorvia"
 path = "src/lib.rs"
@@ -80,6 +88,13 @@ reqwest = { version = "0.12", default-features = false, features = ["json", "rus
 secrecy = "0.10"
 pty-process = { version = "0.5.3", features = ["async"], optional = true }
 
+# Offline guest-disk operations for the `rescue-agent` binary only (Rescue
+# mode). Pinned to a git rev, not a crates.io version: the published
+# `guestkit` crate (0.3.x) is stale, from a different repo, and licensed
+# LGPL-3.0-or-later -- the current zyvorai/guestkit source (this pinned
+# commit) is Apache-2.0. Repin to a real crates.io release once one exists.
+guestkit = { git = "https://github.com/zyvorai/guestkit", rev = "d22d282f7477f5575b607ec2c73eeb8824479b39", default-features = false, features = ["guest-inspect"], optional = true }
+
 [features]
 default = ["web"]
 web = [
@@ -91,6 +106,10 @@ web = [
 ]
 # PAM host auth (Linux): enable with --features pam and system libpam-dev
 pam = []
+# Builds the `rescue-agent` binary (Rescue mode's Job entrypoint). Never
+# enabled for the main server build -- only the rescue-agent container image
+# build passes this.
+rescue-agent = ["dep:guestkit"]
 
 [dev-dependencies]
 tempfile = "3.27"
