@@ -1385,6 +1385,336 @@ impl Client {
         ))
         .await
     }
+
+    // ── DataBridge: cloud-to-edge DB migration. A genuinely different
+    // product domain from VM/storage provisioning -- surfaced on its own
+    // top-level page, not the Storage page.
+
+    pub async fn db_list_sources(&self) -> Result<serde_json::Value, Error> {
+        self.decode(self.request(Method::GET, "/api/atlas/v1/databridge/sources"))
+            .await
+    }
+
+    pub async fn db_get_source(&self, id: &str) -> Result<serde_json::Value, Error> {
+        self.decode(self.request(
+            Method::GET,
+            &format!(
+                "/api/atlas/v1/databridge/sources/{}",
+                urlencoding::encode(id)
+            ),
+        ))
+        .await
+    }
+
+    /// Registers a cloud/source database -- synchronous, not a job.
+    pub async fn db_create_source(
+        &self,
+        request: CreateDataBridgeSourceRequest,
+    ) -> Result<serde_json::Value, Error> {
+        self.decode(
+            self.request(Method::POST, "/api/atlas/v1/databridge/sources")
+                .json(&request),
+        )
+        .await
+    }
+
+    /// Refused (`409`) while any migration plan still references this
+    /// source -- `migration_plans.source_id` is `ON DELETE CASCADE`, so an
+    /// unguarded delete would silently destroy a plan's entire migration
+    /// history, including one already cut over to production.
+    pub async fn db_delete_source(&self, id: &str) -> Result<serde_json::Value, Error> {
+        self.decode(self.request(
+            Method::DELETE,
+            &format!(
+                "/api/atlas/v1/databridge/sources/{}",
+                urlencoding::encode(id)
+            ),
+        ))
+        .await
+    }
+
+    /// Discovers the source's schema -- async job.
+    pub async fn db_discover_source(&self, id: &str) -> Result<serde_json::Value, Error> {
+        self.decode(self.request(
+            Method::POST,
+            &format!(
+                "/api/atlas/v1/databridge/sources/{}/discover",
+                urlencoding::encode(id)
+            ),
+        ))
+        .await
+    }
+
+    pub async fn db_list_plans(&self) -> Result<serde_json::Value, Error> {
+        self.decode(self.request(Method::GET, "/api/atlas/v1/databridge/plans"))
+            .await
+    }
+
+    pub async fn db_get_plan(&self, id: &str) -> Result<serde_json::Value, Error> {
+        self.decode(self.request(
+            Method::GET,
+            &format!("/api/atlas/v1/databridge/plans/{}", urlencoding::encode(id)),
+        ))
+        .await
+    }
+
+    /// Creates a migration plan for a source -- synchronous, not a job.
+    pub async fn db_create_plan(
+        &self,
+        request: CreateMigrationPlanRequest,
+    ) -> Result<serde_json::Value, Error> {
+        self.decode(
+            self.request(Method::POST, "/api/atlas/v1/databridge/plans")
+                .json(&request),
+        )
+        .await
+    }
+
+    pub async fn db_delete_plan(&self, id: &str) -> Result<serde_json::Value, Error> {
+        self.decode(self.request(
+            Method::DELETE,
+            &format!("/api/atlas/v1/databridge/plans/{}", urlencoding::encode(id)),
+        ))
+        .await
+    }
+
+    /// Scores readiness from the source's discovered schema -- async job.
+    /// Requires the source to already be `discovered`.
+    pub async fn db_assess_plan(&self, id: &str) -> Result<serde_json::Value, Error> {
+        self.decode(self.request(
+            Method::POST,
+            &format!(
+                "/api/atlas/v1/databridge/plans/{}/assess",
+                urlencoding::encode(id)
+            ),
+        ))
+        .await
+    }
+
+    /// Provisions the edge DB cluster on Ceph -- async job.
+    pub async fn db_provision_edge(&self, id: &str) -> Result<serde_json::Value, Error> {
+        self.decode(self.request(
+            Method::POST,
+            &format!(
+                "/api/atlas/v1/databridge/plans/{}/provision",
+                urlencoding::encode(id)
+            ),
+        ))
+        .await
+    }
+
+    pub async fn db_full_load(&self, id: &str) -> Result<serde_json::Value, Error> {
+        self.decode(self.request(
+            Method::POST,
+            &format!(
+                "/api/atlas/v1/databridge/plans/{}/full-load",
+                urlencoding::encode(id)
+            ),
+        ))
+        .await
+    }
+
+    pub async fn db_cdc_start(&self, id: &str) -> Result<serde_json::Value, Error> {
+        self.decode(self.request(
+            Method::POST,
+            &format!(
+                "/api/atlas/v1/databridge/plans/{}/cdc/start",
+                urlencoding::encode(id)
+            ),
+        ))
+        .await
+    }
+
+    pub async fn db_cdc_stop(&self, id: &str) -> Result<serde_json::Value, Error> {
+        self.decode(self.request(
+            Method::POST,
+            &format!(
+                "/api/atlas/v1/databridge/plans/{}/cdc/stop",
+                urlencoding::encode(id)
+            ),
+        ))
+        .await
+    }
+
+    /// Re-establishes a stalled/errored CDC stream (self-heal).
+    pub async fn db_cdc_restart(&self, id: &str) -> Result<serde_json::Value, Error> {
+        self.decode(self.request(
+            Method::POST,
+            &format!(
+                "/api/atlas/v1/databridge/plans/{}/cdc/restart",
+                urlencoding::encode(id)
+            ),
+        ))
+        .await
+    }
+
+    pub async fn db_validate(&self, id: &str) -> Result<serde_json::Value, Error> {
+        self.decode(self.request(
+            Method::POST,
+            &format!(
+                "/api/atlas/v1/databridge/plans/{}/validate",
+                urlencoding::encode(id)
+            ),
+        ))
+        .await
+    }
+
+    /// Guarded (Atlas requires `ROLE_ADMIN`): the plan must be `validated`,
+    /// its last validation must have `passed`, and (if a CDC stream is
+    /// attached) lag must be under Atlas's 10s cutover threshold -- Atlas
+    /// enforces all three itself and rejects with a real `409` naming which
+    /// precondition failed, not just a generic error.
+    pub async fn db_cutover(&self, id: &str) -> Result<serde_json::Value, Error> {
+        self.decode(self.request(
+            Method::POST,
+            &format!(
+                "/api/atlas/v1/databridge/plans/{}/cutover",
+                urlencoding::encode(id)
+            ),
+        ))
+        .await
+    }
+
+    /// Guarded (Atlas requires `ROLE_ADMIN`): only within the cutover's
+    /// rollback window (set at plan creation, default 72h) -- Atlas
+    /// rejects with a `409` once the deadline has passed, or if there was
+    /// never a cutover to roll back.
+    pub async fn db_rollback(&self, id: &str) -> Result<serde_json::Value, Error> {
+        self.decode(self.request(
+            Method::POST,
+            &format!(
+                "/api/atlas/v1/databridge/plans/{}/rollback",
+                urlencoding::encode(id)
+            ),
+        ))
+        .await
+    }
+
+    pub async fn db_list_edge_clusters(&self) -> Result<serde_json::Value, Error> {
+        self.decode(self.request(Method::GET, "/api/atlas/v1/databridge/edge-clusters"))
+            .await
+    }
+
+    pub async fn db_get_edge_cluster(&self, id: &str) -> Result<serde_json::Value, Error> {
+        self.decode(self.request(
+            Method::GET,
+            &format!(
+                "/api/atlas/v1/databridge/edge-clusters/{}",
+                urlencoding::encode(id)
+            ),
+        ))
+        .await
+    }
+
+    /// Removes a stale/orphaned edge-cluster inventory row -- the operator
+    /// CR, if any, is torn down separately.
+    pub async fn db_delete_edge_cluster(&self, id: &str) -> Result<serde_json::Value, Error> {
+        self.decode(self.request(
+            Method::DELETE,
+            &format!(
+                "/api/atlas/v1/databridge/edge-clusters/{}",
+                urlencoding::encode(id)
+            ),
+        ))
+        .await
+    }
+
+    pub async fn db_list_cdc_streams(&self) -> Result<serde_json::Value, Error> {
+        self.decode(self.request(Method::GET, "/api/atlas/v1/databridge/cdc-streams"))
+            .await
+    }
+
+    pub async fn db_get_cdc_stream(&self, id: &str) -> Result<serde_json::Value, Error> {
+        self.decode(self.request(
+            Method::GET,
+            &format!(
+                "/api/atlas/v1/databridge/cdc-streams/{}",
+                urlencoding::encode(id)
+            ),
+        ))
+        .await
+    }
+
+    pub async fn db_list_object_migrations(&self) -> Result<serde_json::Value, Error> {
+        self.decode(self.request(Method::GET, "/api/atlas/v1/databridge/object"))
+            .await
+    }
+
+    pub async fn db_get_object_migration(&self, id: &str) -> Result<serde_json::Value, Error> {
+        self.decode(self.request(
+            Method::GET,
+            &format!(
+                "/api/atlas/v1/databridge/object/{}",
+                urlencoding::encode(id)
+            ),
+        ))
+        .await
+    }
+
+    /// Registers an S3-protocol object-store migration -- synchronous; no
+    /// copy happens until `db_start_object_migration`.
+    pub async fn db_create_object_migration(
+        &self,
+        request: CreateObjectMigrationRequest,
+    ) -> Result<serde_json::Value, Error> {
+        self.decode(
+            self.request(Method::POST, "/api/atlas/v1/databridge/object")
+                .json(&request),
+        )
+        .await
+    }
+
+    /// Atlas returns `204 No Content` on success here, unlike every other
+    /// delete route in this client -- there's no body to decode.
+    pub async fn db_delete_object_migration(&self, id: &str) -> Result<(), Error> {
+        let response = self
+            .request(
+                Method::DELETE,
+                &format!(
+                    "/api/atlas/v1/databridge/object/{}",
+                    urlencoding::encode(id)
+                ),
+            )
+            .send()
+            .await?;
+        let status = response.status();
+        if status.is_success() {
+            Ok(())
+        } else {
+            Err(Self::decode_error(
+                status,
+                response.text().await.unwrap_or_default(),
+            ))
+        }
+    }
+
+    /// Enqueues the copy job -- async job.
+    pub async fn db_start_object_migration(&self, id: &str) -> Result<serde_json::Value, Error> {
+        self.decode(self.request(
+            Method::POST,
+            &format!(
+                "/api/atlas/v1/databridge/object/{}/start",
+                urlencoding::encode(id)
+            ),
+        ))
+        .await
+    }
+
+    pub async fn db_list_validations(
+        &self,
+        plan_id: Option<&str>,
+    ) -> Result<serde_json::Value, Error> {
+        let mut req = self.request(Method::GET, "/api/atlas/v1/databridge/validations");
+        if let Some(plan_id) = plan_id {
+            req = req.query(&[("plan_id", plan_id)]);
+        }
+        self.decode(req).await
+    }
+
+    pub async fn db_list_cutovers(&self) -> Result<serde_json::Value, Error> {
+        self.decode(self.request(Method::GET, "/api/atlas/v1/databridge/cutovers"))
+            .await
+    }
 }
 
 #[cfg(test)]
@@ -2190,5 +2520,258 @@ mod tests {
         assert_eq!(fetched["env"], "prod");
 
         c.list_volume_bindings(volume_id).await.unwrap();
+    }
+
+    // ── DataBridge: cloud-to-edge DB migration.
+
+    #[tokio::test]
+    #[ignore]
+    async fn live_databridge_plan_lifecycle_through_cutover_and_rollback() {
+        let c = live_client();
+        let suffix = chrono::Utc::now().timestamp_millis();
+
+        let source = c
+            .db_create_source(CreateDataBridgeSourceRequest {
+                name: format!("zorvia-live-src-{suffix}"),
+                kind: "postgres".into(),
+                cloud: Some("rds".into()),
+                endpoint: Some("prod-pg.rds.amazonaws.com".into()),
+                port: Some(5432),
+                database: Some("appdb".into()),
+                ..Default::default()
+            })
+            .await
+            .unwrap();
+        let source_id = source["id"].as_str().unwrap().to_string();
+        assert_eq!(source["state"], "registered");
+
+        let discovered = c.db_discover_source(&source_id).await.unwrap();
+        assert!(discovered.get("job_id").is_some());
+        let source_after = poll_until(
+            || async { c.db_get_source(&source_id).await.unwrap() },
+            |s| s["state"] == "discovered",
+        )
+        .await;
+        assert!(source_after["discovered"].get("tables").is_some());
+
+        let plan = c
+            .db_create_plan(CreateMigrationPlanRequest {
+                name: format!("zorvia-live-plan-{suffix}"),
+                source_id: source_id.clone(),
+                rollback_window_secs: None,
+            })
+            .await
+            .unwrap();
+        let plan_id = plan["id"].as_str().unwrap().to_string();
+
+        c.db_assess_plan(&plan_id).await.unwrap();
+        let plan_after_assess = poll_until(
+            || async { c.db_get_plan(&plan_id).await.unwrap() },
+            |p| p["state"] == "assessed",
+        )
+        .await;
+        assert!(plan_after_assess["readiness_score"].as_i64().unwrap() > 0);
+
+        c.db_provision_edge(&plan_id).await.unwrap();
+        let plan_after_provision = poll_until(
+            || async { c.db_get_plan(&plan_id).await.unwrap() },
+            |p| p["state"] == "provisioned",
+        )
+        .await;
+        let edge_cluster_id = plan_after_provision["edge_cluster_id"]
+            .as_str()
+            .unwrap()
+            .to_string();
+        let edge_cluster = c.db_get_edge_cluster(&edge_cluster_id).await.unwrap();
+        assert_eq!(edge_cluster["state"], "ready");
+
+        c.db_full_load(&plan_id).await.unwrap();
+        poll_until(
+            || async { c.db_get_plan(&plan_id).await.unwrap() },
+            |p| p["state"] == "loaded",
+        )
+        .await;
+
+        // Cutover before validate is refused with a real 409, not a client-side guess.
+        let err = c.db_cutover(&plan_id).await.unwrap_err();
+        match err {
+            Error::Upstream { status, .. } => assert_eq!(status, 409),
+            other => panic!("expected an Upstream 409, got: {other:?}"),
+        }
+
+        c.db_cdc_start(&plan_id).await.unwrap();
+        let plan_after_cdc = poll_until(
+            || async { c.db_get_plan(&plan_id).await.unwrap() },
+            |p| p["cdc_stream_id"].is_string(),
+        )
+        .await;
+        let cdc_stream_id = plan_after_cdc["cdc_stream_id"]
+            .as_str()
+            .unwrap()
+            .to_string();
+
+        c.db_validate(&plan_id).await.unwrap();
+        poll_until(
+            || async { c.db_get_plan(&plan_id).await.unwrap() },
+            |p| p["state"] == "validated",
+        )
+        .await;
+        let validations = c.db_list_validations(Some(&plan_id)).await.unwrap();
+        assert!(validations
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|v| v["state"] == "passed"));
+
+        // Cutover is also refused while CDC lag exceeds Atlas's 10s threshold. The fake driver's
+        // reconciler decays lag by 0.6x per tick on a 15s interval (see atlas-databridge's
+        // reconcile.rs) -- not instant, so this needs multiple reconcile ticks' worth of margin,
+        // not a short poll.
+        let drained = poll_until_timeout(
+            || async { c.db_get_cdc_stream(&cdc_stream_id).await.unwrap() },
+            |s| s["lag_seconds"].as_i64().unwrap_or(999) <= 10,
+            Duration::from_secs(60),
+        )
+        .await;
+        assert!(
+            drained["lag_seconds"].as_i64().unwrap_or(999) <= 10,
+            "CDC lag did not drain under the cutover threshold within 60s: {drained:?}"
+        );
+
+        let cutover = c.db_cutover(&plan_id).await.unwrap();
+        assert!(cutover.get("job_id").is_some());
+        poll_until(
+            || async { c.db_get_plan(&plan_id).await.unwrap() },
+            |p| p["state"] == "cutover_complete",
+        )
+        .await;
+        let cutovers = c.db_list_cutovers().await.unwrap();
+        assert!(cutovers
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|co| co["plan_id"] == plan_id));
+
+        let rollback = c.db_rollback(&plan_id).await.unwrap();
+        assert!(rollback.get("job_id").is_some());
+
+        // Cleanup: plan first (source delete is guarded while a plan still references it).
+        c.db_delete_plan(&plan_id).await.unwrap();
+        c.db_delete_source(&source_id).await.unwrap();
+    }
+
+    #[tokio::test]
+    #[ignore]
+    async fn live_databridge_source_delete_guarded_by_referencing_plan() {
+        let c = live_client();
+        let suffix = chrono::Utc::now().timestamp_millis();
+        let source = c
+            .db_create_source(CreateDataBridgeSourceRequest {
+                name: format!("zorvia-live-src-guard-{suffix}"),
+                kind: "postgres".into(),
+                ..Default::default()
+            })
+            .await
+            .unwrap();
+        let source_id = source["id"].as_str().unwrap().to_string();
+        let plan = c
+            .db_create_plan(CreateMigrationPlanRequest {
+                name: format!("zorvia-live-plan-guard-{suffix}"),
+                source_id: source_id.clone(),
+                rollback_window_secs: None,
+            })
+            .await
+            .unwrap();
+        let plan_id = plan["id"].as_str().unwrap().to_string();
+
+        let err = c.db_delete_source(&source_id).await.unwrap_err();
+        match err {
+            Error::Upstream {
+                status, message, ..
+            } => {
+                assert_eq!(status, 409);
+                assert!(message.contains("migration plan"));
+            }
+            other => panic!("expected an Upstream 409, got: {other:?}"),
+        }
+
+        c.db_delete_plan(&plan_id).await.unwrap();
+        c.db_delete_source(&source_id).await.unwrap();
+    }
+
+    #[tokio::test]
+    #[ignore]
+    async fn live_databridge_object_migration_lifecycle() {
+        let c = live_client();
+        let created = c
+            .db_create_object_migration(CreateObjectMigrationRequest {
+                name: format!(
+                    "zorvia-live-objmig-{}",
+                    chrono::Utc::now().timestamp_millis()
+                ),
+                source_endpoint: "s3.amazonaws.com".into(),
+                source_bucket: "my-cloud-bucket".into(),
+                dest_endpoint: "rgw.zorvia.svc:80".into(),
+                dest_bucket: "edge-bucket".into(),
+                ..Default::default()
+            })
+            .await
+            .unwrap();
+        let id = created["id"].as_str().unwrap().to_string();
+        assert_eq!(created["state"], "created");
+
+        let started = c.db_start_object_migration(&id).await.unwrap();
+        assert!(started.get("job_id").is_some());
+
+        c.db_delete_object_migration(&id).await.unwrap();
+        // Atlas's delete is unconditional (no rows-affected check), so a second
+        // delete of the same id still returns success -- not a 404.
+        c.db_delete_object_migration(&id).await.unwrap();
+    }
+
+    #[tokio::test]
+    #[ignore]
+    async fn live_databridge_read_only_lists() {
+        let c = live_client();
+        c.db_list_sources().await.unwrap();
+        c.db_list_plans().await.unwrap();
+        c.db_list_edge_clusters().await.unwrap();
+        c.db_list_cdc_streams().await.unwrap();
+        c.db_list_object_migrations().await.unwrap();
+        c.db_list_validations(None).await.unwrap();
+        c.db_list_cutovers().await.unwrap();
+    }
+
+    /// Polls `get` every 500ms (up to 20s) until `done` is true, returning the
+    /// last-seen value -- DataBridge's async jobs (discover/assess/provision/
+    /// full-load/cdc-start/validate/cutover) settle almost instantly against
+    /// the fake driver, but this avoids a hardcoded sleep racing them.
+    async fn poll_until<F, Fut, P>(get: F, done: P) -> serde_json::Value
+    where
+        F: FnMut() -> Fut,
+        Fut: std::future::Future<Output = serde_json::Value>,
+        P: Fn(&serde_json::Value) -> bool,
+    {
+        poll_until_timeout(get, done, Duration::from_secs(20)).await
+    }
+
+    async fn poll_until_timeout<F, Fut, P>(
+        mut get: F,
+        done: P,
+        timeout: Duration,
+    ) -> serde_json::Value
+    where
+        F: FnMut() -> Fut,
+        Fut: std::future::Future<Output = serde_json::Value>,
+        P: Fn(&serde_json::Value) -> bool,
+    {
+        let deadline = std::time::Instant::now() + timeout;
+        loop {
+            let v = get().await;
+            if done(&v) || std::time::Instant::now() >= deadline {
+                return v;
+            }
+            tokio::time::sleep(Duration::from_millis(500)).await;
+        }
     }
 }

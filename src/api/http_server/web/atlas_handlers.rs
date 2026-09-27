@@ -3,7 +3,8 @@
 
 use super::{SharedAuditTrail, SharedState};
 use crate::atlas::models::{
-    CloneRbdImageRequest, CreateBackupRequest, CreateBucketRequest, CreateRbdImageRequest,
+    CloneRbdImageRequest, CreateBackupRequest, CreateBucketRequest, CreateDataBridgeSourceRequest,
+    CreateMigrationPlanRequest, CreateObjectMigrationRequest, CreateRbdImageRequest,
     CreateRestoreRequest, CreateScheduleRequest, CreateVolumeRequest, DrFailoverRequest,
     RegisterDrPeerRequest, TenantPolicyRequest, TenantQuotaRequest,
 };
@@ -2156,6 +2157,553 @@ pub(super) async fn atlas_list_volume_bindings(
         Err(r) => return *r,
     };
     match c.list_volume_bindings(&id).await {
+        Ok(v) => Json(v).into_response(),
+        Err(e) => error_response(e),
+    }
+}
+
+// ── DataBridge: cloud-to-edge DB migration. Surfaced on its own top-level
+// page (not the Storage page) -- a genuinely different product domain from
+// VM/storage provisioning.
+
+pub(super) async fn atlas_db_list_sources(State(state): State<SharedState>) -> Response {
+    let c = match client(&state).await {
+        Ok(v) => v,
+        Err(r) => return *r,
+    };
+    match c.db_list_sources().await {
+        Ok(v) => Json(v).into_response(),
+        Err(e) => error_response(e),
+    }
+}
+
+pub(super) async fn atlas_db_get_source(
+    State(state): State<SharedState>,
+    Path(id): Path<String>,
+) -> Response {
+    let c = match client(&state).await {
+        Ok(v) => v,
+        Err(r) => return *r,
+    };
+    match c.db_get_source(&id).await {
+        Ok(v) => Json(v).into_response(),
+        Err(e) => error_response(e),
+    }
+}
+
+pub(super) async fn atlas_db_create_source(
+    State(state): State<SharedState>,
+    auth: Option<axum::Extension<crate::api::auth::AuthIdentity>>,
+    Json(body): Json<CreateDataBridgeSourceRequest>,
+) -> Response {
+    let (c, audit) = match write_client(&state).await {
+        Ok(v) => v,
+        Err(r) => return *r,
+    };
+    let name = body.name.clone();
+    let result = c.db_create_source(body).await;
+    finish_write(
+        &audit,
+        &caller(&auth),
+        crate::audit_trail::AuditAction::Create,
+        "databridge_source",
+        &name,
+        result,
+    )
+    .await
+}
+
+pub(super) async fn atlas_db_delete_source(
+    State(state): State<SharedState>,
+    Path(id): Path<String>,
+    auth: Option<axum::Extension<crate::api::auth::AuthIdentity>>,
+) -> Response {
+    let (c, audit) = match write_client(&state).await {
+        Ok(v) => v,
+        Err(r) => return *r,
+    };
+    let result = c.db_delete_source(&id).await;
+    finish_write(
+        &audit,
+        &caller(&auth),
+        crate::audit_trail::AuditAction::Delete,
+        "databridge_source",
+        &id,
+        result,
+    )
+    .await
+}
+
+pub(super) async fn atlas_db_discover_source(
+    State(state): State<SharedState>,
+    Path(id): Path<String>,
+    auth: Option<axum::Extension<crate::api::auth::AuthIdentity>>,
+) -> Response {
+    let (c, audit) = match write_client(&state).await {
+        Ok(v) => v,
+        Err(r) => return *r,
+    };
+    let result = c.db_discover_source(&id).await;
+    finish_write(
+        &audit,
+        &caller(&auth),
+        crate::audit_trail::AuditAction::Update,
+        "databridge_source",
+        &id,
+        result,
+    )
+    .await
+}
+
+pub(super) async fn atlas_db_list_plans(State(state): State<SharedState>) -> Response {
+    let c = match client(&state).await {
+        Ok(v) => v,
+        Err(r) => return *r,
+    };
+    match c.db_list_plans().await {
+        Ok(v) => Json(v).into_response(),
+        Err(e) => error_response(e),
+    }
+}
+
+pub(super) async fn atlas_db_get_plan(
+    State(state): State<SharedState>,
+    Path(id): Path<String>,
+) -> Response {
+    let c = match client(&state).await {
+        Ok(v) => v,
+        Err(r) => return *r,
+    };
+    match c.db_get_plan(&id).await {
+        Ok(v) => Json(v).into_response(),
+        Err(e) => error_response(e),
+    }
+}
+
+pub(super) async fn atlas_db_create_plan(
+    State(state): State<SharedState>,
+    auth: Option<axum::Extension<crate::api::auth::AuthIdentity>>,
+    Json(body): Json<CreateMigrationPlanRequest>,
+) -> Response {
+    let (c, audit) = match write_client(&state).await {
+        Ok(v) => v,
+        Err(r) => return *r,
+    };
+    let name = body.name.clone();
+    let result = c.db_create_plan(body).await;
+    finish_write(
+        &audit,
+        &caller(&auth),
+        crate::audit_trail::AuditAction::Create,
+        "databridge_plan",
+        &name,
+        result,
+    )
+    .await
+}
+
+pub(super) async fn atlas_db_delete_plan(
+    State(state): State<SharedState>,
+    Path(id): Path<String>,
+    auth: Option<axum::Extension<crate::api::auth::AuthIdentity>>,
+) -> Response {
+    let (c, audit) = match write_client(&state).await {
+        Ok(v) => v,
+        Err(r) => return *r,
+    };
+    let result = c.db_delete_plan(&id).await;
+    finish_write(
+        &audit,
+        &caller(&auth),
+        crate::audit_trail::AuditAction::Delete,
+        "databridge_plan",
+        &id,
+        result,
+    )
+    .await
+}
+
+pub(super) async fn atlas_db_assess_plan(
+    State(state): State<SharedState>,
+    Path(id): Path<String>,
+    auth: Option<axum::Extension<crate::api::auth::AuthIdentity>>,
+) -> Response {
+    let (c, audit) = match write_client(&state).await {
+        Ok(v) => v,
+        Err(r) => return *r,
+    };
+    let result = c.db_assess_plan(&id).await;
+    finish_write(
+        &audit,
+        &caller(&auth),
+        crate::audit_trail::AuditAction::Update,
+        "databridge_plan",
+        &id,
+        result,
+    )
+    .await
+}
+
+pub(super) async fn atlas_db_provision_edge(
+    State(state): State<SharedState>,
+    Path(id): Path<String>,
+    auth: Option<axum::Extension<crate::api::auth::AuthIdentity>>,
+) -> Response {
+    let (c, audit) = match write_client(&state).await {
+        Ok(v) => v,
+        Err(r) => return *r,
+    };
+    let result = c.db_provision_edge(&id).await;
+    finish_write(
+        &audit,
+        &caller(&auth),
+        crate::audit_trail::AuditAction::Update,
+        "databridge_plan",
+        &id,
+        result,
+    )
+    .await
+}
+
+pub(super) async fn atlas_db_full_load(
+    State(state): State<SharedState>,
+    Path(id): Path<String>,
+    auth: Option<axum::Extension<crate::api::auth::AuthIdentity>>,
+) -> Response {
+    let (c, audit) = match write_client(&state).await {
+        Ok(v) => v,
+        Err(r) => return *r,
+    };
+    let result = c.db_full_load(&id).await;
+    finish_write(
+        &audit,
+        &caller(&auth),
+        crate::audit_trail::AuditAction::Update,
+        "databridge_plan",
+        &id,
+        result,
+    )
+    .await
+}
+
+pub(super) async fn atlas_db_cdc_start(
+    State(state): State<SharedState>,
+    Path(id): Path<String>,
+    auth: Option<axum::Extension<crate::api::auth::AuthIdentity>>,
+) -> Response {
+    let (c, audit) = match write_client(&state).await {
+        Ok(v) => v,
+        Err(r) => return *r,
+    };
+    let result = c.db_cdc_start(&id).await;
+    finish_write(
+        &audit,
+        &caller(&auth),
+        crate::audit_trail::AuditAction::Update,
+        "databridge_plan",
+        &id,
+        result,
+    )
+    .await
+}
+
+pub(super) async fn atlas_db_cdc_stop(
+    State(state): State<SharedState>,
+    Path(id): Path<String>,
+    auth: Option<axum::Extension<crate::api::auth::AuthIdentity>>,
+) -> Response {
+    let (c, audit) = match write_client(&state).await {
+        Ok(v) => v,
+        Err(r) => return *r,
+    };
+    let result = c.db_cdc_stop(&id).await;
+    finish_write(
+        &audit,
+        &caller(&auth),
+        crate::audit_trail::AuditAction::Update,
+        "databridge_plan",
+        &id,
+        result,
+    )
+    .await
+}
+
+pub(super) async fn atlas_db_cdc_restart(
+    State(state): State<SharedState>,
+    Path(id): Path<String>,
+    auth: Option<axum::Extension<crate::api::auth::AuthIdentity>>,
+) -> Response {
+    let (c, audit) = match write_client(&state).await {
+        Ok(v) => v,
+        Err(r) => return *r,
+    };
+    let result = c.db_cdc_restart(&id).await;
+    finish_write(
+        &audit,
+        &caller(&auth),
+        crate::audit_trail::AuditAction::Update,
+        "databridge_plan",
+        &id,
+        result,
+    )
+    .await
+}
+
+pub(super) async fn atlas_db_validate(
+    State(state): State<SharedState>,
+    Path(id): Path<String>,
+    auth: Option<axum::Extension<crate::api::auth::AuthIdentity>>,
+) -> Response {
+    let (c, audit) = match write_client(&state).await {
+        Ok(v) => v,
+        Err(r) => return *r,
+    };
+    let result = c.db_validate(&id).await;
+    finish_write(
+        &audit,
+        &caller(&auth),
+        crate::audit_trail::AuditAction::Update,
+        "databridge_plan",
+        &id,
+        result,
+    )
+    .await
+}
+
+/// Guarded on Atlas's side (`ROLE_ADMIN` + validated + last validation
+/// passed + CDC lag under threshold) -- Zorvia relays whatever specific
+/// `409`/`403` Atlas returns rather than trying to duplicate those checks.
+pub(super) async fn atlas_db_cutover(
+    State(state): State<SharedState>,
+    Path(id): Path<String>,
+    auth: Option<axum::Extension<crate::api::auth::AuthIdentity>>,
+) -> Response {
+    let (c, audit) = match write_client(&state).await {
+        Ok(v) => v,
+        Err(r) => return *r,
+    };
+    let result = c.db_cutover(&id).await;
+    finish_write(
+        &audit,
+        &caller(&auth),
+        crate::audit_trail::AuditAction::Migrate,
+        "databridge_plan",
+        &id,
+        result,
+    )
+    .await
+}
+
+/// Guarded on Atlas's side (`ROLE_ADMIN` + within the cutover's rollback
+/// window) -- same relay-don't-duplicate approach as cutover.
+pub(super) async fn atlas_db_rollback(
+    State(state): State<SharedState>,
+    Path(id): Path<String>,
+    auth: Option<axum::Extension<crate::api::auth::AuthIdentity>>,
+) -> Response {
+    let (c, audit) = match write_client(&state).await {
+        Ok(v) => v,
+        Err(r) => return *r,
+    };
+    let result = c.db_rollback(&id).await;
+    finish_write(
+        &audit,
+        &caller(&auth),
+        crate::audit_trail::AuditAction::Restore,
+        "databridge_plan",
+        &id,
+        result,
+    )
+    .await
+}
+
+pub(super) async fn atlas_db_list_edge_clusters(State(state): State<SharedState>) -> Response {
+    let c = match client(&state).await {
+        Ok(v) => v,
+        Err(r) => return *r,
+    };
+    match c.db_list_edge_clusters().await {
+        Ok(v) => Json(v).into_response(),
+        Err(e) => error_response(e),
+    }
+}
+
+pub(super) async fn atlas_db_get_edge_cluster(
+    State(state): State<SharedState>,
+    Path(id): Path<String>,
+) -> Response {
+    let c = match client(&state).await {
+        Ok(v) => v,
+        Err(r) => return *r,
+    };
+    match c.db_get_edge_cluster(&id).await {
+        Ok(v) => Json(v).into_response(),
+        Err(e) => error_response(e),
+    }
+}
+
+pub(super) async fn atlas_db_delete_edge_cluster(
+    State(state): State<SharedState>,
+    Path(id): Path<String>,
+    auth: Option<axum::Extension<crate::api::auth::AuthIdentity>>,
+) -> Response {
+    let (c, audit) = match write_client(&state).await {
+        Ok(v) => v,
+        Err(r) => return *r,
+    };
+    let result = c.db_delete_edge_cluster(&id).await;
+    finish_write(
+        &audit,
+        &caller(&auth),
+        crate::audit_trail::AuditAction::Delete,
+        "databridge_edge_cluster",
+        &id,
+        result,
+    )
+    .await
+}
+
+pub(super) async fn atlas_db_list_cdc_streams(State(state): State<SharedState>) -> Response {
+    let c = match client(&state).await {
+        Ok(v) => v,
+        Err(r) => return *r,
+    };
+    match c.db_list_cdc_streams().await {
+        Ok(v) => Json(v).into_response(),
+        Err(e) => error_response(e),
+    }
+}
+
+pub(super) async fn atlas_db_get_cdc_stream(
+    State(state): State<SharedState>,
+    Path(id): Path<String>,
+) -> Response {
+    let c = match client(&state).await {
+        Ok(v) => v,
+        Err(r) => return *r,
+    };
+    match c.db_get_cdc_stream(&id).await {
+        Ok(v) => Json(v).into_response(),
+        Err(e) => error_response(e),
+    }
+}
+
+pub(super) async fn atlas_db_list_object_migrations(State(state): State<SharedState>) -> Response {
+    let c = match client(&state).await {
+        Ok(v) => v,
+        Err(r) => return *r,
+    };
+    match c.db_list_object_migrations().await {
+        Ok(v) => Json(v).into_response(),
+        Err(e) => error_response(e),
+    }
+}
+
+pub(super) async fn atlas_db_get_object_migration(
+    State(state): State<SharedState>,
+    Path(id): Path<String>,
+) -> Response {
+    let c = match client(&state).await {
+        Ok(v) => v,
+        Err(r) => return *r,
+    };
+    match c.db_get_object_migration(&id).await {
+        Ok(v) => Json(v).into_response(),
+        Err(e) => error_response(e),
+    }
+}
+
+pub(super) async fn atlas_db_create_object_migration(
+    State(state): State<SharedState>,
+    auth: Option<axum::Extension<crate::api::auth::AuthIdentity>>,
+    Json(body): Json<CreateObjectMigrationRequest>,
+) -> Response {
+    let (c, audit) = match write_client(&state).await {
+        Ok(v) => v,
+        Err(r) => return *r,
+    };
+    let name = body.name.clone();
+    let result = c.db_create_object_migration(body).await;
+    finish_write(
+        &audit,
+        &caller(&auth),
+        crate::audit_trail::AuditAction::Create,
+        "databridge_object_migration",
+        &name,
+        result,
+    )
+    .await
+}
+
+/// Atlas returns `204 No Content` here -- relayed as `Ok(())`, so the audit
+/// entry records `null` details rather than an echoed resource body.
+pub(super) async fn atlas_db_delete_object_migration(
+    State(state): State<SharedState>,
+    Path(id): Path<String>,
+    auth: Option<axum::Extension<crate::api::auth::AuthIdentity>>,
+) -> Response {
+    let (c, audit) = match write_client(&state).await {
+        Ok(v) => v,
+        Err(r) => return *r,
+    };
+    let result = c.db_delete_object_migration(&id).await;
+    finish_write(
+        &audit,
+        &caller(&auth),
+        crate::audit_trail::AuditAction::Delete,
+        "databridge_object_migration",
+        &id,
+        result,
+    )
+    .await
+}
+
+pub(super) async fn atlas_db_start_object_migration(
+    State(state): State<SharedState>,
+    Path(id): Path<String>,
+    auth: Option<axum::Extension<crate::api::auth::AuthIdentity>>,
+) -> Response {
+    let (c, audit) = match write_client(&state).await {
+        Ok(v) => v,
+        Err(r) => return *r,
+    };
+    let result = c.db_start_object_migration(&id).await;
+    finish_write(
+        &audit,
+        &caller(&auth),
+        crate::audit_trail::AuditAction::Update,
+        "databridge_object_migration",
+        &id,
+        result,
+    )
+    .await
+}
+
+#[derive(Debug, Deserialize)]
+pub(super) struct DbValidationsQuery {
+    plan_id: Option<String>,
+}
+
+pub(super) async fn atlas_db_list_validations(
+    State(state): State<SharedState>,
+    Query(query): Query<DbValidationsQuery>,
+) -> Response {
+    let c = match client(&state).await {
+        Ok(v) => v,
+        Err(r) => return *r,
+    };
+    match c.db_list_validations(query.plan_id.as_deref()).await {
+        Ok(v) => Json(v).into_response(),
+        Err(e) => error_response(e),
+    }
+}
+
+pub(super) async fn atlas_db_list_cutovers(State(state): State<SharedState>) -> Response {
+    let c = match client(&state).await {
+        Ok(v) => v,
+        Err(r) => return *r,
+    };
+    match c.db_list_cutovers().await {
         Ok(v) => Json(v).into_response(),
         Err(e) => error_response(e),
     }
