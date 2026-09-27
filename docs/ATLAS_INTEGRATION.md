@@ -49,23 +49,25 @@ If `ATLAS_URL` is absent, Zorvia starts normally and the integration reports `en
 - `GET /api/v1/atlas/ceph/status`
 - `GET /api/v1/atlas/ceph/df`
 - `GET /api/v1/atlas/storage-classes`
-- `GET|POST /api/v1/atlas/volumes` — `POST` is the one write route in this integration
+- `GET|POST /api/v1/atlas/volumes` — `POST` creates a volume
+- `POST /api/v1/atlas/volumes/:id/expand` — `{new_size_bytes}`
+- `DELETE /api/v1/atlas/volumes/:id[?confirm=true]`
 
-`POST /api/v1/atlas/volumes` accepts `{name, size_bytes, policy?, pool?, owner?, kubernetes?}` and forwards to Atlas's `CreateVolumeRequest`. It returns `202` with Atlas's job envelope (`{"job_id", "state":"queued", "resource": {"volume_id", "pvc", ...}, "links": {"job": "/api/atlas/v1/jobs/:id"}}`), not a finished volume — creation is genuinely async on Atlas's side (see "Deliberately not proxied yet" below: Zorvia doesn't poll the job). When called in the context of a VM, populate `owner: {product: "zorvia", resource_type: "vm", resource_id: <vm name>, role: "data_disk"}` (the web UI's "Attribute to VM" field does this) — that's what makes the volume traceable back to Zorvia in Atlas's own inventory, not a cosmetic detail. All `/api/v1/atlas/*` routes are protected by Zorvia's existing auth middleware; `POST /volumes` additionally requires the `storage.admin` permission (same permission that gates Rook administration).
+All three volume-mutating routes return `202` with Atlas's job envelope (`{"job_id", "state":"queued", "resource": {...}, "links": {"job": "/api/atlas/v1/jobs/:id"}}`), not a finished result — every Atlas write is genuinely async (see "Deliberately not proxied yet" below: Zorvia doesn't poll the job to completion). `POST /volumes` accepts `{name, size_bytes, policy?, pool?, owner?, kubernetes?}` and forwards to Atlas's `CreateVolumeRequest`; when called in the context of a VM, populate `owner: {product: "zorvia", resource_type: "vm", resource_id: <vm name>, role: "data_disk"}` (the web UI's "Attribute to VM" field does this) — that's what makes the volume traceable back to Zorvia in Atlas's own inventory, not a cosmetic detail. `DELETE` always passes `confirm=true` from Zorvia's side; Atlas itself decides (based on storage class / protection tier) whether that was actually required, rejecting with a `400` naming the requirement if it was needed and the caller didn't set it — Zorvia doesn't try to duplicate that judgment. All `/api/v1/atlas/*` routes are protected by Zorvia's existing auth middleware; the three mutating routes additionally require the `storage.admin` permission (same permission that gates Rook administration) — note Atlas's own token-level auth is stricter for delete specifically (`ROLE_ADMIN` vs. `ROLE_OPERATOR` for create/expand), so a delete can still be rejected by Atlas even when Zorvia's own RBAC allows it.
 
 ## Deliberately not proxied yet
 
-This is a read-only inventory integration plus one write path (volume create) — not full Atlas lifecycle management. Not proxied:
+This is a read-only inventory integration plus volume create/expand/delete — not full Atlas lifecycle management, and not job-status polling. Not proxied:
 
-- Volume **expand**/**delete** (`POST /volumes/:id/expand`, `DELETE /volumes/:id`)
+- Job status polling (`GET /jobs/:id`) — Zorvia surfaces the `202`/job envelope as-is and doesn't poll it to completion; the web UI's volume list only reflects Atlas's state on the next periodic refresh
 - Backend lifecycle (`POST/DELETE /backends`, discover/cordon/uncordon)
 - RBD image clone/resize/QoS
 - Disaster recovery (peers, mirrors, promote/demote, failover)
 - DataBridge (cloud-to-edge DB migration)
 - Object-store bucket operations
-- Tenant policy/quota writes, AI advisor, alerts, jobs, audit export
+- Tenant policy/quota writes, AI advisor, alerts, audit export
 
-If any of these become a real need, they follow the same pattern as `create_volume` here — add the client method, the handler, and (if it's a write) a permission check and audit entry.
+If any of these become a real need, they follow the same pattern as the volume routes here — add the client method, the handler, and (if it's a write) a permission check and audit entry.
 
 ## Production recommendations
 
@@ -84,4 +86,11 @@ If any of these become a real need, they follow the same pattern as `create_volu
    in-cluster config) to actually create the PVC, independent of anything on
    Zorvia's side. Confirm your Atlas instance has that before relying on
    volume creation from Zorvia, and don't assume a `202` means the volume
-   exists yet.
+   exists yet. The same applies to expand/delete.
+6. Volume delete requires the `ATLAS_TOKEN` to carry `ROLE_ADMIN` on Atlas's
+   side (create/expand only need `ROLE_OPERATOR`) — a token scoped to
+   operator-level will get a real `403` from Atlas on delete even though
+   Zorvia's own RBAC allowed the request through. Verified live: deleting a
+   volume Atlas considers production/protected-class also requires
+   `?confirm=true`, which Zorvia always sends — Atlas is the one deciding
+   whether that was actually needed.

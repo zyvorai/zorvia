@@ -241,6 +241,36 @@ impl Client {
         )
         .await
     }
+
+    /// Grows a volume. Atlas rejects `new_size_bytes <= current size` itself
+    /// (`AppError::Validation`), so this doesn't duplicate that check.
+    pub async fn expand_volume(
+        &self,
+        id: &str,
+        new_size_bytes: i64,
+    ) -> Result<serde_json::Value, Error> {
+        self.decode(
+            self.request(
+                Method::POST,
+                &format!("/api/atlas/v1/volumes/{}/expand", urlencoding::encode(id)),
+            )
+            .json(&serde_json::json!({ "new_size_bytes": new_size_bytes })),
+        )
+        .await
+    }
+
+    /// Deletes a volume. `confirm` must be `true` for production/protected-class
+    /// volumes (Atlas's own `volume_requires_delete_confirm` check) -- Atlas
+    /// returns a `400 Validation` error naming that requirement if it's needed
+    /// and missing, rather than Zorvia silently guessing when to set it.
+    pub async fn delete_volume(&self, id: &str, confirm: bool) -> Result<serde_json::Value, Error> {
+        let path = format!("/api/atlas/v1/volumes/{}", urlencoding::encode(id));
+        let mut req = self.request(Method::DELETE, &path);
+        if confirm {
+            req = req.query(&[("confirm", "true")]);
+        }
+        self.decode(req).await
+    }
 }
 
 #[cfg(test)]
@@ -365,6 +395,61 @@ mod tests {
             .unwrap();
         // create_volume's handler returns (StatusCode, Json<Value>) -- assert
         // it's a real object, not an error envelope masquerading as 200.
+        assert!(
+            result.get("error").is_none(),
+            "unexpected error in response: {result:?}"
+        );
+    }
+
+    // The fake driver seeds `vol_rbd_nvme_prod_web-01-root` and
+    // `vol_rbd_nvme_prod_billing-db-01-root` on every fresh `atlas.db` -- see
+    // `../atlas/crates/atlas-discovery`'s fake-mode seed data. Used here so
+    // expand/delete have a real volume to act on without depending on
+    // create_volume's own job (which fails in this dev setup -- no
+    // ATLAS_KUBECONFIG attached, see the module doc above).
+
+    #[tokio::test]
+    #[ignore]
+    async fn live_expand_volume_round_trips() {
+        let c = live_client();
+        let result = c
+            .expand_volume("vol_rbd_nvme_prod_web-01-root", 50 * 1024 * 1024 * 1024)
+            .await
+            .unwrap();
+        assert!(
+            result.get("error").is_none(),
+            "unexpected error in response: {result:?}"
+        );
+    }
+
+    #[tokio::test]
+    #[ignore]
+    async fn live_delete_volume_requires_confirm_for_protected_class() {
+        let c = live_client();
+        // Without confirm: Atlas's own protected-class check should reject this
+        // with a real, specific error -- not silently succeed.
+        let err = c
+            .delete_volume("vol_rbd_nvme_prod_billing-db-01-root", false)
+            .await
+            .unwrap_err();
+        match err {
+            Error::Upstream {
+                status, message, ..
+            } => {
+                assert_eq!(status, 400);
+                assert!(
+                    message.contains("confirm=true"),
+                    "expected the confirm-required message, got: {message}"
+                );
+            }
+            other => panic!("expected an Upstream 400, got: {other:?}"),
+        }
+
+        // With confirm: accepted.
+        let result = c
+            .delete_volume("vol_rbd_nvme_prod_billing-db-01-root", true)
+            .await
+            .unwrap();
         assert!(
             result.get("error").is_none(),
             "unexpected error in response: {result:?}"
