@@ -1199,6 +1199,192 @@ impl Client {
         }
         self.decode(req).await
     }
+
+    // ── Governance: tenants, quotas, policy overrides, protection
+    // schedules, volume labels/bindings. Deliberately excludes Atlas's own
+    // console auth (`/auth/login`, `/auth/users*`, `/auth/tokens*`) -- those
+    // manage Atlas's own accounts, not Zorvia's, and proxying them would
+    // make a compromised or misconfigured Zorvia a pass-through admin
+    // console for a different product's user base.
+
+    /// Overview of every tenant with volumes or a quota (usage + limits).
+    pub async fn list_tenants(&self) -> Result<serde_json::Value, Error> {
+        self.decode(self.request(Method::GET, "/api/atlas/v1/tenants"))
+            .await
+    }
+
+    /// The global policy templates (intent -> default storage-class
+    /// placement), not tenant-specific.
+    pub async fn list_policies(&self) -> Result<serde_json::Value, Error> {
+        self.decode(self.request(Method::GET, "/api/atlas/v1/policies"))
+            .await
+    }
+
+    /// A tenant's policy overrides (empty if it uses the global defaults).
+    pub async fn list_tenant_policies(&self, tenant_id: &str) -> Result<serde_json::Value, Error> {
+        self.decode(self.request(
+            Method::GET,
+            &format!(
+                "/api/atlas/v1/tenants/{}/policies",
+                urlencoding::encode(tenant_id)
+            ),
+        ))
+        .await
+    }
+
+    /// Overrides an intent's placement for one tenant (admin).
+    pub async fn put_tenant_policy(
+        &self,
+        tenant_id: &str,
+        intent: &str,
+        request: TenantPolicyRequest,
+    ) -> Result<serde_json::Value, Error> {
+        self.decode(
+            self.request(
+                Method::PUT,
+                &format!(
+                    "/api/atlas/v1/tenants/{}/policies/{}",
+                    urlencoding::encode(tenant_id),
+                    urlencoding::encode(intent)
+                ),
+            )
+            .json(&request),
+        )
+        .await
+    }
+
+    pub async fn delete_tenant_policy(
+        &self,
+        tenant_id: &str,
+        intent: &str,
+    ) -> Result<serde_json::Value, Error> {
+        self.decode(self.request(
+            Method::DELETE,
+            &format!(
+                "/api/atlas/v1/tenants/{}/policies/{}",
+                urlencoding::encode(tenant_id),
+                urlencoding::encode(intent)
+            ),
+        ))
+        .await
+    }
+
+    /// The tenant's quota + current usage (unlimited `0`/`0` if unset).
+    pub async fn get_tenant_quota(&self, tenant_id: &str) -> Result<serde_json::Value, Error> {
+        self.decode(self.request(
+            Method::GET,
+            &format!(
+                "/api/atlas/v1/tenants/{}/quota",
+                urlencoding::encode(tenant_id)
+            ),
+        ))
+        .await
+    }
+
+    pub async fn put_tenant_quota(
+        &self,
+        tenant_id: &str,
+        request: TenantQuotaRequest,
+    ) -> Result<serde_json::Value, Error> {
+        self.decode(
+            self.request(
+                Method::PUT,
+                &format!(
+                    "/api/atlas/v1/tenants/{}/quota",
+                    urlencoding::encode(tenant_id)
+                ),
+            )
+            .json(&request),
+        )
+        .await
+    }
+
+    /// Creates a protection schedule for a volume (operator). Both
+    /// `snapshot` and `backup` schedules dispatch a CSI VolumeSnapshot job
+    /// under the hood, which needs a PVC-backed (k8s) volume -- Atlas
+    /// rejects a schedule against a raw NFS/ZFS volume with a `400` rather
+    /// than creating a permanently-no-op schedule.
+    pub async fn create_schedule(
+        &self,
+        volume_id: &str,
+        request: CreateScheduleRequest,
+    ) -> Result<serde_json::Value, Error> {
+        self.decode(
+            self.request(
+                Method::POST,
+                &format!(
+                    "/api/atlas/v1/volumes/{}/schedule",
+                    urlencoding::encode(volume_id)
+                ),
+            )
+            .json(&request),
+        )
+        .await
+    }
+
+    pub async fn list_schedules(
+        &self,
+        volume_id: Option<&str>,
+    ) -> Result<serde_json::Value, Error> {
+        let mut req = self.request(Method::GET, "/api/atlas/v1/schedules");
+        if let Some(volume_id) = volume_id {
+            req = req.query(&[("volume_id", volume_id)]);
+        }
+        self.decode(req).await
+    }
+
+    pub async fn delete_schedule(&self, id: &str) -> Result<serde_json::Value, Error> {
+        self.decode(self.request(
+            Method::DELETE,
+            &format!("/api/atlas/v1/schedules/{}", urlencoding::encode(id)),
+        ))
+        .await
+    }
+
+    pub async fn get_volume_labels(&self, volume_id: &str) -> Result<serde_json::Value, Error> {
+        self.decode(self.request(
+            Method::GET,
+            &format!(
+                "/api/atlas/v1/volumes/{}/labels",
+                urlencoding::encode(volume_id)
+            ),
+        ))
+        .await
+    }
+
+    /// Merges labels into the volume (operator) -- `labels` is a flat JSON
+    /// object of string key/value pairs; existing keys not present in the
+    /// call are left untouched.
+    pub async fn put_volume_labels(
+        &self,
+        volume_id: &str,
+        labels: serde_json::Value,
+    ) -> Result<serde_json::Value, Error> {
+        self.decode(
+            self.request(
+                Method::PUT,
+                &format!(
+                    "/api/atlas/v1/volumes/{}/labels",
+                    urlencoding::encode(volume_id)
+                ),
+            )
+            .json(&labels),
+        )
+        .await
+    }
+
+    /// Sibling-product ownership bindings for a volume (the `owner` tag set
+    /// at create time, e.g. `{product: "zorvia", resource_type: "vm", ...}`).
+    pub async fn list_volume_bindings(&self, volume_id: &str) -> Result<serde_json::Value, Error> {
+        self.decode(self.request(
+            Method::GET,
+            &format!(
+                "/api/atlas/v1/volumes/{}/bindings",
+                urlencoding::encode(volume_id)
+            ),
+        ))
+        .await
+    }
 }
 
 #[cfg(test)]
@@ -1896,5 +2082,113 @@ mod tests {
 
         let events = c.list_events(Some(5)).await.unwrap();
         assert!(events.as_array().is_some());
+    }
+
+    // ── Governance: tenants, quotas, policy overrides, protection
+    // schedules, volume labels/bindings.
+
+    #[tokio::test]
+    #[ignore]
+    async fn live_tenant_quota_and_policy_override_round_trip() {
+        let c = live_client();
+        let tenants = c.list_tenants().await.unwrap();
+        assert!(tenants.as_array().is_some_and(|a| !a.is_empty()));
+
+        let policies = c.list_policies().await.unwrap();
+        assert!(policies.as_array().is_some_and(|a| !a.is_empty()));
+
+        let quota = c
+            .put_tenant_quota(
+                "global",
+                TenantQuotaRequest {
+                    max_bytes: 10 * 1024 * 1024 * 1024 * 1024,
+                    max_volumes: 50,
+                },
+            )
+            .await
+            .unwrap();
+        assert_eq!(quota["max_volumes"], 50);
+        let fetched = c.get_tenant_quota("global").await.unwrap();
+        assert_eq!(fetched["max_volumes"], 50);
+
+        let overridden = c
+            .put_tenant_policy(
+                "global",
+                "production",
+                TenantPolicyRequest {
+                    storage_class: "zyvor-rbd-prod-fast".into(),
+                    access_mode: None,
+                    volume_mode: None,
+                },
+            )
+            .await
+            .unwrap();
+        assert_eq!(overridden["storage_class"], "zyvor-rbd-prod-fast");
+        let listed = c.list_tenant_policies("global").await.unwrap();
+        assert!(listed
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|p| p["intent"] == "production"));
+
+        c.delete_tenant_policy("global", "production")
+            .await
+            .unwrap();
+        let err = c
+            .delete_tenant_policy("global", "production")
+            .await
+            .unwrap_err();
+        match err {
+            Error::Upstream { status, .. } => assert_eq!(status, 404),
+            other => panic!("expected an Upstream 404, got: {other:?}"),
+        }
+    }
+
+    #[tokio::test]
+    #[ignore]
+    async fn live_schedule_and_volume_labels_bindings_round_trip() {
+        let c = live_client();
+        // Fake driver seeds this PVC-backed volume -- see the comment above
+        // `live_expand_volume_round_trips`.
+        let volume_id = "vol_rbd_nvme_prod_web-01-root";
+
+        let created = c
+            .create_schedule(
+                volume_id,
+                CreateScheduleRequest {
+                    interval_secs: 3600,
+                    keep: 5,
+                    kind: Some("snapshot".into()),
+                    bucket_id: None,
+                    mode: None,
+                },
+            )
+            .await
+            .unwrap();
+        let schedule_id = created["id"].as_str().unwrap().to_string();
+
+        let listed = c.list_schedules(None).await.unwrap();
+        assert!(listed
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|s| s["id"] == schedule_id));
+
+        c.delete_schedule(&schedule_id).await.unwrap();
+        let err = c.delete_schedule(&schedule_id).await.unwrap_err();
+        match err {
+            Error::Upstream { status, .. } => assert_eq!(status, 404),
+            other => panic!("expected an Upstream 404, got: {other:?}"),
+        }
+
+        let merged = c
+            .put_volume_labels(volume_id, serde_json::json!({ "env": "prod" }))
+            .await
+            .unwrap();
+        assert_eq!(merged["env"], "prod");
+        let fetched = c.get_volume_labels(volume_id).await.unwrap();
+        assert_eq!(fetched["env"], "prod");
+
+        c.list_volume_bindings(volume_id).await.unwrap();
     }
 }

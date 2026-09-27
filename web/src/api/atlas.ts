@@ -1,7 +1,7 @@
 // Copyright 2026 Zyvor AI Labs · https://zyvor.dev
 // SPDX-License-Identifier: Apache-2.0
 
-import { apiFetch, apiGet, apiPost } from './client'
+import { apiFetch, apiGet, apiPost, apiPut } from './client'
 import { formatHttpErrorBody } from '../utils/apiError'
 import { parseJsonResponse } from '../utils/parseJsonResponse'
 
@@ -585,3 +585,53 @@ export interface AtlasEvent {
 }
 
 export const listAtlasEvents = (limit = 50) => apiGet<AtlasEvent[]>(`/api/v1/atlas/events?limit=${limit}`)
+
+// ── Governance: tenants, quotas, protection schedules. Tenant policy
+// overrides and volume labels/bindings are proxied (src/atlas/client.rs)
+// but deliberately have no UI yet -- lower-frequency than quota/schedules.
+// Deliberately excludes Atlas's own console auth (login/users/tokens). ──
+
+export interface AtlasTenant {
+  tenant_id: string
+  used_bytes: number
+  volume_count: number
+  max_bytes: number
+  max_volumes: number
+}
+
+export const listAtlasTenants = () => apiGet<AtlasTenant[]>('/api/v1/atlas/tenants')
+export const putAtlasTenantQuota = (tenantId: string, maxBytes: number, maxVolumes: number) =>
+  apiPut<AtlasTenant>(`/api/v1/atlas/tenants/${encodeURIComponent(tenantId)}/quota`, {
+    max_bytes: maxBytes,
+    max_volumes: maxVolumes,
+  })
+
+export interface AtlasSchedule {
+  id: string
+  tenant_id: string
+  volume_id: string
+  kind: string
+  bucket_id?: string | null
+  mode: string
+  interval_secs: number
+  keep: number
+  enabled: boolean
+  last_run_at?: string | null
+  next_run_at?: string | null
+  created_at?: string | null
+}
+
+export interface CreateAtlasScheduleRequest {
+  interval_secs: number
+  keep?: number
+  kind?: 'snapshot' | 'backup'
+  bucket_id?: string
+  mode?: string
+}
+
+export const listAtlasSchedules = (volumeId?: string) =>
+  apiGet<AtlasSchedule[]>(`/api/v1/atlas/schedules${volumeId ? `?volume_id=${encodeURIComponent(volumeId)}` : ''}`)
+export const createAtlasSchedule = (volumeId: string, body: CreateAtlasScheduleRequest) =>
+  apiPost<AtlasSchedule>(`/api/v1/atlas/volumes/${encodeURIComponent(volumeId)}/schedule`, body)
+export const deleteAtlasSchedule = (id: string) =>
+  apiFetchDelete<{ deleted: string }>(`/api/v1/atlas/schedules/${encodeURIComponent(id)}`)

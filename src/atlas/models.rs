@@ -210,6 +210,39 @@ pub struct DrFailoverRequest {
     pub force: bool,
 }
 
+/// `PUT /tenants/:id/policies/:intent` request -- overrides an intent's
+/// storage-class placement for one tenant (admin).
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct TenantPolicyRequest {
+    pub storage_class: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub access_mode: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub volume_mode: Option<String>,
+}
+
+/// `PUT /tenants/:id/quota` request. `0` means unlimited for either field.
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub struct TenantQuotaRequest {
+    pub max_bytes: i64,
+    pub max_volumes: i64,
+}
+
+/// `POST /volumes/:id/schedule` request. `kind` is `snapshot` (default) or
+/// `backup` (which additionally requires `bucket_id`).
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub struct CreateScheduleRequest {
+    pub interval_secs: i64,
+    #[serde(default)]
+    pub keep: i64,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub kind: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub bucket_id: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub mode: Option<String>,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct StorageClassInfo {
     pub name: String,

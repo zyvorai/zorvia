@@ -1024,6 +1024,34 @@ pub mod web {
             .route("/v1/atlas/chargeback", get(atlas_chargeback))
             .route("/v1/atlas/policy-drift", get(atlas_policy_drift))
             .route("/v1/atlas/events", get(atlas_list_events))
+            .route("/v1/atlas/tenants", get(atlas_list_tenants))
+            .route("/v1/atlas/policies", get(atlas_list_policies))
+            .route(
+                "/v1/atlas/tenants/{id}/policies",
+                get(atlas_list_tenant_policies),
+            )
+            .route(
+                "/v1/atlas/tenants/{id}/policies/{intent}",
+                put(atlas_put_tenant_policy).delete(atlas_delete_tenant_policy),
+            )
+            .route(
+                "/v1/atlas/tenants/{id}/quota",
+                get(atlas_get_tenant_quota).put(atlas_put_tenant_quota),
+            )
+            .route(
+                "/v1/atlas/volumes/{id}/schedule",
+                post(atlas_create_schedule),
+            )
+            .route("/v1/atlas/schedules", get(atlas_list_schedules))
+            .route("/v1/atlas/schedules/{id}", delete(atlas_delete_schedule))
+            .route(
+                "/v1/atlas/volumes/{id}/labels",
+                get(atlas_get_volume_labels).put(atlas_put_volume_labels),
+            )
+            .route(
+                "/v1/atlas/volumes/{id}/bindings",
+                get(atlas_list_volume_bindings),
+            )
             .route("/v1/health", get(health_handler))
             .route("/v1/features", get(features_registry_handler))
             .route(
