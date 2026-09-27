@@ -298,3 +298,108 @@ export const listAtlasBackups = (volumeId?: string) =>
   apiGet<AtlasBackup[]>(`/api/v1/atlas/backups${volumeId ? `?volume_id=${encodeURIComponent(volumeId)}` : ''}`)
 export const deleteAtlasBackup = (id: string) =>
   apiFetchDelete<AtlasJobEnvelope>(`/api/v1/atlas/backups/${encodeURIComponent(id)}`)
+
+// ── Disaster recovery (RBD mirroring) -- Atlas's own source labels this
+// "scaffolding, real ops UNVERIFIED without a 2nd cluster". promote/demote/
+// failover require Zorvia's strictest RBAC tier (cluster.admin), not just
+// storage.admin like the rest of the Atlas surface. ──
+
+export interface AtlasDrPeer {
+  id: string
+  name: string
+  cluster_fsid?: string | null
+  direction: string
+  bootstrap_secret_ref?: string | null
+  state: string
+}
+
+export interface AtlasDrMirror {
+  id: string
+  tenant_id: string
+  volume_id?: string | null
+  pool: string
+  image: string
+  peer_id?: string | null
+  mode: string
+  role: 'primary' | 'secondary'
+  state: string
+  rpo_seconds?: number | null
+  last_failover_at?: string | null
+  last_error?: string | null
+  force_promoted: boolean
+  updated_at: string
+}
+
+export interface AtlasDrStatus {
+  peers: number
+  mirrors: number
+  primary: number
+  secondary: number
+  error: number
+  worst_rpo_seconds?: number | null
+  control_plane_ready: boolean
+  dataplane_verified: boolean
+  verified: boolean
+  note: string
+}
+
+export interface AtlasDrPreflightCheck {
+  id: string
+  ok: boolean
+  detail: string
+}
+
+export interface AtlasDrPreflight {
+  ready: boolean
+  control_plane_ready: boolean
+  dataplane_verified: boolean
+  checks: AtlasDrPreflightCheck[]
+  blockers: string[]
+  warnings: string[]
+}
+
+export interface RegisterAtlasDrPeerRequest {
+  name: string
+  cluster_fsid?: string
+  direction?: string
+  secret_ref?: string
+}
+
+export const listAtlasDrPeers = () => apiGet<AtlasDrPeer[]>('/api/v1/atlas/dr/peers')
+export const registerAtlasDrPeer = (body: RegisterAtlasDrPeerRequest) =>
+  apiPost<AtlasDrPeer>('/api/v1/atlas/dr/peers', body)
+/** Atlas's delete is unconditional (no rows-affected check) -- this always
+    returns `{deleted:true}`, even for an id that never existed, unlike
+    backend/bucket/backup delete which 404 on a missing id. */
+export const deleteAtlasDrPeer = (id: string) =>
+  apiFetchDelete<{ peer_id: string; deleted: boolean }>(`/api/v1/atlas/dr/peers/${encodeURIComponent(id)}`)
+
+export const listAtlasDrMirrors = () => apiGet<AtlasDrMirror[]>('/api/v1/atlas/dr/mirrors')
+export const getAtlasDrStatus = () => apiGet<AtlasDrStatus>('/api/v1/atlas/dr/status')
+export const getAtlasDrPreflight = () => apiGet<AtlasDrPreflight>('/api/v1/atlas/dr/preflight')
+
+export const enableAtlasMirror = (volumeId: string, mode: 'snapshot' | 'journal' = 'snapshot', peer?: string) => {
+  const params = new URLSearchParams({ mode })
+  if (peer) params.set('peer', peer)
+  return apiPost<AtlasJobEnvelope>(`/api/v1/atlas/volumes/${encodeURIComponent(volumeId)}/mirror?${params.toString()}`)
+}
+export const disableAtlasMirror = (volumeId: string) =>
+  apiFetchDelete<AtlasJobEnvelope>(`/api/v1/atlas/volumes/${encodeURIComponent(volumeId)}/mirror`)
+
+/** `force` is for split-brain / non-clean failover only -- without it,
+    promote requires the mirror to currently be `role=secondary`. */
+export const promoteAtlasMirror = (id: string, force = false) =>
+  apiPost<AtlasJobEnvelope>(`/api/v1/atlas/dr/mirrors/${encodeURIComponent(id)}/promote${force ? '?force=true' : ''}`)
+export const demoteAtlasMirror = (id: string) =>
+  apiPost<AtlasJobEnvelope>(`/api/v1/atlas/dr/mirrors/${encodeURIComponent(id)}/demote`)
+export const setAtlasMirrorRpo = (id: string, rpoSeconds: number) =>
+  apiPost<{ mirror_id: string; rpo_seconds: number }>(`/api/v1/atlas/dr/mirrors/${encodeURIComponent(id)}/rpo`, {
+    rpo_seconds: rpoSeconds,
+  })
+
+/** One-click failover runbook: runs preflight, then promotes `mirrorId`.
+    `confirm: true` is required -- Atlas rejects with a `400` otherwise.
+    If preflight isn't `ready`, Atlas rejects with a `409` naming the
+    blockers unless `force` is also set. */
+export const atlasDrFailover = (mirrorId: string, force = false) =>
+  apiPost<AtlasJobEnvelope>('/api/v1/atlas/dr/failover', { mirror_id: mirrorId, confirm: true, force })

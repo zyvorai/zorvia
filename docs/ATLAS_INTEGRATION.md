@@ -24,7 +24,7 @@ The browser never receives `ATLAS_TOKEN`. Zorvia owns user authentication; the A
 
 Atlas isn't a separate top-level page — it's a set of sections on the existing Storage page (`/app/storage`, alongside Rook-Ceph), because both are answering the same question ("what storage do I have and what's it doing"), just from two different control planes. If `ATLAS_URL` is unset, the sections render a quiet "not configured" note instead of hiding entirely or erroring.
 
-The Atlas UI lives under `web/src/pages/storage/`: `AtlasSection.tsx` is the main orchestrator (status, backend lifecycle — create/discover/cordon/uncordon/delete, volume create/expand/delete, recent jobs), and `AtlasRbdSection.tsx`/`AtlasBucketsSection.tsx` are sibling cards (only rendered once Atlas is enabled and connected) covering RBD image create/resize/delete and object-store bucket create/delete respectively. Deliberately out of scope for the UI, even though the backend routes exist and are proxied: RBD clone/migrate/flatten/QoS/snapshots, bucket object-level operations (list/upload/download/prune) and backup/restore creation — these are lower-frequency operations better suited to Atlas's own UI or CLI for now; revisit if there's real demand.
+The Atlas UI lives under `web/src/pages/storage/`: `AtlasSection.tsx` is the main orchestrator (status, backend lifecycle — create/discover/cordon/uncordon/delete, volume create/expand/delete, recent jobs), and `AtlasRbdSection.tsx`/`AtlasBucketsSection.tsx`/`AtlasDrSection.tsx` are sibling cards (only rendered once Atlas is enabled and connected) covering RBD image create/resize/delete, object-store bucket create/delete, and disaster recovery respectively. Deliberately out of scope for the UI, even though the backend routes exist and are proxied: RBD clone/migrate/flatten/QoS/snapshots, bucket object-level operations (list/upload/download/prune) and backup/restore creation — these are lower-frequency operations better suited to Atlas's own UI or CLI for now; revisit if there's real demand.
 
 ## Configuration
 
@@ -73,6 +73,10 @@ If `ATLAS_URL` is absent, Zorvia starts normally and the integration reports `en
 - `GET|DELETE /api/v1/atlas/buckets/:id/objects[?key=]`, `POST .../objects/upload-url`, `GET .../objects/download-url?key=`, `POST .../objects/prune`
 - `POST /api/v1/atlas/backup-jobs`, `POST /api/v1/atlas/restore-jobs`
 - `GET /api/v1/atlas/backups[?volume_id=]`, `GET|DELETE /api/v1/atlas/backups/:id`, `GET /api/v1/atlas/backups/:id/download[?what=manifest|data]`
+- `GET|POST /api/v1/atlas/dr/peers`, `DELETE /api/v1/atlas/dr/peers/:id`
+- `GET /api/v1/atlas/dr/mirrors`, `GET /api/v1/atlas/dr/status`, `GET /api/v1/atlas/dr/preflight` (report-only, always `200`; `ready`/`blockers` is the real gate)
+- `POST /api/v1/atlas/dr/mirrors/:id/{promote,demote}`, `POST /api/v1/atlas/dr/mirrors/:id/rpo`, `POST /api/v1/atlas/dr/failover`
+- `POST|DELETE /api/v1/atlas/volumes/:id/mirror` — enable/disable RBD mirroring for a volume
 
 Bucket create/delete and backup create/delete/restore are async jobs, same shape as the volume writes; everything else under buckets (stats, object list/delete, upload/download URL, prune) is synchronous — object operations never touch bytes through Zorvia or Atlas, they mint presigned S3 URLs so the browser talks to RGW directly. `delete` on a bucket is refused (`409`) while it still holds backups unless `?force=true`.
 
@@ -82,12 +86,21 @@ Unlike the volume routes, **backend lifecycle (create/delete/discover/cordon/unc
 
 All three volume-mutating routes return `202` with Atlas's job envelope (`{"job_id", "state":"queued", "resource": {...}, "links": {"job": "/api/atlas/v1/jobs/:id"}}`), not a finished result — every Atlas write is genuinely async. Poll `GET /api/v1/atlas/jobs/:id` with that `job_id` to find out what actually happened; `state` reaches a terminal value (`succeeded`/`failed`) or stays `pending`/`queued`/`running`/`verifying` in between. The web UI (`RookStorage.tsx`'s Atlas section) does exactly this after every create/expand/delete — `pollAtlasJob()` in `web/src/api/atlas.ts` polls every 1.5s up to a 60s timeout and the UI toasts the real outcome, not just "requested". `POST /volumes` accepts `{name, size_bytes, policy?, pool?, owner?, kubernetes?}` and forwards to Atlas's `CreateVolumeRequest`; when called in the context of a VM, populate `owner: {product: "zorvia", resource_type: "vm", resource_id: <vm name>, role: "data_disk"}` (the web UI's "Attribute to VM" field does this) — that's what makes the volume traceable back to Zorvia in Atlas's own inventory, not a cosmetic detail. `DELETE` always passes `confirm=true` from Zorvia's side; Atlas itself decides (based on storage class / protection tier) whether that was actually required, rejecting with a `400` naming the requirement if it was needed and the caller didn't set it — Zorvia doesn't try to duplicate that judgment. All `/api/v1/atlas/*` routes are protected by Zorvia's existing auth middleware; the volume-mutating routes and `jobs/:id/cancel` additionally require the `storage.admin` permission (same permission that gates Rook administration) — note Atlas's own token-level auth is stricter for delete and cancel specifically (`ROLE_ADMIN` vs. `ROLE_OPERATOR` for create/expand), so those two can still be rejected by Atlas even when Zorvia's own RBAC allows the request through.
 
+## Disaster recovery
+
+Cross-cluster RBD mirroring is **scaffolding on Atlas's own side** — its `dr.rs` source carries the comment "real ops UNVERIFIED without a 2nd cluster". Zorvia proxies the full control-plane surface (peer registration, mirror role/state bookkeeping, preflight checks, promote/demote/failover) because the plan explicitly asked for it, but treat it accordingly:
+
+- **What's actually verified**: the control-plane catalog — registering a peer, enabling/disabling mirroring on a volume, listing mirrors, the role-transition guards (promote refuses `role=primary` without `?force=1`; demote refuses `role=secondary`), `POST /dr/failover`'s `confirm=true` requirement and its preflight gate, and `GET /dr/preflight`'s blockers/warnings — all round-trip correctly against a real `atlas-gateway` in `fake` driver mode. This is genuinely useful for exercising the runbook and RBAC.
+- **What's not verified**: the actual `rbd mirror` data-plane operations only run when Atlas's Ceph driver is in `real` mode against a genuine second Ceph cluster. `GET /dr/status`'s `dataplane_verified`/`verified` fields report whether *this specific Atlas deployment* has ever completed that live two-site drill (see Atlas's own `docs/DR.md`) — the web UI surfaces this as a persistent warning, not a one-time dismissable notice.
+- **Stricter RBAC**: `promote`, `demote`, and `failover` require Zorvia's `cluster.admin` permission (the strictest tier), checked *before* the general `storage.admin` rule that covers the rest of `/v1/atlas/*` — see `src/api/auth/permissions.rs`. This is defense-in-depth beyond Atlas's own token-role check (`ROLE_ADMIN` for all three), since these routes can flip which cluster is primary.
+- **`DELETE /dr/peers/:id` is unconditional**: Atlas's `delete_peer` doesn't check rows-affected, so it always returns `{"deleted":true}` — even for an id that never existed — unlike backend/bucket/backup delete, which 404 on a missing id. Don't infer "the peer existed" from a successful response.
+- The web UI (`AtlasDrSection.tsx`) shows a persistent warning quoting this caveat and requires the same confirm-dialog pattern used for other destructive actions before promote/demote/failover — including naming preflight blockers in the confirmation text when preflight isn't `ready`, rather than only stopping the user after the fact.
+
 ## Deliberately not proxied yet
 
-This is a read-only inventory integration plus volume create/expand/delete plus job status polling — not full Atlas lifecycle management. Not proxied:
+This is a read-only inventory integration plus volume/RBD/bucket lifecycle, job status polling, and disaster recovery scaffolding — not full Atlas lifecycle management. Not proxied:
 
 - Job SSE watch (`GET /jobs/:id/watch`) — Zorvia has no established SSE-proxy pattern; polling `GET /jobs/:id` on the existing 10-15s refresh cadence is good enough for now
-- Disaster recovery (peers, mirrors, promote/demote, failover)
 - DataBridge (cloud-to-edge DB migration)
 - Tenant policy/quota writes, AI advisor, alerts, audit export
 

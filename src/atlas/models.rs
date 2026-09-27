@@ -158,6 +158,29 @@ pub struct CreateRestoreRequest {
     pub mode: Option<String>,
 }
 
+/// `POST /dr/peers` request. `secret_ref` should name a k8s Secret holding
+/// the peer bootstrap token -- never the token itself.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct RegisterDrPeerRequest {
+    pub name: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub cluster_fsid: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub direction: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub secret_ref: Option<String>,
+}
+
+/// `POST /dr/failover` request -- `confirm: true` is required, this is
+/// destructive. `force` overrides a not-`ready` preflight.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DrFailoverRequest {
+    pub mirror_id: String,
+    pub confirm: bool,
+    #[serde(default)]
+    pub force: bool,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct StorageClassInfo {
     pub name: String,

@@ -984,6 +984,28 @@ pub mod web {
                 "/v1/atlas/backups/{id}/download",
                 get(atlas_download_backup),
             )
+            .route(
+                "/v1/atlas/dr/peers",
+                get(atlas_list_dr_peers).post(atlas_register_dr_peer),
+            )
+            .route("/v1/atlas/dr/peers/{id}", delete(atlas_delete_dr_peer))
+            .route("/v1/atlas/dr/mirrors", get(atlas_list_dr_mirrors))
+            .route("/v1/atlas/dr/status", get(atlas_dr_status))
+            .route("/v1/atlas/dr/preflight", get(atlas_dr_preflight))
+            .route(
+                "/v1/atlas/dr/mirrors/{id}/promote",
+                post(atlas_promote_mirror),
+            )
+            .route(
+                "/v1/atlas/dr/mirrors/{id}/demote",
+                post(atlas_demote_mirror),
+            )
+            .route("/v1/atlas/dr/mirrors/{id}/rpo", post(atlas_set_mirror_rpo))
+            .route("/v1/atlas/dr/failover", post(atlas_dr_failover))
+            .route(
+                "/v1/atlas/volumes/{id}/mirror",
+                post(atlas_enable_mirror).delete(atlas_disable_mirror),
+            )
             .route("/v1/health", get(health_handler))
             .route("/v1/features", get(features_registry_handler))
             .route(

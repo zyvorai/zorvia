@@ -4,7 +4,7 @@
 use super::{SharedAuditTrail, SharedState};
 use crate::atlas::models::{
     CloneRbdImageRequest, CreateBackupRequest, CreateBucketRequest, CreateRbdImageRequest,
-    CreateRestoreRequest, CreateVolumeRequest,
+    CreateRestoreRequest, CreateVolumeRequest, DrFailoverRequest, RegisterDrPeerRequest,
 };
 use crate::atlas::{Client, Error as AtlasError};
 use axum::{
@@ -1352,6 +1352,249 @@ pub(super) async fn atlas_create_restore(
         crate::audit_trail::AuditAction::Restore,
         "atlas_backup",
         &backup_id,
+        result,
+    )
+    .await
+}
+
+// ── Disaster recovery (RBD mirroring) ────────────────────────────────────
+// Atlas's own source labels this "scaffolding, real ops UNVERIFIED without a
+// 2nd cluster" -- see docs/ATLAS_INTEGRATION.md's Disaster recovery section.
+// promote/demote/failover additionally require ApiPermission::ClusterAdmin
+// (checked before the general /v1/atlas/ -> StorageAdmin rule), stricter
+// than every other Atlas route -- see src/api/auth/permissions.rs.
+
+pub(super) async fn atlas_list_dr_peers(State(state): State<SharedState>) -> Response {
+    let c = match client(&state).await {
+        Ok(v) => v,
+        Err(r) => return *r,
+    };
+    match c.list_dr_peers().await {
+        Ok(v) => Json(v).into_response(),
+        Err(e) => error_response(e),
+    }
+}
+
+pub(super) async fn atlas_register_dr_peer(
+    State(state): State<SharedState>,
+    auth: Option<axum::Extension<crate::api::auth::AuthIdentity>>,
+    Json(body): Json<RegisterDrPeerRequest>,
+) -> Response {
+    let (c, audit) = match write_client(&state).await {
+        Ok(v) => v,
+        Err(r) => return *r,
+    };
+    let name = body.name.clone();
+    let result = c.register_dr_peer(body).await;
+    finish_write(
+        &audit,
+        &caller(&auth),
+        crate::audit_trail::AuditAction::Create,
+        "atlas_dr_peer",
+        &name,
+        result,
+    )
+    .await
+}
+
+pub(super) async fn atlas_delete_dr_peer(
+    State(state): State<SharedState>,
+    Path(id): Path<String>,
+    auth: Option<axum::Extension<crate::api::auth::AuthIdentity>>,
+) -> Response {
+    let (c, audit) = match write_client(&state).await {
+        Ok(v) => v,
+        Err(r) => return *r,
+    };
+    let result = c.delete_dr_peer(&id).await;
+    finish_write(
+        &audit,
+        &caller(&auth),
+        crate::audit_trail::AuditAction::Delete,
+        "atlas_dr_peer",
+        &id,
+        result,
+    )
+    .await
+}
+
+pub(super) async fn atlas_list_dr_mirrors(State(state): State<SharedState>) -> Response {
+    let c = match client(&state).await {
+        Ok(v) => v,
+        Err(r) => return *r,
+    };
+    match c.list_dr_mirrors().await {
+        Ok(v) => Json(v).into_response(),
+        Err(e) => error_response(e),
+    }
+}
+
+pub(super) async fn atlas_dr_status(State(state): State<SharedState>) -> Response {
+    let c = match client(&state).await {
+        Ok(v) => v,
+        Err(r) => return *r,
+    };
+    match c.dr_status().await {
+        Ok(v) => Json(v).into_response(),
+        Err(e) => error_response(e),
+    }
+}
+
+pub(super) async fn atlas_dr_preflight(State(state): State<SharedState>) -> Response {
+    let c = match client(&state).await {
+        Ok(v) => v,
+        Err(r) => return *r,
+    };
+    match c.dr_preflight().await {
+        Ok(v) => Json(v).into_response(),
+        Err(e) => error_response(e),
+    }
+}
+
+#[derive(Debug, Deserialize)]
+pub(super) struct EnableMirrorQuery {
+    mode: Option<String>,
+    peer: Option<String>,
+}
+
+pub(super) async fn atlas_enable_mirror(
+    State(state): State<SharedState>,
+    Path(volume_id): Path<String>,
+    Query(query): Query<EnableMirrorQuery>,
+    auth: Option<axum::Extension<crate::api::auth::AuthIdentity>>,
+) -> Response {
+    let (c, audit) = match write_client(&state).await {
+        Ok(v) => v,
+        Err(r) => return *r,
+    };
+    let result = c
+        .enable_mirror(&volume_id, query.mode.as_deref(), query.peer.as_deref())
+        .await;
+    finish_write(
+        &audit,
+        &caller(&auth),
+        crate::audit_trail::AuditAction::ConfigChange,
+        "atlas_volume_mirror",
+        &volume_id,
+        result,
+    )
+    .await
+}
+
+pub(super) async fn atlas_disable_mirror(
+    State(state): State<SharedState>,
+    Path(volume_id): Path<String>,
+    auth: Option<axum::Extension<crate::api::auth::AuthIdentity>>,
+) -> Response {
+    let (c, audit) = match write_client(&state).await {
+        Ok(v) => v,
+        Err(r) => return *r,
+    };
+    let result = c.disable_mirror(&volume_id).await;
+    finish_write(
+        &audit,
+        &caller(&auth),
+        crate::audit_trail::AuditAction::ConfigChange,
+        "atlas_volume_mirror",
+        &volume_id,
+        result,
+    )
+    .await
+}
+
+#[derive(Debug, Deserialize)]
+pub(super) struct PromoteMirrorQuery {
+    #[serde(default)]
+    force: bool,
+}
+
+pub(super) async fn atlas_promote_mirror(
+    State(state): State<SharedState>,
+    Path(id): Path<String>,
+    Query(query): Query<PromoteMirrorQuery>,
+    auth: Option<axum::Extension<crate::api::auth::AuthIdentity>>,
+) -> Response {
+    let (c, audit) = match write_client(&state).await {
+        Ok(v) => v,
+        Err(r) => return *r,
+    };
+    let result = c.promote_mirror(&id, query.force).await;
+    finish_write(
+        &audit,
+        &caller(&auth),
+        crate::audit_trail::AuditAction::Migrate,
+        "atlas_dr_mirror",
+        &id,
+        result,
+    )
+    .await
+}
+
+pub(super) async fn atlas_demote_mirror(
+    State(state): State<SharedState>,
+    Path(id): Path<String>,
+    auth: Option<axum::Extension<crate::api::auth::AuthIdentity>>,
+) -> Response {
+    let (c, audit) = match write_client(&state).await {
+        Ok(v) => v,
+        Err(r) => return *r,
+    };
+    let result = c.demote_mirror(&id).await;
+    finish_write(
+        &audit,
+        &caller(&auth),
+        crate::audit_trail::AuditAction::Migrate,
+        "atlas_dr_mirror",
+        &id,
+        result,
+    )
+    .await
+}
+
+#[derive(Debug, Deserialize)]
+pub(super) struct SetMirrorRpoBody {
+    rpo_seconds: Option<i64>,
+}
+
+pub(super) async fn atlas_set_mirror_rpo(
+    State(state): State<SharedState>,
+    Path(id): Path<String>,
+    auth: Option<axum::Extension<crate::api::auth::AuthIdentity>>,
+    Json(body): Json<SetMirrorRpoBody>,
+) -> Response {
+    let (c, audit) = match write_client(&state).await {
+        Ok(v) => v,
+        Err(r) => return *r,
+    };
+    let result = c.set_mirror_rpo(&id, body.rpo_seconds).await;
+    finish_write(
+        &audit,
+        &caller(&auth),
+        crate::audit_trail::AuditAction::Update,
+        "atlas_dr_mirror",
+        &id,
+        result,
+    )
+    .await
+}
+
+pub(super) async fn atlas_dr_failover(
+    State(state): State<SharedState>,
+    auth: Option<axum::Extension<crate::api::auth::AuthIdentity>>,
+    Json(body): Json<DrFailoverRequest>,
+) -> Response {
+    let (c, audit) = match write_client(&state).await {
+        Ok(v) => v,
+        Err(r) => return *r,
+    };
+    let mirror_id = body.mirror_id.clone();
+    let result = c.dr_failover(body).await;
+    finish_write(
+        &audit,
+        &caller(&auth),
+        crate::audit_trail::AuditAction::Migrate,
+        "atlas_dr_mirror",
+        &mirror_id,
         result,
     )
     .await

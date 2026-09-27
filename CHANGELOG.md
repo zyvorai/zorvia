@@ -9,6 +9,32 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Atlas disaster recovery (RBD mirroring)** — `GET|POST /api/v1/atlas/dr/peers`,
+  `DELETE .../dr/peers/:id`, `GET .../dr/mirrors`, `GET .../dr/status`,
+  `GET .../dr/preflight`, `POST .../dr/mirrors/:id/{promote,demote}`,
+  `POST .../dr/mirrors/:id/rpo`, `POST .../dr/failover`, and
+  `POST|DELETE .../volumes/:id/mirror`. Atlas's own source labels this
+  "scaffolding — real ops UNVERIFIED without a 2nd cluster"; `promote`/
+  `demote`/`failover` require Zorvia's strictest `cluster.admin` permission
+  (checked before the general `storage.admin` rule covering the rest of
+  Atlas), stricter defense-in-depth beyond Atlas's own token-role check
+  since these routes can flip which cluster is primary. New
+  `web/src/pages/storage/AtlasDrSection.tsx` shows a persistent (non-
+  dismissable) warning quoting that caveat plus this deployment's real
+  `dataplane_verified` state, and gates promote/demote/failover behind the
+  same confirm-dialog pattern used elsewhere, naming preflight blockers in
+  the confirmation text when preflight isn't `ready`. Verified live against
+  a real `atlas-gateway`: peer register/delete, mirror enable/disable, the
+  promote/demote role-transition guards (409 on an invalid transition),
+  `rpo` recording, and `failover`'s `confirm=true` requirement (400
+  without it) all round-trip correctly — this exercises the control-plane
+  catalog and RBAC, not a live two-site `rbd mirror` data-plane drill,
+  which needs a second real Ceph cluster neither this repo nor Atlas's own
+  dev instance has. Also found and documented: `DELETE /dr/peers/:id` is
+  unconditional on Atlas's side (no rows-affected check) and always
+  returns `{"deleted":true}`, even for a nonexistent id, unlike backend/
+  bucket/backup delete which 404.
+
 - **Atlas backend/RBD/bucket UI** — the Storage page's Atlas section now
   exposes the backend, RBD, and object-store bucket lifecycle proxied in
   the three prior entries below: backend create/discover/cordon/uncordon/
