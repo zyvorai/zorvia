@@ -95,6 +95,12 @@ pub const FEATURES: &[Feature] = &[
         notes: "Manages existing Ceph CRs; bootstrap SA optional",
     },
     Feature {
+        id: "atlas-storage",
+        name: "Atlas storage integration: inventory, backend/RBD/object-store, AI insights, observability, governance, DataBridge",
+        maturity: Maturity::Beta,
+        notes: "Optional, gated on ATLAS_URL; storage.admin; disaster recovery is scaffolding on Atlas's own side, unverified without a 2nd real Ceph cluster; see docs/ATLAS_INTEGRATION.md",
+    },
+    Feature {
         id: "helm-chart",
         name: "Helm production chart",
         maturity: Maturity::Beta,

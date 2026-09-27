@@ -22,6 +22,7 @@ Levels used by Zorvia (also exposed at `GET /api/v1/features` when the API is ru
 | `rescue-mode` | Rescue mode: hostname/SSH-key/enable-SSH via a Job-mounted disk | Beta | `cluster.admin` only; 3 of 5 UI operations wired (reset-password, install-packages, inspect deferred); needs on-cluster verification of the mounted PVC's disk-image path before trusting it against a production VM — [RESCUE.md](RESCUE.md) |
 | `schedulers` | Backup/power/alert/warm-pool | Beta | Lease election; in-process |
 | `rook-storage` | Rook-Ceph management | Beta | Bootstrap SA optional |
+| `atlas-storage` | Atlas storage integration: inventory, backend/RBD/object-store lifecycle, AI insights, observability, governance, DataBridge | Beta | Optional, gated on `ATLAS_URL`; `storage.admin`; disaster recovery is scaffolding on Atlas's own side — unverified without a 2nd real Ceph cluster — see [ATLAS_INTEGRATION.md](ATLAS_INTEGRATION.md) |
 | `helm-chart` | Helm chart | Beta | Lab + hardened production values |
 | `oidc` | OIDC / SSO | Beta | `ZORVIA_OIDC_ENABLED=1` + PKCE/JWKS; lab bake-off [OIDC_LAB.md](OIDC_LAB.md) |
 | `ai-troubleshoot` | AI troubleshooting | Model only | Rules demo, not ML RCA |
