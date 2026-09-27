@@ -24,7 +24,7 @@ The browser never receives `ATLAS_TOKEN`. Zorvia owns user authentication; the A
 
 Atlas isn't a separate top-level page — it's a set of sections on the existing Storage page (`/app/storage`, alongside Rook-Ceph), because both are answering the same question ("what storage do I have and what's it doing"), just from two different control planes. If `ATLAS_URL` is unset, the sections render a quiet "not configured" note instead of hiding entirely or erroring.
 
-The Atlas UI lives under `web/src/pages/storage/`: `AtlasSection.tsx` is the main orchestrator (status, backend lifecycle — create/discover/cordon/uncordon/delete, volume create/expand/delete, recent jobs), and `AtlasRbdSection.tsx`/`AtlasBucketsSection.tsx`/`AtlasDrSection.tsx`/`AtlasAiSection.tsx` are sibling cards (only rendered once Atlas is enabled and connected) covering RBD image create/resize/delete, object-store bucket create/delete, disaster recovery, and AI-assisted insights respectively. Deliberately out of scope for the UI, even though the backend routes exist and are proxied: RBD clone/migrate/flatten/QoS/snapshots, bucket object-level operations (list/upload/download/prune) and backup/restore creation — these are lower-frequency operations better suited to Atlas's own UI or CLI for now; revisit if there's real demand.
+The Atlas UI lives under `web/src/pages/storage/`: `AtlasSection.tsx` is the main orchestrator (status, backend lifecycle — create/discover/cordon/uncordon/delete, volume create/expand/delete, recent jobs), and `AtlasRbdSection.tsx`/`AtlasBucketsSection.tsx`/`AtlasDrSection.tsx`/`AtlasAiSection.tsx`/`AtlasObservabilitySection.tsx` are sibling cards (only rendered once Atlas is enabled and connected) covering RBD image create/resize/delete, object-store bucket create/delete, disaster recovery, AI-assisted insights, and audit/chargeback/policy-drift/metrics respectively. Atlas alerts are the one exception to "everything lives on the Storage page" — they're surfaced on Zorvia's existing `/app/alerts` page instead (see the Observability section below). Deliberately out of scope for the UI, even though the backend routes exist and are proxied: RBD clone/migrate/flatten/QoS/snapshots, bucket object-level operations (list/upload/download/prune) and backup/restore creation — these are lower-frequency operations better suited to Atlas's own UI or CLI for now; revisit if there's real demand.
 
 ## Configuration
 
@@ -81,6 +81,10 @@ If `ATLAS_URL` is absent, Zorvia starts normally and the integration reports `en
 - `GET /api/v1/atlas/ai/anomalies[?minutes=&sensitivity=]` — statistical anomaly detection over recent metric samples
 - `GET /api/v1/atlas/ai/incidents[?mode=]` — correlated incidents (alerts + anomalies + failed jobs grouped by likely cause)
 - `POST /api/v1/atlas/ai/what-if` — `{add_capacity_bytes?, horizon_days?, projected_growth_bytes_per_day?, assume_alerts_resolved?, assume_recovery_complete?}`; projects capacity/risk under a hypothetical
+- `GET /api/v1/atlas/metrics/summary`, `GET .../metrics/ceph[?prefix=]`, `GET .../metrics/history[?minutes=]`, `GET .../metrics/forecast[?minutes=]`
+- `GET /api/v1/atlas/alerts[?state=open]`, `POST .../alerts/evaluate`, `POST .../alerts/:id/{ack,resolve}`, `POST .../alerts/:id/silence[?secs=]`
+- `GET /api/v1/atlas/audit[?actor=&action=&resource_type=&resource_id=&limit=]`, `GET /api/v1/atlas/audit.csv` (raw CSV, not JSON)
+- `GET /api/v1/atlas/chargeback`, `GET /api/v1/atlas/policy-drift`, `GET /api/v1/atlas/events[?limit=]`
 
 Bucket create/delete and backup create/delete/restore are async jobs, same shape as the volume writes; everything else under buckets (stats, object list/delete, upload/download URL, prune) is synchronous — object operations never touch bytes through Zorvia or Atlas, they mint presigned S3 URLs so the browser talks to RGW directly. `delete` on a bucket is refused (`409`) while it still holds backups unless `?force=true`.
 
@@ -104,13 +108,23 @@ Cross-cluster RBD mirroring is **scaffolding on Atlas's own side** — its `dr.r
 
 Compute-only, despite the `POST` verbs on `advisor`/`what-if`: none of the four routes mutate storage (`can_execute` is always `false` in every response). The local advisor is a deterministic rules-over-evidence engine, always available; an optional external OpenAI-compatible provider (configured on Atlas's side via `ATLAS_AI_BASE_URL`/`ATLAS_AI_MODEL`, not Zorvia's) can only rewrite the executive-summary text, never the risk score or evidence. Zorvia's web UI (`AtlasAiSection.tsx`) always passes `mode: "local"` to the advisor and `ai/incidents`, so it never triggers a real external-network call on Atlas's behalf just from loading the Storage page — a provider-narrated summary would need a direct API call with `mode: "auto"` or `"llm"`, which isn't wired into the UI. `GET /ai/incidents` already defaults to `mode=local` on Atlas's side for the same reason (narration is opt-in, not automatic, on a `GET` a dashboard might poll).
 
+## Observability
+
+Metrics (`summary`/`ceph`/`history`/`forecast`) are simple read views. Alerts are a real lifecycle: `evaluate` runs Atlas's rules on demand (a genuine side effect — creates/updates alert rows, not a pure read, despite returning just a count); `ack` records who saw it without resolving; `silence` suppresses webhook notification for a window while the condition keeps being tracked and still shows in `list_alerts`; `resolve` is an operator override. All three per-alert actions `404` on an id that isn't currently open/tracked.
+
+**Alerts are surfaced on Zorvia's existing `/app/alerts` page** (`web/src/pages/Alerts.tsx`) as an additional source alongside Zorvia's own VM-metric alert rules, tagged with an "Atlas" badge, rather than as a second disconnected alerts UI — Zorvia already has a real alerts feature and unifying the two into one screen is more useful than fragmenting them. Atlas alerts are fetched only when `getAtlasStatus()` reports `enabled && connected`, and failures there degrade to an empty list rather than surfacing as a page-level error, since Atlas is an optional secondary alert source on this page.
+
+**Audit, chargeback, and policy-drift get simple read-only views scoped to the Atlas area** of the Storage page (`AtlasObservabilitySection.tsx`) instead of being merged into Zorvia's own audit trail or cost/FinOps surfaces — those are Zorvia's own equivalents for Zorvia's own resources, and unifying them with Atlas's storage-only audit/chargeback is a separate product decision, not something to fold in here without a deliberate call. `GET /audit.csv` returns raw CSV (not JSON) — Zorvia's `exportAtlasAuditCsv()` relays it byte-for-byte with the same `text/csv` content type, and the UI offers it as a browser download rather than trying to render it as a table alongside the JSON `GET /audit` view.
+
+`GET /events` (jobs + audit + alerts, unified) is proxied but not yet surfaced in the UI — it's operator-gated on Atlas's side because it includes audit records, same as `GET /audit`.
+
 ## Deliberately not proxied yet
 
-This is a read-only inventory integration plus volume/RBD/bucket lifecycle, job status polling, disaster recovery scaffolding, and AI-assisted insights — not full Atlas lifecycle management. Not proxied:
+This is a read-only inventory integration plus volume/RBD/bucket lifecycle, job status polling, disaster recovery scaffolding, AI-assisted insights, and observability — not full Atlas lifecycle management. Not proxied:
 
 - Job SSE watch (`GET /jobs/:id/watch`) — Zorvia has no established SSE-proxy pattern; polling `GET /jobs/:id` on the existing 10-15s refresh cadence is good enough for now
 - DataBridge (cloud-to-edge DB migration)
-- Tenant policy/quota writes, alerts, audit export, chargeback, policy-drift
+- Tenant policy/quota writes and schedules, Atlas's own user/token administration
 
 If any of these become a real need, they follow the same pattern as the volume routes here — add the client method, the handler, and (if it's a write) a permission check and audit entry.
 

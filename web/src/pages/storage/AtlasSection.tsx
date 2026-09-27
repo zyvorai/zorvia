@@ -38,6 +38,7 @@ import AtlasRbdSection from './AtlasRbdSection'
 import AtlasBucketsSection from './AtlasBucketsSection'
 import AtlasDrSection from './AtlasDrSection'
 import AtlasAiSection from './AtlasAiSection'
+import AtlasObservabilitySection from './AtlasObservabilitySection'
 
 export const ATLAS_HEALTH_STYLES: Record<string, string> = {
   ok: 'text-[var(--zf-success)] bg-[var(--zf-success)]/10 border-[var(--zf-success)]/25',
@@ -311,6 +312,7 @@ export default function AtlasSection() {
       {enabled && connected && <AtlasBucketsSection />}
       {enabled && connected && <AtlasDrSection />}
       {enabled && connected && <AtlasAiSection />}
+      {enabled && connected && <AtlasObservabilitySection />}
     </>
   )
 }

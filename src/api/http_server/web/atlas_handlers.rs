@@ -1670,3 +1670,261 @@ pub(super) async fn atlas_ai_what_if(
         Err(e) => error_response(e),
     }
 }
+
+// ── Observability: metrics, alerts, audit, chargeback, policy drift,
+// events. All read-only except the alert lifecycle actions below.
+
+pub(super) async fn atlas_metrics_summary(State(state): State<SharedState>) -> Response {
+    let c = match client(&state).await {
+        Ok(v) => v,
+        Err(r) => return *r,
+    };
+    match c.metrics_summary().await {
+        Ok(v) => Json(v).into_response(),
+        Err(e) => error_response(e),
+    }
+}
+
+#[derive(Debug, Deserialize)]
+pub(super) struct MetricsCephQuery {
+    prefix: Option<String>,
+}
+
+pub(super) async fn atlas_metrics_ceph(
+    State(state): State<SharedState>,
+    Query(query): Query<MetricsCephQuery>,
+) -> Response {
+    let c = match client(&state).await {
+        Ok(v) => v,
+        Err(r) => return *r,
+    };
+    match c.metrics_ceph(query.prefix.as_deref()).await {
+        Ok(v) => Json(v).into_response(),
+        Err(e) => error_response(e),
+    }
+}
+
+#[derive(Debug, Deserialize)]
+pub(super) struct MetricsMinutesQuery {
+    minutes: Option<i64>,
+}
+
+pub(super) async fn atlas_metrics_history(
+    State(state): State<SharedState>,
+    Query(query): Query<MetricsMinutesQuery>,
+) -> Response {
+    let c = match client(&state).await {
+        Ok(v) => v,
+        Err(r) => return *r,
+    };
+    match c.metrics_history(query.minutes).await {
+        Ok(v) => Json(v).into_response(),
+        Err(e) => error_response(e),
+    }
+}
+
+pub(super) async fn atlas_metrics_forecast(
+    State(state): State<SharedState>,
+    Query(query): Query<MetricsMinutesQuery>,
+) -> Response {
+    let c = match client(&state).await {
+        Ok(v) => v,
+        Err(r) => return *r,
+    };
+    match c.metrics_forecast(query.minutes).await {
+        Ok(v) => Json(v).into_response(),
+        Err(e) => error_response(e),
+    }
+}
+
+#[derive(Debug, Deserialize)]
+pub(super) struct AtlasAlertQuery {
+    state: Option<String>,
+}
+
+pub(super) async fn atlas_list_alerts(
+    State(state): State<SharedState>,
+    Query(query): Query<AtlasAlertQuery>,
+) -> Response {
+    let c = match client(&state).await {
+        Ok(v) => v,
+        Err(r) => return *r,
+    };
+    match c.list_alerts(query.state.as_deref()).await {
+        Ok(v) => Json(v).into_response(),
+        Err(e) => error_response(e),
+    }
+}
+
+pub(super) async fn atlas_evaluate_alerts(
+    State(state): State<SharedState>,
+    auth: Option<axum::Extension<crate::api::auth::AuthIdentity>>,
+) -> Response {
+    let (c, audit) = match write_client(&state).await {
+        Ok(v) => v,
+        Err(r) => return *r,
+    };
+    let result = c.evaluate_alerts().await;
+    finish_write(
+        &audit,
+        &caller(&auth),
+        crate::audit_trail::AuditAction::Update,
+        "atlas_alerts",
+        "evaluate",
+        result,
+    )
+    .await
+}
+
+pub(super) async fn atlas_ack_alert(
+    State(state): State<SharedState>,
+    Path(id): Path<String>,
+    auth: Option<axum::Extension<crate::api::auth::AuthIdentity>>,
+) -> Response {
+    let (c, audit) = match write_client(&state).await {
+        Ok(v) => v,
+        Err(r) => return *r,
+    };
+    let result = c.ack_alert(&id).await;
+    finish_write(
+        &audit,
+        &caller(&auth),
+        crate::audit_trail::AuditAction::Update,
+        "atlas_alert",
+        &id,
+        result,
+    )
+    .await
+}
+
+#[derive(Debug, Deserialize)]
+pub(super) struct SilenceAlertQuery {
+    secs: Option<i64>,
+}
+
+pub(super) async fn atlas_silence_alert(
+    State(state): State<SharedState>,
+    Path(id): Path<String>,
+    Query(query): Query<SilenceAlertQuery>,
+    auth: Option<axum::Extension<crate::api::auth::AuthIdentity>>,
+) -> Response {
+    let (c, audit) = match write_client(&state).await {
+        Ok(v) => v,
+        Err(r) => return *r,
+    };
+    let result = c.silence_alert(&id, query.secs).await;
+    finish_write(
+        &audit,
+        &caller(&auth),
+        crate::audit_trail::AuditAction::Update,
+        "atlas_alert",
+        &id,
+        result,
+    )
+    .await
+}
+
+pub(super) async fn atlas_resolve_alert(
+    State(state): State<SharedState>,
+    Path(id): Path<String>,
+    auth: Option<axum::Extension<crate::api::auth::AuthIdentity>>,
+) -> Response {
+    let (c, audit) = match write_client(&state).await {
+        Ok(v) => v,
+        Err(r) => return *r,
+    };
+    let result = c.resolve_alert(&id).await;
+    finish_write(
+        &audit,
+        &caller(&auth),
+        crate::audit_trail::AuditAction::Update,
+        "atlas_alert",
+        &id,
+        result,
+    )
+    .await
+}
+
+#[derive(Debug, Deserialize)]
+pub(super) struct AtlasAuditQuery {
+    actor: Option<String>,
+    action: Option<String>,
+    resource_type: Option<String>,
+    resource_id: Option<String>,
+    limit: Option<i64>,
+}
+
+pub(super) async fn atlas_list_audit(
+    State(state): State<SharedState>,
+    Query(query): Query<AtlasAuditQuery>,
+) -> Response {
+    let c = match client(&state).await {
+        Ok(v) => v,
+        Err(r) => return *r,
+    };
+    match c
+        .list_audit(
+            query.actor.as_deref(),
+            query.action.as_deref(),
+            query.resource_type.as_deref(),
+            query.resource_id.as_deref(),
+            query.limit,
+        )
+        .await
+    {
+        Ok(v) => Json(v).into_response(),
+        Err(e) => error_response(e),
+    }
+}
+
+pub(super) async fn atlas_export_audit_csv(State(state): State<SharedState>) -> Response {
+    let c = match client(&state).await {
+        Ok(v) => v,
+        Err(r) => return *r,
+    };
+    match c.export_audit_csv().await {
+        Ok(csv) => ([(axum::http::header::CONTENT_TYPE, "text/csv")], csv).into_response(),
+        Err(e) => error_response(e),
+    }
+}
+
+pub(super) async fn atlas_chargeback(State(state): State<SharedState>) -> Response {
+    let c = match client(&state).await {
+        Ok(v) => v,
+        Err(r) => return *r,
+    };
+    match c.chargeback().await {
+        Ok(v) => Json(v).into_response(),
+        Err(e) => error_response(e),
+    }
+}
+
+pub(super) async fn atlas_policy_drift(State(state): State<SharedState>) -> Response {
+    let c = match client(&state).await {
+        Ok(v) => v,
+        Err(r) => return *r,
+    };
+    match c.policy_drift().await {
+        Ok(v) => Json(v).into_response(),
+        Err(e) => error_response(e),
+    }
+}
+
+#[derive(Debug, Deserialize)]
+pub(super) struct AtlasEventsQuery {
+    limit: Option<i64>,
+}
+
+pub(super) async fn atlas_list_events(
+    State(state): State<SharedState>,
+    Query(query): Query<AtlasEventsQuery>,
+) -> Response {
+    let c = match client(&state).await {
+        Ok(v) => v,
+        Err(r) => return *r,
+    };
+    match c.list_events(query.limit).await {
+        Ok(v) => Json(v).into_response(),
+        Err(e) => error_response(e),
+    }
+}

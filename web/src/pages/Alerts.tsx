@@ -14,6 +14,7 @@ import {
   AlertRule,
   AlertConditionType,
 } from '../api/alerts'
+import { getAtlasStatus, listAtlasAlerts, ackAtlasAlert, silenceAtlasAlert, resolveAtlasAlert, AtlasAlert } from '../api/atlas'
 import { listVMs, VM } from '../api/vm'
 import { useToastContext } from '../contexts/ToastContext'
 import { useConfirm } from '../hooks/useConfirm'
@@ -37,6 +38,7 @@ export default function Alerts() {
   const { confirmState, confirm, cancel } = useConfirm()
   const [tab, setTab] = useState<'active' | 'rules'>('active')
   const [alerts, setAlerts] = useState<Alert[]>([])
+  const [atlasAlerts, setAtlasAlerts] = useState<AtlasAlert[]>([])
   const [rules, setRules] = useState<AlertRule[]>([])
   const [vms, setVms] = useState<VM[]>([])
   const [loading, setLoading] = useState(true)
@@ -68,6 +70,18 @@ export default function Alerts() {
       toastFailure(toast, 'Failed to load alerts', err)
     } finally {
       setLoading(false)
+    }
+    // Atlas is optional -- a disabled/unreachable integration degrades to an
+    // empty list rather than surfacing as a page-level error.
+    try {
+      const status = await getAtlasStatus()
+      if (status.enabled && status.connected) {
+        setAtlasAlerts(await listAtlasAlerts('open'))
+      } else {
+        setAtlasAlerts([])
+      }
+    } catch {
+      setAtlasAlerts([])
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [toast])
@@ -137,6 +151,42 @@ export default function Alerts() {
     }
   }
 
+  const handleAtlasAck = async (alert: AtlasAlert) => {
+    setBusyId(alert.id)
+    try {
+      await ackAtlasAlert(alert.id)
+      fetchAll()
+    } catch (err) {
+      toastFailure(toast, 'Failed to acknowledge Atlas alert', err)
+    } finally {
+      setBusyId(null)
+    }
+  }
+
+  const handleAtlasSilence = async (alert: AtlasAlert) => {
+    setBusyId(alert.id)
+    try {
+      await silenceAtlasAlert(alert.id)
+      fetchAll()
+    } catch (err) {
+      toastFailure(toast, 'Failed to silence Atlas alert', err)
+    } finally {
+      setBusyId(null)
+    }
+  }
+
+  const handleAtlasResolve = async (alert: AtlasAlert) => {
+    setBusyId(alert.id)
+    try {
+      await resolveAtlasAlert(alert.id)
+      fetchAll()
+    } catch (err) {
+      toastFailure(toast, 'Failed to resolve Atlas alert', err)
+    } finally {
+      setBusyId(null)
+    }
+  }
+
   return (
     <div className="space-y-6">
       <PageHeader
@@ -154,7 +204,7 @@ export default function Alerts() {
       <div className="flex bg-[var(--zf-canvas)] rounded-lg p-0.5 w-fit">
         {(['active', 'rules'] as const).map(t => (
           <button key={t} onClick={() => setTab(t)} className={`px-3 py-1.5 rounded text-sm capitalize transition ${tab === t ? 'bg-[var(--zf-surface)] text-[var(--zf-ink)] shadow-sm' : 'text-[var(--zf-muted)]'}`}>
-            {t === 'active' ? `Active (${alerts.length})` : `Rules (${rules.length})`}
+            {t === 'active' ? `Active (${alerts.length + atlasAlerts.length})` : `Rules (${rules.length})`}
           </button>
         ))}
       </div>
@@ -235,7 +285,7 @@ export default function Alerts() {
           )}
 
           {tab === 'active' ? (
-            alerts.length === 0 ? (
+            alerts.length === 0 && atlasAlerts.length === 0 ? (
               <EmptyState icon={<Bell className="w-8 h-8" />} title="No active alerts" description="Nothing is currently firing." />
             ) : (
               <div className="bg-[var(--zf-surface)] rounded-xl border border-[var(--zf-hairline)] divide-y divide-[var(--zf-hairline)]/30">
@@ -251,6 +301,35 @@ export default function Alerts() {
                         <CheckCircle className="w-4 h-4" />
                       </button>
                       <button onClick={() => handleSilence(a)} disabled={busyId === a.id} className="p-1.5 text-[var(--zf-muted)] hover:text-[var(--zf-ink)] hover:bg-[var(--zf-hover-tint)] rounded-lg transition-colors disabled:opacity-50" title="Silence">
+                        <BellOff className="w-4 h-4" />
+                      </button>
+                    </div>
+                  </div>
+                ))}
+                {atlasAlerts.map(a => (
+                  <div key={a.id} className="px-5 py-3 flex items-start gap-3">
+                    <span className={`px-2 py-0.5 rounded-full text-xs font-medium border shrink-0 mt-0.5 ${severityBadge(a.severity)}`}>{a.severity}</span>
+                    <div className="flex-1 min-w-0">
+                      <div className="text-sm text-[var(--zf-ink)]">
+                        {a.title}
+                        <span className="ml-2 px-1.5 py-0.5 rounded text-[10px] font-medium border border-[var(--zf-hairline)] text-[var(--zf-muted)]">Atlas</span>
+                      </div>
+                      <div className="text-[10px] text-[var(--zf-muted)] mt-0.5">
+                        {a.description} · {a.resource_type}/{a.resource_id}
+                        {a.created_at ? ` · started ${new Date(a.created_at).toLocaleString()}` : ''}
+                        {a.acknowledged_by ? ` · acked by ${a.acknowledged_by}` : ''}
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-1 shrink-0">
+                      {!a.acknowledged_at && (
+                        <button onClick={() => handleAtlasAck(a)} disabled={busyId === a.id} className="p-1.5 text-[var(--zf-muted)] hover:text-[var(--zf-ink)] hover:bg-[var(--zf-hover-tint)] rounded-lg transition-colors disabled:opacity-50" title="Acknowledge">
+                        <Bell className="w-4 h-4" />
+                      </button>
+                      )}
+                      <button onClick={() => handleAtlasResolve(a)} disabled={busyId === a.id} className="p-1.5 text-[var(--zf-muted)] hover:text-[var(--zf-success)] hover:bg-[var(--zf-success)]/10 rounded-lg transition-colors disabled:opacity-50" title="Resolve">
+                        <CheckCircle className="w-4 h-4" />
+                      </button>
+                      <button onClick={() => handleAtlasSilence(a)} disabled={busyId === a.id} className="p-1.5 text-[var(--zf-muted)] hover:text-[var(--zf-ink)] hover:bg-[var(--zf-hover-tint)] rounded-lg transition-colors disabled:opacity-50" title="Silence 1h">
                         <BellOff className="w-4 h-4" />
                       </button>
                     </div>

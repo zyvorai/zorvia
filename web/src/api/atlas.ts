@@ -498,3 +498,90 @@ export const askAtlasAdvisor = (question: string) =>
 export const getAtlasAnomalies = () => apiGet<AtlasAnomaliesResponse>('/api/v1/atlas/ai/anomalies')
 export const getAtlasIncidents = () => apiGet<AtlasIncidentsResponse>('/api/v1/atlas/ai/incidents')
 export const runAtlasWhatIf = (body: AtlasWhatIfRequest) => apiPost<AtlasWhatIfResponse>('/api/v1/atlas/ai/what-if', body)
+
+// ── Observability: metrics, alerts, audit, chargeback, policy drift, events.
+// All read-only except the alert lifecycle actions (evaluate/ack/silence/
+// resolve). Alerts are surfaced on the existing Alerts page (web/src/pages/
+// Alerts.tsx) as an additional source, not a second alerts UI; audit/
+// chargeback/policy-drift/metrics get simple read-only views scoped to the
+// Atlas area of the Storage page instead of merging into Zorvia's own
+// audit-trail/cost features. ──
+
+export const getAtlasMetricsSummary = () => apiGet<Record<string, unknown>>('/api/v1/atlas/metrics/summary')
+export const getAtlasMetricsHistory = (minutes = 60) => apiGet<Record<string, unknown>[]>(`/api/v1/atlas/metrics/history?minutes=${minutes}`)
+export const getAtlasMetricsForecast = (minutes = 1440) =>
+  apiGet<{ days_to_full: number | null; growth_bytes_per_day: number; used_capacity_bytes: number; raw_capacity_bytes: number; samples: number }>(
+    `/api/v1/atlas/metrics/forecast?minutes=${minutes}`,
+  )
+
+export interface AtlasAlert {
+  id: string
+  severity: string
+  source: string
+  resource_type: string
+  resource_id: string
+  title: string
+  description: string
+  state: string
+  created_at?: string | null
+  resolved_at?: string | null
+  acknowledged_at?: string | null
+  acknowledged_by?: string | null
+  silenced_until?: string | null
+}
+
+export const listAtlasAlerts = (state?: string) => apiGet<AtlasAlert[]>(`/api/v1/atlas/alerts${state ? `?state=${encodeURIComponent(state)}` : ''}`)
+export const evaluateAtlasAlerts = () => apiPost<{ evaluated: boolean; open_alerts: number }>('/api/v1/atlas/alerts/evaluate')
+export const ackAtlasAlert = (id: string) => apiPost<{ id: string; acknowledged_by: string }>(`/api/v1/atlas/alerts/${encodeURIComponent(id)}/ack`)
+export const silenceAtlasAlert = (id: string, secs = 3600) =>
+  apiPost<{ id: string; silenced_secs: number }>(`/api/v1/atlas/alerts/${encodeURIComponent(id)}/silence?secs=${secs}`)
+export const resolveAtlasAlert = (id: string) => apiPost<{ id: string; state: string }>(`/api/v1/atlas/alerts/${encodeURIComponent(id)}/resolve`)
+
+export interface AtlasAuditEntry {
+  id: number
+  actor_id: string
+  action: string
+  resource_type: string
+  resource_id: string
+  status: string
+  created_at: string
+  tenant_id?: string | null
+}
+
+export const listAtlasAudit = (limit = 50) => apiGet<AtlasAuditEntry[]>(`/api/v1/atlas/audit?limit=${limit}`)
+
+/** Raw CSV text, not JSON -- Zorvia relays Atlas's export byte-for-byte. */
+export async function exportAtlasAuditCsv(): Promise<string> {
+  const res = await apiFetch('/api/v1/atlas/audit.csv')
+  if (!res.ok) {
+    const body = await res.text().catch(() => '')
+    throw new Error(formatHttpErrorBody(res.status, res.statusText, body))
+  }
+  return res.text()
+}
+
+export interface AtlasChargebackTenant {
+  tenant_id: string
+  used_bytes: number
+  used_gib: number
+  volume_count: number
+  quota_bytes: number
+  estimated_usd_month: number
+}
+
+export const getAtlasChargeback = () => apiGet<{ usd_per_gib_month: number; tenants: AtlasChargebackTenant[] }>('/api/v1/atlas/chargeback')
+export const getAtlasPolicyDrift = () => apiGet<{ count: number; drift: Record<string, unknown>[] }>('/api/v1/atlas/policy-drift')
+
+export interface AtlasEvent {
+  id: string
+  kind: string
+  actor: string
+  title: string
+  detail: string
+  severity?: string
+  resource_type: string
+  resource_id: string
+  ts: string
+}
+
+export const listAtlasEvents = (limit = 50) => apiGet<AtlasEvent[]>(`/api/v1/atlas/events?limit=${limit}`)
