@@ -1006,6 +1006,10 @@ pub mod web {
                 "/v1/atlas/volumes/{id}/mirror",
                 post(atlas_enable_mirror).delete(atlas_disable_mirror),
             )
+            .route("/v1/atlas/ai/advisor", post(atlas_ai_advisor))
+            .route("/v1/atlas/ai/anomalies", get(atlas_ai_anomalies))
+            .route("/v1/atlas/ai/incidents", get(atlas_ai_incidents))
+            .route("/v1/atlas/ai/what-if", post(atlas_ai_what_if))
             .route("/v1/health", get(health_handler))
             .route("/v1/features", get(features_registry_handler))
             .route(

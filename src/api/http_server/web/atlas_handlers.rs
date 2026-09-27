@@ -1599,3 +1599,74 @@ pub(super) async fn atlas_dr_failover(
     )
     .await
 }
+
+// ── AI-assisted insights ─────────────────────────────────────────────────
+// Compute-only (recommendation queries, not state mutation) despite the POST
+// verbs on advisor/what-if -- no audit entry, same as the other Atlas reads.
+
+pub(super) async fn atlas_ai_advisor(
+    State(state): State<SharedState>,
+    Json(body): Json<crate::atlas::models::AiAdvisorRequest>,
+) -> Response {
+    let c = match client(&state).await {
+        Ok(v) => v,
+        Err(r) => return *r,
+    };
+    match c.ai_advisor(body).await {
+        Ok(v) => Json(v).into_response(),
+        Err(e) => error_response(e),
+    }
+}
+
+#[derive(Debug, Deserialize)]
+pub(super) struct AiAnomaliesQuery {
+    minutes: Option<i64>,
+    sensitivity: Option<f64>,
+}
+
+pub(super) async fn atlas_ai_anomalies(
+    State(state): State<SharedState>,
+    Query(query): Query<AiAnomaliesQuery>,
+) -> Response {
+    let c = match client(&state).await {
+        Ok(v) => v,
+        Err(r) => return *r,
+    };
+    match c.ai_anomalies(query.minutes, query.sensitivity).await {
+        Ok(v) => Json(v).into_response(),
+        Err(e) => error_response(e),
+    }
+}
+
+#[derive(Debug, Deserialize)]
+pub(super) struct AiIncidentsQuery {
+    mode: Option<String>,
+}
+
+pub(super) async fn atlas_ai_incidents(
+    State(state): State<SharedState>,
+    Query(query): Query<AiIncidentsQuery>,
+) -> Response {
+    let c = match client(&state).await {
+        Ok(v) => v,
+        Err(r) => return *r,
+    };
+    match c.ai_incidents(query.mode.as_deref()).await {
+        Ok(v) => Json(v).into_response(),
+        Err(e) => error_response(e),
+    }
+}
+
+pub(super) async fn atlas_ai_what_if(
+    State(state): State<SharedState>,
+    Json(body): Json<crate::atlas::models::AiWhatIfRequest>,
+) -> Response {
+    let c = match client(&state).await {
+        Ok(v) => v,
+        Err(r) => return *r,
+    };
+    match c.ai_what_if(body).await {
+        Ok(v) => Json(v).into_response(),
+        Err(e) => error_response(e),
+    }
+}
