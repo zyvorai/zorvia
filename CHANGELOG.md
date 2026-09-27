@@ -12,8 +12,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Atlas job status polling** — `GET /api/v1/atlas/jobs[/:id]`,
   `POST /api/v1/atlas/jobs/:id/cancel`. Every Atlas write (volume
   create/expand/delete) returns a `202` + job id that Zorvia previously
-  never checked again; this closes that gap. Verified live: cancelling an
-  already-terminal job correctly returns Atlas's real `409`.
+  never checked again; this closes that gap end to end. Verified live:
+  cancelling an already-terminal job correctly returns Atlas's real `409`.
+  The Storage page's Atlas section now polls the returned job to a
+  terminal state after every create/expand/delete and toasts the real
+  outcome (not just "requested"), and shows a "Recent jobs" list with a
+  Cancel action on non-terminal jobs.
 
 - **Atlas storage integration (optional)** — `ATLAS_URL`/`ATLAS_TOKEN` wires
   Zorvia to Atlas, the Zyvor-suite storage control plane, mirroring the
