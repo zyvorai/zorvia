@@ -879,6 +879,11 @@ pub mod web {
                 "/v1/atlas/volumes",
                 get(atlas_list_volumes).post(atlas_create_volume),
             )
+            .route("/v1/atlas/volumes/{id}", delete(atlas_delete_volume))
+            .route("/v1/atlas/volumes/{id}/expand", post(atlas_expand_volume))
+            .route("/v1/atlas/jobs", get(atlas_list_jobs))
+            .route("/v1/atlas/jobs/{id}", get(atlas_get_job))
+            .route("/v1/atlas/jobs/{id}/cancel", post(atlas_cancel_job))
             .route("/v1/health", get(health_handler))
             .route("/v1/features", get(features_registry_handler))
             .route(

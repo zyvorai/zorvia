@@ -1,7 +1,7 @@
 // Copyright 2026 Zyvor AI Labs · https://zyvor.dev
 // SPDX-License-Identifier: Apache-2.0
 
-import { apiGet, apiPost } from './client'
+import { apiDelete, apiGet, apiPost } from './client'
 
 export interface AtlasStatus {
   enabled: boolean
@@ -129,3 +129,9 @@ export const getAtlasCephDf = () => apiGet<unknown>('/api/v1/atlas/ceph/df')
 export const listAtlasStorageClasses = () => apiGet<AtlasStorageClass[]>('/api/v1/atlas/storage-classes')
 export const listAtlasVolumes = () => apiGet<AtlasVolume[]>('/api/v1/atlas/volumes')
 export const createAtlasVolume = (body: CreateAtlasVolumeRequest) => apiPost<unknown>('/api/v1/atlas/volumes', body)
+export const expandAtlasVolume = (id: string, newSizeBytes: number) =>
+  apiPost<unknown>(`/api/v1/atlas/volumes/${encodeURIComponent(id)}/expand`, { new_size_bytes: newSizeBytes })
+/** `confirm` must be true for production/protected-class volumes -- Atlas rejects the delete
+    with a 400 naming that requirement if it's needed and omitted. */
+export const deleteAtlasVolume = (id: string, confirm = false) =>
+  apiDelete(`/api/v1/atlas/volumes/${encodeURIComponent(id)}${confirm ? '?confirm=true' : ''}`)

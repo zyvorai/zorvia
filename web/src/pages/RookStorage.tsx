@@ -29,6 +29,8 @@ import {
   listAtlasPools,
   listAtlasVolumes,
   createAtlasVolume,
+  expandAtlasVolume,
+  deleteAtlasVolume,
   atlasVolumeOwnerForVm,
   AtlasStatus,
   AtlasBackend,
@@ -494,6 +496,7 @@ const ATLAS_HEALTH_STYLES: Record<string, string> = {
 
 function AtlasSection() {
   const toast = useToastContext()
+  const { confirmState, confirm, cancel } = useConfirm()
   const [status, setStatus] = useState<AtlasStatus | null>(null)
   const [backends, setBackends] = useState<AtlasBackend[]>([])
   const [clusters, setClusters] = useState<AtlasCluster[]>([])
@@ -618,20 +621,42 @@ function AtlasSection() {
               <h3 className="text-xs font-medium text-[var(--zf-muted)] mb-2">Volumes</h3>
               <div className="divide-y divide-[var(--zf-hairline)]">
                 {volumes.map((v) => (
-                  <div key={v.id} className="flex items-center justify-between py-2 gap-3">
-                    <div>
-                      <div className="font-medium text-sm text-[var(--zf-ink)]">{v.name}</div>
-                      <div className="text-xs text-[var(--zf-muted)]">
-                        {v.kind} · {formatBytes(v.size_bytes)}
-                        {v.storage_class_name ? ` · ${v.storage_class_name}` : ''}
-                      </div>
-                    </div>
-                    <span
-                      className={`px-2 py-0.5 rounded-full text-xs font-medium border ${ATLAS_HEALTH_STYLES[v.health] ?? ATLAS_HEALTH_STYLES.unknown}`}
-                    >
-                      {v.state}
-                    </span>
-                  </div>
+                  <AtlasVolumeRow
+                    key={v.id}
+                    volume={v}
+                    busy={busy}
+                    onExpand={(newSizeBytes) => {
+                      setBusy(`expand-${v.id}`)
+                      expandAtlasVolume(v.id, newSizeBytes)
+                        .then(() => {
+                          toast.success(`Expand requested for '${v.name}'`)
+                          return load()
+                        })
+                        .catch((e) => toastFailure(toast, 'Failed to expand volume', e))
+                        .finally(() => setBusy(null))
+                    }}
+                    onDelete={async () => {
+                      if (
+                        !(await confirm(`Delete volume '${v.name}'`, 'Delete this volume? Any data on it is destroyed.', {
+                          variant: 'danger',
+                          confirmLabel: 'Delete',
+                        }))
+                      ) {
+                        return
+                      }
+                      setBusy(`delete-${v.id}`)
+                      // Always pass confirm=true -- Atlas itself decides (based on
+                      // storage class / protection tier) whether that was required;
+                      // Zorvia doesn't try to duplicate that judgment.
+                      deleteAtlasVolume(v.id, true)
+                        .then(() => {
+                          toast.success(`Delete requested for '${v.name}'`)
+                          return load()
+                        })
+                        .catch((e) => toastFailure(toast, 'Failed to delete volume', e))
+                        .finally(() => setBusy(null))
+                    }}
+                  />
                 ))}
               </div>
             </div>
@@ -652,6 +677,76 @@ function AtlasSection() {
           />
         </>
       )}
+
+      {confirmState && (
+        <ConfirmDialog
+          title={confirmState.title}
+          message={confirmState.message}
+          confirmLabel={confirmState.confirmLabel}
+          variant={confirmState.variant}
+          onConfirm={confirmState.onConfirm}
+          onCancel={cancel}
+        />
+      )}
+    </div>
+  )
+}
+
+function AtlasVolumeRow({
+  volume,
+  busy,
+  onExpand,
+  onDelete,
+}: {
+  volume: AtlasVolume
+  busy: string | null
+  onExpand: (newSizeBytes: number) => void
+  onDelete: () => void
+}) {
+  const currentGiB = Math.ceil(volume.size_bytes / (1024 * 1024 * 1024))
+  const [newSizeGiB, setNewSizeGiB] = useState(currentGiB + 10)
+  const rowBusy = busy === `expand-${volume.id}` || busy === `delete-${volume.id}`
+
+  return (
+    <div className="flex items-center justify-between py-2 gap-3">
+      <div>
+        <div className="font-medium text-sm text-[var(--zf-ink)]">{volume.name}</div>
+        <div className="text-xs text-[var(--zf-muted)]">
+          {volume.kind} · {formatBytes(volume.size_bytes)}
+          {volume.storage_class_name ? ` · ${volume.storage_class_name}` : ''}
+        </div>
+      </div>
+      <div className="flex items-center gap-2 shrink-0">
+        <span
+          className={`px-2 py-0.5 rounded-full text-xs font-medium border ${ATLAS_HEALTH_STYLES[volume.health] ?? ATLAS_HEALTH_STYLES.unknown}`}
+        >
+          {volume.state}
+        </span>
+        <input
+          type="number"
+          min={currentGiB + 1}
+          value={newSizeGiB}
+          onChange={(e) => setNewSizeGiB(parseInt(e.target.value) || currentGiB + 1)}
+          className="w-20 px-2 py-1 bg-[var(--zf-surface)] border border-[var(--zf-hairline)] rounded-md text-xs"
+          title="New size (GiB)"
+        />
+        <button
+          type="button"
+          disabled={busy !== null || newSizeGiB <= currentGiB}
+          onClick={() => onExpand(newSizeGiB * 1024 * 1024 * 1024)}
+          className="zf-btn zf-btn-ghost zf-btn-sm"
+        >
+          {rowBusy && busy === `expand-${volume.id}` ? 'Expanding…' : 'Expand'}
+        </button>
+        <button
+          type="button"
+          disabled={busy !== null}
+          onClick={onDelete}
+          className="zf-btn zf-btn-danger zf-btn-sm"
+        >
+          <Trash2 className="w-3.5 h-3.5" />
+        </button>
+      </div>
     </div>
   )
 }

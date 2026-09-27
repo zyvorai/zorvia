@@ -9,17 +9,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Atlas job status polling** — `GET /api/v1/atlas/jobs[/:id]`,
+  `POST /api/v1/atlas/jobs/:id/cancel`. Every Atlas write (volume
+  create/expand/delete) returns a `202` + job id that Zorvia previously
+  never checked again; this closes that gap. Verified live: cancelling an
+  already-terminal job correctly returns Atlas's real `409`.
+
 - **Atlas storage integration (optional)** — `ATLAS_URL`/`ATLAS_TOKEN` wires
   Zorvia to Atlas, the Zyvor-suite storage control plane, mirroring the
   existing Kryton integration pattern. Read-only inventory (backends,
-  clusters, pools, Ceph status/capacity, storage classes, volumes) plus one
-  write path (volume creation, tagged with `owner: {product: "zorvia", ...}`
-  so it's traceable back to a Zorvia VM in Atlas's own inventory). New
-  `src/atlas/` client module, `/api/v1/atlas/*` routes (always registered,
-  `503 ATLAS_DISABLED` when unconfigured), an Atlas section on the existing
-  Storage page (`/app/storage`) alongside Rook-Ceph, an `Atlas` platform-status
-  line, and [docs/ATLAS_INTEGRATION.md](docs/ATLAS_INTEGRATION.md). Absent by
-  default — nothing changes unless `ATLAS_URL` is set.
+  clusters, pools, Ceph status/capacity, storage classes, volumes) plus
+  volume create/expand/delete (`owner: {product: "zorvia", ...}` tags a
+  created volume so it's traceable back to a Zorvia VM in Atlas's own
+  inventory; delete always passes `confirm=true` and lets Atlas decide
+  whether that was actually required). New `src/atlas/` client module,
+  `/api/v1/atlas/*` routes (always registered, `503 ATLAS_DISABLED` when
+  unconfigured), an Atlas section with inline create/expand/delete controls
+  on the existing Storage page (`/app/storage`) alongside Rook-Ceph, an
+  `Atlas` platform-status line, and
+  [docs/ATLAS_INTEGRATION.md](docs/ATLAS_INTEGRATION.md). Absent by default —
+  nothing changes unless `ATLAS_URL` is set. Verified live against a real
+  running `atlas-gateway` (dev config, fake Ceph driver), not just code
+  review — all volume-mutating routes are genuinely async (`202` + a job
+  envelope, not a finished result).
 
 ## [0.3.4] - 2026-09-27
 
