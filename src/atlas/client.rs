@@ -616,6 +616,217 @@ impl Client {
         self.decode(self.request(Method::POST, "/api/atlas/v1/rbd-usage/refresh"))
             .await
     }
+
+    // ── Object-store buckets + backups/restores ──
+
+    pub async fn list_buckets(&self) -> Result<serde_json::Value, Error> {
+        self.decode(self.request(Method::GET, "/api/atlas/v1/buckets"))
+            .await
+    }
+
+    pub async fn get_bucket(&self, id: &str) -> Result<serde_json::Value, Error> {
+        self.decode(self.request(
+            Method::GET,
+            &format!("/api/atlas/v1/buckets/{}", urlencoding::encode(id)),
+        ))
+        .await
+    }
+
+    pub async fn create_bucket(
+        &self,
+        request: CreateBucketRequest,
+    ) -> Result<serde_json::Value, Error> {
+        self.decode(
+            self.request(Method::POST, "/api/atlas/v1/buckets")
+                .json(&request),
+        )
+        .await
+    }
+
+    /// Refused (`409`) while the bucket still holds backups, unless `force`.
+    pub async fn delete_bucket(&self, id: &str, force: bool) -> Result<serde_json::Value, Error> {
+        let path = format!("/api/atlas/v1/buckets/{}", urlencoding::encode(id));
+        let mut req = self.request(Method::DELETE, &path);
+        if force {
+            req = req.query(&[("force", "true")]);
+        }
+        self.decode(req).await
+    }
+
+    /// Soft-fails (a normal `200`, not an error) on driver timeout so a
+    /// console can show "unavailable" instead of hanging -- fake mode
+    /// reports a zeroed-but-available stub (no `radosgw-admin` binary to
+    /// shell out to, and unlike RBD, buckets don't cache stats in
+    /// inventory).
+    pub async fn bucket_stats(&self, id: &str) -> Result<serde_json::Value, Error> {
+        self.decode(self.request(
+            Method::GET,
+            &format!("/api/atlas/v1/buckets/{}/stats", urlencoding::encode(id)),
+        ))
+        .await
+    }
+
+    pub async fn list_bucket_objects(
+        &self,
+        id: &str,
+        prefix: Option<&str>,
+    ) -> Result<serde_json::Value, Error> {
+        let path = format!("/api/atlas/v1/buckets/{}/objects", urlencoding::encode(id));
+        let mut req = self.request(Method::GET, &path);
+        if let Some(prefix) = prefix {
+            req = req.query(&[("prefix", prefix)]);
+        }
+        self.decode(req).await
+    }
+
+    pub async fn delete_bucket_object(
+        &self,
+        id: &str,
+        key: &str,
+    ) -> Result<serde_json::Value, Error> {
+        self.decode(
+            self.request(
+                Method::DELETE,
+                &format!("/api/atlas/v1/buckets/{}/objects", urlencoding::encode(id)),
+            )
+            .query(&[("key", key)]),
+        )
+        .await
+    }
+
+    /// Mints a presigned S3 PUT URL so the browser uploads straight to RGW
+    /// -- Zorvia never sees the object bytes. `versioned: true` stores each
+    /// upload at `<key>.<UTC timestamp>` instead of overwriting, so
+    /// `prune_bucket_objects` can enforce a keep-N retention afterward.
+    pub async fn bucket_object_upload_url(
+        &self,
+        id: &str,
+        key: &str,
+        ttl_secs: Option<u64>,
+        versioned: bool,
+    ) -> Result<serde_json::Value, Error> {
+        let mut body = serde_json::json!({ "key": key, "versioned": versioned });
+        if let Some(ttl) = ttl_secs {
+            body["ttl_secs"] = serde_json::json!(ttl);
+        }
+        self.decode(
+            self.request(
+                Method::POST,
+                &format!(
+                    "/api/atlas/v1/buckets/{}/objects/upload-url",
+                    urlencoding::encode(id)
+                ),
+            )
+            .json(&body),
+        )
+        .await
+    }
+
+    pub async fn bucket_object_download_url(
+        &self,
+        id: &str,
+        key: &str,
+        ttl_secs: Option<u64>,
+    ) -> Result<serde_json::Value, Error> {
+        let path = format!(
+            "/api/atlas/v1/buckets/{}/objects/download-url",
+            urlencoding::encode(id)
+        );
+        let mut query = vec![("key".to_string(), key.to_string())];
+        if let Some(ttl) = ttl_secs {
+            query.push(("ttl_secs".to_string(), ttl.to_string()));
+        }
+        self.decode(self.request(Method::GET, &path).query(&query))
+            .await
+    }
+
+    /// Retention for versioned uploads: keeps the newest `keep` objects
+    /// under `prefix` (version suffixes are sortable UTC timestamps), deletes
+    /// the rest.
+    pub async fn prune_bucket_objects(
+        &self,
+        id: &str,
+        prefix: &str,
+        keep: i64,
+    ) -> Result<serde_json::Value, Error> {
+        self.decode(
+            self.request(
+                Method::POST,
+                &format!(
+                    "/api/atlas/v1/buckets/{}/objects/prune",
+                    urlencoding::encode(id)
+                ),
+            )
+            .json(&serde_json::json!({ "prefix": prefix, "keep": keep })),
+        )
+        .await
+    }
+
+    pub async fn list_backups(&self, volume_id: Option<&str>) -> Result<serde_json::Value, Error> {
+        let mut req = self.request(Method::GET, "/api/atlas/v1/backups");
+        if let Some(volume_id) = volume_id {
+            req = req.query(&[("volume_id", volume_id)]);
+        }
+        self.decode(req).await
+    }
+
+    pub async fn get_backup(&self, id: &str) -> Result<serde_json::Value, Error> {
+        self.decode(self.request(
+            Method::GET,
+            &format!("/api/atlas/v1/backups/{}", urlencoding::encode(id)),
+        ))
+        .await
+    }
+
+    /// Removes the backup's S3 objects + RBD snapshot + inventory row.
+    pub async fn delete_backup(&self, id: &str) -> Result<serde_json::Value, Error> {
+        self.decode(self.request(
+            Method::DELETE,
+            &format!("/api/atlas/v1/backups/{}", urlencoding::encode(id)),
+        ))
+        .await
+    }
+
+    /// A time-limited presigned S3 URL for the backup object -- the client
+    /// downloads straight from RGW, no proxy. `what`: `"manifest"`
+    /// (default) or `"data"` (the `.rbd-diff` object).
+    pub async fn download_backup(
+        &self,
+        id: &str,
+        what: Option<&str>,
+    ) -> Result<serde_json::Value, Error> {
+        let path = format!("/api/atlas/v1/backups/{}/download", urlencoding::encode(id));
+        let mut req = self.request(Method::GET, &path);
+        if let Some(what) = what {
+            req = req.query(&[("what", what)]);
+        }
+        self.decode(req).await
+    }
+
+    /// Snapshots a volume and writes a backup manifest to an RGW bucket.
+    pub async fn create_backup(
+        &self,
+        request: CreateBackupRequest,
+    ) -> Result<serde_json::Value, Error> {
+        self.decode(
+            self.request(Method::POST, "/api/atlas/v1/backup-jobs")
+                .json(&request),
+        )
+        .await
+    }
+
+    /// Verifies the backup manifest in RGW, then provisions a new PVC from
+    /// the backup's snapshot.
+    pub async fn create_restore(
+        &self,
+        request: CreateRestoreRequest,
+    ) -> Result<serde_json::Value, Error> {
+        self.decode(
+            self.request(Method::POST, "/api/atlas/v1/restore-jobs")
+                .json(&request),
+        )
+        .await
+    }
 }
 
 #[cfg(test)]
@@ -1019,5 +1230,69 @@ mod tests {
         // parent's auto-created `<clone>-base` snapshot).
         c.delete_rbd_image(pool, &clone_name).await.unwrap();
         c.delete_rbd_image(pool, &parent).await.unwrap();
+    }
+
+    // Bucket/backup *creation* needs a real Kubernetes cluster attached to
+    // Atlas (ObjectBucketClaim provisioning) -- same constraint as volume
+    // create, confirmed live: the create call itself is accepted (202 +
+    // job envelope) but the job then fails with "no Kubernetes cluster is
+    // attached" against this no-kubeconfig local instance, and (confirmed
+    // live) leaves no orphan inventory row behind. So these tests verify
+    // the request/response wiring -- real shapes, real error codes -- not
+    // a full happy path, which needs a real cluster to exercise.
+
+    #[tokio::test]
+    #[ignore]
+    async fn live_bucket_create_returns_job_envelope() {
+        let c = live_client();
+        let created = c
+            .create_bucket(CreateBucketRequest {
+                name: format!("zorvia-live-bkt-{}", chrono::Utc::now().timestamp_millis()),
+                namespace: None,
+                storage_class: None,
+                max_objects: None,
+                max_size: None,
+            })
+            .await
+            .unwrap();
+        assert!(created.get("job_id").is_some());
+        assert_eq!(created["state"], "queued");
+    }
+
+    #[tokio::test]
+    #[ignore]
+    async fn live_bucket_and_backup_reads() {
+        let c = live_client();
+        c.list_buckets().await.unwrap();
+        c.list_backups(None).await.unwrap();
+    }
+
+    #[tokio::test]
+    #[ignore]
+    async fn live_bucket_and_backup_404_on_missing_id() {
+        let c = live_client();
+        let err = c
+            .delete_bucket("bkt_does-not-exist", false)
+            .await
+            .unwrap_err();
+        match err {
+            Error::Upstream { status, .. } => assert_eq!(status, 404),
+            other => panic!("expected an Upstream 404, got: {other:?}"),
+        }
+
+        let err = c
+            .create_backup(CreateBackupRequest {
+                volume_id: "vol_does-not-exist".into(),
+                bucket_id: "bkt_does-not-exist".into(),
+                mode: None,
+                keep: None,
+                max_age_secs: None,
+            })
+            .await
+            .unwrap_err();
+        match err {
+            Error::Upstream { status, .. } => assert_eq!(status, 404),
+            other => panic!("expected an Upstream 404, got: {other:?}"),
+        }
     }
 }

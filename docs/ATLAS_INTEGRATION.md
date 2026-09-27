@@ -67,6 +67,12 @@ If `ATLAS_URL` is absent, Zorvia starts normally and the integration reports `en
 - `POST /api/v1/atlas/rbd-images/:pool/:image/{clone,resize,migrate,flatten,qos}`
 - `GET|POST /api/v1/atlas/rbd-images/:pool/:image/snapshots`, `POST .../rollback`, `DELETE .../snapshots/:snap`
 - `POST /api/v1/atlas/rbd-usage/refresh` — synchronous, recomputes `used_bytes` for every RBD-backed volume
+- `GET|POST /api/v1/atlas/buckets`, `GET|DELETE /api/v1/atlas/buckets/:id[?force=true]`, `GET /api/v1/atlas/buckets/:id/stats`
+- `GET|DELETE /api/v1/atlas/buckets/:id/objects[?key=]`, `POST .../objects/upload-url`, `GET .../objects/download-url?key=`, `POST .../objects/prune`
+- `POST /api/v1/atlas/backup-jobs`, `POST /api/v1/atlas/restore-jobs`
+- `GET /api/v1/atlas/backups[?volume_id=]`, `GET|DELETE /api/v1/atlas/backups/:id`, `GET /api/v1/atlas/backups/:id/download[?what=manifest|data]`
+
+Bucket create/delete and backup create/delete/restore are async jobs, same shape as the volume writes; everything else under buckets (stats, object list/delete, upload/download URL, prune) is synchronous — object operations never touch bytes through Zorvia or Atlas, they mint presigned S3 URLs so the browser talks to RGW directly. `delete` on a bucket is refused (`409`) while it still holds backups unless `?force=true`.
 
 RBD writes are async jobs, same shape as the volume writes, except `rbd-usage/refresh` (synchronous, like backend lifecycle). `migrate` takes `?dest_pool=`; `qos` takes `?iops=&bps=` (at least one required, `0` clears a cap); `resize` takes `{size_bytes, allow_shrink}` in the body (`allow_shrink` guards against accidental data loss, default `false`); `rollback` takes `{name: <snapshot name>}` in the body, same shape as creating a snapshot.
 
@@ -81,7 +87,6 @@ This is a read-only inventory integration plus volume create/expand/delete plus 
 - Job SSE watch (`GET /jobs/:id/watch`) — Zorvia has no established SSE-proxy pattern; polling `GET /jobs/:id` on the existing 10-15s refresh cadence is good enough for now
 - Disaster recovery (peers, mirrors, promote/demote, failover)
 - DataBridge (cloud-to-edge DB migration)
-- Object-store bucket operations
 - Tenant policy/quota writes, AI advisor, alerts, audit export
 
 If any of these become a real need, they follow the same pattern as the volume routes here — add the client method, the handler, and (if it's a write) a permission check and audit entry.
