@@ -413,6 +413,209 @@ impl Client {
         ))
         .await
     }
+
+    // ── RBD images -- a separate identity space (rbd:<pool>/<image>) from
+    // the StorageVolume abstraction the volume routes above use. All writes
+    // here are async jobs (Atlas's `accepted()` envelope), same shape as
+    // the volume writes, except `refresh_rbd_usage` which is synchronous. ──
+
+    fn rbd_path(pool: &str, image: &str) -> String {
+        format!(
+            "/api/atlas/v1/rbd-images/{}/{}",
+            urlencoding::encode(pool),
+            urlencoding::encode(image)
+        )
+    }
+
+    pub async fn list_rbd_images(&self, pool: Option<&str>) -> Result<serde_json::Value, Error> {
+        let mut req = self.request(Method::GET, "/api/atlas/v1/rbd-images");
+        if let Some(pool) = pool {
+            req = req.query(&[("pool", pool)]);
+        }
+        self.decode(req).await
+    }
+
+    pub async fn create_rbd_image(
+        &self,
+        request: CreateRbdImageRequest,
+    ) -> Result<serde_json::Value, Error> {
+        self.decode(
+            self.request(Method::POST, "/api/atlas/v1/rbd-images")
+                .json(&request),
+        )
+        .await
+    }
+
+    pub async fn delete_rbd_image(
+        &self,
+        pool: &str,
+        image: &str,
+    ) -> Result<serde_json::Value, Error> {
+        self.decode(self.request(Method::DELETE, &Self::rbd_path(pool, image)))
+            .await
+    }
+
+    /// Snapshot+protect the parent and create a COW clone.
+    pub async fn clone_rbd_image(
+        &self,
+        pool: &str,
+        image: &str,
+        request: CloneRbdImageRequest,
+    ) -> Result<serde_json::Value, Error> {
+        self.decode(
+            self.request(
+                Method::POST,
+                &format!("{}/clone", Self::rbd_path(pool, image)),
+            )
+            .json(&request),
+        )
+        .await
+    }
+
+    /// Grows by default; `allow_shrink: true` permits a shrink (Atlas warns
+    /// this can lose data past the new size).
+    pub async fn resize_rbd_image(
+        &self,
+        pool: &str,
+        image: &str,
+        size_bytes: i64,
+        allow_shrink: bool,
+    ) -> Result<serde_json::Value, Error> {
+        self.decode(
+            self.request(
+                Method::POST,
+                &format!("{}/resize", Self::rbd_path(pool, image)),
+            )
+            .json(&serde_json::json!({ "size_bytes": size_bytes, "allow_shrink": allow_shrink })),
+        )
+        .await
+    }
+
+    /// Live-migrates to another pool (`rbd migration prepare -> execute -> commit`).
+    pub async fn migrate_rbd_image(
+        &self,
+        pool: &str,
+        image: &str,
+        dest_pool: &str,
+    ) -> Result<serde_json::Value, Error> {
+        self.decode(
+            self.request(
+                Method::POST,
+                &format!("{}/migrate", Self::rbd_path(pool, image)),
+            )
+            .query(&[("dest_pool", dest_pool)]),
+        )
+        .await
+    }
+
+    pub async fn flatten_rbd_image(
+        &self,
+        pool: &str,
+        image: &str,
+    ) -> Result<serde_json::Value, Error> {
+        self.decode(self.request(
+            Method::POST,
+            &format!("{}/flatten", Self::rbd_path(pool, image)),
+        ))
+        .await
+    }
+
+    /// Caps IOPS/bandwidth; `0` clears a cap. At least one of `iops`/`bps`
+    /// is required -- Atlas rejects the request with `400` otherwise.
+    pub async fn qos_rbd_image(
+        &self,
+        pool: &str,
+        image: &str,
+        iops: Option<i64>,
+        bps: Option<i64>,
+    ) -> Result<serde_json::Value, Error> {
+        let mut query = Vec::new();
+        if let Some(iops) = iops {
+            query.push(("iops".to_string(), iops.to_string()));
+        }
+        if let Some(bps) = bps {
+            query.push(("bps".to_string(), bps.to_string()));
+        }
+        self.decode(
+            self.request(
+                Method::POST,
+                &format!("{}/qos", Self::rbd_path(pool, image)),
+            )
+            .query(&query),
+        )
+        .await
+    }
+
+    pub async fn list_rbd_snapshots(
+        &self,
+        pool: &str,
+        image: &str,
+    ) -> Result<serde_json::Value, Error> {
+        self.decode(self.request(
+            Method::GET,
+            &format!("{}/snapshots", Self::rbd_path(pool, image)),
+        ))
+        .await
+    }
+
+    pub async fn create_rbd_snapshot(
+        &self,
+        pool: &str,
+        image: &str,
+        name: &str,
+    ) -> Result<serde_json::Value, Error> {
+        self.decode(
+            self.request(
+                Method::POST,
+                &format!("{}/snapshots", Self::rbd_path(pool, image)),
+            )
+            .json(&serde_json::json!({ "name": name })),
+        )
+        .await
+    }
+
+    /// Rolls the image back to the named snapshot (destructive; admin-role
+    /// on Atlas's side).
+    pub async fn rollback_rbd_image(
+        &self,
+        pool: &str,
+        image: &str,
+        snapshot_name: &str,
+    ) -> Result<serde_json::Value, Error> {
+        self.decode(
+            self.request(
+                Method::POST,
+                &format!("{}/rollback", Self::rbd_path(pool, image)),
+            )
+            .json(&serde_json::json!({ "name": snapshot_name })),
+        )
+        .await
+    }
+
+    pub async fn delete_rbd_snapshot(
+        &self,
+        pool: &str,
+        image: &str,
+        snapshot_name: &str,
+    ) -> Result<serde_json::Value, Error> {
+        self.decode(self.request(
+            Method::DELETE,
+            &format!(
+                "{}/snapshots/{}",
+                Self::rbd_path(pool, image),
+                urlencoding::encode(snapshot_name)
+            ),
+        ))
+        .await
+    }
+
+    /// Recomputes `used_bytes` for every RBD-backed volume (`rbd du`) --
+    /// synchronous, not an async job, unlike every other write in this
+    /// section.
+    pub async fn refresh_rbd_usage(&self) -> Result<serde_json::Value, Error> {
+        self.decode(self.request(Method::POST, "/api/atlas/v1/rbd-usage/refresh"))
+            .await
+    }
 }
 
 #[cfg(test)]
@@ -721,5 +924,100 @@ mod tests {
         assert!(out_result.get("error").is_none());
         let in_result = c.osd_in(osd_id).await.unwrap();
         assert!(in_result.get("error").is_none());
+    }
+
+    #[tokio::test]
+    #[ignore]
+    async fn live_rbd_image_full_lifecycle() {
+        let c = live_client();
+        let pool = "rbd-nvme-prod"; // seeded by the fake driver, see live_list_backends... fixtures
+        let name = format!("zorvia-live-rbd-{}", chrono::Utc::now().timestamp_millis());
+
+        let created = c
+            .create_rbd_image(CreateRbdImageRequest {
+                name: name.clone(),
+                size_bytes: 1024 * 1024 * 1024,
+                pool: Some(pool.to_string()),
+                tenant_id: None,
+            })
+            .await
+            .unwrap();
+        assert!(created.get("error").is_none(), "create failed: {created:?}");
+
+        let resized = c
+            .resize_rbd_image(pool, &name, 2 * 1024 * 1024 * 1024, false)
+            .await
+            .unwrap();
+        assert!(resized.get("error").is_none());
+
+        let qos = c.qos_rbd_image(pool, &name, Some(500), None).await.unwrap();
+        assert!(qos.get("error").is_none());
+
+        let snap_name = "zorvia-live-snap";
+        let snap = c.create_rbd_snapshot(pool, &name, snap_name).await.unwrap();
+        assert!(snap.get("error").is_none());
+
+        let snaps = c.list_rbd_snapshots(pool, &name).await.unwrap();
+        assert!(snaps.get("error").is_none());
+
+        let rolled_back = c.rollback_rbd_image(pool, &name, snap_name).await.unwrap();
+        assert!(rolled_back.get("error").is_none());
+
+        let images = c.list_rbd_images(Some(pool)).await.unwrap();
+        assert!(images.get("error").is_none());
+
+        let usage = c.refresh_rbd_usage().await.unwrap();
+        assert!(usage.get("updated").is_some());
+
+        // Clean up: snapshot first, then the image, same order Atlas itself
+        // requires (a protected snapshot backing a clone would refuse
+        // image delete, though this test never cloned).
+        let snap_deleted = c.delete_rbd_snapshot(pool, &name, snap_name).await.unwrap();
+        assert!(snap_deleted.get("error").is_none());
+        let deleted = c.delete_rbd_image(pool, &name).await.unwrap();
+        assert!(deleted.get("error").is_none());
+    }
+
+    #[tokio::test]
+    #[ignore]
+    async fn live_rbd_clone_and_flatten() {
+        let c = live_client();
+        let pool = "rbd-nvme-prod";
+        let parent = format!(
+            "zorvia-live-rbd-parent-{}",
+            chrono::Utc::now().timestamp_millis()
+        );
+        let clone_name = format!("{parent}-clone");
+
+        c.create_rbd_image(CreateRbdImageRequest {
+            name: parent.clone(),
+            size_bytes: 1024 * 1024 * 1024,
+            pool: Some(pool.to_string()),
+            tenant_id: None,
+        })
+        .await
+        .unwrap();
+
+        let cloned = c
+            .clone_rbd_image(
+                pool,
+                &parent,
+                CloneRbdImageRequest {
+                    name: clone_name.clone(),
+                    snap: None,
+                    tenant_id: None,
+                },
+            )
+            .await
+            .unwrap();
+        assert!(cloned.get("error").is_none(), "clone failed: {cloned:?}");
+
+        let flattened = c.flatten_rbd_image(pool, &clone_name).await.unwrap();
+        assert!(flattened.get("error").is_none());
+
+        // Clean up both images (clone first -- it may still reference the
+        // parent's auto-created `<clone>-base` snapshot).
+        c.delete_rbd_image(pool, &clone_name).await.unwrap();
+        c.delete_rbd_image(pool, &parent).await.unwrap();
     }
 }

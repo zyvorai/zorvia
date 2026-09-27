@@ -9,6 +9,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Atlas RBD image ops** — `GET|POST /api/v1/atlas/rbd-images[?pool=]`,
+  `DELETE .../{pool}/{image}`, `clone`/`resize`/`migrate`/`flatten`/`qos`,
+  snapshot create/list/rollback/delete, and `POST
+  /api/v1/atlas/rbd-usage/refresh`. RBD images are a separate identity space
+  (`rbd:<pool>/<image>`) from the `StorageVolume` abstraction the volume
+  routes use. Verified live against a real `atlas-gateway`: full lifecycle
+  (create → resize → qos → snapshot → rollback → delete) and clone+flatten
+  both round-trip correctly.
+
 - **Atlas backend lifecycle + OSD ops** — `POST/DELETE /api/v1/atlas/backends`,
   discover/cordon/uncordon, `GET|POST /api/v1/atlas/maintenance` (pause/resume
   Atlas's job engine), `GET /api/v1/atlas/maintenance/orphans`,

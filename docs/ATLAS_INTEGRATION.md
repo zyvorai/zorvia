@@ -62,6 +62,13 @@ If `ATLAS_URL` is absent, Zorvia starts normally and the integration reports `en
 - `GET /api/v1/atlas/maintenance/orphans`, `GET /api/v1/atlas/upgrade/preflight` (report-only, always `200`; `ready`/`blockers` is the real gate)
 - `GET /api/v1/atlas/osds`
 - `POST /api/v1/atlas/osds/:id/{out,in}`, `POST /api/v1/atlas/osds/:id/reweight?weight=0.0-1.0`
+- `GET|POST /api/v1/atlas/rbd-images[?pool=]` — a **separate identity space** (`rbd:<pool>/<image>`) from the `StorageVolume` abstraction the volume routes above use; don't conflate a "volume" with an "RBD image"
+- `DELETE /api/v1/atlas/rbd-images/:pool/:image`
+- `POST /api/v1/atlas/rbd-images/:pool/:image/{clone,resize,migrate,flatten,qos}`
+- `GET|POST /api/v1/atlas/rbd-images/:pool/:image/snapshots`, `POST .../rollback`, `DELETE .../snapshots/:snap`
+- `POST /api/v1/atlas/rbd-usage/refresh` — synchronous, recomputes `used_bytes` for every RBD-backed volume
+
+RBD writes are async jobs, same shape as the volume writes, except `rbd-usage/refresh` (synchronous, like backend lifecycle). `migrate` takes `?dest_pool=`; `qos` takes `?iops=&bps=` (at least one required, `0` clears a cap); `resize` takes `{size_bytes, allow_shrink}` in the body (`allow_shrink` guards against accidental data loss, default `false`); `rollback` takes `{name: <snapshot name>}` in the body, same shape as creating a snapshot.
 
 Unlike the volume routes, **backend lifecycle (create/delete/discover/cordon/uncordon/maintenance) is synchronous** — Atlas returns the finished result directly, no job envelope, no polling needed. OSD ops (`out`/`in`/`reweight`) *are* async jobs, same shape as the volume writes.
 
@@ -72,7 +79,6 @@ All three volume-mutating routes return `202` with Atlas's job envelope (`{"job_
 This is a read-only inventory integration plus volume create/expand/delete plus job status polling — not full Atlas lifecycle management. Not proxied:
 
 - Job SSE watch (`GET /jobs/:id/watch`) — Zorvia has no established SSE-proxy pattern; polling `GET /jobs/:id` on the existing 10-15s refresh cadence is good enough for now
-- RBD image clone/resize/QoS — a separate identity space (`rbd:<pool>/<image>`) from the `StorageVolume` abstraction already integrated
 - Disaster recovery (peers, mirrors, promote/demote, failover)
 - DataBridge (cloud-to-edge DB migration)
 - Object-store bucket operations
