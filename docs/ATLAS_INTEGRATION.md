@@ -55,6 +55,15 @@ If `ATLAS_URL` is absent, Zorvia starts normally and the integration reports `en
 - `GET /api/v1/atlas/jobs` — most-recent 100 (Atlas's own server-side cap, no pagination)
 - `GET /api/v1/atlas/jobs/:id`
 - `POST /api/v1/atlas/jobs/:id/cancel` — `409` if the job is already terminal (`succeeded`/`failed`)
+- `POST /api/v1/atlas/backends` — register a backend row; only `nfs`/`zfs` `backend_type`s get instantiated live, others land `pending`
+- `DELETE /api/v1/atlas/backends/:id[?purge=true]` — refused if volumes still reference it unless `purge=true`
+- `POST /api/v1/atlas/backends/:id/discover`, `/cordon`, `/uncordon`
+- `GET|POST /api/v1/atlas/maintenance` — `POST {paused}` pauses/resumes Atlas's whole job engine (all tenants)
+- `GET /api/v1/atlas/maintenance/orphans`, `GET /api/v1/atlas/upgrade/preflight` (report-only, always `200`; `ready`/`blockers` is the real gate)
+- `GET /api/v1/atlas/osds`
+- `POST /api/v1/atlas/osds/:id/{out,in}`, `POST /api/v1/atlas/osds/:id/reweight?weight=0.0-1.0`
+
+Unlike the volume routes, **backend lifecycle (create/delete/discover/cordon/uncordon/maintenance) is synchronous** — Atlas returns the finished result directly, no job envelope, no polling needed. OSD ops (`out`/`in`/`reweight`) *are* async jobs, same shape as the volume writes.
 
 All three volume-mutating routes return `202` with Atlas's job envelope (`{"job_id", "state":"queued", "resource": {...}, "links": {"job": "/api/atlas/v1/jobs/:id"}}`), not a finished result — every Atlas write is genuinely async. Poll `GET /api/v1/atlas/jobs/:id` with that `job_id` to find out what actually happened; `state` reaches a terminal value (`succeeded`/`failed`) or stays `pending`/`queued`/`running`/`verifying` in between. The web UI (`RookStorage.tsx`'s Atlas section) does exactly this after every create/expand/delete — `pollAtlasJob()` in `web/src/api/atlas.ts` polls every 1.5s up to a 60s timeout and the UI toasts the real outcome, not just "requested". `POST /volumes` accepts `{name, size_bytes, policy?, pool?, owner?, kubernetes?}` and forwards to Atlas's `CreateVolumeRequest`; when called in the context of a VM, populate `owner: {product: "zorvia", resource_type: "vm", resource_id: <vm name>, role: "data_disk"}` (the web UI's "Attribute to VM" field does this) — that's what makes the volume traceable back to Zorvia in Atlas's own inventory, not a cosmetic detail. `DELETE` always passes `confirm=true` from Zorvia's side; Atlas itself decides (based on storage class / protection tier) whether that was actually required, rejecting with a `400` naming the requirement if it was needed and the caller didn't set it — Zorvia doesn't try to duplicate that judgment. All `/api/v1/atlas/*` routes are protected by Zorvia's existing auth middleware; the volume-mutating routes and `jobs/:id/cancel` additionally require the `storage.admin` permission (same permission that gates Rook administration) — note Atlas's own token-level auth is stricter for delete and cancel specifically (`ROLE_ADMIN` vs. `ROLE_OPERATOR` for create/expand), so those two can still be rejected by Atlas even when Zorvia's own RBAC allows the request through.
 
@@ -63,8 +72,7 @@ All three volume-mutating routes return `202` with Atlas's job envelope (`{"job_
 This is a read-only inventory integration plus volume create/expand/delete plus job status polling — not full Atlas lifecycle management. Not proxied:
 
 - Job SSE watch (`GET /jobs/:id/watch`) — Zorvia has no established SSE-proxy pattern; polling `GET /jobs/:id` on the existing 10-15s refresh cadence is good enough for now
-- Backend lifecycle (`POST/DELETE /backends`, discover/cordon/uncordon)
-- RBD image clone/resize/QoS
+- RBD image clone/resize/QoS — a separate identity space (`rbd:<pool>/<image>`) from the `StorageVolume` abstraction already integrated
 - Disaster recovery (peers, mirrors, promote/demote, failover)
 - DataBridge (cloud-to-edge DB migration)
 - Object-store bucket operations
