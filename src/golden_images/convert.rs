@@ -88,9 +88,10 @@ impl ConvertRegistry {
         namespace: &str,
         client: &KubeClient,
     ) -> Result<ConvertJob, ConvertStartError> {
-        let vm = client.get_vm(namespace, vm_name).await.map_err(|e| {
-            ConvertStartError::VmNotFound(format!("VM '{vm_name}' not found: {e}"))
-        })?;
+        let vm = client
+            .get_vm(namespace, vm_name)
+            .await
+            .map_err(|e| ConvertStartError::VmNotFound(format!("VM '{vm_name}' not found: {e}")))?;
 
         let no_disk_err = || {
             ConvertStartError::NoPersistentDisk(format!(
@@ -107,39 +108,37 @@ impl ConvertRegistry {
             .as_ref()
             .ok_or_else(no_disk_err)?;
 
-        let (source_pvc, size) = if let Some(vol) = volumes
-            .iter()
-            .find(|v| v.persistent_volume_claim.is_some())
-        {
-            let claim_name = vol
-                .persistent_volume_claim
-                .as_ref()
-                .expect("checked is_some above")
-                .claim_name
-                .clone();
-            let size = match client.get_pvc(namespace, &claim_name).await {
-                Ok(pvc) => pvc
-                    .spec
+        let (source_pvc, size) =
+            if let Some(vol) = volumes.iter().find(|v| v.persistent_volume_claim.is_some()) {
+                let claim_name = vol
+                    .persistent_volume_claim
                     .as_ref()
-                    .and_then(|s| s.resources.as_ref())
-                    .and_then(|r| r.requests.as_ref())
-                    .and_then(|req| req.get("storage"))
-                    .map(|q| q.0.clone())
-                    .unwrap_or_else(|| "20Gi".into()),
-                Err(_) => "20Gi".into(),
+                    .expect("checked is_some above")
+                    .claim_name
+                    .clone();
+                let size = match client.get_pvc(namespace, &claim_name).await {
+                    Ok(pvc) => pvc
+                        .spec
+                        .as_ref()
+                        .and_then(|s| s.resources.as_ref())
+                        .and_then(|r| r.requests.as_ref())
+                        .and_then(|req| req.get("storage"))
+                        .map(|q| q.0.clone())
+                        .unwrap_or_else(|| "20Gi".into()),
+                    Err(_) => "20Gi".into(),
+                };
+                (claim_name, size)
+            } else if let Some(vol) = volumes.iter().find(|v| v.data_volume.is_some()) {
+                let name = vol
+                    .data_volume
+                    .as_ref()
+                    .expect("checked is_some above")
+                    .name
+                    .clone();
+                (name, "20Gi".to_string())
+            } else {
+                return Err(no_disk_err());
             };
-            (claim_name, size)
-        } else if let Some(vol) = volumes.iter().find(|v| v.data_volume.is_some()) {
-            let name = vol
-                .data_volume
-                .as_ref()
-                .expect("checked is_some above")
-                .name
-                .clone();
-            (name, "20Gi".to_string())
-        } else {
-            return Err(no_disk_err());
-        };
 
         let target_name = slug_image_name(image_name);
         let mut job = ConvertJob {
