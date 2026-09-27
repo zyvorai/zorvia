@@ -4,7 +4,8 @@
 use super::{SharedAuditTrail, SharedState};
 use crate::atlas::models::{
     CloneRbdImageRequest, CreateBackupRequest, CreateBucketRequest, CreateRbdImageRequest,
-    CreateRestoreRequest, CreateVolumeRequest, DrFailoverRequest, RegisterDrPeerRequest,
+    CreateRestoreRequest, CreateScheduleRequest, CreateVolumeRequest, DrFailoverRequest,
+    RegisterDrPeerRequest, TenantPolicyRequest, TenantQuotaRequest,
 };
 use crate::atlas::{Client, Error as AtlasError};
 use axum::{
@@ -1924,6 +1925,237 @@ pub(super) async fn atlas_list_events(
         Err(r) => return *r,
     };
     match c.list_events(query.limit).await {
+        Ok(v) => Json(v).into_response(),
+        Err(e) => error_response(e),
+    }
+}
+
+// ── Governance: tenants, quotas, policy overrides, protection schedules,
+// volume labels/bindings. Deliberately excludes Atlas's own console auth
+// (login, users, tokens) -- see docs/ATLAS_INTEGRATION.md.
+
+pub(super) async fn atlas_list_tenants(State(state): State<SharedState>) -> Response {
+    let c = match client(&state).await {
+        Ok(v) => v,
+        Err(r) => return *r,
+    };
+    match c.list_tenants().await {
+        Ok(v) => Json(v).into_response(),
+        Err(e) => error_response(e),
+    }
+}
+
+pub(super) async fn atlas_list_policies(State(state): State<SharedState>) -> Response {
+    let c = match client(&state).await {
+        Ok(v) => v,
+        Err(r) => return *r,
+    };
+    match c.list_policies().await {
+        Ok(v) => Json(v).into_response(),
+        Err(e) => error_response(e),
+    }
+}
+
+pub(super) async fn atlas_list_tenant_policies(
+    State(state): State<SharedState>,
+    Path(id): Path<String>,
+) -> Response {
+    let c = match client(&state).await {
+        Ok(v) => v,
+        Err(r) => return *r,
+    };
+    match c.list_tenant_policies(&id).await {
+        Ok(v) => Json(v).into_response(),
+        Err(e) => error_response(e),
+    }
+}
+
+pub(super) async fn atlas_put_tenant_policy(
+    State(state): State<SharedState>,
+    Path((id, intent)): Path<(String, String)>,
+    auth: Option<axum::Extension<crate::api::auth::AuthIdentity>>,
+    Json(body): Json<TenantPolicyRequest>,
+) -> Response {
+    let (c, audit) = match write_client(&state).await {
+        Ok(v) => v,
+        Err(r) => return *r,
+    };
+    let result = c.put_tenant_policy(&id, &intent, body).await;
+    finish_write(
+        &audit,
+        &caller(&auth),
+        crate::audit_trail::AuditAction::Update,
+        "atlas_tenant_policy",
+        &format!("{id}/{intent}"),
+        result,
+    )
+    .await
+}
+
+pub(super) async fn atlas_delete_tenant_policy(
+    State(state): State<SharedState>,
+    Path((id, intent)): Path<(String, String)>,
+    auth: Option<axum::Extension<crate::api::auth::AuthIdentity>>,
+) -> Response {
+    let (c, audit) = match write_client(&state).await {
+        Ok(v) => v,
+        Err(r) => return *r,
+    };
+    let result = c.delete_tenant_policy(&id, &intent).await;
+    finish_write(
+        &audit,
+        &caller(&auth),
+        crate::audit_trail::AuditAction::Delete,
+        "atlas_tenant_policy",
+        &format!("{id}/{intent}"),
+        result,
+    )
+    .await
+}
+
+pub(super) async fn atlas_get_tenant_quota(
+    State(state): State<SharedState>,
+    Path(id): Path<String>,
+) -> Response {
+    let c = match client(&state).await {
+        Ok(v) => v,
+        Err(r) => return *r,
+    };
+    match c.get_tenant_quota(&id).await {
+        Ok(v) => Json(v).into_response(),
+        Err(e) => error_response(e),
+    }
+}
+
+pub(super) async fn atlas_put_tenant_quota(
+    State(state): State<SharedState>,
+    Path(id): Path<String>,
+    auth: Option<axum::Extension<crate::api::auth::AuthIdentity>>,
+    Json(body): Json<TenantQuotaRequest>,
+) -> Response {
+    let (c, audit) = match write_client(&state).await {
+        Ok(v) => v,
+        Err(r) => return *r,
+    };
+    let result = c.put_tenant_quota(&id, body).await;
+    finish_write(
+        &audit,
+        &caller(&auth),
+        crate::audit_trail::AuditAction::Update,
+        "atlas_tenant_quota",
+        &id,
+        result,
+    )
+    .await
+}
+
+pub(super) async fn atlas_create_schedule(
+    State(state): State<SharedState>,
+    Path(volume_id): Path<String>,
+    auth: Option<axum::Extension<crate::api::auth::AuthIdentity>>,
+    Json(body): Json<CreateScheduleRequest>,
+) -> Response {
+    let (c, audit) = match write_client(&state).await {
+        Ok(v) => v,
+        Err(r) => return *r,
+    };
+    let result = c.create_schedule(&volume_id, body).await;
+    finish_write(
+        &audit,
+        &caller(&auth),
+        crate::audit_trail::AuditAction::Create,
+        "atlas_schedule",
+        &volume_id,
+        result,
+    )
+    .await
+}
+
+#[derive(Debug, Deserialize)]
+pub(super) struct ListSchedulesQuery {
+    volume_id: Option<String>,
+}
+
+pub(super) async fn atlas_list_schedules(
+    State(state): State<SharedState>,
+    Query(query): Query<ListSchedulesQuery>,
+) -> Response {
+    let c = match client(&state).await {
+        Ok(v) => v,
+        Err(r) => return *r,
+    };
+    match c.list_schedules(query.volume_id.as_deref()).await {
+        Ok(v) => Json(v).into_response(),
+        Err(e) => error_response(e),
+    }
+}
+
+pub(super) async fn atlas_delete_schedule(
+    State(state): State<SharedState>,
+    Path(id): Path<String>,
+    auth: Option<axum::Extension<crate::api::auth::AuthIdentity>>,
+) -> Response {
+    let (c, audit) = match write_client(&state).await {
+        Ok(v) => v,
+        Err(r) => return *r,
+    };
+    let result = c.delete_schedule(&id).await;
+    finish_write(
+        &audit,
+        &caller(&auth),
+        crate::audit_trail::AuditAction::Delete,
+        "atlas_schedule",
+        &id,
+        result,
+    )
+    .await
+}
+
+pub(super) async fn atlas_get_volume_labels(
+    State(state): State<SharedState>,
+    Path(id): Path<String>,
+) -> Response {
+    let c = match client(&state).await {
+        Ok(v) => v,
+        Err(r) => return *r,
+    };
+    match c.get_volume_labels(&id).await {
+        Ok(v) => Json(v).into_response(),
+        Err(e) => error_response(e),
+    }
+}
+
+pub(super) async fn atlas_put_volume_labels(
+    State(state): State<SharedState>,
+    Path(id): Path<String>,
+    auth: Option<axum::Extension<crate::api::auth::AuthIdentity>>,
+    Json(body): Json<serde_json::Value>,
+) -> Response {
+    let (c, audit) = match write_client(&state).await {
+        Ok(v) => v,
+        Err(r) => return *r,
+    };
+    let result = c.put_volume_labels(&id, body).await;
+    finish_write(
+        &audit,
+        &caller(&auth),
+        crate::audit_trail::AuditAction::Update,
+        "atlas_volume_labels",
+        &id,
+        result,
+    )
+    .await
+}
+
+pub(super) async fn atlas_list_volume_bindings(
+    State(state): State<SharedState>,
+    Path(id): Path<String>,
+) -> Response {
+    let c = match client(&state).await {
+        Ok(v) => v,
+        Err(r) => return *r,
+    };
+    match c.list_volume_bindings(&id).await {
         Ok(v) => Json(v).into_response(),
         Err(e) => error_response(e),
     }

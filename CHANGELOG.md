@@ -9,6 +9,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Atlas governance** — `GET /api/v1/atlas/tenants`, `GET /api/v1/atlas/policies`,
+  `GET .../tenants/:id/policies`, `PUT|DELETE .../tenants/:id/policies/:intent`,
+  `GET|PUT .../tenants/:id/quota`, `POST .../volumes/:id/schedule`,
+  `GET .../schedules`, `DELETE .../schedules/:id`,
+  `GET|PUT .../volumes/:id/labels`, `GET .../volumes/:id/bindings`.
+  New `web/src/pages/storage/AtlasGovernanceSection.tsx` covers tenant
+  quota editing and schedule create/list/delete — the day-2 operations an
+  operator actually reaches for; tenant policy overrides and volume
+  labels/bindings are proxied but deliberately have no UI yet.
+  **Deliberately excludes Atlas's own console authentication** (`/auth/
+  login`, `/auth/users*`, `/auth/tokens*`) from proxying entirely — those
+  manage Atlas's own accounts, not Zorvia's, and this is a permanent
+  security-boundary exclusion, not a "not yet". Verified live against a
+  real `atlas-gateway`: tenant quota get/put, policy override put/list/
+  delete (with a real 404 on deleting an already-removed override),
+  schedule create/list/delete (with a real 404 on double-delete), and
+  volume labels get/put all round-trip correctly.
+
 - **Atlas observability** — `GET /api/v1/atlas/metrics/{summary,ceph,history,forecast}`,
   `GET .../alerts[?state=]`, `POST .../alerts/evaluate`,
   `POST .../alerts/:id/{ack,silence,resolve}`, `GET .../audit`,

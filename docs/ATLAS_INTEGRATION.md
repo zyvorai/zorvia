@@ -24,7 +24,7 @@ The browser never receives `ATLAS_TOKEN`. Zorvia owns user authentication; the A
 
 Atlas isn't a separate top-level page — it's a set of sections on the existing Storage page (`/app/storage`, alongside Rook-Ceph), because both are answering the same question ("what storage do I have and what's it doing"), just from two different control planes. If `ATLAS_URL` is unset, the sections render a quiet "not configured" note instead of hiding entirely or erroring.
 
-The Atlas UI lives under `web/src/pages/storage/`: `AtlasSection.tsx` is the main orchestrator (status, backend lifecycle — create/discover/cordon/uncordon/delete, volume create/expand/delete, recent jobs), and `AtlasRbdSection.tsx`/`AtlasBucketsSection.tsx`/`AtlasDrSection.tsx`/`AtlasAiSection.tsx`/`AtlasObservabilitySection.tsx` are sibling cards (only rendered once Atlas is enabled and connected) covering RBD image create/resize/delete, object-store bucket create/delete, disaster recovery, AI-assisted insights, and audit/chargeback/policy-drift/metrics respectively. Atlas alerts are the one exception to "everything lives on the Storage page" — they're surfaced on Zorvia's existing `/app/alerts` page instead (see the Observability section below). Deliberately out of scope for the UI, even though the backend routes exist and are proxied: RBD clone/migrate/flatten/QoS/snapshots, bucket object-level operations (list/upload/download/prune) and backup/restore creation — these are lower-frequency operations better suited to Atlas's own UI or CLI for now; revisit if there's real demand.
+The Atlas UI lives under `web/src/pages/storage/`: `AtlasSection.tsx` is the main orchestrator (status, backend lifecycle — create/discover/cordon/uncordon/delete, volume create/expand/delete, recent jobs), and `AtlasRbdSection.tsx`/`AtlasBucketsSection.tsx`/`AtlasDrSection.tsx`/`AtlasAiSection.tsx`/`AtlasObservabilitySection.tsx`/`AtlasGovernanceSection.tsx` are sibling cards (only rendered once Atlas is enabled and connected) covering RBD image create/resize/delete, object-store bucket create/delete, disaster recovery, AI-assisted insights, audit/chargeback/policy-drift/metrics, and tenant quotas/protection schedules respectively. Atlas alerts are the one exception to "everything lives on the Storage page" — they're surfaced on Zorvia's existing `/app/alerts` page instead (see the Observability section below). Deliberately out of scope for the UI, even though the backend routes exist and are proxied: RBD clone/migrate/flatten/QoS/snapshots, bucket object-level operations (list/upload/download/prune), backup/restore creation, tenant policy overrides, and volume labels/bindings — these are lower-frequency operations better suited to Atlas's own UI or CLI for now; revisit if there's real demand.
 
 ## Configuration
 
@@ -85,6 +85,12 @@ If `ATLAS_URL` is absent, Zorvia starts normally and the integration reports `en
 - `GET /api/v1/atlas/alerts[?state=open]`, `POST .../alerts/evaluate`, `POST .../alerts/:id/{ack,resolve}`, `POST .../alerts/:id/silence[?secs=]`
 - `GET /api/v1/atlas/audit[?actor=&action=&resource_type=&resource_id=&limit=]`, `GET /api/v1/atlas/audit.csv` (raw CSV, not JSON)
 - `GET /api/v1/atlas/chargeback`, `GET /api/v1/atlas/policy-drift`, `GET /api/v1/atlas/events[?limit=]`
+- `GET /api/v1/atlas/tenants` — usage + quota overview for every tenant with volumes or a quota
+- `GET /api/v1/atlas/policies` — global policy templates (intent → default storage-class placement)
+- `GET /api/v1/atlas/tenants/:id/policies`, `PUT|DELETE /api/v1/atlas/tenants/:id/policies/:intent` — per-tenant placement overrides
+- `GET|PUT /api/v1/atlas/tenants/:id/quota` — `{max_bytes, max_volumes}`, `0` = unlimited
+- `POST /api/v1/atlas/volumes/:id/schedule`, `GET /api/v1/atlas/schedules[?volume_id=]`, `DELETE /api/v1/atlas/schedules/:id`
+- `GET|PUT /api/v1/atlas/volumes/:id/labels`, `GET /api/v1/atlas/volumes/:id/bindings`
 
 Bucket create/delete and backup create/delete/restore are async jobs, same shape as the volume writes; everything else under buckets (stats, object list/delete, upload/download URL, prune) is synchronous — object operations never touch bytes through Zorvia or Atlas, they mint presigned S3 URLs so the browser talks to RGW directly. `delete` on a bucket is refused (`409`) while it still holds backups unless `?force=true`.
 
@@ -118,13 +124,21 @@ Metrics (`summary`/`ceph`/`history`/`forecast`) are simple read views. Alerts ar
 
 `GET /events` (jobs + audit + alerts, unified) is proxied but not yet surfaced in the UI — it's operator-gated on Atlas's side because it includes audit records, same as `GET /audit`.
 
+## Governance
+
+Tenant quotas (`{max_bytes, max_volumes}`, `0` = unlimited) and per-tenant policy overrides (which storage class an intent like `production`/`database` resolves to for one tenant) are legitimate day-2 admin surfaces, proxied in full. Protection schedules (periodic snapshot or backup jobs for a volume) are proxied too — Atlas validates the volume is PVC-backed (CSI) before creating one, rejecting a schedule against a raw NFS/ZFS volume with a `400` rather than silently creating a permanent no-op (its "next run" timer would advance forever with no job ever enqueued).
+
+**The web UI (`AtlasGovernanceSection.tsx`) covers tenant quota editing and schedule create/list/delete** — the day-2 operations an operator actually reaches for. Tenant policy overrides and volume labels/bindings are proxied on the backend (`put_tenant_policy`/`delete_tenant_policy`/`get_volume_labels`/`put_volume_labels`/`list_volume_bindings` in `src/atlas/client.rs`) but deliberately have no UI yet — lower-frequency than quota/schedule management; revisit if there's real demand, same as the RBD/bucket UI scope cuts.
+
+**Deliberately excluded from proxying entirely: Atlas's own console authentication** — `POST /auth/login`, `GET|POST /auth/users`, `PUT|DELETE /auth/users/:username`, `POST /auth/tokens`, `GET /auth/tokens/revoked`, `POST /auth/tokens/:jti/revoke`. These manage *Atlas's* own accounts and service-account tokens, not Zorvia's — a compromised or misconfigured Zorvia becoming a pass-through admin console for a different product's user base is a real security-boundary concern independent of implementation effort, not a build-it-later item. This is a deliberate, permanent exclusion from the approved integration scope, not an oversight; revisit only with a separate, explicit conversation if a real need for it emerges.
+
 ## Deliberately not proxied yet
 
-This is a read-only inventory integration plus volume/RBD/bucket lifecycle, job status polling, disaster recovery scaffolding, AI-assisted insights, and observability — not full Atlas lifecycle management. Not proxied:
+This is a read-only inventory integration plus volume/RBD/bucket lifecycle, job status polling, disaster recovery scaffolding, AI-assisted insights, observability, and governance — not full Atlas lifecycle management. Not proxied:
 
 - Job SSE watch (`GET /jobs/:id/watch`) — Zorvia has no established SSE-proxy pattern; polling `GET /jobs/:id` on the existing 10-15s refresh cadence is good enough for now
 - DataBridge (cloud-to-edge DB migration)
-- Tenant policy/quota writes and schedules, Atlas's own user/token administration
+- Atlas's own console authentication (`/auth/login`, `/auth/users*`, `/auth/tokens*`) — see Governance above; this one is a deliberate permanent exclusion, not a "not yet"
 
 If any of these become a real need, they follow the same pattern as the volume routes here — add the client method, the handler, and (if it's a write) a permission check and audit entry.
 
