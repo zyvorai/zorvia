@@ -9,6 +9,36 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Atlas DataBridge (cloud-to-edge DB migration)** — the final piece of the
+  Atlas storage integration plan. `GET|POST /api/v1/atlas/databridge/
+  sources`, `GET|DELETE .../sources/:id`, `POST .../sources/:id/discover`,
+  `GET|POST .../plans`, `GET|DELETE .../plans/:id`, `POST .../plans/:id/
+  {assess,provision,full-load,validate,cutover,rollback}`, `POST .../
+  plans/:id/cdc/{start,stop,restart}`, `GET .../edge-clusters[/:id]`,
+  `DELETE .../edge-clusters/:id`, `GET .../cdc-streams[/:id]`, `GET|POST
+  .../object`, `GET|DELETE .../object/:id` (delete returns `204`), `POST
+  .../object/:id/start`, `GET .../validations[?plan_id=]`, `GET .../
+  cutovers`. New top-level page (`/app/databridge`,
+  `web/src/pages/DataBridge.tsx`) rather than a Storage-page section — a
+  genuinely different product domain from VM/storage provisioning, per the
+  plan. Covers the full staged pipeline (source → discover → plan →
+  assess → provision → full-load → cdc → validate → cutover → rollback)
+  plus the independent object-store (S3→RGW) migration leg.
+  `cutover`/`rollback` are guarded on Atlas's own side (validated + passed
+  validation + CDC lag under 10s; existing cutover + open rollback
+  window) — Zorvia relays Atlas's specific errors rather than duplicating
+  the checks, and the UI's confirm dialogs describe the preconditions up
+  front. Verified live end-to-end against a real `atlas-gateway`: a full
+  plan pipeline through a real rejected-cutover-before-validation `409`,
+  a real rejected-cutover-while-CDC-lag-too-high `409` (confirming the
+  fake driver's lag decays via its reconciler over real wall-clock time,
+  not instantly), successful cutover once lag drained, and rollback. Also
+  found and documented: source delete is refused (`409`, naming the
+  referencing plan) while a plan still exists, but plan/edge-cluster/
+  object-migration delete is unconditional — a repeat delete of an
+  already-deleted id still returns success, same quirk as `DELETE
+  /dr/peers/:id`.
+
 - **Atlas governance** — `GET /api/v1/atlas/tenants`, `GET /api/v1/atlas/policies`,
   `GET .../tenants/:id/policies`, `PUT|DELETE .../tenants/:id/policies/:intent`,
   `GET|PUT .../tenants/:id/quota`, `POST .../volumes/:id/schedule`,

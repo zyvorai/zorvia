@@ -243,6 +243,77 @@ pub struct CreateScheduleRequest {
     pub mode: Option<String>,
 }
 
+/// `POST /databridge/sources` request -- registers a cloud/source database
+/// (synchronous, not a job). `kind` must be one of `postgres`/`mysql`/
+/// `mariadb`/`oracle`/`sqlserver`/`mongodb`.
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub struct CreateDataBridgeSourceRequest {
+    pub name: String,
+    pub kind: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub cloud: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub endpoint: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub port: Option<i64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub database: Option<String>,
+    /// k8s Secret with the source credentials (used only in `real` driver mode).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub secret_ref: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub secret_namespace: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub tls_mode: Option<String>,
+    /// `fake` (default) or `real`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub driver_mode: Option<String>,
+}
+
+/// `POST /databridge/plans` request (synchronous, not a job).
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub struct CreateMigrationPlanRequest {
+    pub name: String,
+    pub source_id: String,
+    /// Rollback window after cutover, in seconds (Atlas default: 72h).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub rollback_window_secs: Option<i64>,
+}
+
+/// `POST /databridge/object` request -- registers an S3-protocol
+/// object-store migration (synchronous; no copy happens until `start`).
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub struct CreateObjectMigrationRequest {
+    pub name: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub source_provider: Option<String>,
+    pub source_endpoint: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub source_region: Option<String>,
+    pub source_bucket: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub source_prefix: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub source_secret_ref: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub dest_provider: Option<String>,
+    pub dest_endpoint: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub dest_region: Option<String>,
+    pub dest_bucket: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub dest_secret_ref: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub secret_namespace: Option<String>,
+    /// `full` or `incremental` (default).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub mode: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub concurrency: Option<i64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub part_size_mb: Option<i64>,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct StorageClassInfo {
     pub name: String,

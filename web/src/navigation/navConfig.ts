@@ -39,6 +39,7 @@ import {
   Bell,
   Layers3,
   Boxes,
+  DatabaseZap,
 } from 'lucide-react'
 
 export interface NavItem {
@@ -118,6 +119,7 @@ export const TOP_MEGA_GROUPS: { label: string; items: NavItem[] }[] = [
       { label: 'Snapshots', path: '/app/snapshots', icon: Camera, blurb: 'Point-in-time VM snapshots.' },
       { label: 'Backups', path: '/app/backups', icon: Save, blurb: 'Backup jobs and restores.' },
       { label: 'Backup Scheduler', path: '/app/backup-scheduler', icon: Clock, blurb: 'Recurring backup policies.' },
+      { label: 'DataBridge', path: '/app/databridge', icon: DatabaseZap, blurb: 'Cloud-to-edge database migration.' },
     ],
   },
   {

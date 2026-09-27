@@ -58,6 +58,7 @@ const WarmPools = lazy(() => import('./pages/WarmPools'))
 const AccessControl = lazy(() => import('./pages/AccessControl'))
 const Pods = lazy(() => import('./pages/Pods'))
 const PodLogsPage = lazy(() => import('./pages/PodLogsPage'))
+const DataBridge = lazy(() => import('./pages/DataBridge'))
 
 function ProtectedRoute({ children }: { children: ReactNode }) {
   const { isAuthenticated, loading } = useAuth()
@@ -136,6 +137,7 @@ function ConsoleRoutes() {
             <Route path="alerts" element={<Alerts />} />
             <Route path="warm-pools" element={<WarmPools />} />
             <Route path="storage" element={<RookStorage />} />
+            <Route path="databridge" element={<DataBridge />} />
             <Route path="quotas" element={<Quotas />} />
             <Route path="compare" element={<VMCompare />} />
             <Route path="batch-import" element={<BatchImport />} />
