@@ -29,6 +29,8 @@
 //! assert!(yaml.contains("web-server"));
 //! ```
 
+#[cfg(feature = "web")]
+pub mod atlas;
 pub mod cli;
 pub mod config;
 #[cfg(feature = "web")]

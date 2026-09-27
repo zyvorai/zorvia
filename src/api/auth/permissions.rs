@@ -151,8 +151,10 @@ pub fn required_permission(method: &str, path: &str) -> Option<ApiPermission> {
         return Some(ApiPermission::VmDelete);
     }
 
-    // Storage / Rook administration
-    if path.starts_with("/storage/") {
+    // Storage / Rook administration, plus Atlas's one write route (volume create) --
+    // Atlas's GET routes fall through to the no-permission-required GET/HEAD branch
+    // above, same as Kryton's.
+    if path.starts_with("/storage/") || path.starts_with("/v1/atlas/") {
         return Some(ApiPermission::StorageAdmin);
     }
 
@@ -271,6 +273,17 @@ mod tests {
             Some(ApiPermission::StorageAdmin)
         );
         assert_eq!(required_permission("GET", "/vms"), None);
+    }
+
+    #[test]
+    fn atlas_volume_create_requires_storage_admin_but_reads_are_open() {
+        assert_eq!(
+            required_permission("POST", "/v1/atlas/volumes"),
+            Some(ApiPermission::StorageAdmin)
+        );
+        assert_eq!(required_permission("GET", "/v1/atlas/volumes"), None);
+        assert_eq!(required_permission("GET", "/v1/atlas/status"), None);
+        assert_eq!(required_permission("GET", "/v1/atlas/backends"), None);
     }
 
     #[test]

@@ -37,6 +37,10 @@ pub mod web {
     mod kryton_handlers;
     use kryton_handlers::*;
 
+    #[path = "atlas_handlers.rs"]
+    mod atlas_handlers;
+    use atlas_handlers::*;
+
     #[path = "ws_proxy_handlers.rs"]
     mod ws_proxy_handlers;
     use ws_proxy_handlers::{ws_console, ws_ssh, ws_vnc};
@@ -225,6 +229,7 @@ pub mod web {
         pub lab_api_key: Option<String>,
         pub auth: crate::api::auth::SharedAuth,
         pub kryton: Option<crate::kryton::Client>,
+        pub atlas: Option<crate::atlas::Client>,
         pub audit: SharedAuditTrail,
         rate_limiter: RateLimiterState,
     }
@@ -245,12 +250,21 @@ pub mod web {
                     client.configured_project()
                 );
             }
+            let atlas = crate::atlas::Client::from_env()?;
+            if let Some(ref client) = atlas {
+                log::info!(
+                    "Atlas integration enabled: {} (tenant={:?})",
+                    client.base_url(),
+                    client.configured_tenant_id()
+                );
+            }
             Ok(Self {
                 namespace,
                 kube_client,
                 lab_api_key,
                 auth,
                 kryton,
+                atlas,
                 audit: Arc::new(RwLock::new(crate::audit_trail::AuditTrail::from_env())),
                 rate_limiter: RateLimiterState::new(rate_limit_per_minute, 60),
             })
@@ -850,6 +864,20 @@ pub mod web {
             .route(
                 "/v1/kryton/machines/{id}/snapshots/{sid}",
                 delete(kryton_delete_snapshot),
+            )
+            // Atlas storage control plane (server-side token; Zorvia auth at edge)
+            .route("/v1/atlas/status", get(atlas_status))
+            .route("/v1/atlas/backends", get(atlas_list_backends))
+            .route("/v1/atlas/backends/summary", get(atlas_backends_summary))
+            .route("/v1/atlas/clusters", get(atlas_list_clusters))
+            .route("/v1/atlas/clusters/{id}/health", get(atlas_cluster_health))
+            .route("/v1/atlas/pools", get(atlas_list_pools))
+            .route("/v1/atlas/ceph/status", get(atlas_ceph_status))
+            .route("/v1/atlas/ceph/df", get(atlas_ceph_df))
+            .route("/v1/atlas/storage-classes", get(atlas_list_storage_classes))
+            .route(
+                "/v1/atlas/volumes",
+                get(atlas_list_volumes).post(atlas_create_volume),
             )
             .route("/v1/health", get(health_handler))
             .route("/v1/features", get(features_registry_handler))
