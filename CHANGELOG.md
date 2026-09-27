@@ -13,10 +13,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **Top-nav admin gating** — direct top-nav links now honor `adminOnly` (previously only mega-menu items were filtered).
 - **JWT / Lease lab auth** — `jsonwebtoken` rust_crypto feature; Kubernetes Lease `MicroTime` formatted with exactly six fractional digits so leader election renew succeeds.
 
 ### Added
 
+- **Pods page — Terminal.app logs & exec** — admin-only `/app/pods` (top-nav link) lists every pod across all namespaces with a namespace filter, search, status chips and 10 s refresh. Bottom panel (resizable, maximizable) opens a black macOS Terminal.app-style xterm for **live logs** (colorized levels / klog / JSON / logfmt / HTTP, container select, tail, timestamps, previous, find, pause, download) or an **interactive shell** (`auto`/`bash`/`sh`, resize, exit code, copy-on-select). New `GET /api/v1/pods`, `GET /api/v1/namespaces`, `/ws/pods/{ns}/{pod}/logs`, `/ws/pods/{ns}/{pod}/exec` — all `cluster.admin`, DNS-1123 name validation, fixed shell argv; exec start/end audited at High severity (`exec`, `view_logs` actions). RBAC adds `pods/log` get and `pods/exec` create,get. Docs: [docs/PODS.md](docs/PODS.md).
+- **Disk Images terminal listing** — `/app/disk-images` renders the catalog as a black Terminal.app `ls -l` view: color-coded format / size / registry refs, `grep` filter in the title bar, keyboard-selectable rows.
 - **Social / README share cards** — rebuildable HTML → PNG/JPG under [`docs/social/`](docs/social/README.md) (`zorvia-share-card.png` for README hero + docs Open Graph; `zorvia-social-card.jpg` for LinkedIn/X). Website serves `../docs/social` and sets `themeConfig.image`.
 - **Positioning refresh** — tagline and about copy centered on “the control plane for KubeVirt VMs” (README, docs site hero, social cards).
 - **Security hardening** — pin GitHub Actions and container base images by digest; tighten workflow `permissions`; fix sign-in XSS (`js/xss-through-dom`); bump `jsonwebtoken` 10.x + website overrides for Trivy CVEs; migrate `totp-rs` 6 Builder API.

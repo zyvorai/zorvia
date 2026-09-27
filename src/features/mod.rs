@@ -71,6 +71,12 @@ pub const FEATURES: &[Feature] = &[
         notes: "SQLite persistence; GET /api/audit/export JSONL; optional ZORVIA_AUDIT_JSONL sidecar",
     },
     Feature {
+        id: "pod-ops",
+        name: "Pods: live logs + exec",
+        maturity: Maturity::Beta,
+        notes: "cluster.admin only; needs pods/log + pods/exec RBAC; exec audited; see docs/PODS.md",
+    },
+    Feature {
         id: "schedulers",
         name: "Backup/power/alert/warm-pool schedulers",
         maturity: Maturity::Beta,
