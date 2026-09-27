@@ -9,6 +9,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Atlas object-store buckets + backups/restores** — bucket CRUD, object
+  list/delete/upload-url/download-url/prune (presigned S3 URLs — bytes
+  never transit through Zorvia or Atlas), `POST /api/v1/atlas/backup-jobs`,
+  `POST /api/v1/atlas/restore-jobs`, `GET|DELETE /api/v1/atlas/backups[/:id]`.
+  This completes Phase 2 of the Atlas storage integration (backend
+  lifecycle, RBD images, object-store — everything except frontend UI for
+  the newer pieces). Verified live: create returns Atlas's real job
+  envelope, reads work, and 404s on a nonexistent bucket/volume/backup are
+  real Atlas errors, not client-side guesses. Bucket/backup *creation*
+  itself needs a real Kubernetes cluster attached to Atlas to fully
+  succeed (same constraint already documented for volume creation) — not
+  exercisable end-to-end against the no-kubeconfig local dev instance used
+  for these tests, so the happy path is verified by contract (request/
+  response shapes, job envelope, auth) rather than a completed job.
+
 - **Atlas RBD image ops** — `GET|POST /api/v1/atlas/rbd-images[?pool=]`,
   `DELETE .../{pool}/{image}`, `clone`/`resize`/`migrate`/`flatten`/`qos`,
   snapshot create/list/rollback/delete, and `POST

@@ -948,6 +948,42 @@ pub mod web {
                 delete(atlas_delete_rbd_snapshot),
             )
             .route("/v1/atlas/rbd-usage/refresh", post(atlas_refresh_rbd_usage))
+            .route(
+                "/v1/atlas/buckets",
+                get(atlas_list_buckets).post(atlas_create_bucket),
+            )
+            .route(
+                "/v1/atlas/buckets/{id}",
+                get(atlas_get_bucket).delete(atlas_delete_bucket),
+            )
+            .route("/v1/atlas/buckets/{id}/stats", get(atlas_bucket_stats))
+            .route(
+                "/v1/atlas/buckets/{id}/objects",
+                get(atlas_list_bucket_objects).delete(atlas_delete_bucket_object),
+            )
+            .route(
+                "/v1/atlas/buckets/{id}/objects/upload-url",
+                post(atlas_bucket_object_upload_url),
+            )
+            .route(
+                "/v1/atlas/buckets/{id}/objects/download-url",
+                get(atlas_bucket_object_download_url),
+            )
+            .route(
+                "/v1/atlas/buckets/{id}/objects/prune",
+                post(atlas_prune_bucket_objects),
+            )
+            .route("/v1/atlas/backup-jobs", post(atlas_create_backup))
+            .route("/v1/atlas/restore-jobs", post(atlas_create_restore))
+            .route("/v1/atlas/backups", get(atlas_list_backups))
+            .route(
+                "/v1/atlas/backups/{id}",
+                get(atlas_get_backup).delete(atlas_delete_backup),
+            )
+            .route(
+                "/v1/atlas/backups/{id}/download",
+                get(atlas_download_backup),
+            )
             .route("/v1/health", get(health_handler))
             .route("/v1/features", get(features_registry_handler))
             .route(

@@ -2,7 +2,10 @@
 // SPDX-License-Identifier: Apache-2.0
 
 use super::{SharedAuditTrail, SharedState};
-use crate::atlas::models::{CloneRbdImageRequest, CreateRbdImageRequest, CreateVolumeRequest};
+use crate::atlas::models::{
+    CloneRbdImageRequest, CreateBackupRequest, CreateBucketRequest, CreateRbdImageRequest,
+    CreateRestoreRequest, CreateVolumeRequest,
+};
 use crate::atlas::{Client, Error as AtlasError};
 use axum::{
     extract::{Path, Query, State},
@@ -1009,6 +1012,346 @@ pub(super) async fn atlas_refresh_rbd_usage(
         crate::audit_trail::AuditAction::Update,
         "atlas_rbd_usage",
         "refresh",
+        result,
+    )
+    .await
+}
+
+// ── Object-store buckets + backups/restores ──────────────────────────────
+
+pub(super) async fn atlas_list_buckets(State(state): State<SharedState>) -> Response {
+    let c = match client(&state).await {
+        Ok(v) => v,
+        Err(r) => return *r,
+    };
+    match c.list_buckets().await {
+        Ok(v) => Json(v).into_response(),
+        Err(e) => error_response(e),
+    }
+}
+
+pub(super) async fn atlas_get_bucket(
+    State(state): State<SharedState>,
+    Path(id): Path<String>,
+) -> Response {
+    let c = match client(&state).await {
+        Ok(v) => v,
+        Err(r) => return *r,
+    };
+    match c.get_bucket(&id).await {
+        Ok(v) => Json(v).into_response(),
+        Err(e) => error_response(e),
+    }
+}
+
+pub(super) async fn atlas_bucket_stats(
+    State(state): State<SharedState>,
+    Path(id): Path<String>,
+) -> Response {
+    let c = match client(&state).await {
+        Ok(v) => v,
+        Err(r) => return *r,
+    };
+    match c.bucket_stats(&id).await {
+        Ok(v) => Json(v).into_response(),
+        Err(e) => error_response(e),
+    }
+}
+
+#[derive(Debug, Deserialize)]
+pub(super) struct BucketObjectsQuery {
+    prefix: Option<String>,
+}
+
+pub(super) async fn atlas_list_bucket_objects(
+    State(state): State<SharedState>,
+    Path(id): Path<String>,
+    Query(query): Query<BucketObjectsQuery>,
+) -> Response {
+    let c = match client(&state).await {
+        Ok(v) => v,
+        Err(r) => return *r,
+    };
+    match c.list_bucket_objects(&id, query.prefix.as_deref()).await {
+        Ok(v) => Json(v).into_response(),
+        Err(e) => error_response(e),
+    }
+}
+
+#[derive(Debug, Deserialize)]
+pub(super) struct BucketObjectKeyQuery {
+    key: String,
+}
+
+pub(super) async fn atlas_delete_bucket_object(
+    State(state): State<SharedState>,
+    Path(id): Path<String>,
+    Query(query): Query<BucketObjectKeyQuery>,
+    auth: Option<axum::Extension<crate::api::auth::AuthIdentity>>,
+) -> Response {
+    let (c, audit) = match write_client(&state).await {
+        Ok(v) => v,
+        Err(r) => return *r,
+    };
+    let result = c.delete_bucket_object(&id, &query.key).await;
+    finish_write(
+        &audit,
+        &caller(&auth),
+        crate::audit_trail::AuditAction::Delete,
+        "atlas_bucket_object",
+        &format!("{id}/{}", query.key),
+        result,
+    )
+    .await
+}
+
+#[derive(Debug, Deserialize)]
+pub(super) struct BucketUploadUrlBody {
+    key: String,
+    ttl_secs: Option<u64>,
+    #[serde(default)]
+    versioned: bool,
+}
+
+pub(super) async fn atlas_bucket_object_upload_url(
+    State(state): State<SharedState>,
+    Path(id): Path<String>,
+    auth: Option<axum::Extension<crate::api::auth::AuthIdentity>>,
+    Json(body): Json<BucketUploadUrlBody>,
+) -> Response {
+    let (c, audit) = match write_client(&state).await {
+        Ok(v) => v,
+        Err(r) => return *r,
+    };
+    let result = c
+        .bucket_object_upload_url(&id, &body.key, body.ttl_secs, body.versioned)
+        .await;
+    finish_write(
+        &audit,
+        &caller(&auth),
+        crate::audit_trail::AuditAction::Export,
+        "atlas_bucket_object",
+        &format!("{id}/{}", body.key),
+        result,
+    )
+    .await
+}
+
+#[derive(Debug, Deserialize)]
+pub(super) struct BucketDownloadUrlQuery {
+    key: String,
+    ttl_secs: Option<u64>,
+}
+
+pub(super) async fn atlas_bucket_object_download_url(
+    State(state): State<SharedState>,
+    Path(id): Path<String>,
+    Query(query): Query<BucketDownloadUrlQuery>,
+) -> Response {
+    let c = match client(&state).await {
+        Ok(v) => v,
+        Err(r) => return *r,
+    };
+    match c
+        .bucket_object_download_url(&id, &query.key, query.ttl_secs)
+        .await
+    {
+        Ok(v) => Json(v).into_response(),
+        Err(e) => error_response(e),
+    }
+}
+
+#[derive(Debug, Deserialize)]
+pub(super) struct BucketPruneBody {
+    prefix: String,
+    keep: i64,
+}
+
+pub(super) async fn atlas_prune_bucket_objects(
+    State(state): State<SharedState>,
+    Path(id): Path<String>,
+    auth: Option<axum::Extension<crate::api::auth::AuthIdentity>>,
+    Json(body): Json<BucketPruneBody>,
+) -> Response {
+    let (c, audit) = match write_client(&state).await {
+        Ok(v) => v,
+        Err(r) => return *r,
+    };
+    let result = c.prune_bucket_objects(&id, &body.prefix, body.keep).await;
+    finish_write(
+        &audit,
+        &caller(&auth),
+        crate::audit_trail::AuditAction::Delete,
+        "atlas_bucket_object",
+        &format!("{id}/{}", body.prefix),
+        result,
+    )
+    .await
+}
+
+pub(super) async fn atlas_create_bucket(
+    State(state): State<SharedState>,
+    auth: Option<axum::Extension<crate::api::auth::AuthIdentity>>,
+    Json(body): Json<CreateBucketRequest>,
+) -> Response {
+    let (c, audit) = match write_client(&state).await {
+        Ok(v) => v,
+        Err(r) => return *r,
+    };
+    let name = body.name.clone();
+    let result = c.create_bucket(body).await;
+    finish_write(
+        &audit,
+        &caller(&auth),
+        crate::audit_trail::AuditAction::Create,
+        "atlas_bucket",
+        &name,
+        result,
+    )
+    .await
+}
+
+#[derive(Debug, Deserialize)]
+pub(super) struct DeleteBucketQueryParam {
+    #[serde(default)]
+    force: bool,
+}
+
+pub(super) async fn atlas_delete_bucket(
+    State(state): State<SharedState>,
+    Path(id): Path<String>,
+    Query(query): Query<DeleteBucketQueryParam>,
+    auth: Option<axum::Extension<crate::api::auth::AuthIdentity>>,
+) -> Response {
+    let (c, audit) = match write_client(&state).await {
+        Ok(v) => v,
+        Err(r) => return *r,
+    };
+    let result = c.delete_bucket(&id, query.force).await;
+    finish_write(
+        &audit,
+        &caller(&auth),
+        crate::audit_trail::AuditAction::Delete,
+        "atlas_bucket",
+        &id,
+        result,
+    )
+    .await
+}
+
+#[derive(Debug, Deserialize)]
+pub(super) struct ListBackupsQuery {
+    volume_id: Option<String>,
+}
+
+pub(super) async fn atlas_list_backups(
+    State(state): State<SharedState>,
+    Query(query): Query<ListBackupsQuery>,
+) -> Response {
+    let c = match client(&state).await {
+        Ok(v) => v,
+        Err(r) => return *r,
+    };
+    match c.list_backups(query.volume_id.as_deref()).await {
+        Ok(v) => Json(v).into_response(),
+        Err(e) => error_response(e),
+    }
+}
+
+pub(super) async fn atlas_get_backup(
+    State(state): State<SharedState>,
+    Path(id): Path<String>,
+) -> Response {
+    let c = match client(&state).await {
+        Ok(v) => v,
+        Err(r) => return *r,
+    };
+    match c.get_backup(&id).await {
+        Ok(v) => Json(v).into_response(),
+        Err(e) => error_response(e),
+    }
+}
+
+pub(super) async fn atlas_delete_backup(
+    State(state): State<SharedState>,
+    Path(id): Path<String>,
+    auth: Option<axum::Extension<crate::api::auth::AuthIdentity>>,
+) -> Response {
+    let (c, audit) = match write_client(&state).await {
+        Ok(v) => v,
+        Err(r) => return *r,
+    };
+    let result = c.delete_backup(&id).await;
+    finish_write(
+        &audit,
+        &caller(&auth),
+        crate::audit_trail::AuditAction::Delete,
+        "atlas_backup",
+        &id,
+        result,
+    )
+    .await
+}
+
+#[derive(Debug, Deserialize)]
+pub(super) struct DownloadBackupQuery {
+    what: Option<String>,
+}
+
+pub(super) async fn atlas_download_backup(
+    State(state): State<SharedState>,
+    Path(id): Path<String>,
+    Query(query): Query<DownloadBackupQuery>,
+) -> Response {
+    let c = match client(&state).await {
+        Ok(v) => v,
+        Err(r) => return *r,
+    };
+    match c.download_backup(&id, query.what.as_deref()).await {
+        Ok(v) => Json(v).into_response(),
+        Err(e) => error_response(e),
+    }
+}
+
+pub(super) async fn atlas_create_backup(
+    State(state): State<SharedState>,
+    auth: Option<axum::Extension<crate::api::auth::AuthIdentity>>,
+    Json(body): Json<CreateBackupRequest>,
+) -> Response {
+    let (c, audit) = match write_client(&state).await {
+        Ok(v) => v,
+        Err(r) => return *r,
+    };
+    let volume_id = body.volume_id.clone();
+    let result = c.create_backup(body).await;
+    finish_write(
+        &audit,
+        &caller(&auth),
+        crate::audit_trail::AuditAction::Snapshot,
+        "atlas_backup",
+        &volume_id,
+        result,
+    )
+    .await
+}
+
+pub(super) async fn atlas_create_restore(
+    State(state): State<SharedState>,
+    auth: Option<axum::Extension<crate::api::auth::AuthIdentity>>,
+    Json(body): Json<CreateRestoreRequest>,
+) -> Response {
+    let (c, audit) = match write_client(&state).await {
+        Ok(v) => v,
+        Err(r) => return *r,
+    };
+    let backup_id = body.backup_id.clone();
+    let result = c.create_restore(body).await;
+    finish_write(
+        &audit,
+        &caller(&auth),
+        crate::audit_trail::AuditAction::Restore,
+        "atlas_backup",
+        &backup_id,
         result,
     )
     .await

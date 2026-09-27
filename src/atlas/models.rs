@@ -115,6 +115,49 @@ pub struct CloneRbdImageRequest {
     pub tenant_id: Option<String>,
 }
 
+/// `POST /buckets` request -- provisions an RGW bucket via an ObjectBucketClaim.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CreateBucketRequest {
+    pub name: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub namespace: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub storage_class: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub max_objects: Option<i64>,
+    /// e.g. `"2G"`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub max_size: Option<String>,
+}
+
+/// `POST /backup-jobs` request.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CreateBackupRequest {
+    pub volume_id: String,
+    pub bucket_id: String,
+    /// `"manifest"` (default) or `"data"` (also exports the RBD image data
+    /// to S3).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub mode: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub keep: Option<i64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub max_age_secs: Option<i64>,
+}
+
+/// `POST /restore-jobs` request.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CreateRestoreRequest {
+    pub backup_id: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub name: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub storage_class: Option<String>,
+    /// `"snapshot"` (default) or `"data"` (reconstruct from the RBD diff in S3).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub mode: Option<String>,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct StorageClassInfo {
     pub name: String,
