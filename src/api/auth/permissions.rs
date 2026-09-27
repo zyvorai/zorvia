@@ -284,6 +284,7 @@ mod tests {
             ("POST", "/v1/pods/default/web/restart"),
             ("GET", "/v1/pods/default/web/events"),
             ("GET", "/v1/pods/default/web/yaml"),
+            ("GET", "/v1/pods/capabilities"),
             ("GET", "/v1/namespaces"),
         ] {
             assert_eq!(

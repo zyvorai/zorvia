@@ -55,6 +55,10 @@ with `forbidden`.
 can see). Zorvia gates them behind `cluster.admin` and audits every session and deletion;
 omit either rule to switch that capability off — the rest of the page keeps working.
 
+You don't have to guess whether a cluster is patched: the Pods page checks the
+ServiceAccount's rights (`GET /api/v1/pods/capabilities`) and, when a rule is missing,
+greys out the affected buttons and shows a yellow notice naming the exact rule.
+
 ### Matrix
 
 | Component | From | To |

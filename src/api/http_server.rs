@@ -44,8 +44,8 @@ pub mod web {
     #[path = "pod_handlers.rs"]
     mod pod_handlers;
     use pod_handlers::{
-        delete_pod_handler, list_namespaces_handler, list_pods_handler, pod_events_handler,
-        pod_yaml_handler, restart_pod_handler, ws_pod_exec, ws_pod_logs,
+        delete_pod_handler, list_namespaces_handler, list_pods_handler, pod_capabilities_handler,
+        pod_events_handler, pod_yaml_handler, restart_pod_handler, ws_pod_exec, ws_pod_logs,
     };
 
     #[path = "hotplug_handlers.rs"]
@@ -808,6 +808,7 @@ pub mod web {
             )
             .route("/v1/quotas/{ns}/{name}", delete(delete_quota_handler))
             .route("/v1/pods", get(list_pods_handler))
+            .route("/v1/pods/capabilities", get(pod_capabilities_handler))
             .route("/v1/pods/{ns}/{name}", delete(delete_pod_handler))
             .route("/v1/pods/{ns}/{name}/restart", post(restart_pod_handler))
             .route("/v1/pods/{ns}/{name}/events", get(pod_events_handler))

@@ -252,6 +252,20 @@ Sorted oldest → newest by `last_seen` (falls back to `eventTime` for new-style
 { "yaml": "apiVersion: v1\nkind: Pod\nmetadata:\n  name: …" }
 ```
 
+### `GET /api/v1/pods/capabilities`
+
+What the Zorvia ServiceAccount may do to pods cluster-wide, from three
+`SelfSubjectAccessReview`s (`pods/log` get, `pods/exec` create, `pods` delete):
+
+```json
+{ "logs": true, "exec": true, "delete": false }
+```
+
+The page uses this to disable actions whose RBAC rule is missing — typically after
+upgrading Zorvia without re-applying the ClusterRole — and shows a yellow notice naming
+the missing rules. If the review itself fails, the capability reports `true`; the
+Kubernetes call still enforces RBAC.
+
 ### Errors
 
 | Status | Code | When |
@@ -427,6 +441,7 @@ curl -sk -H "Authorization: Bearer $TOKEN" \
 | Terminal: `executable file not found` | Image has no `/bin/sh` (distroless) |
 | Terminal button disabled | Pod is not `Running` |
 | Restart button disabled | No recreating controller (bare pod, Job, or KubeVirt `virt-launcher`) — use Delete, or the VM's Restart |
+| Yellow "… unavailable" notice; Logs / Terminal / Restart / Delete greyed out | ServiceAccount missing the named rule (`pods/log`, `pods/exec`, `pods` delete) — re-apply the ClusterRole ([UPGRADE.md](UPGRADE.md)); hover a button for the exact rule |
 | Restart / Delete: `403 FORBIDDEN` | ServiceAccount missing `pods` delete |
 | Events panel empty | Events expired (≈1 h retention) — normal for long-running healthy pods |
 | New-tab logs: "Pod … was not found" | The pod was replaced (e.g. after Restart) — open the new pod from the list |

@@ -199,6 +199,53 @@ pub async fn list_namespaces_handler(State(state): State<SharedState>) -> impl I
     }
 }
 
+/// What the Zorvia service account may do to pods cluster-wide. Lets the UI
+/// disable actions whose RBAC rule is missing (e.g. after an upgrade that
+/// didn't re-apply the ClusterRole) instead of failing on click.
+#[derive(Debug, Serialize)]
+pub struct PodCapabilities {
+    pub logs: bool,
+    pub exec: bool,
+    pub delete: bool,
+}
+
+async fn can_i(client: &kube::Client, verb: &str, subresource: Option<&str>) -> bool {
+    use k8s_openapi::api::authorization::v1::{
+        ResourceAttributes, SelfSubjectAccessReview, SelfSubjectAccessReviewSpec,
+    };
+    let review = SelfSubjectAccessReview {
+        spec: SelfSubjectAccessReviewSpec {
+            resource_attributes: Some(ResourceAttributes {
+                verb: Some(verb.into()),
+                resource: Some("pods".into()),
+                subresource: subresource.map(Into::into),
+                ..Default::default()
+            }),
+            ..Default::default()
+        },
+        ..Default::default()
+    };
+    let api: Api<SelfSubjectAccessReview> = Api::all(client.clone());
+    match api.create(&Default::default(), &review).await {
+        Ok(r) => r.status.is_some_and(|s| s.allowed),
+        // Unknown ≠ denied: keep the action enabled; the kube call itself still enforces RBAC.
+        Err(e) => {
+            log::warn!("pods capability check ({verb} {subresource:?}) failed: {e}");
+            true
+        }
+    }
+}
+
+pub async fn pod_capabilities_handler(State(state): State<SharedState>) -> impl IntoResponse {
+    let client = state.read().await.kube_client.client();
+    let (logs, exec, delete) = tokio::join!(
+        can_i(&client, "get", Some("log")),
+        can_i(&client, "create", Some("exec")),
+        can_i(&client, "delete", None),
+    );
+    Json(PodCapabilities { logs, exec, delete })
+}
+
 #[allow(clippy::too_many_arguments)]
 async fn audit_pod(
     audit: &SharedAuditTrail,

@@ -226,6 +226,21 @@ test.describe('lab console crawl', () => {
     await expect(apiRow).toBeVisible()
   })
 
+  test('pods: missing RBAC disables actions with a notice', async ({ page }) => {
+    await page.route('**/api/v1/pods/capabilities', (r) =>
+      r.fulfill({ json: { logs: true, exec: true, delete: false } }),
+    )
+    await page.goto('/app/pods')
+    await page.getByLabel('Namespace').selectOption('zorvia-system')
+    const notice = page.getByTestId('pods-rbac-notice')
+    await expect(notice).toContainText('Restart and Delete unavailable')
+    await expect(notice).toContainText('pods: delete')
+    const row = page.locator('tr', { hasText: 'zorvia-api' }).first()
+    await expect(row.getByRole('button', { name: /^Delete zorvia-api/ })).toBeDisabled()
+    await expect(row.getByRole('button', { name: /^Restart zorvia-api/ })).toBeDisabled()
+    await expect(row.getByRole('button', { name: 'Logs' })).toBeEnabled()
+  })
+
   test('event stream and serial console use Terminal.app black', async ({ page }) => {
     await page.setViewportSize({ width: 1440, height: 1000 })
     await page.goto('/app/events')
@@ -242,8 +257,9 @@ test.describe('lab console crawl', () => {
     await expect(serial.locator('.xterm')).toBeVisible({ timeout: 20_000 })
     await expect(page.locator('.zf-terminal-pro .zf-terminal-title').first()).toContainText('zorvia console ubuntu-demo')
     await expect(serial.locator('.xterm-rows')).toContainText('Connected to ubuntu-demo', { timeout: 20_000 })
+    await serial.locator('.xterm').click()
     await page.keyboard.press('Enter')
-    await page.waitForTimeout(1500)
+    await expect(serial.locator('.xterm-rows')).toContainText('login:', { timeout: 15_000 })
     await page.screenshot({ path: 'test-results/vm-console.png' })
   })
 
