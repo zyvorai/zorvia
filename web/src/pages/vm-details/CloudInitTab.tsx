@@ -96,7 +96,7 @@ export default function CloudInitTab({ vm }: { vm: VM }) {
   }
 
   return (
-    <div className="max-w-3xl space-y-4">
+    <div className="w-full space-y-4">
       {!canWrite && (
         <p className="text-sm text-[var(--zf-warning)] bg-[var(--zf-warning)]/10 border border-[var(--zf-warning)]/20 rounded-lg px-3 py-2">
           Viewer accounts cannot configure cloud-init.
@@ -169,7 +169,7 @@ export default function CloudInitTab({ vm }: { vm: VM }) {
         <button
           type="submit"
           disabled={!canWrite || saving}
-          className="flex items-center gap-2 px-4 py-2 bg-[var(--zf-link)] hover:bg-[var(--zf-link-hover)] rounded-lg text-sm font-medium text-white disabled:opacity-50"
+          className="zf-btn zf-btn-primary zf-btn-sm"
         >
           {saving && <Loader2 className="w-4 h-4 animate-spin" />}
           Generate and attach ISO

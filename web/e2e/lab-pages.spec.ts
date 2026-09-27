@@ -1,0 +1,159 @@
+// Copyright 2026 Zyvor AI Labs · Apache-2.0
+import { test, expect, type Page } from '@playwright/test'
+
+const liveBase = process.env.ZORVIA_E2E_BASE_URL || process.env.PLAYWRIGHT_BASE_URL
+const liveUser = process.env.ZORVIA_E2E_USER || 'admin'
+const livePass = process.env.ZORVIA_E2E_PASSWORD
+
+const CONSOLE_PATHS = [
+  '/app',
+  '/app/vms',
+  '/app/create',
+  '/app/favorites',
+  '/app/templates',
+  '/app/compare',
+  '/app/batch-import',
+  '/app/windows',
+  '/app/volumes',
+  '/app/storage',
+  '/app/disk-images',
+  '/app/snapshots',
+  '/app/backups',
+  '/app/backup-scheduler',
+  '/app/network-policies',
+  '/app/service-map',
+  '/app/zones',
+  '/app/migrations',
+  '/app/migrations/readiness',
+  '/app/health-check',
+  '/app/ha-policy',
+  '/app/placement',
+  '/app/warm-pools',
+  '/app/events',
+  '/app/schedules',
+  '/app/alerts',
+  '/app/webhooks',
+  '/app/access-control',
+  '/app/compliance',
+  '/app/security',
+  '/app/capacity',
+  '/app/analytics',
+  '/app/optimizer',
+  '/app/cost-estimator',
+  '/app/quotas',
+]
+
+const MARKETING_PATHS = ['/', '/product', '/platform', '/security', '/sign-in']
+
+async function login(page: Page) {
+  await page.goto('/sign-in')
+  // Two-step Apple-style identify → password
+  const userField = page.locator('#username, input[name="username"], input[placeholder="admin"]').first()
+  if (await userField.isVisible().catch(() => false)) {
+    await userField.fill(liveUser)
+    const cont = page.getByRole('button', { name: /continue/i })
+    if (await cont.isVisible().catch(() => false)) await cont.click()
+  }
+  await page.locator('#password, input[name="password"], input[type="password"]').first().fill(livePass!)
+  await page.getByRole('button', { name: /sign in|log in|continue/i }).last().click()
+  await expect(page).toHaveURL(/\/app/, { timeout: 30_000 })
+}
+
+async function assertPageOk(page: Page, path: string) {
+  await page.goto(path, { waitUntil: 'domcontentloaded' })
+  await expect(page.locator('body')).toBeVisible()
+  // Sticky load failures surface as ErrorBanner copy
+  const errorBanner = page.getByText(/could not load|failed to load/i).first()
+  if (await errorBanner.isVisible().catch(() => false)) {
+    throw new Error(`Error banner on ${path}: ${await errorBanner.textContent()}`)
+  }
+  // Prefer a heading; fall back to main content
+  const heading = page.locator('h1, [class*="PageHeader"], main').first()
+  await expect(heading).toBeVisible({ timeout: 20_000 })
+}
+
+test.describe('lab console crawl', () => {
+  test.skip(!livePass, 'Set ZORVIA_E2E_PASSWORD for live lab crawl')
+
+  test.beforeEach(async ({ page }) => {
+    await login(page)
+  })
+
+  test('top mega-nav present, no sidebar', async ({ page }) => {
+    await page.goto('/app')
+    await expect(page.getByRole('navigation', { name: /console/i })).toBeVisible()
+    await expect(page.getByRole('link', { name: 'Dashboard' }).first()).toBeVisible()
+    await expect(page.getByRole('link', { name: 'Virtual Machines' }).first()).toBeVisible()
+    for (const label of ['Compute', 'Storage', 'Ops', 'Automation']) {
+      await expect(page.getByRole('button', { name: label }).first()).toBeVisible()
+    }
+    await expect(page.locator('.console-sidebar')).toHaveCount(0)
+  })
+
+  test('all console pages load without sticky errors', async ({ page }) => {
+    test.setTimeout(180_000)
+    const failures: string[] = []
+    for (const path of CONSOLE_PATHS) {
+      try {
+        await assertPageOk(page, path)
+      } catch (e) {
+        failures.push(`${path}: ${e instanceof Error ? e.message : String(e)}`)
+      }
+    }
+    expect(failures, failures.join('\n')).toEqual([])
+  })
+
+  test('core functionality spot-checks', async ({ page, request }) => {
+    // Dashboard
+    await page.goto('/app')
+    await expect(page.locator('main')).toBeVisible()
+
+    // VM list
+    await page.goto('/app/vms')
+    await expect(page.locator('main')).toBeVisible()
+
+    // Open first VM if present
+    const vmLink = page.locator('a[href^="/app/vms/"]').first()
+    if (await vmLink.count()) {
+      await vmLink.click()
+      await expect(page).toHaveURL(/\/app\/vms\//)
+      await expect(page.locator('main')).toBeVisible()
+    }
+
+    // Create wizard (no submit)
+    await page.goto('/app/create')
+    await expect(page.locator('main')).toBeVisible()
+
+    // Event stream
+    await page.goto('/app/events')
+    await expect(page.locator('main')).toBeVisible()
+
+    // Access control (admin)
+    await page.goto('/app/access-control')
+    await expect(page.locator('main')).toBeVisible()
+
+    // API health + login already proven; list VMs with cookie/token via UI session
+    const health = await request.get(`${liveBase}/api/v1/health`)
+    expect(health.status()).toBe(200)
+  })
+})
+
+test.describe('marketing pages', () => {
+  test.skip(!livePass, 'Set ZORVIA_E2E_PASSWORD for live lab crawl')
+
+  test('public pages load', async ({ page }) => {
+    for (const path of MARKETING_PATHS) {
+      // SPA navigations can abort prior loads; retry once on ERR_ABORTED.
+      for (let attempt = 0; attempt < 2; attempt++) {
+        try {
+          await page.goto(path, { waitUntil: 'commit' })
+          break
+        } catch (e) {
+          const msg = e instanceof Error ? e.message : String(e)
+          if (!msg.includes('ERR_ABORTED') || attempt === 1) throw e
+        }
+      }
+      await expect(page.locator('body')).toBeVisible()
+    }
+  })
+})

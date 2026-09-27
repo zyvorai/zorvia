@@ -721,7 +721,7 @@ export default function DataplanePanel({ vmName }: { vmName: string }) {
                 type="button"
                 disabled={saving || (!dirty && !showJson)}
                 onClick={() => void savePolicy()}
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm rounded-lg bg-[var(--zf-link)] text-white disabled:opacity-40"
+                className="zf-btn zf-btn-primary zf-btn-sm"
               >
                 {saving ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : null}
                 Save policy

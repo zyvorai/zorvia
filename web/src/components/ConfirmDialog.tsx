@@ -34,22 +34,22 @@ export default function ConfirmDialog({
     return () => window.removeEventListener('keydown', handleKeyDown)
   }, [onCancel])
 
-  const confirmColors = {
-    danger: 'bg-[var(--zf-danger)] hover:opacity-90 text-white',
-    warning: 'bg-[var(--zf-warning)] hover:opacity-90 text-black',
-    info: 'bg-[var(--zf-link)] hover:bg-[var(--zf-link-hover)] text-white',
+  const confirmClass = {
+    danger: 'zf-btn zf-btn-danger zf-btn-sm',
+    warning: 'zf-btn zf-btn-primary zf-btn-sm',
+    info: 'zf-btn zf-btn-primary zf-btn-sm',
   }[variant]
 
   const iconBg = {
     danger: 'bg-[var(--zf-danger)]/10',
     warning: 'bg-[var(--zf-warning)]/10',
-    info: 'bg-[var(--zf-link)]/10',
+    info: 'bg-[var(--zf-cta)]/10',
   }[variant]
 
   const iconColor = {
     danger: 'text-[var(--zf-danger)]',
     warning: 'text-[var(--zf-warning)]',
-    info: 'text-[var(--zf-link)]',
+    info: 'text-[var(--zf-cta)]',
   }[variant]
 
   return (
@@ -79,17 +79,10 @@ export default function ConfirmDialog({
           </div>
         </div>
         <div className="flex justify-end gap-2">
-          <button
-            ref={cancelRef}
-            onClick={onCancel}
-            className="px-4 py-2 bg-[var(--zf-surface)] hover:bg-[var(--zf-hover-tint)] border border-[var(--zf-hairline)] rounded-lg transition-colors text-sm text-[var(--zf-ink)]"
-          >
+          <button ref={cancelRef} onClick={onCancel} className="zf-btn zf-btn-ghost zf-btn-sm">
             {cancelLabel}
           </button>
-          <button
-            onClick={onConfirm}
-            className={`px-4 py-2 rounded-lg transition-colors text-sm font-medium ${confirmColors}`}
-          >
+          <button onClick={onConfirm} className={confirmClass}>
             {confirmLabel}
           </button>
         </div>

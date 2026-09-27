@@ -231,7 +231,7 @@ a.login-cta-secondary {
   align-items: center;
   justify-content: center;
   gap: 0.35rem;
-  min-height: 2.75rem;
+  min-height: var(--zf-hit-min, 44px);
   padding: 0.7rem 1.35rem;
   border-radius: 980px;
   font-family: inherit;
@@ -247,28 +247,28 @@ a.login-cta-secondary {
 .login-cta-primary,
 a.login-cta-primary {
   border: none;
-  background: hsl(211 100% 45%); /* #0071e3 */
+  background: var(--zf-cta, #0071e3);
   color: hsl(0 0% 100%);
   box-shadow: 0 1px 0 hsl(0 0% 100% / 0.18) inset;
 }
 
 .login-cta-primary:hover,
 a.login-cta-primary:hover {
-  background: hsl(211 100% 40%);
+  background: var(--zf-cta-hover, #0077ed);
   color: hsl(0 0% 100%);
 }
 
 .login-cta-secondary,
 a.login-cta-secondary {
-  border: 1px solid hsl(211 100% 45%);
+  border: 1px solid var(--zf-cta, #0071e3);
   background: hsl(0 0% 100%);
-  color: hsl(211 100% 45%);
+  color: var(--zf-cta, #0071e3);
 }
 
 .login-cta-secondary:hover,
 a.login-cta-secondary:hover {
-  background: hsl(211 100% 45% / 0.06);
-  color: hsl(211 100% 40%);
+  background: color-mix(in srgb, var(--zf-cta, #0071e3) 6%, transparent);
+  color: var(--zf-cta-hover, #0077ed);
 }
 
 .login-cta-primary:active,
@@ -367,12 +367,12 @@ a.login-cta-secondary:active {
 
 .login-input:focus {
   outline: none;
-  border-color: hsl(211 100% 45%);
-  box-shadow: 0 0 0 3px hsl(211 100% 45% / 0.18);
+  border-color: var(--zf-cta, #0071e3);
+  box-shadow: var(--zf-focus-ring, 0 0 0 4px rgba(0, 113, 227, 0.3));
 }
 
 .login-input:focus-visible {
-  outline: 2px solid hsl(211 100% 45%);
+  outline: 2px solid var(--zf-cta, #0071e3);
   outline-offset: 2px;
 }
 
@@ -400,14 +400,15 @@ a.login-cta-secondary:active {
   gap: 0.375rem;
   width: 100%;
   margin-top: 1.25rem;
-  padding: 0.8125rem 1rem;
-  font-size: 0.9375rem;
-  font-weight: 600;
-  letter-spacing: -0.01em;
+  min-height: var(--zf-hit-min, 44px);
+  padding: 12px 22px;
+  font-size: 17px;
+  font-weight: 400;
+  letter-spacing: -0.022em;
   color: hsl(0 0% 100%);
   border-radius: 980px;
   border: none;
-  background: hsl(211 100% 45%);
+  background: var(--zf-cta, #0071e3);
   box-shadow: 0 1px 0 hsl(0 0% 100% / 0.18) inset;
   font-family: inherit;
   cursor: pointer;
@@ -415,7 +416,7 @@ a.login-cta-secondary:active {
 }
 
 .login-btn-primary:hover:not(:disabled) {
-  background: hsl(211 100% 40%);
+  background: var(--zf-cta-hover, #0077ed);
 }
 
 .login-btn-primary:active:not(:disabled) {
@@ -436,9 +437,9 @@ a.login-cta-secondary:active {
   font-size: 0.9375rem;
   font-weight: 600;
   letter-spacing: -0.01em;
-  color: hsl(211 100% 45%);
+  color: var(--zf-cta, #0071e3);
   border-radius: 980px;
-  border: 1px solid hsl(211 100% 45%);
+  border: 1px solid var(--zf-cta, #0071e3);
   background: hsl(0 0% 100%);
   text-decoration: none;
   font-family: inherit;
@@ -446,7 +447,7 @@ a.login-cta-secondary:active {
 }
 
 .login-btn-secondary:hover {
-  background: hsl(211 100% 45% / 0.06);
+  background: color-mix(in srgb, var(--zf-cta, #0071e3) 6%, transparent);
 }
 
 .login-method-toggle {
@@ -475,7 +476,7 @@ a.login-cta-secondary:active {
 }
 
 .login-method-toggle [role="tab"][aria-selected="true"] {
-  background: hsl(211 100% 45%);
+  background: var(--zf-cta, #0071e3);
   color: hsl(0 0% 100%);
 }
 
@@ -510,62 +511,14 @@ a.login-cta-secondary:active {
 .login-accent-cyan .login-btn-primary,
 .login-accent-copper .login-btn-primary,
 .login-accent-steel .login-btn-primary {
-  background: hsl(211 100% 45%);
+  background: var(--zf-cta, #0071e3);
   color: hsl(0 0% 100%);
   box-shadow: 0 1px 0 hsl(0 0% 100% / 0.18) inset;
 }
 
 .login-page .login-btn-primary:hover:not(:disabled) {
-  background: hsl(211 100% 40%);
+  background: var(--zf-cta-hover, #0077ed);
   filter: none;
-}
-
-/* Minimal zyvor.dev orange — logo already orange; CTAs + focus only */
-.login-accent-orange .login-cta-primary,
-.login-accent-orange a.login-cta-primary {
-  background: var(--tone-orange, #ff5a15);
-  color: hsl(0 0% 100%);
-}
-
-.login-accent-orange .login-cta-primary:hover,
-.login-accent-orange a.login-cta-primary:hover {
-  background: #e64f12;
-  color: hsl(0 0% 100%);
-}
-
-.login-accent-orange .login-cta-secondary,
-.login-accent-orange a.login-cta-secondary {
-  border-color: var(--tone-orange, #ff5a15);
-  color: var(--tone-orange, #ff5a15);
-}
-
-.login-accent-orange .login-cta-secondary:hover,
-.login-accent-orange a.login-cta-secondary:hover {
-  background: var(--tone-orange-tint, rgba(255, 90, 21, 0.08));
-  color: #e64f12;
-  border-color: #e64f12;
-}
-
-.login-accent-orange .login-btn-primary,
-.login-page.login-accent-orange .login-btn-primary {
-  background: var(--tone-orange, #ff5a15);
-  color: hsl(0 0% 100%);
-  box-shadow: 0 1px 0 hsl(0 0% 100% / 0.16) inset;
-}
-
-.login-accent-orange .login-btn-primary:hover:not(:disabled),
-.login-page.login-accent-orange .login-btn-primary:hover:not(:disabled) {
-  background: #e64f12;
-  filter: none;
-}
-
-.login-accent-orange .login-input:focus {
-  border-color: var(--tone-orange, #ff5a15);
-  box-shadow: 0 0 0 3px rgba(255, 90, 21, 0.16);
-}
-
-.login-accent-orange .login-input:focus-visible {
-  outline-color: var(--tone-orange, #ff5a15);
 }
 
 .login-accent-orange .login-chapter-hero::before {

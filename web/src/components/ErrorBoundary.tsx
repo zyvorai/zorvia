@@ -50,7 +50,7 @@ export class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoun
           </p>
           <button
             onClick={() => window.location.reload()}
-            className="px-4 py-2 bg-[var(--zf-link)] hover:bg-[var(--zf-link-hover)] rounded-lg transition-colors text-sm font-medium text-white"
+            className="zf-btn zf-btn-primary zf-btn-sm"
           >
             Reload Page
           </button>
@@ -78,7 +78,7 @@ export function PageErrorBoundary({ children }: { children: React.ReactNode }) {
           <div className="flex gap-2">
             <button
               onClick={() => setKey((k) => k + 1)}
-              className="px-4 py-2 bg-[var(--zf-link)] hover:bg-[var(--zf-link-hover)] rounded-lg transition-colors text-sm font-medium text-white"
+              className="zf-btn zf-btn-primary zf-btn-sm"
             >
               Try Again
             </button>

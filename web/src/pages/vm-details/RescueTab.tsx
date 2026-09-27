@@ -39,7 +39,7 @@ export default function RescueTab({ vm }: { vm: VM }) {
   }
 
   return (
-    <div className="max-w-3xl space-y-4">
+    <div className="w-full space-y-4">
       <div className="flex items-start gap-2 text-sm text-[var(--zf-muted)] bg-[var(--zf-canvas)] rounded-lg border border-[var(--zf-hairline)] px-4 py-3">
         <Wrench className="w-4 h-4 text-purple-400 shrink-0 mt-0.5" />
         <div>
@@ -84,7 +84,7 @@ export default function RescueTab({ vm }: { vm: VM }) {
           <button
             onClick={() => run('inject-key', () => rescueVM(vm.name, { operation: 'inject-ssh-key', user: sshUser, key: sshKey }), 'SSH key injected')}
             disabled={disabled || !sshUser || !sshKey || busy !== null}
-            className="flex items-center gap-1.5 px-3 py-1.5 bg-[var(--zf-link)] hover:bg-[var(--zf-link-hover)] rounded-lg text-sm font-medium text-white disabled:opacity-50"
+            className="zf-btn zf-btn-primary zf-btn-sm"
           >
             {busy === 'inject-key' && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
             Inject Key
@@ -92,7 +92,7 @@ export default function RescueTab({ vm }: { vm: VM }) {
           <button
             onClick={() => run('enable-ssh', () => rescueVM(vm.name, { operation: 'enable-ssh' }), 'SSH enabled')}
             disabled={disabled || busy !== null}
-            className="flex items-center gap-1.5 px-3 py-1.5 bg-[var(--zf-canvas-alt)] hover:bg-[var(--zf-hairline)] rounded-lg text-sm font-medium text-[var(--zf-ink)] disabled:opacity-50"
+            className="zf-btn zf-btn-ghost zf-btn-sm"
           >
             {busy === 'enable-ssh' && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
             Enable SSH Service
@@ -114,7 +114,7 @@ export default function RescueTab({ vm }: { vm: VM }) {
           <button
             onClick={() => run('hostname', () => rescueVM(vm.name, { operation: 'set-hostname', hostname }), 'Hostname set')}
             disabled={disabled || !hostname || busy !== null}
-            className="flex items-center gap-1.5 px-3 py-1.5 bg-[var(--zf-link)] hover:bg-[var(--zf-link-hover)] rounded-lg text-sm font-medium text-white disabled:opacity-50"
+            className="zf-btn zf-btn-primary zf-btn-sm"
           >
             {busy === 'hostname' && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
             Apply
@@ -142,7 +142,7 @@ export default function RescueTab({ vm }: { vm: VM }) {
         <button
           onClick={() => run('reset-pw', () => rescueVM(vm.name, { operation: 'reset-password', user: pwUser, password }), 'Password reset')}
           disabled={disabled || !pwUser || !password || busy !== null}
-          className="flex items-center gap-1.5 px-3 py-1.5 bg-[var(--zf-link)] hover:bg-[var(--zf-link-hover)] rounded-lg text-sm font-medium text-white disabled:opacity-50"
+          className="zf-btn zf-btn-primary zf-btn-sm"
         >
           {busy === 'reset-pw' && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
           Reset Password
@@ -170,7 +170,7 @@ export default function RescueTab({ vm }: { vm: VM }) {
             network: allowNetwork,
           }), 'Packages installed')}
           disabled={disabled || !packages.trim() || busy !== null}
-          className="flex items-center gap-1.5 px-3 py-1.5 bg-[var(--zf-link)] hover:bg-[var(--zf-link-hover)] rounded-lg text-sm font-medium text-white disabled:opacity-50"
+          className="zf-btn zf-btn-primary zf-btn-sm"
         >
           {busy === 'install-pkgs' && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
           Install
@@ -194,7 +194,7 @@ export default function RescueTab({ vm }: { vm: VM }) {
             }
           }}
           disabled={!stopped || busy !== null}
-          className="flex items-center gap-1.5 px-3 py-1.5 bg-[var(--zf-canvas-alt)] hover:bg-[var(--zf-hairline)] rounded-lg text-sm font-medium text-[var(--zf-ink)] disabled:opacity-50"
+          className="zf-btn zf-btn-ghost zf-btn-sm"
         >
           {busy === 'inspect' && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
           <Terminal className="w-3.5 h-3.5" />

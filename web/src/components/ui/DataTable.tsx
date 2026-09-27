@@ -98,7 +98,7 @@ export function DataTable<T>({
 
   if (rows.length === 0 && emptyState) {
     return (
-      <div className={bordered ? `bg-[var(--zf-canvas)] rounded-xl border border-[var(--zf-hairline)] ${className}` : className}>
+      <div className={bordered ? `table-wrap ${className}` : className}>
         {emptyState}
       </div>
     )
@@ -107,23 +107,22 @@ export function DataTable<T>({
   const allSelected = selectable && rows.length > 0 && rows.every((r) => selectedKeys!.has(getRowKey(r)))
 
   return (
-    <div className={bordered ? `bg-[var(--zf-canvas)] rounded-xl border border-[var(--zf-hairline)] overflow-hidden ${className}` : className}>
-      <table className="w-full text-sm">
+    <div className={bordered ? `table-wrap ${className}` : className}>
+      <table>
         <thead>
-          <tr className={`text-left text-xs font-medium text-[var(--zf-muted)] uppercase tracking-wider ${stickyHeader ? 'zf-table-header-row' : ''}`}>
+          <tr className={stickyHeader ? 'zf-table-header-row' : ''}>
             {selectable && (
-              <th className="py-3 px-4 w-10">
+              <th className="w-10">
                 <input
                   type="checkbox"
                   checked={allSelected}
                   onChange={() => onToggleAll?.()}
                   aria-label="Select all rows"
-                  className="w-3.5 h-3.5 rounded border-[var(--zf-hairline)] cursor-pointer"
                 />
               </th>
             )}
             {columns.map((col) => (
-              <th key={col.key} className={`py-3 px-4 ${col.className ?? ''}`}>
+              <th key={col.key} className={col.className ?? ''}>
                 {col.sortable ? (
                   <button
                     type="button"
@@ -161,17 +160,16 @@ export function DataTable<T>({
                 className={`zf-table-row group ${selected ? 'selected' : ''} ${onRowClick || onRowDoubleClick ? 'cursor-pointer' : ''} ${rowClassName?.(row) ?? ''}`}
               >
                 {selectable && (
-                  <td className="py-3 px-4 w-10" onClick={(e) => e.stopPropagation()}>
+                  <td className="w-10" onClick={(e) => e.stopPropagation()}>
                     <input
                       type="checkbox"
                       checked={selected}
                       onChange={() => onToggleRow!(key)}
-                      className="w-3.5 h-3.5 rounded border-[var(--zf-hairline)] cursor-pointer"
                     />
                   </td>
                 )}
                 {columns.map((col) => (
-                  <td key={col.key} className={`py-3 px-4 ${col.className ?? ''}`}>
+                  <td key={col.key} className={col.className ?? ''}>
                     {col.render(row)}
                   </td>
                 ))}

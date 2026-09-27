@@ -312,18 +312,15 @@ function ActionBtn({ onClick, color, icon: Icon, label }: {
   label: string
 }) {
   const colors: Record<string, string> = {
-    green: 'bg-[var(--zf-success)]/10 text-[var(--zf-success)] hover:bg-[var(--zf-success)]/20',
-    red: 'bg-[var(--zf-danger)]/10 text-[var(--zf-danger)] hover:bg-[var(--zf-danger)]/20',
-    yellow: 'bg-[var(--zf-warning)]/10 text-[var(--zf-warning)] hover:bg-[var(--zf-warning)]/20',
-    blue: 'bg-[var(--zf-link)]/15 text-[var(--zf-link)] hover:bg-[var(--zf-link)]/25',
-    purple: 'bg-[var(--zf-hover-tint)] text-[var(--zf-ink)] hover:bg-[var(--zf-active-tint)]',
+    green: 'zf-btn zf-btn-success zf-btn-sm',
+    red: 'zf-btn zf-btn-danger zf-btn-sm',
+    yellow: 'zf-btn zf-btn-ghost zf-btn-sm',
+    blue: 'zf-btn zf-btn-soft zf-btn-sm',
+    purple: 'zf-btn zf-btn-ghost zf-btn-sm',
   }
 
   return (
-    <button
-      onClick={onClick}
-      className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${colors[color]}`}
-    >
+    <button onClick={onClick} className={colors[color] || 'zf-btn zf-btn-ghost zf-btn-sm'}>
       <Icon className="w-3.5 h-3.5" />
       {label}
     </button>
@@ -1207,7 +1204,7 @@ function SnapshotsTab({ vm }: { vm: VM }) {
                   <button
                     onClick={() => handleRevert(snap)}
                     disabled={actionInProgress === snap.id}
-                    className="px-2.5 py-1 bg-[var(--zf-link)]/15 text-[var(--zf-link)] hover:bg-[var(--zf-link)]/25 disabled:opacity-50 rounded text-xs font-medium transition-colors"
+                    className="zf-btn zf-btn-soft zf-btn-xs"
                   >
                     {actionInProgress === snap.id ? 'Working...' : 'Restore'}
                   </button>

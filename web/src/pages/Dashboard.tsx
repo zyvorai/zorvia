@@ -3,7 +3,7 @@
 
 import { useEffect, useState, useCallback } from 'react'
 import { listVMs, VM } from '../api/vm'
-import { Activity, Server, Cpu, Power, ArrowUpRight } from 'lucide-react'
+import { Server, ArrowUpRight } from 'lucide-react'
 import { useWebSocketContext } from '../contexts/WebSocketContext'
 import { useToastContext } from '../contexts/ToastContext'
 import { SkeletonDashboard } from '../components/Skeleton'
@@ -14,8 +14,6 @@ import { formatUserError } from '../utils/apiError'
 import { toastFailure } from '../utils/toastError'
 import { hintsForError } from '../utils/daemonHints'
 import { GettingStarted } from '../components/GettingStarted'
-import { FabricGraphic } from '../components/FabricGraphic'
-import { RadialGauge } from '../components/RadialGauge'
 import { useCountUp } from '../hooks/useCountUp'
 
 const recentVMColumns: DataTableColumn<VM>[] = [
@@ -23,13 +21,20 @@ const recentVMColumns: DataTableColumn<VM>[] = [
     key: 'name',
     header: 'Name',
     render: (vm) => (
-      <Link to={`/app/vms/${vm.name}`} className="font-medium text-[var(--zf-ink)] hover:text-[var(--zf-link)] transition-colors">
+      <Link
+        to={`/app/vms/${vm.name}`}
+        className="font-medium text-[var(--zf-ink)] hover:text-[var(--zf-link)] transition-colors"
+      >
         {vm.name}
       </Link>
     ),
   },
   { key: 'status', header: 'Status', render: (vm) => <StatusBadge status={vm.state} /> },
-  { key: 'cpu', header: 'CPU', render: (vm) => <span className="text-[var(--zf-muted)] tabular-nums">{vm.cpus} vCPU</span> },
+  {
+    key: 'cpu',
+    header: 'CPU',
+    render: (vm) => <span className="text-[var(--zf-muted)] tabular-nums">{vm.cpus} vCPU</span>,
+  },
   {
     key: 'memory',
     header: 'Memory',
@@ -39,7 +44,13 @@ const recentVMColumns: DataTableColumn<VM>[] = [
       </span>
     ),
   },
-  { key: 'ip', header: 'IP', render: (vm) => <span className="text-[var(--zf-muted)] font-mono text-xs">{vm.ip || '-'}</span> },
+  {
+    key: 'ip',
+    header: 'IP',
+    render: (vm) => (
+      <span className="text-[var(--zf-muted)] font-mono text-xs">{vm.ip || '—'}</span>
+    ),
+  },
 ]
 
 export default function Dashboard() {
@@ -98,63 +109,56 @@ export default function Dashboard() {
     totalCPU: vms.reduce((a, v) => a + v.cpus, 0),
     totalMem: vms.reduce((a, v) => a + v.memory, 0),
   }
-  const fleetHealthPct = stats.total > 0 ? (stats.running / stats.total) * 100 : 0
 
   const totalCount = useCountUp(stats.total)
   const runningCount = useCountUp(stats.running)
   const stoppedCount = useCountUp(stats.stopped)
-  const memCount = useCountUp(Math.round(stats.totalMem >= 1024 ? stats.totalMem / 1024 : stats.totalMem))
+  const memCount = useCountUp(
+    Math.round(stats.totalMem >= 1024 ? stats.totalMem / 1024 : stats.totalMem),
+  )
 
   if (loading) return <SkeletonDashboard />
 
   const greeting = (() => {
     const h = new Date().getHours()
-    return h < 5 ? 'Good night' : h < 12 ? 'Good morning' : h < 18 ? 'Good afternoon' : 'Good evening'
+    return h < 5
+      ? 'Good night'
+      : h < 12
+        ? 'Good morning'
+        : h < 18
+          ? 'Good afternoon'
+          : 'Good evening'
   })()
 
+  const memLabel = stats.totalMem >= 1024 ? 'GB memory' : 'MB memory'
+  const stoppedTone = stats.stopped > 0 ? 'is-warn' : undefined
+  const runningTone =
+    stats.total > 0 && stats.running === 0 ? 'is-bad' : stats.running > 0 ? 'is-good' : undefined
+
   return (
-    <div className="space-y-6">
-      <div className="zf-glass relative overflow-hidden px-6 py-6 sm:px-8 sm:py-7">
-        <div className="pointer-events-none absolute -right-6 -top-10 w-72 h-72 opacity-70">
-          <FabricGraphic ambient />
-        </div>
-        <div className="relative flex flex-col sm:flex-row sm:items-center gap-6">
-          <div className="flex-1 min-w-0">
-            <p className="text-xs font-semibold text-[var(--zf-link)] uppercase tracking-[0.04em] mb-1">{greeting}</p>
-            <h1 className="text-[32px] sm:text-[40px] font-semibold text-[var(--zf-ink)] tracking-[-0.022em] leading-none">
-              Zorvia
-            </h1>
-            <p className="text-[17px] text-[var(--zf-secondary)] mt-2 max-w-md tracking-[-0.022em] leading-snug">
-              {stats.total === 0
-                ? 'Your private cloud control plane is ready.'
-                : `Watching ${stats.total} VM${stats.total === 1 ? '' : 's'}. ${stats.running} running right now.`}
-            </p>
-            <div className="flex items-center gap-3 mt-4">
-              <Link to="/app/create" className="zf-btn zf-btn-primary">
-                Create VM
-              </Link>
-              <button type="button" onClick={() => void loadVMs()} className="zf-btn zf-btn-ghost">
-                Refresh
-              </button>
-            </div>
-          </div>
+    <div className="apple-section apple-section--tight space-y-8">
+      <header>
+        <p className="apple-eyebrow">{greeting}</p>
+        <h1 className="apple-display">Zorvia</h1>
+        <p className="apple-lede">
+          {stats.total === 0
+            ? 'Your private cloud control plane is ready. Create a VM to get started.'
+            : `Watching ${stats.total} VM${stats.total === 1 ? '' : 's'}. ${stats.running} running right now.`}
+        </p>
+        <div className="apple-cta-row">
+          <Link to="/app/create" className="zf-btn zf-btn-primary">
+            Create VM
+          </Link>
+          <button type="button" onClick={() => void loadVMs()} className="zf-btn zf-btn-ghost">
+            Refresh
+          </button>
           {stats.total > 0 && (
-            <div className="shrink-0 flex items-center gap-3 self-center">
-              <RadialGauge
-                percent={fleetHealthPct}
-                color={
-                  fleetHealthPct >= 70
-                    ? 'var(--zf-success)'
-                    : fleetHealthPct >= 30
-                      ? 'var(--zf-warning)'
-                      : 'var(--zf-danger)'
-                }
-                label="fleet up"
-              />
-            </div>
+            <Link to="/app/vms" className="apple-text-link">
+              View all VMs
+            </Link>
           )}
         </div>
-      </div>
+      </header>
 
       {loadError && (
         <ErrorBanner
@@ -173,90 +177,50 @@ export default function Dashboard() {
         />
       )}
 
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        <div className="stat-card-blue rounded-xl border border-[var(--zf-hairline)] p-5 transition-all hover:scale-[1.02]">
-          <div className="flex items-center justify-between mb-3">
-            <div className="icon-tile icon-tile-md">
-              <Server className="h-5 w-5 text-[var(--zf-ink)]" />
-            </div>
-            <span className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-[var(--zf-canvas)] text-[var(--zf-muted)]">
-              total
-            </span>
-          </div>
-          <div className="text-2xl font-bold text-[var(--zf-ink)] tabular-nums">{totalCount}</div>
-          <div className="text-[13px] text-[var(--zf-secondary)] mt-1">Total VMs</div>
+      <div className="apple-metric-band" aria-label="Fleet summary">
+        <div>
+          <b>{totalCount}</b>
+          <span>Total VMs</span>
         </div>
-
-        <div className="stat-card-green rounded-xl border border-[var(--zf-hairline)] p-5 transition-all hover:scale-[1.02]">
-          <div className="flex items-center justify-between mb-3">
-            <div className="icon-tile icon-tile-md">
-              <Activity className="h-5 w-5 text-[var(--zf-ink)]" />
-            </div>
-            <span className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-[var(--zf-success)]/10 text-[var(--zf-success)]">
-              {stats.total > 0 ? `${Math.round((stats.running / stats.total) * 100)}%` : '0%'}
-            </span>
-          </div>
-          <div className="text-2xl font-bold text-[var(--zf-ink)] tabular-nums">{runningCount}</div>
-          <div className="text-[13px] text-[var(--zf-secondary)] mt-1">Running</div>
+        <div>
+          <b className={runningTone}>{runningCount}</b>
+          <span>Running</span>
         </div>
-
-        <div className="stat-card-red rounded-xl border border-[var(--zf-hairline)] p-5 transition-all hover:scale-[1.02]">
-          <div className="flex items-center justify-between mb-3">
-            <div className="icon-tile icon-tile-md">
-              <Power className="h-5 w-5 text-[var(--zf-ink)]" />
-            </div>
-            <span className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-[var(--zf-danger)]/10 text-[var(--zf-danger)]">
-              stopped
-            </span>
-          </div>
-          <div className="text-2xl font-bold text-[var(--zf-ink)] tabular-nums">{stoppedCount}</div>
-          <div className="text-[13px] text-[var(--zf-secondary)] mt-1">Stopped</div>
+        <div>
+          <b className={stoppedTone}>{stoppedCount}</b>
+          <span>Stopped</span>
         </div>
-
-        <div className="stat-card-purple rounded-xl border border-[var(--zf-hairline)] p-5 transition-all hover:scale-[1.02]">
-          <div className="flex items-center justify-between mb-3">
-            <div className="icon-tile icon-tile-md">
-              <Cpu className="h-5 w-5 text-[var(--zf-ink)]" />
-            </div>
-            <span className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-[var(--zf-canvas)] text-[var(--zf-muted)]">
-              {stats.totalCPU} vCPU
-            </span>
-          </div>
-          <div className="text-2xl font-bold text-[var(--zf-ink)] tabular-nums">
+        <div>
+          <b>
             {memCount}
-            <span className="text-sm text-[var(--zf-muted)] font-medium ml-1">
-              {stats.totalMem >= 1024 ? 'GB' : 'MB'}
+            <span style={{ fontSize: '0.45em', fontWeight: 500, marginLeft: 6, color: 'var(--zf-muted)' }}>
+              {memLabel.replace(' memory', '')}
             </span>
-          </div>
-          <div className="text-[13px] text-[var(--zf-secondary)] mt-1">Total Memory</div>
+          </b>
+          <span>
+            {stats.totalCPU} vCPU · memory
+          </span>
         </div>
       </div>
 
       {vms.length === 0 ? (
         <GettingStarted />
       ) : (
-        <div className="bg-[var(--zf-canvas)] rounded-xl border border-[var(--zf-hairline)] overflow-hidden">
-          <div className="px-5 py-4 border-b border-[var(--zf-hairline)] flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div className="icon-tile icon-tile-sm">
-                <Server className="w-4 h-4 text-[var(--zf-ink)]" />
-              </div>
-              <h2 className="text-base font-semibold text-[var(--zf-ink)]">Virtual Machines</h2>
-            </div>
-            <div className="flex items-center gap-3">
-              <span className="text-xs font-medium text-[var(--zf-muted)] bg-[var(--zf-canvas)] px-2.5 py-1 rounded-full">
-                {vms.length} VMs
-              </span>
-              <Link
-                to="/app/vms"
-                className="flex items-center gap-1 text-xs text-[var(--zf-link)] hover:text-[var(--zf-link-hover)] transition-colors"
-              >
-                View all <ArrowUpRight className="w-3.5 h-3.5" />
-              </Link>
-            </div>
+        <section className="space-y-3">
+          <div className="flex items-center justify-between gap-3">
+            <h2 className="text-[19px] font-semibold tracking-[-0.016em] text-[var(--zf-ink)]">
+              Virtual Machines
+            </h2>
+            <Link to="/app/vms" className="apple-text-link inline-flex items-center gap-1 text-[15px]">
+              View all <ArrowUpRight className="w-3.5 h-3.5" />
+            </Link>
           </div>
-          <DataTable columns={recentVMColumns} rows={vms.slice(0, 8)} getRowKey={(vm) => vm.name} bordered={false} />
-        </div>
+          <DataTable
+            columns={recentVMColumns}
+            rows={vms.slice(0, 8)}
+            getRowKey={(vm) => vm.name}
+          />
+        </section>
       )}
     </div>
   )

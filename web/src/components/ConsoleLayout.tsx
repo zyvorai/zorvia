@@ -1,12 +1,13 @@
 // Copyright 2026 Zyvor AI Labs · https://zyvor.dev
 // SPDX-License-Identifier: Apache-2.0
 
-import { ReactNode, useMemo, useState } from 'react'
-import { Link, NavLink, useNavigate } from 'react-router'
-import { LogOut, Menu, PanelLeftClose, PanelLeftOpen, Search, X } from 'lucide-react'
+import { ReactNode, useEffect, useMemo, useRef, useState } from 'react'
+import { Link, NavLink, useLocation, useNavigate } from 'react-router'
+import { LogOut, Menu, Search, X } from 'lucide-react'
 import { useAuth } from '../contexts/AuthContext'
 import { usePermissions } from '../hooks/usePermissions'
-import { NAV_GROUPS, navDropdownSections } from '../navigation/navConfig'
+import { TOP_NAV, type NavItem } from '../navigation/navConfig'
+import { navItemActive } from '../utils/routes'
 import ConnectionStatus from './ConnectionStatus'
 import CommandPalette from './CommandPalette'
 import Breadcrumb from './Breadcrumb'
@@ -16,6 +17,9 @@ import { ZyvorLockup } from './ZyvorMark'
 import ThemeToggle from './ThemeToggle'
 import { useKeyboardShortcut, isInputFocused } from '../hooks/useKeyboardShortcut'
 import { useRecordRecentPage } from '../hooks/useRecordRecentPage'
+
+const OPEN_DELAY_MS = 120
+const CLOSE_DELAY_MS = 450
 
 function ConsoleShortcuts({
   helpOpen,
@@ -59,39 +63,82 @@ function ConsoleShortcuts({
   )
 }
 
+function filterItems(items: NavItem[], canAdmin: boolean): NavItem[] {
+  return items.filter((item) => !item.adminOnly || canAdmin)
+}
+
 export default function ConsoleLayout({ children }: { children: ReactNode }) {
   const { user, logout } = useAuth()
   const { canAdmin } = usePermissions()
   const navigate = useNavigate()
+  const location = useLocation()
   const [mobileNav, setMobileNav] = useState(false)
+  const [openGroup, setOpenGroup] = useState<string | null>(null)
   const [helpOpen, setHelpOpen] = useState(false)
   const [helpTab, setHelpTab] = useState<HelpTab>('shortcuts')
-  // Per-viewer preference, not app state -- localStorage rather than a
-  // backend setting. Defaults expanded; a bad/blocked accessor (private
-  // window, cleared storage) just falls back to that default.
-  const [collapsed, setCollapsed] = useState(() => {
-    try {
-      return localStorage.getItem('zf-sidebar-collapsed') === '1'
-    } catch {
-      return false
-    }
-  })
-  const toggleCollapsed = () => {
-    setCollapsed((prev) => {
-      const next = !prev
-      try {
-        localStorage.setItem('zf-sidebar-collapsed', next ? '1' : '0')
-      } catch {
-        // ignore -- private window / storage blocked
-      }
-      return next
-    })
-  }
+  const openTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const closeTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const navRef = useRef<HTMLElement | null>(null)
+  const triggerRefs = useRef<Record<string, HTMLButtonElement | null>>({})
+
   useRecordRecentPage()
+
+  const clearTimers = () => {
+    if (openTimer.current) clearTimeout(openTimer.current)
+    if (closeTimer.current) clearTimeout(closeTimer.current)
+    openTimer.current = null
+    closeTimer.current = null
+  }
+
+  const scheduleOpen = (label: string) => {
+    clearTimers()
+    openTimer.current = setTimeout(() => setOpenGroup(label), OPEN_DELAY_MS)
+  }
+
+  const scheduleClose = () => {
+    clearTimers()
+    closeTimer.current = setTimeout(() => setOpenGroup(null), CLOSE_DELAY_MS)
+  }
+
+  const toggleGroup = (label: string) => {
+    clearTimers()
+    setOpenGroup((cur) => (cur === label ? null : label))
+  }
+
+  useEffect(() => () => clearTimers(), [])
+
+  useEffect(() => {
+    if (!openGroup) return
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key !== 'Escape') return
+      const label = openGroup
+      setOpenGroup(null)
+      triggerRefs.current[label]?.focus()
+    }
+    const onPointerDown = (e: MouseEvent) => {
+      if (navRef.current && !navRef.current.contains(e.target as Node)) setOpenGroup(null)
+    }
+    document.addEventListener('keydown', onKeyDown)
+    document.addEventListener('mousedown', onPointerDown)
+    return () => {
+      document.removeEventListener('keydown', onKeyDown)
+      document.removeEventListener('mousedown', onPointerDown)
+    }
+  }, [openGroup])
+
+  useEffect(() => {
+    setOpenGroup(null)
+    setMobileNav(false)
+  }, [location.pathname])
 
   const onLogout = () => {
     logout()
     navigate('/sign-in', { replace: true })
+  }
+
+  const closeMega = () => {
+    setOpenGroup(null)
+    setMobileNav(false)
   }
 
   return (
@@ -106,90 +153,142 @@ export default function ConsoleLayout({ children }: { children: ReactNode }) {
         onCloseHelp={() => setHelpOpen(false)}
         onHelpTabChange={setHelpTab}
       />
-      <CommandPalette onOpenHelp={(tab) => { setHelpTab(tab ?? 'shortcuts'); setHelpOpen(true) }} />
+      <CommandPalette
+        onOpenHelp={(tab) => {
+          setHelpTab(tab ?? 'shortcuts')
+          setHelpOpen(true)
+        }}
+      />
 
-      <header className="console-topbar">
+      <header className="console-topbar" ref={navRef}>
         <button
           type="button"
-          className="lg:hidden zf-btn zf-btn-ghost zf-btn-sm !px-2"
-          onClick={() => setMobileNav((v) => !v)}
+          className="console-icon-btn lg:hidden"
+          onClick={() => {
+            setMobileNav((v) => !v)
+            setOpenGroup(null)
+          }}
           aria-label="Toggle navigation"
+          aria-expanded={mobileNav}
         >
           {mobileNav ? <X className="w-4 h-4" /> : <Menu className="w-4 h-4" />}
         </button>
-        <Link to="/app" className="console-brand" aria-label="Zorvia">
+        <Link to="/app" className="console-brand" aria-label="Zorvia" onClick={closeMega}>
           <ZyvorLockup markClassName="w-6 h-6" showWordmark={false} />
-          <span className="text-[var(--zf-muted)] font-medium">Zorvia</span>
+          <span className="console-brand-word">Zorvia</span>
         </Link>
-        <div className="flex-1" />
-        <button
-          type="button"
-          className="zf-btn zf-btn-ghost zf-btn-sm hidden sm:inline-flex"
-          onClick={() =>
-            document.dispatchEvent(new KeyboardEvent('keydown', { key: 'k', metaKey: true }))
-          }
-        >
-          <Search className="w-3.5 h-3.5" />
-          Search
-          <kbd className="text-[10px] text-[var(--zf-muted)] ml-1">⌘K</kbd>
-        </button>
-        <ConnectionStatus />
-        <ThemeToggle />
-        <Link to="/" className="text-xs text-[var(--zf-muted)] hidden md:inline hover:text-[var(--zf-ink)]">
-          Site
-        </Link>
-        <span className="text-xs text-[var(--zf-muted)] hidden sm:inline">{user?.username}</span>
-        <button type="button" className="zf-btn zf-btn-ghost zf-btn-sm !px-2" onClick={onLogout} title="Sign out">
-          <LogOut className="w-3.5 h-3.5" />
-        </button>
+
+        <nav className={`console-navlinks ${mobileNav ? 'mobile-open' : ''}`} aria-label="Console">
+          {TOP_NAV.map((entry) => {
+            if (entry.kind === 'link') {
+              const item = entry.item
+              return (
+                <NavLink
+                  key={item.path}
+                  to={item.path}
+                  end={item.path === '/app'}
+                  className={({ isActive }) => `console-nav-trigger${isActive ? ' active' : ''}`}
+                  onClick={closeMega}
+                >
+                  {item.label}
+                </NavLink>
+              )
+            }
+            const items = filterItems(entry.items, canAdmin)
+            if (items.length === 0) return null
+            const groupActive = items.some((item) =>
+              navItemActive(item, location.pathname, location.search),
+            )
+            const isOpen = openGroup === entry.label
+            return (
+              <div
+                key={entry.label}
+                className="console-navgroup"
+                onMouseEnter={() => {
+                  if (window.matchMedia('(min-width: 1024px)').matches) scheduleOpen(entry.label)
+                }}
+                onMouseLeave={() => {
+                  if (window.matchMedia('(min-width: 1024px)').matches) scheduleClose()
+                }}
+              >
+                <button
+                  type="button"
+                  ref={(el) => {
+                    triggerRefs.current[entry.label] = el
+                  }}
+                  className={`console-nav-trigger${groupActive ? ' active' : ''}`}
+                  aria-haspopup="true"
+                  aria-expanded={isOpen}
+                  onClick={() => toggleGroup(entry.label)}
+                >
+                  {entry.label}
+                </button>
+                <div
+                  className={`console-mega-panel${isOpen ? ' open' : ''}`}
+                  role="region"
+                  aria-label={entry.label}
+                  onMouseEnter={() => scheduleOpen(entry.label)}
+                  onMouseLeave={scheduleClose}
+                >
+                  <div className="console-mega-grid">
+                    {items.map((item) => {
+                      const active = navItemActive(item, location.pathname, location.search)
+                      return (
+                        <NavLink
+                          key={item.path}
+                          to={item.path}
+                          className={`console-mega-link${active ? ' active' : ''}`}
+                          aria-current={active ? 'page' : undefined}
+                          onClick={closeMega}
+                        >
+                          <span className="console-mega-link-label">{item.label}</span>
+                          {item.blurb && (
+                            <span className="console-mega-link-blurb">{item.blurb}</span>
+                          )}
+                        </NavLink>
+                      )
+                    })}
+                  </div>
+                </div>
+              </div>
+            )
+          })}
+        </nav>
+
+        <div className="console-nav-actions">
+          <button
+            type="button"
+            className="zf-btn zf-btn-ghost zf-btn-sm hidden sm:inline-flex"
+            onClick={() =>
+              document.dispatchEvent(new KeyboardEvent('keydown', { key: 'k', metaKey: true }))
+            }
+          >
+            <Search className="w-3.5 h-3.5" />
+            Search
+            <kbd className="text-[10px] text-[var(--zf-muted)] ml-1">⌘K</kbd>
+          </button>
+          <ConnectionStatus />
+          <ThemeToggle />
+          <Link
+            to="/"
+            className="text-xs text-[var(--zf-muted)] hidden md:inline hover:text-[var(--zf-ink)]"
+          >
+            Site
+          </Link>
+          <span className="text-xs text-[var(--zf-muted)] hidden sm:inline">{user?.username}</span>
+          <button
+            type="button"
+            className="console-icon-btn"
+            onClick={onLogout}
+            title="Sign out"
+            aria-label="Log out"
+          >
+            <LogOut className="w-3.5 h-3.5" />
+          </button>
+        </div>
       </header>
 
       <div className="console-body">
-        <aside
-          className={`console-sidebar ${collapsed ? 'collapsed' : ''} ${mobileNav ? '!block fixed inset-x-0 top-[52px] z-20 h-[calc(100vh-52px)]' : ''}`}
-        >
-          <button
-            type="button"
-            onClick={toggleCollapsed}
-            title={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
-            className="console-sidebar-collapse-btn hidden lg:flex"
-          >
-            {collapsed ? <PanelLeftOpen className="w-3.5 h-3.5" /> : <PanelLeftClose className="w-3.5 h-3.5" />}
-            {!collapsed && <span>Collapse</span>}
-          </button>
-          {NAV_GROUPS.flatMap((group) =>
-            navDropdownSections(group).map((section) => {
-              const items = section.items.filter((item) => !item.adminOnly || canAdmin)
-              if (items.length === 0) return null
-              return (
-                <div key={section.label || group.name} className="console-sidebar-group">
-                  {!collapsed && (
-                    <div className="console-sidebar-label">{section.label || group.compact}</div>
-                  )}
-                  {items.map((item) => {
-                    const Icon = item.icon
-                    return (
-                      <NavLink
-                        key={item.path}
-                        to={item.path}
-                        end={item.path === '/app'}
-                        title={collapsed ? item.label : undefined}
-                        className={({ isActive }) =>
-                          `console-nav-link${isActive ? ' active' : ''}`
-                        }
-                        onClick={() => setMobileNav(false)}
-                      >
-                        <Icon className="w-3.5 h-3.5 shrink-0" />
-                        {!collapsed && <span className="truncate">{item.label}</span>}
-                      </NavLink>
-                    )
-                  })}
-                </div>
-              )
-            }),
-          )}
-        </aside>
-
         <main id="main-content" className="console-main" role="main">
           <Breadcrumb />
           {children}

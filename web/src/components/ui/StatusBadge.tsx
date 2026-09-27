@@ -7,15 +7,17 @@ interface StatusBadgeProps {
   title?: string
 }
 
-const SUCCESS = 'text-[var(--zf-success)] bg-[var(--zf-success)]/10 border-[var(--zf-success)]/25'
+/** Netra: color is deviation — nominal (running/healthy) stays graphite. */
+const NOMINAL = 'text-[var(--zf-ink)] bg-[var(--zf-fill-tertiary)] border-[var(--zf-hairline)]'
 const DANGER = 'text-[var(--zf-danger)] bg-[var(--zf-danger)]/10 border-[var(--zf-danger)]/25'
 const WARNING = 'text-[var(--zf-warning)] bg-[var(--zf-warning)]/10 border-[var(--zf-warning)]/25'
+const SUCCESS = 'text-[var(--zf-success)] bg-[var(--zf-success)]/10 border-[var(--zf-success)]/25'
 
 const statusStyles: Record<string, string> = {
-  running: SUCCESS,
-  active: SUCCESS,
-  enabled: SUCCESS,
-  healthy: SUCCESS,
+  running: NOMINAL,
+  active: NOMINAL,
+  enabled: NOMINAL,
+  healthy: NOMINAL,
   completed: SUCCESS,
   success: SUCCESS,
   stopped: DANGER,
@@ -26,14 +28,14 @@ const statusStyles: Record<string, string> = {
   warning: WARNING,
   pending: WARNING,
   in_progress: WARNING,
-  unknown: 'text-[var(--zf-muted)] bg-[var(--zf-canvas)] border-[var(--zf-hairline)]',
+  unknown: NOMINAL,
 }
 
 const dotColors: Record<string, string> = {
-  running: 'bg-[var(--zf-success)]',
-  active: 'bg-[var(--zf-success)]',
-  enabled: 'bg-[var(--zf-success)]',
-  healthy: 'bg-[var(--zf-success)]',
+  running: 'bg-[var(--zf-ink)]',
+  active: 'bg-[var(--zf-ink)]',
+  enabled: 'bg-[var(--zf-ink)]',
+  healthy: 'bg-[var(--zf-ink)]',
   completed: 'bg-[var(--zf-success)]',
   success: 'bg-[var(--zf-success)]',
   stopped: 'bg-[var(--zf-danger)]',
@@ -47,13 +49,15 @@ const dotColors: Record<string, string> = {
   unknown: 'bg-[var(--zf-muted)]',
 }
 
-const isRunning = (s: string) =>
-  ['running', 'active', 'enabled', 'healthy'].includes(s.toLowerCase())
+const isDeviated = (s: string) =>
+  ['stopped', 'failed', 'error', 'disabled', 'paused', 'warning', 'pending', 'in_progress'].includes(
+    s.toLowerCase(),
+  )
 
 export function StatusBadge({ status, variant = 'pill', title }: StatusBadgeProps) {
   const key = status.toLowerCase()
   const style = statusStyles[key] || statusStyles.unknown
-  const pulse = isRunning(key)
+  const pulse = isDeviated(key) && ['pending', 'in_progress'].includes(key)
 
   if (variant === 'dot') {
     const dot = dotColors[key] || dotColors.unknown

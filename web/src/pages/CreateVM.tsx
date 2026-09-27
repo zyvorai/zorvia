@@ -438,7 +438,7 @@ export default function CreateVM() {
         Back to VMs
       </button>
 
-      <div className="max-w-2xl">
+      <div className="w-full">
         <PageHeader
           title="Create Virtual Machine"
           description="Configure and launch a new VM"
@@ -952,7 +952,7 @@ export default function CreateVM() {
 
             {showAdvanced && (
               <div className="px-6 pb-6 space-y-5 border-t border-[var(--zf-hairline)] pt-5">
-                <p className="text-xs text-[var(--zf-muted)] bg-[var(--zf-surface)] border border-[var(--zf-hairline)] rounded-lg px-3 py-2">
+                <p className="text-xs zf-chip rounded-lg px-3 py-2">
                   Applied when the VM is created — KubeVirt requires firmware, CPU model, and machine type to be set upfront.
                 </p>
                 <div>

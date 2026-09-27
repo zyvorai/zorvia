@@ -4,25 +4,20 @@
 import { ReactNode } from 'react'
 
 interface EmptyStateProps {
-  icon: ReactNode
+  icon?: ReactNode
   title: string
   description?: string
   action?: ReactNode
 }
 
+/** Netra-style list empty: title + one sentence + next action. */
 export function EmptyState({ icon, title, description, action }: EmptyStateProps) {
   return (
-    <div className="text-center py-20 px-4">
-      <div className="icon-tile icon-tile-lg mx-auto mb-5 text-[var(--zf-muted)]">{icon}</div>
-      <h3 className="text-[21px] font-semibold tracking-[-0.016em] text-[var(--zf-ink)] mb-1">
-        {title}
-      </h3>
-      {description && (
-        <p className="text-[17px] text-[var(--zf-secondary)] mb-6 max-w-md mx-auto tracking-[-0.022em]">
-          {description}
-        </p>
-      )}
-      {action}
+    <div className="list-empty">
+      {icon ? <div className="text-[var(--zf-muted)] mb-2 opacity-80">{icon}</div> : null}
+      <h3>{title}</h3>
+      {description ? <p>{description}</p> : null}
+      {action ? <div className="list-empty-action">{action}</div> : null}
     </div>
   )
 }

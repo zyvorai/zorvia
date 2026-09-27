@@ -7,6 +7,7 @@ import { RefreshCw } from 'lucide-react'
 interface PageHeaderProps {
   title: string
   description?: string
+  eyebrow?: string
   actions?: ReactNode
   onRefresh?: () => void
   refreshing?: boolean
@@ -18,6 +19,7 @@ interface PageHeaderProps {
 export function PageHeader({
   title,
   description,
+  eyebrow,
   actions,
   onRefresh,
   refreshing,
@@ -26,6 +28,7 @@ export function PageHeader({
   return (
     <div className="flex items-start justify-between gap-4 mb-8 animate-fade-in">
       <div className="min-w-0">
+        {eyebrow ? <p className="apple-eyebrow">{eyebrow}</p> : null}
         <h1 className="text-[32px] font-semibold tracking-[-0.022em] text-[var(--zf-ink)] truncate">
           {title}
         </h1>

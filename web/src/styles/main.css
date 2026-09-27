@@ -3,69 +3,75 @@
 @import "tailwindcss";
 
 :root {
-  /* Apple AirPods palette — ink / secondary / muted are clearly legible on #f5f5f7 */
+  /* Netra / Apple UX contract — white page, graphite ink, blue = intent */
   --zf-ink: #1d1d1f;
-  --zf-secondary: #333336;
+  --zf-secondary: #6e6e73;
   --zf-muted: #6e6e73;
-  --zf-canvas: #f5f5f7;
-  --zf-canvas-alt: #e8e8ed;
+  --zf-canvas: #ffffff;
+  --zf-canvas-alt: #f5f5f7;
   --zf-surface: #ffffff;
-  --zf-hairline: #d2d2d7;
+  --zf-hairline: rgba(0, 0, 0, 0.1);
   --zf-link: #0066cc;
   --zf-link-hover: #0077ed;
+  --zf-cta: #0071e3;
+  --zf-cta-hover: #0077ed;
   --zf-accent: #1d1d1f;
   --zf-success: #34c759;
   --zf-danger: #ff3b30;
   --zf-warning: #ff9f0a;
-  --zf-radius: 12px;
-  --zf-radius-sm: 8px;
-  /* Three-layer "elevated glass" shadow stack, extracted from .signin-card
-     so any surface that wants that same premium elevation (command palette,
-     future modals) references one token instead of re-deriving the values. */
-  --zf-shadow-elevated:
-    0 1px 1px rgba(0, 0, 0, 0.02),
-    0 4px 12px rgba(0, 0, 0, 0.04),
-    0 32px 64px -16px rgba(0, 0, 0, 0.12);
-  --layout-max-width: 61.25rem;
-  --console-sidebar: 15.5rem;
+  --zf-radius-sm: 10px;
+  --zf-radius: 14px;
+  --zf-radius-pill: 980px;
+  --zf-fill-tertiary: rgba(0, 0, 0, 0.04);
+  --zf-shadow-1: 0 1px 2px rgba(0, 0, 0, 0.04);
+  --zf-shadow-2: 0 4px 16px rgba(0, 0, 0, 0.08);
+  --zf-shadow-3: 0 12px 40px rgba(0, 0, 0, 0.14);
+  --zf-shadow-elevated: var(--zf-shadow-3);
+  --zf-focus-ring: 0 0 0 4px rgba(0, 113, 227, 0.3);
+  --zf-hit-min: 44px;
+  --zf-ease: cubic-bezier(0.28, 0.11, 0.32, 1);
+  --zf-disabled-bg: #dcdce1;
+  --zf-disabled-text: #86868b;
   --console-topbar-height: 52px;
-  /* Subtle press/hover/focus tints — swap polarity per theme (darken on light, lighten on dark) */
   --zf-hover-tint: rgba(0, 0, 0, 0.04);
   --zf-active-tint: rgba(0, 0, 0, 0.06);
   --zf-focus-tint: rgba(0, 0, 0, 0.06);
-  --zf-nav-surface: rgba(251, 251, 253, 0.72);
-  --zf-nav-border: rgba(0, 0, 0, 0.08);
-  /* zyvor-premium-login.css reads this with an -apple-system-only fallback;
-     define it here so the sign-in page also leads with the self-hosted
-     Inter Variable instead of silently skipping straight to the fallback. */
-  --font-display: 'Inter Variable', -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Helvetica Neue', sans-serif;
+  --zf-nav-surface: rgba(251, 251, 253, 0.8);
+  --zf-nav-border: rgba(0, 0, 0, 0.1);
+  --font-display: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'SF Pro Text', 'Segoe UI',
+    'Inter Variable', sans-serif;
+  --font-mono: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
   color-scheme: light;
 }
 
-/* Apple-style dark theme — mirrors apple.com/ipad-pro's near-black canvas,
-   elevated dark cards, and #2997ff dark-mode link/accent blue. Applied via
-   [data-theme="dark"] on <html> (see index.html's early-set inline script
-   and ThemeContext), not prefers-color-scheme directly, so an explicit user
-   choice always wins over the system default. */
 :root[data-theme='dark'] {
   --zf-ink: #f5f5f7;
-  --zf-secondary: #d2d2d7;
-  --zf-muted: #98989d;
+  --zf-secondary: #a1a1a6;
+  --zf-muted: #a1a1a6;
   --zf-canvas: #000000;
-  --zf-canvas-alt: #1c1c1e;
-  --zf-surface: #1c1c1e;
-  --zf-hairline: #38383a;
+  --zf-canvas-alt: #1d1d1f;
+  --zf-surface: #1d1d1f;
+  --zf-hairline: rgba(255, 255, 255, 0.12);
   --zf-link: #2997ff;
   --zf-link-hover: #6cb6ff;
+  --zf-cta: #0071e3;
+  --zf-cta-hover: #0077ed;
   --zf-accent: #f5f5f7;
   --zf-success: #32d74b;
   --zf-danger: #ff453a;
   --zf-warning: #ff9f0a;
+  --zf-fill-tertiary: rgba(255, 255, 255, 0.08);
+  --zf-shadow-1: none;
+  --zf-shadow-2: 0 4px 16px rgba(0, 0, 0, 0.4);
+  --zf-shadow-3: 0 12px 40px rgba(0, 0, 0, 0.5);
+  --zf-shadow-elevated: var(--zf-shadow-3);
+  --zf-disabled-bg: #38383a;
+  --zf-disabled-text: #86868b;
   --zf-hover-tint: rgba(255, 255, 255, 0.06);
   --zf-active-tint: rgba(255, 255, 255, 0.09);
   --zf-focus-tint: rgba(255, 255, 255, 0.14);
-  --zf-nav-surface: rgba(0, 0, 0, 0.72);
-  --zf-nav-border: rgba(255, 255, 255, 0.1);
+  --zf-nav-surface: rgba(22, 22, 23, 0.8);
+  --zf-nav-border: rgba(255, 255, 255, 0.12);
   color-scheme: dark;
 }
 
@@ -82,13 +88,7 @@ html {
 
 body {
   margin: 0;
-  /* Inter (self-hosted via @fontsource-variable/inter, imported in main.tsx) leads
-     because SF Pro isn't a legally shippable web font -- non-Apple OSes would
-     otherwise silently fall through to Helvetica/system-sans. Inter's metrics
-     (x-height, tabular figures) are close enough to San Francisco's to read as
-     Apple-adjacent everywhere, while Apple platforms still get -apple-system. */
-  font-family: 'Inter Variable', -apple-system, 'SF Pro Text', 'SF Pro Display', BlinkMacSystemFont,
-    'Helvetica Neue', Helvetica, Arial, sans-serif;
+  font-family: var(--font-display);
   font-size: 17px;
   line-height: 1.47059;
   font-weight: 400;
@@ -102,7 +102,7 @@ body {
 code,
 pre,
 .font-mono {
-  font-family: 'JetBrains Mono', ui-monospace, Menlo, Monaco, Consolas, monospace;
+  font-family: var(--font-mono);
 }
 
 a {
@@ -677,60 +677,194 @@ a:hover {
   }
 }
 
-/* —— Buttons —— */
+/* —— Buttons (apple.com / Netra contract) —— */
+a.zf-btn {
+  text-decoration: none;
+}
+a.zf-btn:hover {
+  text-decoration: none;
+}
 .zf-btn {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 0.4rem;
-  border-radius: 980px;
-  font-weight: 500;
-  font-size: 14px;
-  padding: 0.7rem 1.35rem;
-  border: none;
+  gap: 0.45rem;
+  font-family: var(--font-display);
+  font-size: 17px;
+  font-weight: 400;
+  letter-spacing: -0.022em;
+  line-height: 1.17648;
+  border-radius: var(--zf-radius-pill);
+  border: 1px solid transparent;
+  min-height: var(--zf-hit-min);
+  padding: 12px 22px;
   cursor: pointer;
-  transition: opacity 0.15s ease, background 0.15s ease, color 0.15s ease;
-  letter-spacing: -0.01em;
+  white-space: nowrap;
+  flex: 0 0 auto;
+  transition:
+    background 0.28s var(--zf-ease),
+    color 0.28s var(--zf-ease),
+    border-color 0.28s var(--zf-ease),
+    box-shadow 0.28s var(--zf-ease),
+    transform 0.16s var(--zf-ease),
+    filter 0.28s var(--zf-ease);
 }
-.zf-btn:disabled {
-  opacity: 0.45;
-  cursor: not-allowed;
+.zf-btn:focus-visible {
+  outline: 2px solid var(--zf-cta);
+  outline-offset: 2px;
+  box-shadow: var(--zf-focus-ring);
 }
-.zf-btn-primary {
-  background: var(--zf-link);
-  color: #fff;
-}
-.zf-btn-primary:hover:not(:disabled) {
-  background: var(--zf-link-hover);
-  color: #fff;
-}
-.zf-btn-secondary {
-  background: transparent;
-  color: var(--zf-link);
-  padding-left: 0.5rem;
-  padding-right: 0.5rem;
-}
-.zf-btn-secondary:hover:not(:disabled) {
-  text-decoration: underline;
-}
-.zf-btn-ghost {
-  background: transparent;
-  color: var(--zf-ink);
-  border: 1px solid var(--zf-hairline);
-}
-.zf-btn-ghost:hover:not(:disabled) {
-  background: var(--zf-hover-tint);
-}
-.zf-btn-danger {
-  background: var(--zf-danger);
-  color: #fff;
-}
-.zf-btn-sm {
-  font-size: 13px;
-  padding: 0.45rem 0.95rem;
+.zf-btn:active:not(:disabled) {
+  transform: scale(0.98);
 }
 
-/* —— Console shell —— */
+/* One primary action — Apple blue fill */
+.zf-btn-primary,
+a.zf-btn-primary {
+  background: var(--zf-cta);
+  color: #fff !important;
+  border-color: transparent;
+}
+.zf-btn-primary:hover:not(:disabled),
+a.zf-btn-primary:hover {
+  background: var(--zf-cta-hover);
+  color: #fff !important;
+  filter: brightness(1.06);
+}
+:root[data-theme='dark'] .zf-btn-primary:hover:not(:disabled),
+:root[data-theme='dark'] a.zf-btn-primary:hover {
+  box-shadow: 0 8px 24px rgba(0, 113, 227, 0.35);
+}
+
+/* Neutral secondary / refresh */
+.zf-btn-secondary,
+.zf-btn-ghost,
+a.zf-btn-secondary,
+a.zf-btn-ghost {
+  background: var(--zf-fill-tertiary);
+  color: var(--zf-ink) !important;
+  border-color: var(--zf-hairline);
+}
+.zf-btn-secondary:hover:not(:disabled),
+.zf-btn-ghost:hover:not(:disabled),
+a.zf-btn-secondary:hover,
+a.zf-btn-ghost:hover {
+  background: var(--zf-canvas-alt);
+  text-decoration: none;
+}
+
+/* Soft intent — blue wash (Netra btn-diag), not the primary fill */
+.zf-btn-soft,
+a.zf-btn-soft {
+  background: color-mix(in srgb, var(--zf-cta) 12%, transparent);
+  color: var(--zf-link) !important;
+  border-color: transparent;
+}
+.zf-btn-soft:hover:not(:disabled),
+a.zf-btn-soft:hover {
+  background: color-mix(in srgb, var(--zf-cta) 20%, transparent);
+}
+
+.zf-btn-danger,
+a.zf-btn-danger {
+  background: var(--zf-danger);
+  color: #fff !important;
+  border-color: transparent;
+}
+.zf-btn-danger:hover:not(:disabled),
+a.zf-btn-danger:hover {
+  filter: brightness(1.06);
+}
+
+.zf-btn-success,
+a.zf-btn-success {
+  background: color-mix(in srgb, var(--zf-success) 14%, transparent);
+  color: var(--zf-success) !important;
+  border-color: transparent;
+}
+.zf-btn-success:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--zf-success) 22%, transparent);
+}
+
+.zf-btn:disabled,
+.zf-btn-primary:disabled,
+.zf-btn-secondary:disabled,
+.zf-btn-ghost:disabled,
+.zf-btn-soft:disabled,
+.zf-btn-danger:disabled,
+.zf-btn-success:disabled {
+  background: var(--zf-disabled-bg);
+  color: var(--zf-disabled-text) !important;
+  border-color: transparent;
+  cursor: not-allowed;
+  opacity: 1;
+  transform: none;
+  filter: none;
+  box-shadow: none;
+}
+
+.zf-btn-sm {
+  font-size: 14px;
+  min-height: 36px;
+  padding: 8px 16px;
+}
+.zf-btn-xs {
+  font-size: 13px;
+  min-height: 32px;
+  padding: 6px 14px;
+}
+.zf-btn-icon {
+  width: var(--zf-hit-min);
+  height: var(--zf-hit-min);
+  min-height: var(--zf-hit-min);
+  padding: 0;
+  border-radius: 50%;
+}
+
+/* Segmented / chip toggles — selected = Apple blue */
+.zf-chip {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.35rem;
+  font-family: var(--font-display);
+  font-size: 13px;
+  font-weight: 400;
+  letter-spacing: -0.016em;
+  min-height: 32px;
+  padding: 6px 14px;
+  border-radius: var(--zf-radius-pill);
+  border: 1px solid var(--zf-hairline);
+  background: var(--zf-fill-tertiary);
+  color: var(--zf-muted);
+  cursor: pointer;
+  transition:
+    background 0.28s var(--zf-ease),
+    color 0.28s var(--zf-ease),
+    border-color 0.28s var(--zf-ease),
+    transform 0.16s var(--zf-ease);
+}
+.zf-chip:hover {
+  color: var(--zf-ink);
+  background: var(--zf-canvas-alt);
+}
+.zf-chip:active {
+  transform: scale(0.98);
+}
+.zf-chip-active,
+.zf-chip[aria-pressed='true'] {
+  background: var(--zf-cta);
+  color: #fff;
+  border-color: transparent;
+}
+.zf-chip-active:hover,
+.zf-chip[aria-pressed='true']:hover {
+  background: var(--zf-cta-hover);
+  color: #fff;
+  filter: brightness(1.06);
+}
+
+/* —— Console shell (Netra-style top mega-nav, no sidebar) —— */
 .console-shell {
   min-height: 100vh;
   display: flex;
@@ -741,19 +875,19 @@ a:hover {
 .console-topbar {
   position: sticky;
   top: 0;
-  z-index: 30;
+  z-index: 50;
   height: var(--console-topbar-height);
   display: flex;
   align-items: center;
-  gap: 16px;
-  padding: 0 20px;
+  gap: 12px;
+  padding: 0 clamp(16px, 2.5vw, 28px);
   background: var(--zf-nav-surface);
-  /* Same glass recipe as .mkt-nav, applied consistently to the console shell. */
   backdrop-filter: saturate(180%) blur(20px);
   -webkit-backdrop-filter: saturate(180%) blur(20px);
   border-bottom: 1px solid var(--zf-nav-border);
 }
 .console-brand {
+  flex: 0 0 auto;
   display: inline-flex;
   align-items: center;
   gap: 0.5rem;
@@ -765,91 +899,164 @@ a:hover {
 }
 .console-brand:hover {
   color: var(--zf-ink);
+  opacity: 0.85;
+}
+.console-brand-word {
+  color: var(--zf-muted);
+  font-weight: 500;
+}
+.console-navlinks {
+  flex: 1 1 auto;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  gap: 0;
+  min-width: 0;
+  overflow: visible;
+}
+.console-navlinks.mobile-open {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  justify-content: flex-start;
+  position: fixed;
+  inset: var(--console-topbar-height) 0 auto 0;
+  max-height: calc(100vh - var(--console-topbar-height));
+  overflow-y: auto;
+  background: var(--zf-surface);
+  border-bottom: 1px solid var(--zf-hairline);
+  padding: 8px 12px 16px;
+  z-index: 40;
+}
+.console-navgroup {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+}
+.console-nav-trigger {
+  position: relative;
+  border: 0;
+  background: transparent;
+  padding: 0 10px;
+  min-height: var(--console-topbar-height);
+  height: var(--console-topbar-height);
+  display: inline-flex;
+  align-items: center;
+  color: var(--zf-ink);
+  font-size: 12px;
+  font-weight: 400;
+  letter-spacing: -0.01em;
+  white-space: nowrap;
+  opacity: 0.88;
+  text-decoration: none;
+  cursor: pointer;
+  transition: opacity 0.2s ease, color 0.2s ease;
+}
+.console-nav-trigger::after {
+  content: '';
+  position: absolute;
+  left: 10px;
+  right: 10px;
+  bottom: 6px;
+  height: 2px;
+  border-radius: 1px;
+  background: var(--zf-cta);
+  transform: scaleX(0);
+  transition: transform 0.25s ease;
+}
+.console-nav-trigger:hover {
+  opacity: 1;
+  color: var(--zf-ink);
+}
+.console-nav-trigger.active {
+  opacity: 1;
+  font-weight: 500;
+}
+.console-nav-trigger.active::after {
+  transform: scaleX(1);
+}
+.console-mega-panel {
+  display: none;
+  background: var(--zf-surface);
+  border: 1px solid var(--zf-hairline);
+  border-radius: 0 0 var(--zf-radius) var(--zf-radius);
+  padding: 20px 24px;
+  box-shadow: var(--zf-shadow-elevated);
+}
+.console-mega-panel.open {
+  display: block;
+}
+.console-mega-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 8px;
+}
+.console-mega-link {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  padding: 8px;
+  border-radius: var(--zf-radius-sm);
+  text-decoration: none;
+  color: inherit;
+}
+.console-mega-link:hover {
+  background: var(--zf-hover-tint);
+  color: inherit;
+}
+.console-mega-link-label {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--zf-ink);
+}
+.console-mega-link-blurb {
+  font-size: 12px;
+  color: var(--zf-muted);
+  line-height: 1.4;
+}
+.console-mega-link.active .console-mega-link-label {
+  color: var(--zf-cta);
+}
+.console-nav-actions {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-left: auto;
+}
+.console-icon-btn {
+  width: var(--zf-hit-min);
+  height: var(--zf-hit-min);
+  min-height: var(--zf-hit-min);
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--zf-muted);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: background 0.28s var(--zf-ease), color 0.28s var(--zf-ease);
+}
+.console-icon-btn:hover {
+  background: var(--zf-hover-tint);
+  color: var(--zf-ink);
 }
 .console-body {
   display: flex;
   flex: 1;
   min-height: 0;
-}
-.console-sidebar {
-  width: var(--console-sidebar);
-  flex-shrink: 0;
-  border-right: 1px solid var(--zf-hairline);
-  background: var(--zf-surface);
-  padding: 20px 12px 40px;
-  overflow-y: auto;
-  position: sticky;
-  top: 52px;
-  height: calc(100vh - 52px);
-  transition: width 0.15s ease;
-}
-.console-sidebar.collapsed {
-  width: 3.75rem;
-  padding-left: 8px;
-  padding-right: 8px;
-}
-.console-sidebar-collapse-btn {
-  display: flex;
-  align-items: center;
-  gap: 8px;
   width: 100%;
-  padding: 8px 10px;
-  margin-bottom: 14px;
-  border-radius: var(--zf-radius-sm);
-  border: none;
-  background: transparent;
-  color: var(--zf-muted);
-  font-size: 13px;
-  cursor: pointer;
-}
-.console-sidebar-collapse-btn:hover {
-  background: var(--zf-hover-tint);
-  color: var(--zf-ink);
-}
-.console-sidebar.collapsed .console-sidebar-collapse-btn {
-  justify-content: center;
-}
-.console-sidebar-group {
-  margin-bottom: 22px;
-}
-.console-sidebar-label {
-  font-size: 12px;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-  color: var(--zf-muted);
-  padding: 0 10px 8px;
-}
-.console-nav-link {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 8px 10px;
-  border-radius: var(--zf-radius-sm);
-  color: var(--zf-ink);
-  font-size: 14px;
-  font-weight: 400;
-  letter-spacing: -0.016em;
-  text-decoration: none;
-}
-.console-sidebar.collapsed .console-nav-link {
-  justify-content: center;
-  padding: 10px;
-}
-.console-nav-link:hover {
-  background: var(--zf-hover-tint);
-  color: var(--zf-ink);
-}
-.console-nav-link.active {
-  background: var(--zf-active-tint);
-  color: var(--zf-ink);
-  font-weight: 600;
 }
 .console-main {
   flex: 1;
   min-width: 0;
-  padding: 28px 28px 64px;
-  max-width: 1200px;
+  width: 100%;
+  max-width: none;
+  margin: 0;
+  padding: 28px clamp(16px, 2vw, 32px) 64px;
   font-size: 14px;
   line-height: 1.42859;
   letter-spacing: -0.016em;
@@ -862,7 +1069,6 @@ a:hover {
   font-weight: 600;
   letter-spacing: -0.022em;
 }
-/* Table data must stay ink — Apple body, not caption gray */
 .console-main td {
   color: var(--zf-ink);
 }
@@ -874,8 +1080,62 @@ a:hover {
 .console-main .text-muted {
   color: var(--zf-muted);
 }
-@media (max-width: 900px) {
-  .console-sidebar {
+@media (min-width: 1024px) {
+  .console-navlinks {
+    display: flex;
+    flex-direction: row;
+  }
+  .console-navlinks.mobile-open {
+    position: static;
+    inset: auto;
+    max-height: none;
+    overflow: visible;
+    background: transparent;
+    border: 0;
+    padding: 0;
+    flex-direction: row;
+  }
+  .console-navgroup {
+    display: inline-flex;
+    flex-direction: row;
+  }
+  .console-mega-panel {
+    display: block;
+    position: absolute;
+    top: 100%;
+    left: 50%;
+    transform: translateX(-50%) translateY(-6px);
+    min-width: 480px;
+    max-width: 720px;
+    max-height: calc(100vh - 64px);
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    border-top: none;
+    padding: 28px 32px;
+    opacity: 0;
+    visibility: hidden;
+    pointer-events: none;
+    transition: opacity 0.22s ease, transform 0.22s ease, visibility 0.22s;
+  }
+  .console-mega-panel.open {
+    opacity: 1;
+    visibility: visible;
+    pointer-events: auto;
+    transform: translateX(-50%) translateY(0);
+  }
+  .console-mega-grid {
+    grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+    gap: 20px 28px;
+  }
+}
+@media (max-width: 1023px) {
+  .console-nav-trigger {
+    min-height: 44px;
+    height: 44px;
+    width: 100%;
+    justify-content: flex-start;
+  }
+  .console-nav-trigger::after {
     display: none;
   }
   .console-main {
@@ -960,14 +1220,13 @@ a:hover {
   color: var(--zf-ink);
 }
 .zf-table-row {
-  border-top: 1px solid var(--zf-hairline);
-  transition: background-color 0.15s ease;
+  transition: background-color 0.2s var(--zf-ease);
 }
 .zf-table-row:hover {
-  background: var(--zf-hover-tint);
+  background: var(--zf-canvas-alt);
 }
 .zf-table-row.selected {
-  background: color-mix(in srgb, var(--zf-link) 5%, transparent);
+  background: color-mix(in srgb, var(--zf-cta) 8%, transparent);
 }
 
 /* Terminal.app chrome — always near-black, both themes.
@@ -1038,17 +1297,241 @@ input.input-field,
 select.input-field,
 textarea.input-field {
   width: 100%;
+  min-height: var(--zf-hit-min);
   border: 1px solid var(--zf-hairline);
-  background: var(--zf-surface);
+  background: var(--zf-fill-tertiary);
   color: var(--zf-ink);
-  border-radius: var(--zf-radius-sm);
-  padding: 0.65rem 0.85rem;
+  border-radius: var(--zf-radius);
+  padding: 10px 14px;
   font: inherit;
+  font-size: 15px;
   outline: none;
+  transition:
+    border-color 0.2s var(--zf-ease),
+    box-shadow 0.2s var(--zf-ease);
 }
-.input-field:focus {
-  border-color: var(--zf-ink);
-  box-shadow: 0 0 0 3px var(--zf-focus-tint);
+.input-field::placeholder {
+  color: var(--zf-muted);
+  opacity: 0.85;
+}
+.input-field:focus,
+.input-field:focus-visible {
+  border-color: var(--zf-cta);
+  box-shadow: var(--zf-focus-ring);
+}
+
+:where(
+  input:not([type='checkbox'], [type='radio'], [type='range'], [type='file'], [type='color'], [type='hidden']),
+  select,
+  textarea
+) {
+  font: inherit;
+  font-size: 15px;
+  color: var(--zf-ink);
+  min-height: var(--zf-hit-min);
+  padding: 10px 14px;
+  background: var(--zf-fill-tertiary);
+  border: 1px solid var(--zf-hairline);
+  border-radius: var(--zf-radius);
+}
+:where(textarea) {
+  min-height: 0;
+}
+:where(input, select, textarea)::placeholder {
+  color: var(--zf-muted);
+}
+:where(input[type='checkbox'], input[type='radio']) {
+  accent-color: var(--zf-cta);
+  width: 18px;
+  height: 18px;
+  margin: 0;
+}
+:root input[type='checkbox'],
+:root input[type='radio'] {
+  flex: 0 0 auto;
+  width: 18px;
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  display: inline-block;
+}
+
+/* —— Netra apple-story primitives (mapped to --zf-* tokens) —— */
+.apple-section {
+  width: 100%;
+  margin: 0;
+  padding: 8px 0 40px;
+}
+.apple-section--tight {
+  padding: 16px 0 24px;
+}
+.apple-eyebrow {
+  margin: 0 0 12px;
+  font-size: 14px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  color: var(--zf-link);
+}
+.apple-display {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: clamp(2.5rem, 5vw, 3.5rem);
+  font-weight: 600;
+  line-height: 1.07;
+  letter-spacing: -0.015em;
+  color: var(--zf-ink);
+}
+.apple-lede {
+  margin: 16px 0 0;
+  max-width: 48ch;
+  font-size: clamp(1.06rem, 1.5vw, 1.25rem);
+  line-height: 1.38;
+  letter-spacing: 0.005em;
+  color: var(--zf-secondary);
+}
+.apple-cta-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px 20px;
+  margin-top: 28px;
+}
+.apple-text-link {
+  color: var(--zf-link);
+  text-decoration: none;
+  font-size: 17px;
+}
+.apple-text-link:hover {
+  text-decoration: underline;
+  color: var(--zf-link-hover);
+}
+.apple-metric-band {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0;
+  border-top: 1px solid var(--zf-hairline);
+  border-bottom: 1px solid var(--zf-hairline);
+  margin: 8px 0 0;
+}
+@media (min-width: 1024px) {
+  .apple-metric-band {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+}
+.apple-metric-band > div {
+  display: flex;
+  flex-direction: column-reverse;
+  gap: 4px;
+  padding: 24px 20px;
+}
+.apple-metric-band > div > b {
+  font-family: var(--font-display);
+  font-size: clamp(1.6rem, 2.8vw, 2.25rem);
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  color: var(--zf-ink);
+  font-variant-numeric: tabular-nums;
+}
+.apple-metric-band > div > span {
+  font-size: 13px;
+  color: var(--zf-muted);
+}
+.apple-metric-band > div > b.is-good {
+  color: var(--zf-success);
+}
+.apple-metric-band > div > b.is-bad {
+  color: var(--zf-danger);
+}
+.apple-metric-band > div > b.is-warn {
+  color: var(--zf-warning);
+}
+
+.toolbar-pill {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 12px;
+  padding: 8px 12px;
+  border: 1px solid var(--zf-hairline);
+  border-radius: var(--zf-radius-pill);
+  background: var(--zf-nav-surface);
+  -webkit-backdrop-filter: saturate(180%) blur(20px);
+  backdrop-filter: saturate(180%) blur(20px);
+  margin-bottom: 16px;
+}
+.toolbar-pill .input-field {
+  flex: 1 1 220px;
+  border-radius: var(--zf-radius-pill);
+  min-height: 36px;
+  padding: 8px 16px;
+}
+.toolbar-pill__trailing {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-left: auto;
+}
+
+.table-wrap {
+  overflow-x: auto;
+  border: 1px solid var(--zf-hairline);
+  border-radius: 18px;
+  background: var(--zf-surface);
+  box-shadow: var(--zf-shadow-1);
+}
+.table-wrap table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 14px;
+}
+.table-wrap th {
+  padding: 12px 16px;
+  text-align: left;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--zf-muted);
+  border-bottom: 1px solid var(--zf-hairline);
+  text-transform: none;
+  letter-spacing: -0.01em;
+}
+.table-wrap td {
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--zf-hairline);
+}
+.table-wrap tr:last-child td {
+  border-bottom: 0;
+}
+.table-wrap tbody tr {
+  transition: background-color 0.2s var(--zf-ease);
+}
+.table-wrap tbody tr:hover {
+  background: var(--zf-canvas-alt);
+}
+
+.list-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 48px 24px;
+  text-align: center;
+  color: var(--zf-secondary);
+}
+.list-empty h3 {
+  margin: 0;
+  font-size: 19px;
+  font-weight: 600;
+  color: var(--zf-ink);
+  letter-spacing: -0.016em;
+}
+.list-empty p {
+  margin: 0;
+  max-width: 40ch;
+  font-size: 15px;
+  line-height: 1.4;
+}
+.list-empty .list-empty-action {
+  margin-top: 12px;
 }
 
 .modal-backdrop,
@@ -1062,6 +1545,7 @@ textarea.input-field {
   padding: 24px;
   background: rgba(0, 0, 0, 0.32);
   backdrop-filter: blur(8px);
+  transition: opacity 0.28s var(--zf-ease);
 }
 .modal-card,
 .glass-modal-card {
@@ -1069,9 +1553,13 @@ textarea.input-field {
   border: 1px solid var(--zf-hairline);
   border-radius: 18px;
   padding: 24px;
-  box-shadow: 0 24px 80px rgba(0, 0, 0, 0.18);
+  box-shadow: var(--zf-shadow-3);
   max-height: calc(100vh - 48px);
   overflow: auto;
+  transition:
+    opacity 0.28s var(--zf-ease),
+    transform 0.28s var(--zf-ease);
+  animation: fade-in 0.28s var(--zf-ease);
 }
 
 /* Single shared skeleton treatment -- both Skeleton.tsx's per-content

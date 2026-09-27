@@ -166,7 +166,7 @@ export default function VMCard({ vm, onUpdate, onManageTags }: VMCardProps) {
               {vm.state === 'stopped' || vm.state === 'failed' ? (
                 <button
                   onClick={handleStart}
-                  className="flex items-center gap-1.5 px-3 py-1.5 bg-[var(--zf-success)]/15 text-[var(--zf-success)] hover:bg-[var(--zf-success)]/25 rounded-md transition-colors text-sm font-medium"
+                  className="zf-btn zf-btn-success zf-btn-sm"
                 >
                   <Play className="w-3.5 h-3.5" />
                   Start
@@ -174,7 +174,7 @@ export default function VMCard({ vm, onUpdate, onManageTags }: VMCardProps) {
               ) : (
                 <button
                   onClick={handleStop}
-                  className="flex items-center gap-1.5 px-3 py-1.5 bg-[var(--zf-danger)]/15 text-[var(--zf-danger)] hover:bg-[var(--zf-danger)]/25 rounded-md transition-colors text-sm font-medium"
+                  className="zf-btn zf-btn-danger zf-btn-sm"
                 >
                   <Square className="w-3.5 h-3.5" />
                   Stop

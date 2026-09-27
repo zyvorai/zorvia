@@ -246,6 +246,8 @@ export default function VMList() {
       {!canWrite && <ReadOnlyNotice />}
       <PageHeader
         title="Virtual Machines"
+        eyebrow="Compute"
+        description="List, start, stop, and manage the fleet."
         onRefresh={() => { setLoading(true); void loadVMs() }}
         refreshing={loading}
         actions={
@@ -305,35 +307,40 @@ export default function VMList() {
 
       {/* Search + Select All */}
       {vms.length > 0 && (
-        <div className="flex items-center gap-3 mb-4">
-          <div className="relative max-w-md flex-1">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[var(--zf-muted)]" />
+        <div className="toolbar-pill">
+          <div className="relative flex-1 min-w-[12rem]">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[var(--zf-muted)] pointer-events-none" />
             <input
               type="text"
               placeholder="Search VMs..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full bg-[var(--zf-canvas)] border border-[var(--zf-hairline)] rounded-lg py-2 pl-9 pr-8 text-sm text-[var(--zf-ink)] placeholder-[var(--zf-muted)] focus:outline-none focus:border-[var(--zf-ink)] transition-colors"
+              className="input-field !pl-9"
             />
             {searchQuery && (
-              <button onClick={() => setSearchQuery('')} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[var(--zf-muted)] hover:text-[var(--zf-ink)] transition-colors">
+              <button
+                type="button"
+                onClick={() => setSearchQuery('')}
+                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[var(--zf-muted)] hover:text-[var(--zf-ink)] transition-colors"
+              >
                 <X className="w-3.5 h-3.5" />
               </button>
             )}
           </div>
-          {filteredVMs.length > 1 && (
-            <button
-              onClick={selectAll}
-              className={`flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-medium transition-colors ${
-                selectedVMs.size === filteredVMs.length
-                  ? 'bg-[var(--zf-link)]/20 text-[var(--zf-link)] border border-[var(--zf-link)]/30'
-                  : 'bg-[var(--zf-canvas)] border border-[var(--zf-hairline)] text-[var(--zf-muted)] hover:text-[var(--zf-ink)]'
-              }`}
-            >
-              <CheckSquare className="w-3.5 h-3.5" />
-              {selectedVMs.size === filteredVMs.length ? 'Deselect All' : 'Select All'}
-            </button>
-          )}
+          <div className="toolbar-pill__trailing">
+            {filteredVMs.length > 1 && (
+              <button
+                type="button"
+                onClick={selectAll}
+                className={`zf-btn zf-btn-ghost zf-btn-sm ${
+                  selectedVMs.size === filteredVMs.length ? '!border-[var(--zf-cta)] !text-[var(--zf-cta)]' : ''
+                }`}
+              >
+                <CheckSquare className="w-3.5 h-3.5" />
+                {selectedVMs.size === filteredVMs.length ? 'Deselect All' : 'Select All'}
+              </button>
+            )}
+          </div>
         </div>
       )}
 
@@ -429,7 +436,7 @@ export default function VMList() {
               <button
                 onClick={bulkStart}
                 disabled={bulkLoading}
-                className="flex items-center gap-1.5 px-3 py-1.5 text-emerald-700 bg-emerald-50 hover:bg-emerald-100 rounded-lg text-sm font-medium transition-colors disabled:opacity-50"
+                className="zf-btn zf-btn-success zf-btn-sm"
               >
                 <Play className="w-3.5 h-3.5" />
                 Start {selectedStopped}
@@ -439,7 +446,7 @@ export default function VMList() {
               <button
                 onClick={bulkStop}
                 disabled={bulkLoading}
-                className="flex items-center gap-1.5 px-3 py-1.5 text-red-700 bg-red-50 hover:bg-red-100 rounded-lg text-sm font-medium transition-colors disabled:opacity-50"
+                className="zf-btn zf-btn-danger zf-btn-sm"
               >
                 <Square className="w-3.5 h-3.5" />
                 Stop {selectedRunning}
@@ -448,7 +455,7 @@ export default function VMList() {
             <button
               onClick={bulkBackup}
               disabled={bulkLoading}
-              className="flex items-center gap-1.5 px-3 py-1.5 bg-[var(--zf-link)]/15 text-[var(--zf-link)] hover:bg-[var(--zf-link)]/25 rounded-lg text-sm font-medium transition-colors disabled:opacity-50"
+              className="zf-btn zf-btn-soft zf-btn-sm"
             >
               <Archive className="w-3.5 h-3.5" />
               Backup {selectedCount}
@@ -457,7 +464,7 @@ export default function VMList() {
             <button
               onClick={() => setBulkAction('delete')}
               disabled={bulkLoading}
-              className="flex items-center gap-1.5 px-3 py-1.5 text-red-700 bg-red-50 hover:bg-red-100 rounded-lg text-sm font-medium transition-colors disabled:opacity-50"
+              className="zf-btn zf-btn-danger zf-btn-sm"
             >
               <Trash2 className="w-3.5 h-3.5" />
               Delete

@@ -123,9 +123,9 @@ export default function ComplianceDashboard() {
           </div>
 
           <div className="flex flex-wrap gap-2">
-            <button onClick={() => setSelectedCategory('all')} className={`px-3 py-1.5 text-xs font-medium rounded-lg border transition-colors ${selectedCategory === 'all' ? 'bg-[var(--zf-link)] text-white border-[var(--zf-link)]' : 'text-[var(--zf-muted)] bg-[var(--zf-surface)] border-[var(--zf-hairline)] hover:border-[var(--zf-ink)]'}`}>All ({data.checks.length})</button>
+            <button onClick={() => setSelectedCategory('all')} className={`zf-chip ${selectedCategory === 'all'? 'zf-chip-active' : ''}`}>All ({data.checks.length})</button>
             {data.categories.map(cat => (
-              <button key={cat} onClick={() => setSelectedCategory(cat)} className={`px-3 py-1.5 text-xs font-medium rounded-lg border transition-colors ${selectedCategory === cat ? 'bg-[var(--zf-link)] text-white border-[var(--zf-link)]' : 'text-[var(--zf-muted)] bg-[var(--zf-surface)] border-[var(--zf-hairline)] hover:border-[var(--zf-ink)]'}`}>{cat}</button>
+              <button key={cat} onClick={() => setSelectedCategory(cat)} className={`zf-chip ${selectedCategory === cat? 'zf-chip-active' : ''}`}>{cat}</button>
             ))}
           </div>
 

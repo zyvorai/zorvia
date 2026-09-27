@@ -72,33 +72,21 @@ export default function Console() {
         <div className="flex items-center gap-1 p-1 bg-[var(--zf-canvas)] border border-[var(--zf-hairline)] rounded-xl shrink-0">
           <button
             onClick={() => setMode('terminal')}
-            className={`flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-sm font-medium transition-colors ${
-              mode === 'terminal'
-                ? 'bg-[var(--zf-link)] text-white'
-                : 'text-[var(--zf-muted)] hover:text-[var(--zf-ink)]'
-            }`}
+            className={`zf-chip ${mode === 'terminal' ? 'zf-chip-active' : ''}`}
           >
             <TerminalIcon className="w-4 h-4" />
             Terminal
           </button>
           <button
             onClick={() => setMode('vnc')}
-            className={`flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-sm font-medium transition-colors ${
-              mode === 'vnc'
-                ? 'bg-[var(--zf-link)] text-white'
-                : 'text-[var(--zf-muted)] hover:text-[var(--zf-ink)]'
-            }`}
+            className={`zf-chip ${mode === 'vnc' ? 'zf-chip-active' : ''}`}
           >
             <Monitor className="w-4 h-4" />
             VNC
           </button>
           <button
             onClick={() => setMode('ssh')}
-            className={`flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-sm font-medium transition-colors ${
-              mode === 'ssh'
-                ? 'bg-[var(--zf-link)] text-white'
-                : 'text-[var(--zf-muted)] hover:text-[var(--zf-ink)]'
-            }`}
+            className={`zf-chip ${mode === 'ssh' ? 'zf-chip-active' : ''}`}
           >
             <KeyRound className="w-4 h-4" />
             SSH

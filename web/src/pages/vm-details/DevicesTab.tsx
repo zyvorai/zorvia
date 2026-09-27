@@ -225,7 +225,7 @@ function DeviceTable({
                     type="button"
                     disabled={!canWrite || row.busy}
                     onClick={row.onAttach}
-                    className="px-3 py-1.5 rounded-lg text-xs font-medium bg-[var(--zf-link)]/20 text-[var(--zf-link)] hover:bg-[var(--zf-link)]/30 disabled:opacity-50"
+                    className="zf-btn zf-btn-soft zf-btn-xs"
                   >
                     {row.busy ? '…' : 'Attach'}
                   </button>

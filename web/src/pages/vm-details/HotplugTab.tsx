@@ -252,15 +252,13 @@ function ActionButton({
   variant?: 'primary' | 'danger'
 }) {
   const cls =
-    variant === 'danger'
-      ? 'bg-[var(--zf-danger)]/80 hover:bg-[var(--zf-danger)] text-white'
-      : 'bg-[var(--zf-link)] hover:bg-[var(--zf-link-hover)] text-white'
+    variant === 'danger' ? 'zf-btn zf-btn-danger zf-btn-sm' : 'zf-btn zf-btn-primary zf-btn-sm'
   return (
     <button
       type="button"
       onClick={onClick}
       disabled={disabled || loading}
-      className={`px-3 py-2 rounded-lg text-sm font-medium transition-colors disabled:opacity-50 flex items-center gap-1.5 ${cls}`}
+      className={cls}
     >
       {loading && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
       {label}

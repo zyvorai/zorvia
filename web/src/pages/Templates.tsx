@@ -99,7 +99,7 @@ export default function Templates() {
                 <div className="p-3 flex flex-wrap gap-2">
                   {families[family].map(name => (
                     <button key={name} onClick={() => handleSelect(name)}
-                      className={`px-3 py-1.5 text-xs font-medium rounded-lg border transition-colors ${selected === name ? 'bg-[var(--zf-link)] text-white border-[var(--zf-link)]' : 'text-[var(--zf-muted)] bg-[var(--zf-surface)] border-[var(--zf-hairline)] hover:border-[var(--zf-ink)]'}`}>
+                      className={`zf-chip ${selected === name? 'zf-chip-active' : ''}`}>
                       {name}
                     </button>
                   ))}

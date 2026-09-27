@@ -234,7 +234,7 @@ export default function BackupScheduler() {
                 <div className="flex flex-wrap gap-2">
                   {vms.map(vm => (
                     <button key={vm.name} type="button" onClick={() => toggleVm(vm.name)}
-                      className={`px-2.5 py-1 text-xs font-medium rounded-lg border transition-colors ${selectedVms.has(vm.name) ? 'bg-[var(--zf-link)] text-white border-[var(--zf-link)]' : 'text-[var(--zf-muted)] bg-[var(--zf-surface)] border-[var(--zf-hairline)] hover:border-[var(--zf-ink)]'}`}>
+                      className={`zf-chip ${selectedVms.has(vm.name)? 'zf-chip-active' : ''}`}>
                       {vm.name}
                     </button>
                   ))}

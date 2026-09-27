@@ -149,7 +149,7 @@ export default function Webhooks() {
                 <div className="flex flex-wrap gap-2">
                   {EVENTS.map(event => (
                     <button key={event} type="button" onClick={() => toggleEvent(event)}
-                      className={`px-2.5 py-1 text-xs font-medium rounded-lg border transition-colors font-mono ${selectedEvents.has(event) ? 'bg-[var(--zf-link)] text-white border-[var(--zf-link)]' : 'text-[var(--zf-muted)] bg-[var(--zf-surface)] border-[var(--zf-hairline)] hover:border-[var(--zf-ink)]'}`}>
+                      className={`zf-chip font-mono ${selectedEvents.has(event) ? 'zf-chip-active' : ''}`}>
                       {event}
                     </button>
                   ))}

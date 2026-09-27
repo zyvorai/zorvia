@@ -30,6 +30,25 @@ export default function Home() {
         visual={<ConsoleStage />}
       />
 
+      <div className="apple-metric-band mkt-reveal" aria-label="What you get" style={{ maxWidth: '100%', margin: '0 auto 48px' }}>
+        <div>
+          <b>Create</b>
+          <span>Linux & Windows</span>
+        </div>
+        <div>
+          <b>Console</b>
+          <span>Serial · VNC</span>
+        </div>
+        <div>
+          <b>Expose</b>
+          <span>SSH · RDP</span>
+        </div>
+        <div>
+          <b>Day-2</b>
+          <span>Snapshots · power</span>
+        </div>
+      </div>
+
       <MktHighlights
         items={[
           {

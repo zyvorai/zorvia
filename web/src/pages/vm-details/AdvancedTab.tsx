@@ -346,16 +346,16 @@ export default function AdvancedTab({ vm }: { vm: VM }) {
         {canWrite && (
           <div className="flex flex-wrap gap-2">
             {!firmware && (
-              <button onClick={() => void handleEnableUefi()} disabled={firmwareBusy} className="flex items-center gap-1.5 px-3 py-1.5 bg-[var(--zf-link)] hover:bg-[var(--zf-link-hover)] rounded-lg text-sm disabled:opacity-50">
+              <button onClick={() => void handleEnableUefi()} disabled={firmwareBusy} className="zf-btn zf-btn-primary zf-btn-sm">
                 <ShieldCheck className="w-3.5 h-3.5" />{firmwareBusy ? 'Working…' : 'Enable UEFI'}
               </button>
             )}
             {firmware && (
               <>
-                <button onClick={() => void handleToggleSecureBoot()} disabled={firmwareBusy} className="flex items-center gap-1.5 px-3 py-1.5 bg-[var(--zf-link)] hover:bg-[var(--zf-link-hover)] rounded-lg text-sm disabled:opacity-50">
+                <button onClick={() => void handleToggleSecureBoot()} disabled={firmwareBusy} className="zf-btn zf-btn-primary zf-btn-sm">
                   <ShieldCheck className="w-3.5 h-3.5" />{firmwareBusy ? 'Working…' : firmware.secure_boot_enabled ? 'Disable Secure Boot' : 'Enable Secure Boot'}
                 </button>
-                <button onClick={() => void handleResetNvram()} disabled={firmwareBusy} className="px-3 py-1.5 bg-[var(--zf-surface)] hover:bg-[var(--zf-hairline)] rounded-lg text-sm disabled:opacity-50">
+                <button onClick={() => void handleResetNvram()} disabled={firmwareBusy} className="zf-btn zf-btn-ghost zf-btn-sm">
                   {firmwareBusy ? 'Working…' : 'Reset NVRAM'}
                 </button>
               </>
@@ -402,7 +402,7 @@ export default function AdvancedTab({ vm }: { vm: VM }) {
             />
           </div>
           {canWrite && (
-            <button onClick={() => void saveBoot()} disabled={savingBoot} className="flex items-center gap-1.5 px-3 py-1.5 bg-[var(--zf-link)] hover:bg-[var(--zf-link-hover)] rounded-lg text-sm disabled:opacity-50">
+            <button onClick={() => void saveBoot()} disabled={savingBoot} className="zf-btn zf-btn-primary zf-btn-sm">
               <Save className="w-3.5 h-3.5" />{savingBoot ? 'Saving…' : 'Save Boot Config'}
             </button>
           )}
@@ -430,7 +430,7 @@ export default function AdvancedTab({ vm }: { vm: VM }) {
             </div>
           </div>
           {canWrite && (
-            <button onClick={() => void saveDisplay()} disabled={savingDisplay} className="flex items-center gap-1.5 px-3 py-1.5 bg-[var(--zf-link)] hover:bg-[var(--zf-link-hover)] rounded-lg text-sm disabled:opacity-50">
+            <button onClick={() => void saveDisplay()} disabled={savingDisplay} className="zf-btn zf-btn-primary zf-btn-sm">
               <Save className="w-3.5 h-3.5" />{savingDisplay ? 'Saving…' : 'Save Display Config'}
             </button>
           )}
@@ -474,7 +474,7 @@ export default function AdvancedTab({ vm }: { vm: VM }) {
             <p className="text-xs text-[var(--zf-muted)]">No host CPU model list available — enter a model name via Custom mode only if you know it's supported by qemu on this host.</p>
           )}
           {canWrite && (
-            <button onClick={() => void saveCpu()} disabled={savingCpu} className="flex items-center gap-1.5 px-3 py-1.5 bg-[var(--zf-link)] hover:bg-[var(--zf-link-hover)] rounded-lg text-sm disabled:opacity-50">
+            <button onClick={() => void saveCpu()} disabled={savingCpu} className="zf-btn zf-btn-primary zf-btn-sm">
               <Save className="w-3.5 h-3.5" />{savingCpu ? 'Saving…' : 'Save CPU Config'}
             </button>
           )}
@@ -566,16 +566,16 @@ export default function AdvancedTab({ vm }: { vm: VM }) {
               )}
 
               <div className="flex flex-wrap gap-2">
-                <button onClick={() => void applyPinning()} disabled={savingPinning} className="flex items-center gap-1.5 px-3 py-1.5 bg-[var(--zf-link)] hover:bg-[var(--zf-link-hover)] rounded-lg text-sm disabled:opacity-50">
+                <button onClick={() => void applyPinning()} disabled={savingPinning} className="zf-btn zf-btn-primary zf-btn-sm">
                   <Save className="w-3.5 h-3.5" />{savingPinning ? 'Applying…' : 'Apply Pinning'}
                 </button>
                 {numaTopology && (
-                  <button onClick={() => void applyRecommendedNuma()} disabled={savingPinning} className="px-3 py-1.5 bg-[var(--zf-surface)] hover:bg-[var(--zf-hairline)] rounded-lg text-sm disabled:opacity-50">
+                  <button onClick={() => void applyRecommendedNuma()} disabled={savingPinning} className="zf-btn zf-btn-ghost zf-btn-sm">
                     Use Recommended NUMA Node
                   </button>
                 )}
                 {cpuAffinity && cpuAffinity.length > 0 && (
-                  <button onClick={() => void clearPinning()} disabled={savingPinning} className="px-3 py-1.5 bg-[var(--zf-surface)] hover:bg-[var(--zf-hairline)] rounded-lg text-sm disabled:opacity-50">
+                  <button onClick={() => void clearPinning()} disabled={savingPinning} className="zf-btn zf-btn-ghost zf-btn-sm">
                     Clear Pinning
                   </button>
                 )}
@@ -629,7 +629,7 @@ export default function AdvancedTab({ vm }: { vm: VM }) {
               const action = (document.getElementById('watchdog-action') as HTMLSelectElement).value as WatchdogConfig['action']
               void saveWatchdog(model, action)
             }}
-            className="flex items-center gap-1.5 px-3 py-1.5 bg-[var(--zf-link)] hover:bg-[var(--zf-link-hover)] rounded-lg text-sm disabled:opacity-50"
+            className="zf-btn zf-btn-primary zf-btn-sm"
           >
             <Save className="w-3.5 h-3.5" />{savingWatchdog ? 'Saving…' : 'Set Watchdog'}
           </button>
@@ -660,7 +660,7 @@ export default function AdvancedTab({ vm }: { vm: VM }) {
                 <option value="tcp">tcp</option>
               </select>
             </div>
-            <button onClick={() => void submitSerial()} disabled={addingSerial} className="flex items-center gap-1.5 px-3 py-1.5 bg-[var(--zf-link)] hover:bg-[var(--zf-link-hover)] rounded-lg text-sm disabled:opacity-50">
+            <button onClick={() => void submitSerial()} disabled={addingSerial} className="zf-btn zf-btn-primary zf-btn-sm">
               <Plus className="w-3.5 h-3.5" />{addingSerial ? 'Adding…' : 'Add Serial'}
             </button>
           </div>
