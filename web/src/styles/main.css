@@ -1390,6 +1390,68 @@ textarea.zf-terminal-input::selection {
   color: #fff !important;
   background: rgba(255, 255, 255, 0.1) !important;
 }
+/* Terminal.app "Pro" profile: pure black canvas for pod logs / exec */
+.zf-terminal.zf-terminal-pro,
+.zf-terminal-pro .zf-terminal-body,
+.zf-terminal-pro .xterm-viewport {
+  background: #000 !important;
+}
+.zf-terminal-pro .zf-terminal-titlebar {
+  flex-wrap: wrap;
+  row-gap: 6px;
+}
+.zf-terminal-pro .xterm {
+  height: 100%;
+}
+.zf-term-select,
+.zf-term-input,
+.zf-term-btn {
+  display: inline-flex;
+  align-items: center;
+  height: 24px;
+  min-height: 24px;
+  padding: 0 8px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.06);
+  color: rgba(255, 255, 255, 0.78) !important;
+  font: 500 11px/1 var(--font-display);
+  letter-spacing: 0;
+  box-shadow: none;
+  cursor: pointer;
+}
+.zf-term-input {
+  width: 110px;
+  cursor: text;
+}
+.zf-term-input::placeholder {
+  color: rgba(255, 255, 255, 0.35);
+}
+.zf-term-select option {
+  background: #1c1c1e;
+  color: #f5f5f7;
+}
+.zf-terminal-titlebar :is(.zf-term-btn, .zf-term-select, .zf-term-input) {
+  color: rgba(255, 255, 255, 0.78) !important;
+}
+.zf-terminal-titlebar .zf-term-btn:hover,
+.zf-terminal-titlebar .zf-term-select:hover {
+  background: rgba(255, 255, 255, 0.12) !important;
+  color: #fff !important;
+}
+.zf-terminal-titlebar .zf-term-btn.is-on,
+.zf-terminal-titlebar .zf-term-btn.is-on:hover {
+  background: rgba(10, 132, 255, 0.28) !important;
+  border-color: rgba(10, 132, 255, 0.5);
+  color: #fff !important;
+}
+.zf-term-select:focus-visible,
+.zf-term-input:focus-visible,
+.zf-term-btn:focus-visible {
+  outline: none;
+  border-color: #0a84ff;
+  box-shadow: 0 0 0 3px rgba(10, 132, 255, 0.35);
+}
 
 .input-field,
 input.input-field,

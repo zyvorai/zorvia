@@ -41,6 +41,7 @@ const CONSOLE_PATHS = [
   '/app/optimizer',
   '/app/cost-estimator',
   '/app/quotas',
+  '/app/pods',
 ]
 
 const MARKETING_PATHS = ['/', '/product', '/platform', '/security', '/sign-in']
@@ -135,6 +136,32 @@ test.describe('lab console crawl', () => {
     // API health + login already proven; list VMs with cookie/token via UI session
     const health = await request.get(`${liveBase}/api/v1/health`)
     expect(health.status()).toBe(200)
+  })
+
+  test('pods: list, logs and exec', async ({ page }) => {
+    test.setTimeout(120_000)
+    await page.setViewportSize({ width: 1440, height: 1000 })
+    await page.goto('/app/pods')
+    await expect(page.getByRole('heading', { name: 'Pods' })).toBeVisible()
+    await page.getByLabel('Namespace').selectOption('zorvia-system')
+    const apiRow = page.locator('tr', { hasText: 'zorvia-api' }).filter({ hasText: 'Running' }).first()
+    await expect(apiRow).toBeVisible({ timeout: 20_000 })
+
+    await apiRow.getByRole('button', { name: 'Logs' }).click()
+    const logs = page.getByTestId('pod-logs')
+    await expect(logs.locator('.xterm-rows')).toContainText(/\S+.*\S+/, { timeout: 20_000 })
+    await expect.poll(async () => (await logs.locator('.xterm-rows > div').allTextContents()).filter((l) => l.trim()).length, {
+      timeout: 20_000,
+    }).toBeGreaterThan(1)
+    await page.screenshot({ path: 'test-results/pods-logs.png' })
+
+    await page.getByTestId('pod-panel').getByRole('button', { name: 'Terminal' }).click()
+    const exec = page.getByTestId('pod-exec')
+    await expect(page.getByTestId('pod-panel').locator('.zf-terminal-live')).toBeVisible({ timeout: 20_000 })
+    await exec.click()
+    await page.keyboard.type('echo zorvia-$((40+2))-ok\n')
+    await expect(exec.locator('.xterm-rows')).toContainText('zorvia-42-ok', { timeout: 15_000 })
+    await page.screenshot({ path: 'test-results/pods-exec.png' })
   })
 
   test('light and dark theme screenshots', async ({ page }) => {

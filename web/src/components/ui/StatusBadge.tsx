@@ -5,6 +5,8 @@ interface StatusBadgeProps {
   status: string
   variant?: 'dot' | 'pill'
   title?: string
+  /** Text to show instead of `status` (which still picks the color). */
+  label?: string
 }
 
 /** Netra: color is deviation — nominal (running/healthy) stays graphite. */
@@ -54,7 +56,7 @@ const isDeviated = (s: string) =>
     s.toLowerCase(),
   )
 
-export function StatusBadge({ status, variant = 'pill', title }: StatusBadgeProps) {
+export function StatusBadge({ status, variant = 'pill', title, label }: StatusBadgeProps) {
   const key = status.toLowerCase()
   const style = statusStyles[key] || statusStyles.unknown
   const pulse = isDeviated(key) && ['pending', 'in_progress'].includes(key)
@@ -67,7 +69,7 @@ export function StatusBadge({ status, variant = 'pill', title }: StatusBadgeProp
           {pulse && <span className={`absolute inset-0 rounded-full ${dot} opacity-40 animate-ping`} />}
           <span className={`relative w-2 h-2 rounded-full ${dot}`} />
         </span>
-        <span className="capitalize text-[var(--zf-ink)]">{status}</span>
+        <span className="capitalize text-[var(--zf-ink)]">{label ?? status}</span>
       </span>
     )
   }
@@ -85,7 +87,7 @@ export function StatusBadge({ status, variant = 'pill', title }: StatusBadgeProp
         )}
         <span className={`relative w-1.5 h-1.5 rounded-full ${dotColors[key] || dotColors.unknown}`} />
       </span>
-      {status}
+      {label ?? status}
     </span>
   )
 }

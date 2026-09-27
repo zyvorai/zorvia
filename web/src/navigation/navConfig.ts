@@ -38,6 +38,7 @@ import {
   Webhook,
   Bell,
   Layers3,
+  Boxes,
 } from 'lucide-react'
 
 export interface NavItem {
@@ -140,6 +141,7 @@ export const TOP_MEGA_GROUPS: { label: string; items: NavItem[] }[] = [
       { label: 'HA Policy', path: '/app/ha-policy', icon: ShieldAlert, blurb: 'High-availability policies.' },
       { label: 'Placement Advisor', path: '/app/placement', icon: Scale, blurb: 'Where to schedule next.' },
       { label: 'Warm Pools', path: '/app/warm-pools', icon: Layers3, blurb: 'Pre-warmed capacity pools.' },
+      { label: 'Pods', path: '/app/pods', icon: Boxes, blurb: 'Logs and shell for every pod.', adminOnly: true },
     ],
   },
   {
