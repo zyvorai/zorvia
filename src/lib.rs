@@ -273,6 +273,10 @@ pub async fn run(mut cli: Cli) -> Result<()> {
             handlers::vm::handle_templates()?;
         }
 
+        Commands::Images { output } => {
+            handlers::vm::handle_images(output)?;
+        }
+
         Commands::Template { name, output } => {
             handlers::vm::handle_template(name, output)?;
         }

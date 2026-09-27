@@ -152,7 +152,7 @@ test.describe('lab console crawl', () => {
     await page.setViewportSize({ width: 1440, height: 1000 })
     await page.goto('/app/disk-images')
     const term = page.getByTestId('disk-images-terminal')
-    await expect(term).toContainText('zorvia images ls -l')
+    await expect(term).toContainText('zorvia images')
     await expect(term.locator('tbody tr').first()).toBeVisible({ timeout: 20_000 })
     await page.getByLabel('Search disk images').fill('ubuntu')
     await expect(term).toContainText('grep -i "ubuntu"')
@@ -186,6 +186,65 @@ test.describe('lab console crawl', () => {
     await page.keyboard.type('echo zorvia-$((40+2))-ok\n')
     await expect(exec.locator('.xterm-rows')).toContainText('zorvia-42-ok', { timeout: 15_000 })
     await page.screenshot({ path: 'test-results/pods-exec.png' })
+  })
+
+  test('pods: events, yaml, logs tab, delete confirm', async ({ page, context }) => {
+    test.setTimeout(120_000)
+    await page.setViewportSize({ width: 1440, height: 1000 })
+    await page.goto('/app/pods')
+    await page.getByLabel('Namespace').selectOption('zorvia-system')
+    const apiRow = page.locator('tr', { hasText: 'zorvia-api' }).filter({ hasText: 'Running' }).first()
+    await expect(apiRow).toBeVisible({ timeout: 20_000 })
+    await apiRow.getByRole('button', { name: 'Logs' }).click()
+    const panel = page.getByTestId('pod-panel')
+
+    await panel.getByRole('button', { name: 'Events' }).click()
+    await expect(page.getByTestId('pod-events')).toContainText('kubectl events -n zorvia-system', { timeout: 15_000 })
+    await expect(page.getByTestId('pod-events')).toContainText(/\d+ events|No events/, { timeout: 15_000 })
+    await page.screenshot({ path: 'test-results/pods-events.png' })
+
+    await panel.getByRole('button', { name: 'YAML' }).click()
+    const yaml = page.getByTestId('pod-yaml')
+    await expect(yaml).toContainText('kind: Pod', { timeout: 15_000 })
+    await expect(yaml).toContainText('namespace: zorvia-system')
+    await expect(yaml).not.toContainText('managedFields')
+    await page.screenshot({ path: 'test-results/pods-yaml.png' })
+
+    const [tab] = await Promise.all([
+      context.waitForEvent('page'),
+      panel.getByRole('link', { name: 'Open logs in new tab' }).click(),
+    ])
+    await tab.waitForLoadState('load')
+    await expect(tab).toHaveURL(/\/app\/pods\/zorvia-system\/zorvia-api-[^/]+\/logs/)
+    await expect(tab.getByTestId('pod-logs-page').locator('.xterm-rows')).toContainText(/\S+/, { timeout: 20_000 })
+    await tab.close()
+
+    await apiRow.getByRole('button', { name: /^Delete zorvia-api/ }).click()
+    const dialog = page.getByRole('alertdialog')
+    await expect(dialog).toContainText('ReplicaSet will create a replacement')
+    await dialog.getByRole('button', { name: 'Cancel' }).click()
+    await expect(apiRow).toBeVisible()
+  })
+
+  test('event stream and serial console use Terminal.app black', async ({ page }) => {
+    await page.setViewportSize({ width: 1440, height: 1000 })
+    await page.goto('/app/events')
+    const events = page.getByTestId('event-stream-terminal')
+    await expect(events).toContainText('curl -sN /api/events/stream')
+    await page.getByLabel('Filter by level').selectOption('warning')
+    await expect(events).toContainText('grep -i warning')
+    const bg = await page.locator('.zf-terminal-pro .zf-terminal-body').first().evaluate((el) => getComputedStyle(el).backgroundColor)
+    expect(bg).toBe('rgb(0, 0, 0)')
+    await page.screenshot({ path: 'test-results/event-stream.png' })
+
+    await page.goto('/app/vms/ubuntu-demo/console')
+    const serial = page.getByTestId('vm-serial-console')
+    await expect(serial.locator('.xterm')).toBeVisible({ timeout: 20_000 })
+    await expect(page.locator('.zf-terminal-pro .zf-terminal-title').first()).toContainText('zorvia console ubuntu-demo')
+    await expect(serial.locator('.xterm-rows')).toContainText('Connected to ubuntu-demo', { timeout: 20_000 })
+    await page.keyboard.press('Enter')
+    await page.waitForTimeout(1500)
+    await page.screenshot({ path: 'test-results/vm-console.png' })
   })
 
   test('light and dark theme screenshots', async ({ page }) => {

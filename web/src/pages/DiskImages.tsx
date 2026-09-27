@@ -157,7 +157,7 @@ export default function DiskImages() {
         <div className="whitespace-pre text-[#f2f2f2]" data-testid="disk-images-terminal">
           <div>
             {prompt}
-            <span>zorvia images ls -l</span>
+            <span>zorvia images</span>
             {search && (
               <>
                 <span style={{ color: DIM }}> | </span>

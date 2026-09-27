@@ -52,7 +52,11 @@ rules:
   - apiGroups: [""]
     resources: ["pods", "events"]
     verbs: ["get", "list", "watch"]
-  # Pods page (cluster.admin only in the API): streaming logs and interactive shell.
+  # Pods page (cluster.admin only in the API): streaming logs, interactive shell,
+  # and delete (also used for "restart" of controller-owned pods).
+  - apiGroups: [""]
+    resources: ["pods"]
+    verbs: ["delete"]
   - apiGroups: [""]
     resources: ["pods/log"]
     verbs: ["get"]

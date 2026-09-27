@@ -808,6 +808,51 @@ pub fn handle_templates() -> Result<()> {
     Ok(())
 }
 
+pub fn handle_images(output: String) -> Result<()> {
+    let images = crate::kube::catalog::disk_image_catalog();
+    match output.as_str() {
+        "json" => println!("{}", serde_json::to_string_pretty(&images)?),
+        "yaml" => print!("{}", serde_yaml::to_string(&images)?),
+        "table" | "wide" => {
+            let name_w = images.iter().map(|i| i.name.len()).max().unwrap_or(4);
+            println!(
+                "{}  {}  {}  {}",
+                color::header(&format!("{:<name_w$}", "NAME")),
+                color::header(&format!("{:<13}", "FORMAT")),
+                color::header(&format!("{:>8}", "SIZE")),
+                color::header("SOURCE"),
+            );
+            for img in &images {
+                let size = if img.size_bytes == 0 {
+                    "-".to_string()
+                } else {
+                    format!("{}Gi", img.size_bytes / (1024 * 1024 * 1024))
+                };
+                println!(
+                    "{}  {}  {}  {}",
+                    color::label(&format!("{:<name_w$}", img.name)),
+                    color::value(&format!("{:<13}", img.format)),
+                    color::muted(&format!("{size:>8}")),
+                    img.path,
+                );
+            }
+            println!(
+                "{}",
+                color::muted(&format!(
+                    "total {} · zorvia create <vm> --container-disk <SOURCE> | --disk-size <N>Gi",
+                    images.len()
+                ))
+            );
+        }
+        other => {
+            return Err(anyhow!(
+                "Invalid output format: {other} (table, json, yaml)"
+            ))
+        }
+    }
+    Ok(())
+}
+
 pub fn handle_template(name: String, output: String) -> Result<()> {
     let config = TEMPLATES
         .get(&name)

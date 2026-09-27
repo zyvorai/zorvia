@@ -105,9 +105,14 @@ Expose: port-forwards API → NodePort (`ZORVIA_EXPOSE_HOST`). See `docs/WEB_CON
 open https://HOST:30152/app/pods                     # top nav → Pods
 curl -sk -H "Authorization: Bearer $TOKEN" 'https://HOST:30152/api/v1/pods?namespace=all' | jq .count
 curl -sk -H "Authorization: Bearer $TOKEN" https://HOST:30152/api/v1/namespaces
+curl -sk -H "Authorization: Bearer $TOKEN" https://HOST:30152/api/v1/pods/default/web-abc/events | jq .
+curl -sk -H "Authorization: Bearer $TOKEN" https://HOST:30152/api/v1/pods/default/web-abc/yaml | jq -r .yaml
+curl -sk -X POST -H "Authorization: Bearer $TOKEN" https://HOST:30152/api/v1/pods/default/web-abc/restart   # controller-owned only
+curl -sk -X DELETE -H "Authorization: Bearer $TOKEN" 'https://HOST:30152/api/v1/pods/default/web-abc?grace=0'
+open https://HOST:30152/app/pods/default/web-abc/logs   # full-window logs
 # Live logs:  wss://HOST:30152/ws/pods/<ns>/<pod>/logs?token=$TOKEN&container=<c>&tail=500&timestamps=1
 # Shell:      wss://HOST:30152/ws/pods/<ns>/<pod>/exec?token=$TOKEN&container=<c>&shell=auto
-# SA needs pods/log get + pods/exec create,get:
+# SA needs pods delete + pods/log get + pods/exec create,get:
 kubectl auth can-i create pods --subresource=exec --as=system:serviceaccount:zorvia-system:zorvia -A
 ```
 See `docs/PODS.md` (colorizing, frame protocol, audit, troubleshooting).
@@ -155,6 +160,13 @@ zorvia guest-insight myvm -o json --strict
 ```bash
 zorvia templates                 # List all templates
 zorvia template ubuntu-22.04     # View template details
+```
+
+### Disk images
+```bash
+zorvia images                    # Blank disks + quay.io containerdisks (same list as /app/disk-images)
+zorvia images -o json            # or -o yaml, for scripts
+zorvia create web --container-disk quay.io/containerdisks/ubuntu:24.04
 ```
 
 ### Kryton (Windows plane)

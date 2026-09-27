@@ -3,10 +3,12 @@
 
 import { useEffect, useRef, useState } from 'react'
 import { Terminal as XTerm } from '@xterm/xterm'
+import { FitAddon } from '@xterm/addon-fit'
 import '@xterm/xterm/css/xterm.css'
 import { getToken } from '../api/client'
 import { RotateCw } from 'lucide-react'
 import { AppleTerminalFrame } from './AppleTerminalFrame'
+import { MAC_TERMINAL_OPTIONS } from './terminalTheme'
 
 interface TerminalProps {
   vmName: string
@@ -14,48 +16,37 @@ interface TerminalProps {
 
 type Status = 'connecting' | 'connected' | 'disconnected'
 
+const GREY = '\x1b[90m'
+const RESET = '\x1b[0m'
+
 export default function Terminal({ vmName }: TerminalProps) {
   const terminalRef = useRef<HTMLDivElement>(null)
-  const xtermRef = useRef<XTerm | null>(null)
-  const wsRef = useRef<WebSocket | null>(null)
   const [status, setStatus] = useState<Status>('connecting')
   const [connectAttempt, setConnectAttempt] = useState(0)
+  const [copyOnSelect, setCopyOnSelect] = useState(true)
+  const copyRef = useRef(copyOnSelect)
+  useEffect(() => {
+    copyRef.current = copyOnSelect
+  }, [copyOnSelect])
 
   useEffect(() => {
-    if (!terminalRef.current) return
+    const host = terminalRef.current
+    if (!host) return
     setStatus('connecting')
-    terminalRef.current.replaceChildren()
+    host.replaceChildren()
 
-    const term = new XTerm({
-      cursorBlink: true,
-      fontSize: 13,
-      fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace',
-      theme: {
-        background: '#1c1c1e',
-        foreground: '#f5f5f7',
-        cursor: '#f5f5f7',
-        selectionBackground: '#0a84ff66',
-        black: '#8e8e93',
-        red: '#ff453a',
-        green: '#32d74b',
-        yellow: '#ffd60a',
-        blue: '#0a84ff',
-        magenta: '#bf5af2',
-        cyan: '#64d2ff',
-        white: '#f5f5f7',
-        brightBlack: '#636366',
-        brightRed: '#ff6961',
-        brightGreen: '#30db5b',
-        brightYellow: '#ffd426',
-        brightBlue: '#409cff',
-        brightMagenta: '#da8fff',
-        brightCyan: '#70d7ff',
-        brightWhite: '#ffffff',
-      },
+    const term = new XTerm({ ...MAC_TERMINAL_OPTIONS, cursorBlink: true })
+    const fit = new FitAddon()
+    term.loadAddon(fit)
+    term.open(host)
+    fit.fit()
+    const ro = new ResizeObserver(() => fit.fit())
+    ro.observe(host)
+
+    const selSub = term.onSelectionChange(() => {
+      const sel = term.getSelection()
+      if (copyRef.current && sel) void navigator.clipboard?.writeText(sel).catch(() => {})
     })
-
-    term.open(terminalRef.current)
-    xtermRef.current = term
 
     const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
     const token = getToken()
@@ -65,7 +56,8 @@ export default function Terminal({ vmName }: TerminalProps) {
 
     ws.onopen = () => {
       setStatus('connected')
-      term.write('Connected to VM console\r\n')
+      term.write(`${GREY}Connected to ${vmName} serial console — press Enter for a prompt${RESET}\r\n`)
+      term.focus()
     }
 
     ws.onmessage = (event) => {
@@ -76,14 +68,13 @@ export default function Terminal({ vmName }: TerminalProps) {
       }
     }
 
-    ws.onerror = (error) => {
-      console.error('WebSocket error:', error)
-      term.write('\r\nWebSocket error\r\n')
+    ws.onerror = () => {
+      term.write(`\r\n\x1b[31mWebSocket error${RESET}\r\n`)
     }
 
     ws.onclose = () => {
       setStatus('disconnected')
-      term.write('\r\nConnection closed\r\n')
+      term.write(`\r\n${GREY}[connection closed]${RESET}\r\n`)
     }
 
     term.onData((data) => {
@@ -92,9 +83,9 @@ export default function Terminal({ vmName }: TerminalProps) {
       }
     })
 
-    wsRef.current = ws
-
     return () => {
+      ro.disconnect()
+      selSub.dispose()
       ws.close()
       term.dispose()
     }
@@ -109,30 +100,38 @@ export default function Terminal({ vmName }: TerminalProps) {
 
   return (
     <AppleTerminalFrame
-      title={`${vmName} — tty`}
+      title={`zorvia console ${vmName} — tty`}
       live={status === 'connected'}
+      className="zf-terminal-pro"
       trailing={
-        <div className="flex items-center gap-2 shrink-0">
-          <span className="text-[11px]" style={{ color: meta.color }}>{meta.label}</span>
-          {status === 'disconnected' && (
-            <button
-              type="button"
-              onClick={() => setConnectAttempt((n) => n + 1)}
-              className="flex items-center gap-1.5 px-2 py-1 rounded-md text-[11px] font-medium text-white/70 hover:text-white hover:bg-white/10 transition-colors"
-            >
-              <RotateCw className="w-3.5 h-3.5" />
-              Reconnect
-            </button>
+        <div className="flex items-center gap-1.5 shrink-0">
+          {status !== 'connected' && (
+            <span className="text-[11px] mr-1" style={{ color: meta.color }}>
+              {meta.label}
+            </span>
           )}
+          <button
+            type="button"
+            className={`zf-term-btn${copyOnSelect ? ' is-on' : ''}`}
+            onClick={() => setCopyOnSelect((v) => !v)}
+            aria-pressed={copyOnSelect}
+          >
+            copy on select
+          </button>
+          <button
+            type="button"
+            className="zf-term-btn"
+            onClick={() => setConnectAttempt((n) => n + 1)}
+            aria-label="Reconnect"
+            title="Reconnect"
+          >
+            <RotateCw className="w-3.5 h-3.5" />
+          </button>
         </div>
       }
       bodyClassName="p-2"
     >
-      <div
-        ref={terminalRef}
-        className="w-full"
-        style={{ minHeight: '500px' }}
-      />
+      <div ref={terminalRef} className="w-full" style={{ height: '520px' }} data-testid="vm-serial-console" />
     </AppleTerminalFrame>
   )
 }

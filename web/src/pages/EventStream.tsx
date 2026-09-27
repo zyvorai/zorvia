@@ -2,13 +2,14 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { useState, useEffect, useRef, useCallback } from 'react'
-import { Pause, Play, Trash2, Filter } from 'lucide-react'
+import { Pause, Play, Trash2 } from 'lucide-react'
 import { useEventStream, type VMEventPayload } from '../hooks/useEventStream'
 import ErrorBanner from '../components/ErrorBanner'
 import { PageHeader } from '../components/ui'
 import { hintsForError } from '../utils/daemonHints'
 import { AppleTerminalFrame, TERM_LEVEL_COLOR } from '../components/AppleTerminalFrame'
 import { AnsiText } from '../components/AnsiText'
+import { TERM_HEX } from '../components/terminalTheme'
 
 interface StreamEvent {
   id: number
@@ -90,73 +91,86 @@ export default function EventStream() {
         <ErrorBanner title="Connection error" headline={connectionError} hints={hintsForError(connectionError)} />
       )}
 
-      <div className="flex flex-wrap items-center gap-3">
-        <span
-          className={`inline-flex items-center gap-2 text-sm ${connected ? 'text-[var(--zf-success-text)]' : 'text-[var(--zf-warning-text)]'}`}
-        >
-          <span className={`w-2 h-2 rounded-full ${connected ? 'bg-[var(--zf-success)]' : 'bg-[var(--zf-warning)] animate-pulse'}`} />
-          {connected ? 'Connected' : 'Reconnecting…'}
-        </span>
-        <button
-          type="button"
-          onClick={() => setPaused(!paused)}
-          className="zf-btn zf-btn-ghost zf-btn-sm"
-        >
-          {paused ? <Play className="w-4 h-4" /> : <Pause className="w-4 h-4" />}
-          {paused ? 'Resume' : 'Pause'}
-        </button>
-        <button
-          type="button"
-          onClick={() => setEvents([])}
-          className="zf-btn zf-btn-ghost zf-btn-sm"
-        >
-          <Trash2 className="w-4 h-4" />
-          Clear
-        </button>
-        <div className="flex items-center gap-2 text-sm text-[var(--zf-muted)]">
-          <Filter className="w-4 h-4" />
-          <select
-            value={levelFilter}
-            onChange={(e) => setLevelFilter(e.target.value)}
-            className="input-field text-sm py-1"
-          >
-            <option value="all">All levels</option>
-            <option value="info">Info</option>
-            <option value="warning">Warning</option>
-            <option value="error">Error</option>
-            <option value="debug">Debug</option>
-          </select>
-        </div>
-      </div>
-
       <AppleTerminalFrame
-        title="event stream — SSE"
+        title="events — zorvia — SSE"
         live={connected && !paused}
+        className="zf-terminal-pro"
         bodyRef={containerRef}
-        bodyClassName="max-h-[70vh] overflow-y-auto px-3 py-2"
-        empty={filtered.length === 0}
-        emptyMessage="Waiting for events…"
-      >
-        {filtered.map((ev) => (
-          <div
-            key={ev.id}
-            className="flex gap-3 py-1 hover:bg-white/[0.04] rounded px-1 -mx-1"
-          >
-            <span className="text-white/30 shrink-0 tabular-nums text-[11px]">
-              {ev.timestamp.toLocaleTimeString(undefined, { hour12: false })}
-            </span>
-            <span
-              className="shrink-0 uppercase text-[11px] font-semibold w-14"
-              style={{ color: levelColor(ev.level) }}
+        bodyClassName="max-h-[70vh] min-h-[22rem] overflow-y-auto px-4 py-3"
+        trailing={
+          <div className="flex items-center gap-1.5 shrink-0" data-testid="event-stream-controls">
+            {!connected && <span className="text-[11px] mr-1 text-[#ffd60a]">Reconnecting…</span>}
+            <select
+              value={levelFilter}
+              onChange={(e) => setLevelFilter(e.target.value)}
+              className="zf-term-btn zf-term-select"
+              aria-label="Filter by level"
             >
-              {ev.level}
-            </span>
-            <span className="text-[#ffd60a]/70 font-medium shrink-0">{ev.source}</span>
-            <span className="min-w-0 break-words whitespace-pre-wrap">
-              <AnsiText text={ev.message} />
-            </span>
+              <option value="all">all levels</option>
+              <option value="info">info</option>
+              <option value="warning">warning</option>
+              <option value="error">error</option>
+              <option value="debug">debug</option>
+            </select>
+            <button
+              type="button"
+              onClick={() => setPaused(!paused)}
+              className={`zf-term-btn${paused ? ' is-on' : ''}`}
+              aria-label={paused ? 'Resume' : 'Pause'}
+              title={paused ? 'Resume' : 'Pause'}
+            >
+              {paused ? <Play className="w-3.5 h-3.5" /> : <Pause className="w-3.5 h-3.5" />}
+            </button>
+            <button type="button" onClick={() => setEvents([])} className="zf-term-btn" aria-label="Clear" title="Clear">
+              <Trash2 className="w-3.5 h-3.5" />
+            </button>
           </div>
-        ))}
+        }
+      >
+        <div className="text-[#f2f2f2]" data-testid="event-stream-terminal">
+          <div className="whitespace-pre">
+            <span style={{ color: TERM_HEX.green }}>zorvia@events</span>
+            <span style={{ color: TERM_HEX.dim }}>:</span>
+            <span style={{ color: TERM_HEX.blue }}>~</span>
+            <span style={{ color: TERM_HEX.dim }}>$ </span>
+            curl -sN /api/events/stream
+            {levelFilter !== 'all' && (
+              <>
+                <span style={{ color: TERM_HEX.dim }}> | </span>grep -i{' '}
+                <span style={{ color: TERM_HEX.yellow }}>{levelFilter}</span>
+              </>
+            )}
+          </div>
+          <div style={{ color: TERM_HEX.dim }}>
+            {filtered.length} event{filtered.length === 1 ? '' : 's'}
+            {paused && ' · paused'} · newest first
+          </div>
+          {filtered.length === 0 ? (
+            <div className="mt-1" style={{ color: TERM_HEX.dim }}>
+              Waiting for events<span className="zf-term-caret ml-1" />
+            </div>
+          ) : (
+            filtered.map((ev) => (
+              <div key={ev.id} className="flex gap-3 py-0.5 hover:bg-white/[0.06] rounded px-1 -mx-1">
+                <span className="shrink-0 tabular-nums" style={{ color: TERM_HEX.dim }}>
+                  {ev.timestamp.toLocaleTimeString(undefined, { hour12: false })}
+                </span>
+                <span className="shrink-0 uppercase font-semibold w-16" style={{ color: levelColor(ev.level) }}>
+                  {ev.level}
+                </span>
+                <span className="shrink-0 font-medium" style={{ color: TERM_HEX.cyan }}>
+                  {ev.source}
+                </span>
+                <span className="shrink-0" style={{ color: TERM_HEX.magenta }}>
+                  {ev.type}
+                </span>
+                <span className="min-w-0 break-words whitespace-pre-wrap">
+                  <AnsiText text={ev.message} />
+                </span>
+              </div>
+            ))
+          )}
+        </div>
       </AppleTerminalFrame>
     </div>
   )

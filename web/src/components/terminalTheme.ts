@@ -40,6 +40,63 @@ export const MAC_TERMINAL_OPTIONS: ITerminalOptions = {
   allowProposedApi: true,
 }
 
+/** Hex versions of the bright Terminal.app palette for DOM-rendered terminal views. */
+export const TERM_HEX = {
+  fg: '#f2f2f2',
+  dim: '#818383',
+  red: '#fc391f',
+  green: '#31e722',
+  yellow: '#eaec23',
+  blue: '#5ac8fa',
+  magenta: '#f935f8',
+  cyan: '#14f0f0',
+  orange: '#ff9f0a',
+} as const
+
+export interface TermSegment {
+  text: string
+  color?: string
+}
+
+const YAML_SCALAR = /^(-?\d+(\.\d+)?([eE][+-]?\d+)?|true|false|null|~)$/
+
+function yamlScalar(value: string): TermSegment[] {
+  if (!value) return []
+  const comment = value.match(/^(.*?)(\s+#.*)$/)
+  const body = comment ? comment[1] : value
+  const segs: TermSegment[] = []
+  const trimmed = body.trim()
+  if (/^["']/.test(trimmed)) segs.push({ text: body, color: TERM_HEX.green })
+  else if (YAML_SCALAR.test(trimmed)) {
+    const isNum = /^-?\d/.test(trimmed)
+    segs.push({ text: body, color: isNum ? TERM_HEX.magenta : TERM_HEX.yellow })
+  } else if (/^[|>][-+]?$/.test(trimmed)) segs.push({ text: body, color: TERM_HEX.dim })
+  else segs.push({ text: body, color: TERM_HEX.fg })
+  if (comment) segs.push({ text: comment[2], color: TERM_HEX.dim })
+  return segs
+}
+
+/** Colored segments for one YAML line (keys cyan, strings green, numbers magenta, literals yellow). */
+export function yamlLineSegments(line: string): TermSegment[] {
+  if (/^\s*#/.test(line)) return [{ text: line, color: TERM_HEX.dim }]
+  if (/^---|^\.\.\./.test(line)) return [{ text: line, color: TERM_HEX.dim }]
+  const m = line.match(/^(\s*)(- )?([^\s:#"'][^:#]*?|"[^"]*"|'[^']*')(:)(\s+.*|$)/)
+  if (m) {
+    const [, indent, dash, key, colon, rest] = m
+    const segs: TermSegment[] = [{ text: indent }]
+    if (dash) segs.push({ text: dash, color: TERM_HEX.dim })
+    segs.push({ text: key, color: TERM_HEX.cyan }, { text: colon, color: TERM_HEX.dim })
+    const lead = rest.match(/^\s*/)?.[0] ?? ''
+    if (lead) segs.push({ text: lead })
+    segs.push(...yamlScalar(rest.slice(lead.length)))
+    return segs
+  }
+  const item = line.match(/^(\s*)(- )(.*)$/)
+  if (item) return [{ text: item[1] }, { text: item[2], color: TERM_HEX.dim }, ...yamlScalar(item[3])]
+  const lead = line.match(/^\s*/)?.[0] ?? ''
+  return [...(lead ? [{ text: lead }] : []), ...yamlScalar(line.slice(lead.length))]
+}
+
 const ESC = '\x1b['
 const RESET = `${ESC}0m`
 const paint = (code: string, s: string) => `${ESC}${code}m${s}${RESET}`
@@ -108,7 +165,11 @@ function colorizeText(line: string): string {
     }
     if (g.level !== undefined) return paint(levelCode(g.level), g.level)
     if (g.key !== undefined) return paint(KEY, g.key) + '='
-    if (g.str !== undefined) return paint(STR, g.str)
+    if (g.str !== undefined) {
+      const req = /^"(GET|POST|PUT|PATCH|DELETE|HEAD|OPTIONS) /.exec(g.str)
+      if (req) return `"${paint(METHOD, req[1])}${paint(STR, g.str.slice(req[0].length - 1))}`
+      return paint(STR, g.str)
+    }
     if (g.method !== undefined) return paint(METHOD, g.method)
     if (g.status !== undefined) return paint(statusCode(g.status), g.status)
     return m

@@ -39,20 +39,21 @@ curl -sk https://<host>:30152/api/v1/auth/providers   # [] unless OIDC enabled
 | OIDC SSO | `ZORVIA_OIDC_ENABLED=1` + issuer/client/secret/redirect | [OIDC.md](OIDC.md) |
 | Enterprise plan APIs | `ZORVIA_EXPERIMENTAL=1` + `ZORVIA_FEATURE_*` | [PHASE5_ENTERPRISE.md](PHASE5_ENTERPRISE.md) |
 | Feature registry | always on | [FEATURE_MATURITY.md](FEATURE_MATURITY.md) |
-| Pods page (logs + exec) | admin role + `pods/log` / `pods/exec` RBAC | [PODS.md](PODS.md) |
+| Pods page (logs, exec, events, YAML, restart/delete) | admin role + `pods` delete / `pods/log` / `pods/exec` RBAC | [PODS.md](PODS.md) |
 
 ### Pods page (logs & exec)
 
-The admin-only **Pods** page needs two new rules on the `zorvia` role —
-`pods/log` (get) and `pods/exec` (create, get). They ship in `deploy/k8s.yaml`,
+The admin-only **Pods** page needs three new rules on the `zorvia` role —
+`pods` (delete, for Restart/Delete), `pods/log` (get) and `pods/exec` (create, get). They ship in `deploy/k8s.yaml`,
 `deploy/k3s-zorvia-web.yaml` and the Helm chart; `helm upgrade` / `kubectl apply`
 picks them up. For an in-place patch of a live cluster see
 [PODS.md → Kubernetes RBAC](PODS.md#kubernetes-rbac). Without them the page still
-lists pods, but log streams and shells fail with `forbidden`.
+lists pods, shows events and YAML, but log streams, shells and restart/delete fail
+with `forbidden`.
 
-`pods/exec` is a powerful grant (shell into any pod the role can see). Zorvia gates
-it behind `cluster.admin` and audits every session; if you do not want in-browser
-exec at all, omit the `pods/exec` rule — Logs keep working.
+`pods/exec` and `pods` delete are powerful grants (shell into / remove any pod the role
+can see). Zorvia gates them behind `cluster.admin` and audits every session and deletion;
+omit either rule to switch that capability off — the rest of the page keeps working.
 
 ### Matrix
 

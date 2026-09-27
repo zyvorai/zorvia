@@ -13,11 +13,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **Disk Images prompt** — shows the real `zorvia images` command instead of a non-existent `zorvia images ls -l`.
+- **Repo hygiene** — `.gitignore` covers `web/test-results/`, `web/playwright-report/` and `.cursor/*.log`.
 - **Top-nav admin gating** — direct top-nav links now honor `adminOnly` (previously only mega-menu items were filtered).
 - **JWT / Lease lab auth** — `jsonwebtoken` rust_crypto feature; Kubernetes Lease `MicroTime` formatted with exactly six fractional digits so leader election renew succeeds.
 
 ### Added
 
+- **Pods page extras** — **Events** and **YAML** panels (Terminal.app black; events colored by type with `×N` repeats, YAML syntax-colored with line numbers, copy/download), **Restart** (controller-owned pods only — `virt-launcher`/Job pods refused with 409) and **Delete** with confirmation, and **logs in a new tab** at `/app/pods/:ns/:name/logs`. New `DELETE /api/v1/pods/{ns}/{pod}`, `POST …/restart`, `GET …/events`, `GET …/yaml` (all `cluster.admin`, audited). RBAC adds `pods` delete.
+- **`zorvia images` CLI** — lists the same disk image catalog as `GET /api/images` / `/app/disk-images` (`-o table|json|yaml`); catalog now shared via `kube::catalog::disk_image_catalog()`.
+- **Terminal.app look everywhere** — VM serial console and in-browser SSH use the black Terminal.app profile (fit-to-window, copy-on-select, title-bar reconnect); Event Stream renders in a black terminal with filter/pause/clear in the title bar.
+- **Colorizer unit tests** — Vitest coverage for the log colorizer and YAML tokenizer; quoted access-log request lines (`"GET /x HTTP/1.1"`) now highlight the method.
 - **Pods page — Terminal.app logs & exec** — admin-only `/app/pods` (top-nav link) lists every pod across all namespaces with a namespace filter, search, status chips and 10 s refresh. Bottom panel (resizable, maximizable) opens a black macOS Terminal.app-style xterm for **live logs** (colorized levels / klog / JSON / logfmt / HTTP, container select, tail, timestamps, previous, find, pause, download) or an **interactive shell** (`auto`/`bash`/`sh`, resize, exit code, copy-on-select). New `GET /api/v1/pods`, `GET /api/v1/namespaces`, `/ws/pods/{ns}/{pod}/logs`, `/ws/pods/{ns}/{pod}/exec` — all `cluster.admin`, DNS-1123 name validation, fixed shell argv; exec start/end audited at High severity (`exec`, `view_logs` actions). RBAC adds `pods/log` get and `pods/exec` create,get. Docs: [docs/PODS.md](docs/PODS.md).
 - **Disk Images terminal listing** — `/app/disk-images` renders the catalog as a black Terminal.app `ls -l` view: color-coded format / size / registry refs, `grep` filter in the title bar, keyboard-selectable rows.
 - **Social / README share cards** — rebuildable HTML → PNG/JPG under [`docs/social/`](docs/social/README.md) (`zorvia-share-card.png` for README hero + docs Open Graph; `zorvia-social-card.jpg` for LinkedIn/X). Website serves `../docs/social` and sets `themeConfig.image`.

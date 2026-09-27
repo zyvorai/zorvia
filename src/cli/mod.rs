@@ -208,6 +208,13 @@ pub enum Commands {
     /// List available templates
     Templates,
 
+    /// List the disk image catalog (blank disks + quay.io containerdisks)
+    Images {
+        /// Output format (table, json, yaml)
+        #[arg(short, long, default_value = "table")]
+        output: String,
+    },
+
     /// Show template details
     Template {
         /// Template name
