@@ -420,3 +420,294 @@ pub(super) async fn atlas_cancel_job(
         Err(e) => error_response(e),
     }
 }
+
+// ── Backend lifecycle + OSD ops ──────────────────────────────────────────
+// Note: unlike the volume writes, these backend-lifecycle routes are
+// synchronous on Atlas's side (no job envelope) -- except the OSD ops,
+// which are async jobs same as volumes.
+
+async fn write_client(state: &SharedState) -> Result<(Client, SharedAuditTrail), Box<Response>> {
+    let s = state.read().await;
+    match s.atlas.clone() {
+        Some(c) => {
+            let audit = s.audit.clone();
+            drop(s);
+            Ok((c, audit))
+        }
+        None => Err(Box::new(disabled_response())),
+    }
+}
+
+async fn finish_write<T: serde::Serialize>(
+    audit: &SharedAuditTrail,
+    user: &str,
+    action: crate::audit_trail::AuditAction,
+    resource_type: &str,
+    name: &str,
+    result: Result<T, AtlasError>,
+) -> Response {
+    let (success, details, response) = match result {
+        Ok(v) => {
+            let json = serde_json::to_value(&v).unwrap_or(serde_json::Value::Null);
+            (true, json.clone(), Json(json).into_response())
+        }
+        Err(e) => {
+            let details = serde_json::json!({ "error": e.to_string() });
+            (false, details, error_response(e))
+        }
+    };
+    audit_atlas(audit, user, action, resource_type, name, success, details).await;
+    response
+}
+
+#[derive(Debug, serde::Deserialize)]
+pub(super) struct DeleteBackendQuery {
+    #[serde(default)]
+    purge: bool,
+}
+
+pub(super) async fn atlas_list_osds(State(state): State<SharedState>) -> Response {
+    let c = match client(&state).await {
+        Ok(v) => v,
+        Err(r) => return *r,
+    };
+    match c.list_osds().await {
+        Ok(v) => Json(v).into_response(),
+        Err(e) => error_response(e),
+    }
+}
+
+pub(super) async fn atlas_get_maintenance(State(state): State<SharedState>) -> Response {
+    let c = match client(&state).await {
+        Ok(v) => v,
+        Err(r) => return *r,
+    };
+    match c.get_maintenance().await {
+        Ok(v) => Json(v).into_response(),
+        Err(e) => error_response(e),
+    }
+}
+
+pub(super) async fn atlas_list_orphans(State(state): State<SharedState>) -> Response {
+    let c = match client(&state).await {
+        Ok(v) => v,
+        Err(r) => return *r,
+    };
+    match c.list_orphans().await {
+        Ok(v) => Json(v).into_response(),
+        Err(e) => error_response(e),
+    }
+}
+
+pub(super) async fn atlas_upgrade_preflight(State(state): State<SharedState>) -> Response {
+    let c = match client(&state).await {
+        Ok(v) => v,
+        Err(r) => return *r,
+    };
+    match c.upgrade_preflight().await {
+        Ok(v) => Json(v).into_response(),
+        Err(e) => error_response(e),
+    }
+}
+
+pub(super) async fn atlas_create_backend(
+    State(state): State<SharedState>,
+    auth: Option<axum::Extension<crate::api::auth::AuthIdentity>>,
+    Json(body): Json<crate::atlas::models::CreateBackendRequest>,
+) -> Response {
+    let (c, audit) = match write_client(&state).await {
+        Ok(v) => v,
+        Err(r) => return *r,
+    };
+    let name = body.name.clone();
+    let result = c.create_backend(body).await;
+    finish_write(
+        &audit,
+        &caller(&auth),
+        crate::audit_trail::AuditAction::Create,
+        "atlas_backend",
+        &name,
+        result,
+    )
+    .await
+}
+
+pub(super) async fn atlas_delete_backend(
+    State(state): State<SharedState>,
+    Path(id): Path<String>,
+    Query(query): Query<DeleteBackendQuery>,
+    auth: Option<axum::Extension<crate::api::auth::AuthIdentity>>,
+) -> Response {
+    let (c, audit) = match write_client(&state).await {
+        Ok(v) => v,
+        Err(r) => return *r,
+    };
+    let result = c.delete_backend(&id, query.purge).await;
+    finish_write(
+        &audit,
+        &caller(&auth),
+        crate::audit_trail::AuditAction::Delete,
+        "atlas_backend",
+        &id,
+        result,
+    )
+    .await
+}
+
+pub(super) async fn atlas_discover_backend(
+    State(state): State<SharedState>,
+    Path(id): Path<String>,
+    auth: Option<axum::Extension<crate::api::auth::AuthIdentity>>,
+) -> Response {
+    let (c, audit) = match write_client(&state).await {
+        Ok(v) => v,
+        Err(r) => return *r,
+    };
+    let result = c.discover_backend(&id).await;
+    finish_write(
+        &audit,
+        &caller(&auth),
+        crate::audit_trail::AuditAction::Update,
+        "atlas_backend",
+        &id,
+        result,
+    )
+    .await
+}
+
+pub(super) async fn atlas_cordon_backend(
+    State(state): State<SharedState>,
+    Path(id): Path<String>,
+    auth: Option<axum::Extension<crate::api::auth::AuthIdentity>>,
+) -> Response {
+    let (c, audit) = match write_client(&state).await {
+        Ok(v) => v,
+        Err(r) => return *r,
+    };
+    let result = c.cordon_backend(&id).await;
+    finish_write(
+        &audit,
+        &caller(&auth),
+        crate::audit_trail::AuditAction::ConfigChange,
+        "atlas_backend",
+        &id,
+        result,
+    )
+    .await
+}
+
+pub(super) async fn atlas_uncordon_backend(
+    State(state): State<SharedState>,
+    Path(id): Path<String>,
+    auth: Option<axum::Extension<crate::api::auth::AuthIdentity>>,
+) -> Response {
+    let (c, audit) = match write_client(&state).await {
+        Ok(v) => v,
+        Err(r) => return *r,
+    };
+    let result = c.uncordon_backend(&id).await;
+    finish_write(
+        &audit,
+        &caller(&auth),
+        crate::audit_trail::AuditAction::ConfigChange,
+        "atlas_backend",
+        &id,
+        result,
+    )
+    .await
+}
+
+#[derive(Debug, serde::Deserialize)]
+pub(super) struct SetMaintenanceBody {
+    paused: bool,
+}
+
+pub(super) async fn atlas_set_maintenance(
+    State(state): State<SharedState>,
+    auth: Option<axum::Extension<crate::api::auth::AuthIdentity>>,
+    Json(body): Json<SetMaintenanceBody>,
+) -> Response {
+    let (c, audit) = match write_client(&state).await {
+        Ok(v) => v,
+        Err(r) => return *r,
+    };
+    let result = c.set_maintenance(body.paused).await;
+    finish_write(
+        &audit,
+        &caller(&auth),
+        crate::audit_trail::AuditAction::ConfigChange,
+        "atlas_maintenance",
+        "job_engine",
+        result,
+    )
+    .await
+}
+
+pub(super) async fn atlas_osd_out(
+    State(state): State<SharedState>,
+    Path(osd_id): Path<i64>,
+    auth: Option<axum::Extension<crate::api::auth::AuthIdentity>>,
+) -> Response {
+    let (c, audit) = match write_client(&state).await {
+        Ok(v) => v,
+        Err(r) => return *r,
+    };
+    let result = c.osd_out(osd_id).await;
+    finish_write(
+        &audit,
+        &caller(&auth),
+        crate::audit_trail::AuditAction::Update,
+        "atlas_osd",
+        &osd_id.to_string(),
+        result,
+    )
+    .await
+}
+
+pub(super) async fn atlas_osd_in(
+    State(state): State<SharedState>,
+    Path(osd_id): Path<i64>,
+    auth: Option<axum::Extension<crate::api::auth::AuthIdentity>>,
+) -> Response {
+    let (c, audit) = match write_client(&state).await {
+        Ok(v) => v,
+        Err(r) => return *r,
+    };
+    let result = c.osd_in(osd_id).await;
+    finish_write(
+        &audit,
+        &caller(&auth),
+        crate::audit_trail::AuditAction::Update,
+        "atlas_osd",
+        &osd_id.to_string(),
+        result,
+    )
+    .await
+}
+
+#[derive(Debug, serde::Deserialize)]
+pub(super) struct OsdReweightQuery {
+    weight: f64,
+}
+
+pub(super) async fn atlas_osd_reweight(
+    State(state): State<SharedState>,
+    Path(osd_id): Path<i64>,
+    Query(query): Query<OsdReweightQuery>,
+    auth: Option<axum::Extension<crate::api::auth::AuthIdentity>>,
+) -> Response {
+    let (c, audit) = match write_client(&state).await {
+        Ok(v) => v,
+        Err(r) => return *r,
+    };
+    let result = c.osd_reweight(osd_id, query.weight).await;
+    finish_write(
+        &audit,
+        &caller(&auth),
+        crate::audit_trail::AuditAction::Update,
+        "atlas_osd",
+        &osd_id.to_string(),
+        result,
+    )
+    .await
+}

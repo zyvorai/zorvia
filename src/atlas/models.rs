@@ -72,6 +72,24 @@ pub struct StorageBackend {
     pub cordoned: bool,
 }
 
+/// `POST /backends` request. `backend_type`/`mode` are free strings on the
+/// wire (Atlas parses them permissively -- e.g. any unrecognized `mode`
+/// falls back to `External`); `server`/`targets` only matter for `nfs`/`zfs`
+/// backend types, which Atlas instantiates live (others land as a `pending`
+/// catalog row with no live driver).
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub struct CreateBackendRequest {
+    pub name: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub backend_type: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub mode: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub server: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub targets: Option<Vec<String>>,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct StorageClassInfo {
     pub name: String,

@@ -190,6 +190,120 @@ impl Client {
             .await
     }
 
+    /// Registers a backend row -- synchronous, not an async job (unlike the
+    /// volume writes). Only `nfs`/`zfs` `backend_type`s get instantiated
+    /// live; others land as a `pending` catalog row.
+    pub async fn create_backend(
+        &self,
+        request: CreateBackendRequest,
+    ) -> Result<StorageBackend, Error> {
+        self.decode(
+            self.request(Method::POST, "/api/atlas/v1/backends")
+                .json(&request),
+        )
+        .await
+    }
+
+    /// Refused (`400`) while volumes still reference the backend unless
+    /// `purge` is set, which first drops the backend's orphaned inventory
+    /// rows (no real storage is touched by purge itself).
+    pub async fn delete_backend(&self, id: &str, purge: bool) -> Result<serde_json::Value, Error> {
+        let path = format!("/api/atlas/v1/backends/{}", urlencoding::encode(id));
+        let mut req = self.request(Method::DELETE, &path);
+        if purge {
+            req = req.query(&[("purge", "true")]);
+        }
+        self.decode(req).await
+    }
+
+    pub async fn discover_backend(&self, id: &str) -> Result<serde_json::Value, Error> {
+        self.decode(self.request(
+            Method::POST,
+            &format!(
+                "/api/atlas/v1/backends/{}/discover",
+                urlencoding::encode(id)
+            ),
+        ))
+        .await
+    }
+
+    pub async fn cordon_backend(&self, id: &str) -> Result<serde_json::Value, Error> {
+        self.decode(self.request(
+            Method::POST,
+            &format!("/api/atlas/v1/backends/{}/cordon", urlencoding::encode(id)),
+        ))
+        .await
+    }
+
+    pub async fn uncordon_backend(&self, id: &str) -> Result<serde_json::Value, Error> {
+        self.decode(self.request(
+            Method::POST,
+            &format!(
+                "/api/atlas/v1/backends/{}/uncordon",
+                urlencoding::encode(id)
+            ),
+        ))
+        .await
+    }
+
+    /// Whether Atlas's job engine is paused. Paused jobs stay `queued`
+    /// until resumed.
+    pub async fn get_maintenance(&self) -> Result<serde_json::Value, Error> {
+        self.decode(self.request(Method::GET, "/api/atlas/v1/maintenance"))
+            .await
+    }
+
+    pub async fn set_maintenance(&self, paused: bool) -> Result<serde_json::Value, Error> {
+        self.decode(
+            self.request(Method::POST, "/api/atlas/v1/maintenance")
+                .json(&serde_json::json!({ "paused": paused })),
+        )
+        .await
+    }
+
+    pub async fn list_orphans(&self) -> Result<serde_json::Value, Error> {
+        self.decode(self.request(Method::GET, "/api/atlas/v1/maintenance/orphans"))
+            .await
+    }
+
+    /// Report-only (always `200`); `ready`/`blockers` in the response is the
+    /// actual gate -- aggregates cluster health, open critical alerts,
+    /// in-flight jobs, and CDC lag.
+    pub async fn upgrade_preflight(&self) -> Result<serde_json::Value, Error> {
+        self.decode(self.request(Method::GET, "/api/atlas/v1/upgrade/preflight"))
+            .await
+    }
+
+    pub async fn list_osds(&self) -> Result<serde_json::Value, Error> {
+        self.decode(self.request(Method::GET, "/api/atlas/v1/osds"))
+            .await
+    }
+
+    /// Drain an OSD (`ceph osd out`) -- async job, admin-role.
+    pub async fn osd_out(&self, osd_id: i64) -> Result<serde_json::Value, Error> {
+        self.decode(self.request(Method::POST, &format!("/api/atlas/v1/osds/{osd_id}/out")))
+            .await
+    }
+
+    /// Return a drained OSD to service (`ceph osd in`) -- async job, admin-role.
+    pub async fn osd_in(&self, osd_id: i64) -> Result<serde_json::Value, Error> {
+        self.decode(self.request(Method::POST, &format!("/api/atlas/v1/osds/{osd_id}/in")))
+            .await
+    }
+
+    /// Reweight an OSD (`ceph osd reweight`, `weight` in `[0.0, 1.0]`) --
+    /// async job, admin-role.
+    pub async fn osd_reweight(&self, osd_id: i64, weight: f64) -> Result<serde_json::Value, Error> {
+        self.decode(
+            self.request(
+                Method::POST,
+                &format!("/api/atlas/v1/osds/{osd_id}/reweight"),
+            )
+            .query(&[("weight", weight.to_string())]),
+        )
+        .await
+    }
+
     pub async fn list_clusters(&self) -> Result<serde_json::Value, Error> {
         self.decode(self.request(Method::GET, "/api/atlas/v1/clusters"))
             .await
@@ -538,5 +652,74 @@ mod tests {
             let result = c.cancel_job(&job_id).await.unwrap();
             assert_eq!(result["cancelled"], true);
         }
+    }
+
+    #[tokio::test]
+    #[ignore]
+    async fn live_maintenance_reads_and_preflight() {
+        let c = live_client();
+        let maint = c.get_maintenance().await.unwrap();
+        assert!(maint.get("paused").is_some());
+        c.list_orphans().await.unwrap();
+        let preflight = c.upgrade_preflight().await.unwrap();
+        // Report-only: always 200, `ready` is the real gate -- just confirm
+        // the shape, not a particular verdict.
+        assert!(preflight.get("ready").is_some() || preflight.get("blockers").is_some());
+    }
+
+    #[tokio::test]
+    #[ignore]
+    async fn live_set_maintenance_round_trips() {
+        let c = live_client();
+        let paused = c.set_maintenance(true).await.unwrap();
+        assert_eq!(paused["paused"], true);
+        // Always resume -- leaving the fake driver's job engine paused would
+        // silently wedge every other live test run against this instance.
+        let resumed = c.set_maintenance(false).await.unwrap();
+        assert_eq!(resumed["paused"], false);
+    }
+
+    #[tokio::test]
+    #[ignore]
+    async fn live_backend_create_cordon_uncordon_delete_round_trip() {
+        let c = live_client();
+        let backend = c
+            .create_backend(CreateBackendRequest {
+                name: format!(
+                    "zorvia-live-test-backend-{}",
+                    chrono::Utc::now().timestamp_millis()
+                ),
+                ..Default::default()
+            })
+            .await
+            .unwrap();
+        assert_eq!(backend.status, "pending"); // no backend_type given -> defaults to Ceph -> "pending" row, no live driver
+        assert!(!backend.cordoned);
+
+        let cordoned = c.cordon_backend(&backend.id).await.unwrap();
+        assert_eq!(cordoned["cordoned"], true);
+        let uncordoned = c.uncordon_backend(&backend.id).await.unwrap();
+        assert_eq!(uncordoned["cordoned"], false);
+
+        let deleted = c.delete_backend(&backend.id, false).await.unwrap();
+        assert_eq!(deleted["deleted"], true);
+    }
+
+    #[tokio::test]
+    #[ignore]
+    async fn live_osd_list_and_out_in_round_trip() {
+        let c = live_client();
+        let osds = c.list_osds().await.unwrap();
+        let osd_id = osds
+            .as_array()
+            .and_then(|a| a.first())
+            .and_then(|o| o.get("id"))
+            .and_then(|v| v.as_i64())
+            .expect("fake driver seeds at least one OSD");
+
+        let out_result = c.osd_out(osd_id).await.unwrap();
+        assert!(out_result.get("error").is_none());
+        let in_result = c.osd_in(osd_id).await.unwrap();
+        assert!(in_result.get("error").is_none());
     }
 }

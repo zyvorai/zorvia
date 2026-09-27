@@ -867,7 +867,10 @@ pub mod web {
             )
             // Atlas storage control plane (server-side token; Zorvia auth at edge)
             .route("/v1/atlas/status", get(atlas_status))
-            .route("/v1/atlas/backends", get(atlas_list_backends))
+            .route(
+                "/v1/atlas/backends",
+                get(atlas_list_backends).post(atlas_create_backend),
+            )
             .route("/v1/atlas/backends/summary", get(atlas_backends_summary))
             .route("/v1/atlas/clusters", get(atlas_list_clusters))
             .route("/v1/atlas/clusters/{id}/health", get(atlas_cluster_health))
@@ -884,6 +887,26 @@ pub mod web {
             .route("/v1/atlas/jobs", get(atlas_list_jobs))
             .route("/v1/atlas/jobs/{id}", get(atlas_get_job))
             .route("/v1/atlas/jobs/{id}/cancel", post(atlas_cancel_job))
+            .route("/v1/atlas/backends/{id}", delete(atlas_delete_backend))
+            .route(
+                "/v1/atlas/backends/{id}/discover",
+                post(atlas_discover_backend),
+            )
+            .route("/v1/atlas/backends/{id}/cordon", post(atlas_cordon_backend))
+            .route(
+                "/v1/atlas/backends/{id}/uncordon",
+                post(atlas_uncordon_backend),
+            )
+            .route(
+                "/v1/atlas/maintenance",
+                get(atlas_get_maintenance).post(atlas_set_maintenance),
+            )
+            .route("/v1/atlas/maintenance/orphans", get(atlas_list_orphans))
+            .route("/v1/atlas/upgrade/preflight", get(atlas_upgrade_preflight))
+            .route("/v1/atlas/osds", get(atlas_list_osds))
+            .route("/v1/atlas/osds/{id}/out", post(atlas_osd_out))
+            .route("/v1/atlas/osds/{id}/in", post(atlas_osd_in))
+            .route("/v1/atlas/osds/{id}/reweight", post(atlas_osd_reweight))
             .route("/v1/health", get(health_handler))
             .route("/v1/features", get(features_registry_handler))
             .route(

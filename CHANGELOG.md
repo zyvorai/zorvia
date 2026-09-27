@@ -9,6 +9,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Atlas backend lifecycle + OSD ops** — `POST/DELETE /api/v1/atlas/backends`,
+  discover/cordon/uncordon, `GET|POST /api/v1/atlas/maintenance` (pause/resume
+  Atlas's job engine), `GET /api/v1/atlas/maintenance/orphans`,
+  `GET /api/v1/atlas/upgrade/preflight`, `GET /api/v1/atlas/osds` +
+  `out`/`in`/`reweight`. Unlike the volume writes, backend lifecycle is
+  synchronous on Atlas's side (no job envelope); OSD ops are async jobs, same
+  shape as volumes. Verified live against a real `atlas-gateway`: backend
+  create → cordon → uncordon → delete, maintenance pause/resume, and OSD
+  out/in all round-trip correctly.
+
 - **Atlas job status polling** — `GET /api/v1/atlas/jobs[/:id]`,
   `POST /api/v1/atlas/jobs/:id/cancel`. Every Atlas write (volume
   create/expand/delete) returns a `202` + job id that Zorvia previously
