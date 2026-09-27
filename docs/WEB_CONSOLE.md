@@ -69,6 +69,13 @@ Useful env on the API pod:
 | `/app/storage` | Rook-Ceph: cluster status, pools, filesystems, object stores, StorageClass/VolumeSnapshotClass creation |
 | `/app/windows` | Kryton Windows machine inventory (when `KRYTON_URL` is set) |
 | `/app/access-control` | User & role management (admin-only — see below) |
+| `/app/pods` | Every pod in the cluster: Terminal.app-style live logs and in-browser shell (admin-only — see [Pods](#pods-logs--exec)) |
+| `/app/disk-images` | Image catalog rendered as a black Terminal.app `ls -l` listing (see [Disk Images](#disk-images)) |
+
+Top nav: **Dashboard · Virtual Machines · Pods** (admin) as direct links, then the
+**Compute · Storage · Networking · Ops · Automation · Secure · Insights** mega-menus.
+Items marked admin-only (Pods, Access Control) are hidden for `user` / `viewer`
+roles in both the direct links and the menus.
 
 Auth is JWT (login) or API key. WebSockets pass `?token=` because browsers cannot set `Authorization` on upgrades.
 
@@ -86,6 +93,47 @@ Wizard supports:
 - **Auto-start** after create (default)
 
 Catalog (`GET /api/images`) returns blank sizes plus major Linux containerdisks. `GET /api/images/cloud` lists unique containerdisk images sourced from the 43 OS templates. `POST /api/images/cloud/download` genuinely imports the image — it applies a real CDI `DataVolume` + stable `DataSource` to the cluster (same manifests as `zorvia image-bundle`, see [GOLDEN_IMAGES.md](GOLDEN_IMAGES.md)) and returns a `datavolume:<name>` reference usable directly as a Create VM disk image.
+
+## Disk Images
+
+`/app/disk-images` shows the `GET /api/images` catalog inside a black macOS
+Terminal.app window, styled like `zorvia images ls -l` output:
+
+![Disk Images](screenshots/readme-disk-images.png)
+
+| Element | Rendering |
+|---------|-----------|
+| Prompt | `zorvia@images:~$ zorvia images ls -l`, then `total N · <size>` (and `· K selected`) |
+| NAME | Bold white |
+| FORMAT | `blank` yellow · `containerdisk` cyan · `qcow2` magenta · `raw` orange · `iso` green · `vmdk`/`vhd(x)` blue |
+| SIZE | Magenta, right-aligned; `—` for containerdisks (size unknown until pulled, API reports `0`) |
+| SOURCE | Registry refs / URLs blue with the `:tag` in yellow; `blank:20Gi` grey; local paths green |
+
+- **grep…** box in the title bar filters by name, format, or path and echoes
+  `| grep -i "<query>"` on the prompt line.
+- Click a row (or focus it and press Space / Enter) to select it — green `●` and a
+  blue highlight; **all / none** toggles every visible row. The *Selected* stat card
+  tracks the count.
+- Stat cards above the terminal: Total Images, Total Size, Formats, Selected.
+
+## Pods (logs & exec)
+
+`/app/pods` (admin-only) lists every pod across all namespaces with a namespace
+filter, search, and Running / Pending / Failed chips. Each row opens a bottom panel
+with a black Terminal.app-style **live log stream** (colorized levels, JSON, logfmt,
+HTTP; find, pause, download, previous container) or an **interactive shell**
+(`kubectl exec -it`, bash/sh, resize, exit code).
+
+| Route | Purpose |
+|-------|---------|
+| `GET /api/v1/pods?namespace=` | Pod summaries (`all`/empty = every namespace) |
+| `GET /api/v1/namespaces` | Namespace names for the filter |
+| `GET /ws/pods/{ns}/{pod}/logs` | Follow logs (`container`, `tail`, `timestamps`, `previous`) |
+| `GET /ws/pods/{ns}/{pod}/exec` | Interactive TTY (`container`, `shell=auto\|bash\|sh`) |
+
+All four require `cluster.admin`; exec sessions are audited at High severity. Full
+guide — UI, colorizing rules, WebSocket frame protocol, RBAC, audit and
+troubleshooting: **[PODS.md](PODS.md)**.
 
 ## Day-2 operations
 
@@ -191,9 +239,16 @@ Optional append-only JSONL file via `ZORVIA_AUDIT_JSONL`. Feature id `audit-trai
 wss://<HOST>:30152/ws/console/<vm>?token=<jwt>
 wss://<HOST>:30152/ws/vnc/<vm>?token=<jwt>
 wss://<HOST>:30152/ws/ssh/<vm>?token=<jwt>&user=ubuntu
+wss://<HOST>:30152/ws/pods/<ns>/<pod>/logs?token=<jwt>&container=<c>&tail=500
+wss://<HOST>:30152/ws/pods/<ns>/<pod>/exec?token=<jwt>&container=<c>&shell=auto
 ```
 
 Server proxies to the apiserver using the in-cluster service account (trusts cluster CA; reads `token_file`). Clients should offer subprotocols `plain.kubevirt.io` (console) and `binary.kubevirt.io` (VNC). VMI must be **Running**.
+
+The `/ws/pods/*` sockets additionally require `cluster.admin` (401 / 403 before the
+upgrade). Logs send one text frame per line; exec takes binary keystrokes plus
+`{"type":"resize","cols","rows"}` text frames and returns binary TTY output plus a
+final `{"type":"exit","code"}` — see [PODS.md](PODS.md#websocket-protocol).
 
 ## RBAC
 
@@ -205,11 +260,13 @@ ClusterRole `zorvia` includes:
 - `storage.k8s.io` storageclasses (write), `snapshot.storage.k8s.io`
 - `ceph.rook.io`, `apiextensions.k8s.io`, `rbac.authorization.k8s.io`, `apps`, `scheduling.k8s.io` (Rook operator bootstrap)
 - snapshots CRDs, PVCs, pods, events (as in `deploy/k8s.yaml`)
+- core `pods/log` (get) and `pods/exec` (create, get) for the admin-only Pods page — see [PODS.md](PODS.md#kubernetes-rbac); existing installs must re-apply the role
 
 The Rook-bootstrap grants above are intentionally broad — installing an operator means creating its own RBAC, CRDs and Deployments. Skip `POST /storage/rook/bootstrap` and trim those rules if Rook is managed outside Zorvia.
 
 ## Limitations
 
+- The VM sockets (`/ws/console`, `/ws/vnc`, `/ws/ssh`) authenticate the `?token=` but do not yet check a per-role permission (any signed-in role can connect); `/ws/pods/*` does require `cluster.admin`.
 - Blank-disk VMs have no guest OS — console may connect with little/no serial output; use a containerdisk image for real SSH/VNC guest tests.
 - Linux create-time `expose_vnc` now creates a NodePort on guest 5900 (same as Windows).
 - Clone prefers a CDI DataVolume from the source PVC (`clone_mode=cdi`); falls back to an empty PVC if CDI is missing.

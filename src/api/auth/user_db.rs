@@ -284,7 +284,11 @@ impl UserDb {
     pub fn hash_api_token(plaintext: &str) -> String {
         let mut hasher = Sha256::new();
         hasher.update(plaintext.as_bytes());
-        format!("{:x}", hasher.finalize())
+        hasher
+            .finalize()
+            .iter()
+            .map(|b| format!("{b:02x}"))
+            .collect()
     }
 
     /// Creates a token; returns `(record, plaintext)` — plaintext shown once.
@@ -459,6 +463,14 @@ mod tests {
         let u2 = db.get_by_id(&u.id).unwrap().unwrap();
         assert!(!u2.enabled);
         assert_eq!(u2.token_version, 1);
+    }
+
+    #[test]
+    fn api_token_hash_is_lowercase_sha256_hex() {
+        assert_eq!(
+            UserDb::hash_api_token("abc"),
+            "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad"
+        );
     }
 
     #[test]

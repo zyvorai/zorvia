@@ -24,8 +24,7 @@ const MAX_TAIL_LINES: i64 = 10_000;
 fn valid_k8s_name(s: &str) -> bool {
     !s.is_empty()
         && s.len() <= 253
-        && s
-            .chars()
+        && s.chars()
             .all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || c == '-' || c == '.')
         && !s.starts_with(['-', '.'])
         && !s.ends_with(['-', '.'])
@@ -88,7 +87,11 @@ fn summarize(pod: Pod) -> PodSummary {
 
     let mut containers = Vec::new();
     for (init, specs, sts) in [
-        (true, spec.init_containers.clone().unwrap_or_default(), &init_statuses),
+        (
+            true,
+            spec.init_containers.clone().unwrap_or_default(),
+            &init_statuses,
+        ),
         (false, spec.containers.clone(), &statuses),
     ] {
         for c in specs {
@@ -151,9 +154,7 @@ pub async fn list_pods_handler(
     Query(q): Query<PodListQuery>,
 ) -> impl IntoResponse {
     let client = state.read().await.kube_client.client();
-    let ns = q
-        .namespace
-        .filter(|n| !n.is_empty() && n != "all");
+    let ns = q.namespace.filter(|n| !n.is_empty() && n != "all");
     if let Some(ns) = ns.as_deref() {
         if !valid_k8s_name(ns) {
             let (st, j) = err_json(400, "INVALID", "invalid namespace");
@@ -183,8 +184,11 @@ pub async fn list_namespaces_handler(State(state): State<SharedState>) -> impl I
     let api: Api<Namespace> = Api::all(client);
     match api.list(&ListParams::default()).await {
         Ok(list) => {
-            let mut names: Vec<String> =
-                list.items.into_iter().filter_map(|n| n.metadata.name).collect();
+            let mut names: Vec<String> = list
+                .items
+                .into_iter()
+                .filter_map(|n| n.metadata.name)
+                .collect();
             names.sort();
             Json(serde_json::json!({ "namespaces": names })).into_response()
         }
@@ -247,11 +251,10 @@ pub async fn ws_pod_logs(
     Query(q): Query<PodLogQuery>,
 ) -> axum::response::Response {
     let s = state.read().await;
-    let identity =
-        match authorize_permission(&s, q.token.as_deref(), ApiPermission::ClusterAdmin) {
-            Ok(i) => i,
-            Err(resp) => return *resp,
-        };
+    let identity = match authorize_permission(&s, q.token.as_deref(), ApiPermission::ClusterAdmin) {
+        Ok(i) => i,
+        Err(resp) => return *resp,
+    };
     let client = s.kube_client.client();
     let audit = s.audit.clone();
     drop(s);
@@ -385,11 +388,10 @@ pub async fn ws_pod_exec(
     Query(q): Query<PodExecQuery>,
 ) -> axum::response::Response {
     let s = state.read().await;
-    let identity =
-        match authorize_permission(&s, q.token.as_deref(), ApiPermission::ClusterAdmin) {
-            Ok(i) => i,
-            Err(resp) => return *resp,
-        };
+    let identity = match authorize_permission(&s, q.token.as_deref(), ApiPermission::ClusterAdmin) {
+        Ok(i) => i,
+        Err(resp) => return *resp,
+    };
     let client = s.kube_client.client();
     let audit = s.audit.clone();
     drop(s);
@@ -406,12 +408,17 @@ pub async fn ws_pod_exec(
     let user = identity.username.unwrap_or_else(|| "api-token".into());
 
     ws.on_upgrade(move |socket| async move {
-        run_exec(socket, client, audit, user, namespace, name, container, shell).await
+        run_exec(
+            socket, client, audit, user, namespace, name, container, shell,
+        )
+        .await
     })
     .into_response()
 }
 
-fn exit_code(status: Option<k8s_openapi::apimachinery::pkg::apis::meta::v1::Status>) -> Option<i32> {
+fn exit_code(
+    status: Option<k8s_openapi::apimachinery::pkg::apis::meta::v1::Status>,
+) -> Option<i32> {
     let status = status?;
     if status.status.as_deref() == Some("Success") {
         return Some(0);
@@ -592,8 +599,8 @@ mod tests {
 
     #[test]
     fn parses_resize_control() {
-        let c: ExecControl = serde_json::from_str(r#"{"type":"resize","cols":120,"rows":40}"#)
-            .expect("resize");
+        let c: ExecControl =
+            serde_json::from_str(r#"{"type":"resize","cols":120,"rows":40}"#).expect("resize");
         let ExecControl::Resize { cols, rows } = c;
         assert_eq!((cols, rows), (120, 40));
     }

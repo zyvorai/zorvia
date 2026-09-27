@@ -47,7 +47,7 @@ Zorvia is how you **create, operate, and govern** Kubernetes VMs end to end — 
 - [Roadmap](#roadmap)
 - [Project security](#project-security)
 - [Get involved](#get-involved)
-- [Lab deploy](docs/LAB.md) · [OIDC lab](docs/OIDC_LAB.md) · [Social assets](docs/social/README.md)
+- [Lab deploy](docs/LAB.md) · [Pods: logs & exec](docs/PODS.md) · [OIDC lab](docs/OIDC_LAB.md) · [Social assets](docs/social/README.md)
 
 ## Console gallery
 
@@ -161,6 +161,7 @@ about running it in production.
 | Ship a stack | **5** blueprints (LAMP, 3-tier, k8s-cluster, CI/CD, dev-stack) |
 | Browser ops | Web console — create, power, console, expose, snapshots |
 | Reach the guest | Serial, VNC, in-browser SSH — real pty, password auth works (authenticated WebSockets) |
+| Debug the platform | Pods page — every pod, colorized live logs and `exec -it` shell in a Terminal.app-style panel (admin-only, audited) |
 | Who can do what | Admin/user/viewer accounts (`/app/access-control`), admin-only user management, last-admin-lockout protection |
 | Day-2 without downtime | Hotplug CPU/memory/disk/NIC, live migration, disk resize — CLI and web console |
 | Catch drift | `zorvia drift` + `zorvia plan` |
@@ -332,6 +333,8 @@ Signed-in SPA on the same NodePort as the API. Full route map: [docs/WEB_CONSOLE
 | `/app/snapshots` · `/app/migrations` | Snapshots · live migration |
 | `/app/storage` · `/app/volumes` | Rook-Ceph · fleet PVCs |
 | `/app/access-control` | Users & roles (admin) |
+| `/app/pods` | Every pod: Terminal.app-style live logs + in-browser shell (admin) — [docs/PODS.md](docs/PODS.md) |
+| `/app/disk-images` | Image catalog as a black Terminal.app `ls -l` listing |
 | `/app/quotas` · `/app/network-policies` | Real `ResourceQuota` / `NetworkPolicy` |
 | `/app/templates` · `/app/windows` | OS catalog · Kryton inventory |
 | `/app/placement` · `/app/capacity` · `/app/optimizer` | Placement · headroom · right-sizing |
@@ -341,6 +344,8 @@ Signed-in SPA on the same NodePort as the API. Full route map: [docs/WEB_CONSOLE
 wss://<HOST>:30152/ws/console/<vm>?token=<jwt>
 wss://<HOST>:30152/ws/vnc/<vm>?token=<jwt>
 wss://<HOST>:30152/ws/ssh/<vm>?token=<jwt>&user=ubuntu
+wss://<HOST>:30152/ws/pods/<ns>/<pod>/logs?token=<jwt>     # cluster.admin
+wss://<HOST>:30152/ws/pods/<ns>/<pod>/exec?token=<jwt>     # cluster.admin
 ```
 
 Set `ZORVIA_EXPOSE_HOST` for correct NodePort SSH/VNC/RDP hostnames in the UI.
