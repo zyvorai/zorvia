@@ -1,7 +1,9 @@
 // Copyright 2026 Zyvor AI Labs · https://zyvor.dev
 // SPDX-License-Identifier: Apache-2.0
 
-import { apiDelete, apiGet, apiPost } from './client'
+import { apiFetch, apiGet, apiPost } from './client'
+import { formatHttpErrorBody } from '../utils/apiError'
+import { parseJsonResponse } from '../utils/parseJsonResponse'
 
 export interface AtlasStatus {
   enabled: boolean
@@ -73,6 +75,35 @@ export interface AtlasVolume {
   storage_class_name?: string | null
 }
 
+export type AtlasJobState = 'pending' | 'queued' | 'running' | 'verifying' | 'succeeded' | 'failed'
+
+/** Every Atlas write (volume create/expand/delete) returns one of these ids --
+    this is how to find out what actually happened, instead of only ever seeing "queued". */
+export interface AtlasJob {
+  id: string
+  tenant_id: string
+  job_type: string
+  state: AtlasJobState
+  requested_by: string
+  progress_percent: number
+  error?: string | null
+  result?: unknown
+  created_at?: string | null
+  updated_at?: string | null
+}
+
+export const isAtlasJobTerminal = (job: AtlasJob): boolean => job.state === 'succeeded' || job.state === 'failed'
+
+/** The envelope every Atlas write (volume create/expand/delete) returns --
+    a 202 + job id, never a finished result. Poll `getAtlasJob(job_id)`
+    with it to find out what actually happened. */
+export interface AtlasJobEnvelope {
+  job_id: string
+  state: string
+  resource?: unknown
+  links?: { job?: string }
+}
+
 export interface AtlasStorageClass {
   name: string
   provisioner: string
@@ -128,10 +159,40 @@ export const getAtlasCephStatus = () => apiGet<unknown>('/api/v1/atlas/ceph/stat
 export const getAtlasCephDf = () => apiGet<unknown>('/api/v1/atlas/ceph/df')
 export const listAtlasStorageClasses = () => apiGet<AtlasStorageClass[]>('/api/v1/atlas/storage-classes')
 export const listAtlasVolumes = () => apiGet<AtlasVolume[]>('/api/v1/atlas/volumes')
-export const createAtlasVolume = (body: CreateAtlasVolumeRequest) => apiPost<unknown>('/api/v1/atlas/volumes', body)
+export const createAtlasVolume = (body: CreateAtlasVolumeRequest) =>
+  apiPost<AtlasJobEnvelope>('/api/v1/atlas/volumes', body)
 export const expandAtlasVolume = (id: string, newSizeBytes: number) =>
-  apiPost<unknown>(`/api/v1/atlas/volumes/${encodeURIComponent(id)}/expand`, { new_size_bytes: newSizeBytes })
+  apiPost<AtlasJobEnvelope>(`/api/v1/atlas/volumes/${encodeURIComponent(id)}/expand`, { new_size_bytes: newSizeBytes })
 /** `confirm` must be true for production/protected-class volumes -- Atlas rejects the delete
-    with a 400 naming that requirement if it's needed and omitted. */
-export const deleteAtlasVolume = (id: string, confirm = false) =>
-  apiDelete(`/api/v1/atlas/volumes/${encodeURIComponent(id)}${confirm ? '?confirm=true' : ''}`)
+    with a 400 naming that requirement if it's needed and omitted. Unlike the other writes this
+    uses apiFetch directly (not the shared apiDelete, which discards the response body) because
+    delete also returns a real job envelope that's worth polling like create/expand. */
+export const deleteAtlasVolume = async (id: string, confirm = false): Promise<AtlasJobEnvelope> => {
+  const url = `/api/v1/atlas/volumes/${encodeURIComponent(id)}${confirm ? '?confirm=true' : ''}`
+  const res = await apiFetch(url, { method: 'DELETE' })
+  if (!res.ok) {
+    const body = await res.text().catch(() => '')
+    throw new Error(formatHttpErrorBody(res.status, res.statusText, body))
+  }
+  return parseJsonResponse<AtlasJobEnvelope>(res)
+}
+
+export const listAtlasJobs = () => apiGet<AtlasJob[]>('/api/v1/atlas/jobs')
+export const getAtlasJob = (id: string) => apiGet<AtlasJob>(`/api/v1/atlas/jobs/${encodeURIComponent(id)}`)
+export const cancelAtlasJob = (id: string) => apiPost<unknown>(`/api/v1/atlas/jobs/${encodeURIComponent(id)}/cancel`)
+
+/** Polls a job to a terminal state (or gives up after `timeoutMs`, returning
+    the last-seen state) -- the UI can then show the real outcome of a
+    create/expand/delete instead of just "requested". */
+export async function pollAtlasJob(
+  jobId: string,
+  opts?: { intervalMs?: number; timeoutMs?: number },
+): Promise<AtlasJob> {
+  const intervalMs = opts?.intervalMs ?? 1500
+  const deadline = Date.now() + (opts?.timeoutMs ?? 60_000)
+  for (;;) {
+    const job = await getAtlasJob(jobId)
+    if (isAtlasJobTerminal(job) || Date.now() >= deadline) return job
+    await new Promise((r) => setTimeout(r, intervalMs))
+  }
+}

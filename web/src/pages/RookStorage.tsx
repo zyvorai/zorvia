@@ -31,12 +31,17 @@ import {
   createAtlasVolume,
   expandAtlasVolume,
   deleteAtlasVolume,
+  listAtlasJobs,
+  cancelAtlasJob,
+  pollAtlasJob,
+  isAtlasJobTerminal,
   atlasVolumeOwnerForVm,
   AtlasStatus,
   AtlasBackend,
   AtlasCluster,
   AtlasPool,
   AtlasVolume,
+  AtlasJob,
 } from '../api/atlas'
 import { useToastContext } from '../contexts/ToastContext'
 import { toastFailure } from '../utils/toastError'
@@ -502,6 +507,7 @@ function AtlasSection() {
   const [clusters, setClusters] = useState<AtlasCluster[]>([])
   const [pools, setPools] = useState<AtlasPool[]>([])
   const [volumes, setVolumes] = useState<AtlasVolume[]>([])
+  const [jobs, setJobs] = useState<AtlasJob[]>([])
   const [loading, setLoading] = useState(true)
   const [busy, setBusy] = useState<string | null>(null)
 
@@ -514,18 +520,21 @@ function AtlasSection() {
         setClusters([])
         setPools([])
         setVolumes([])
+        setJobs([])
         return
       }
-      const [b, c, p, v] = await Promise.all([
+      const [b, c, p, v, j] = await Promise.all([
         listAtlasBackends().catch(() => []),
         listAtlasClusters().catch(() => []),
         listAtlasPools().catch(() => []),
         listAtlasVolumes().catch(() => []),
+        listAtlasJobs().catch(() => []),
       ])
       setBackends(b)
       setClusters(c)
       setPools(p)
       setVolumes(v)
+      setJobs(j)
     } catch {
       // Status fetch itself failing (network/auth) leaves status null; the
       // section below just shows "Not configured" rather than an alarming
@@ -540,6 +549,32 @@ function AtlasSection() {
     const interval = setInterval(() => void load(), 15000)
     return () => clearInterval(interval)
   }, [])
+
+  /** Every Atlas write only ever returns "requested" synchronously -- this
+      polls the real job to a terminal state in the background and toasts
+      the actual outcome, instead of leaving the user to guess from the next
+      15s refresh whether it actually succeeded. */
+  const runAtlasWrite = async (busyKey: string, actionLabel: string, volumeName: string, op: () => Promise<{ job_id: string }>) => {
+    setBusy(busyKey)
+    try {
+      const envelope = await op()
+      toast.success(`${actionLabel} requested for '${volumeName}'`)
+      await load()
+      const job = await pollAtlasJob(envelope.job_id)
+      if (isAtlasJobTerminal(job)) {
+        if (job.state === 'succeeded') {
+          toast.success(`${actionLabel} succeeded for '${volumeName}'`)
+        } else {
+          toast.error(`${actionLabel} failed for '${volumeName}': ${job.error ?? 'unknown error'}`)
+        }
+      }
+      await load()
+    } catch (e) {
+      toastFailure(toast, `Failed to ${actionLabel.toLowerCase()} volume`, e)
+    } finally {
+      setBusy(null)
+    }
+  }
 
   if (loading) return null
 
@@ -625,16 +660,9 @@ function AtlasSection() {
                     key={v.id}
                     volume={v}
                     busy={busy}
-                    onExpand={(newSizeBytes) => {
-                      setBusy(`expand-${v.id}`)
-                      expandAtlasVolume(v.id, newSizeBytes)
-                        .then(() => {
-                          toast.success(`Expand requested for '${v.name}'`)
-                          return load()
-                        })
-                        .catch((e) => toastFailure(toast, 'Failed to expand volume', e))
-                        .finally(() => setBusy(null))
-                    }}
+                    onExpand={(newSizeBytes) =>
+                      void runAtlasWrite(`expand-${v.id}`, 'Expand', v.name, () => expandAtlasVolume(v.id, newSizeBytes))
+                    }
                     onDelete={async () => {
                       if (
                         !(await confirm(`Delete volume '${v.name}'`, 'Delete this volume? Any data on it is destroyed.', {
@@ -644,17 +672,10 @@ function AtlasSection() {
                       ) {
                         return
                       }
-                      setBusy(`delete-${v.id}`)
                       // Always pass confirm=true -- Atlas itself decides (based on
                       // storage class / protection tier) whether that was required;
                       // Zorvia doesn't try to duplicate that judgment.
-                      deleteAtlasVolume(v.id, true)
-                        .then(() => {
-                          toast.success(`Delete requested for '${v.name}'`)
-                          return load()
-                        })
-                        .catch((e) => toastFailure(toast, 'Failed to delete volume', e))
-                        .finally(() => setBusy(null))
+                      void runAtlasWrite(`delete-${v.id}`, 'Delete', v.name, () => deleteAtlasVolume(v.id, true))
                     }}
                   />
                 ))}
@@ -664,17 +685,33 @@ function AtlasSection() {
 
           <CreateAtlasVolumeForm
             disabled={busy !== null}
-            onCreate={(req) => {
-              setBusy('create-volume')
-              createAtlasVolume(req)
-                .then(() => {
-                  toast.success(`Volume '${req.name}' create requested`)
-                  return load()
-                })
-                .catch((e) => toastFailure(toast, 'Failed to create volume', e))
-                .finally(() => setBusy(null))
-            }}
+            onCreate={(req) => void runAtlasWrite('create-volume', 'Create', req.name, () => createAtlasVolume(req))}
           />
+
+          {jobs.length > 0 && (
+            <div>
+              <h3 className="text-xs font-medium text-[var(--zf-muted)] mb-2">Recent jobs</h3>
+              <div className="divide-y divide-[var(--zf-hairline)]">
+                {jobs.slice(0, 10).map((j) => (
+                  <AtlasJobRow
+                    key={j.id}
+                    job={j}
+                    busy={busy === `cancel-job-${j.id}`}
+                    onCancel={() => {
+                      setBusy(`cancel-job-${j.id}`)
+                      cancelAtlasJob(j.id)
+                        .then(() => {
+                          toast.success(`Job '${j.id}' cancelled`)
+                          return load()
+                        })
+                        .catch((e) => toastFailure(toast, 'Failed to cancel job', e))
+                        .finally(() => setBusy(null))
+                    }}
+                  />
+                ))}
+              </div>
+            </div>
+          )}
         </>
       )}
 
@@ -746,6 +783,44 @@ function AtlasVolumeRow({
         >
           <Trash2 className="w-3.5 h-3.5" />
         </button>
+      </div>
+    </div>
+  )
+}
+
+const ATLAS_JOB_STATE_STYLES: Record<string, string> = {
+  succeeded: ATLAS_HEALTH_STYLES.ok,
+  failed: ATLAS_HEALTH_STYLES.critical,
+  running: ATLAS_HEALTH_STYLES.warn,
+  verifying: ATLAS_HEALTH_STYLES.warn,
+  queued: ATLAS_HEALTH_STYLES.unknown,
+  pending: ATLAS_HEALTH_STYLES.unknown,
+}
+
+function AtlasJobRow({ job, busy, onCancel }: { job: AtlasJob; busy: boolean; onCancel: () => void }) {
+  return (
+    <div className="flex items-center justify-between py-2 gap-3">
+      <div>
+        <div className="font-medium text-sm text-[var(--zf-ink)]">{job.job_type}</div>
+        <div className="text-xs text-[var(--zf-muted)]">
+          {job.id}
+          {job.error ? ` · ${job.error}` : ''}
+        </div>
+      </div>
+      <div className="flex items-center gap-2 shrink-0">
+        {!isAtlasJobTerminal(job) && (
+          <span className="text-xs text-[var(--zf-muted)]">{job.progress_percent}%</span>
+        )}
+        <span
+          className={`px-2 py-0.5 rounded-full text-xs font-medium border ${ATLAS_JOB_STATE_STYLES[job.state] ?? ATLAS_HEALTH_STYLES.unknown}`}
+        >
+          {job.state}
+        </span>
+        {!isAtlasJobTerminal(job) && (
+          <button type="button" disabled={busy} onClick={onCancel} className="zf-btn zf-btn-ghost zf-btn-sm">
+            {busy ? 'Cancelling…' : 'Cancel'}
+          </button>
+        )}
       </div>
     </div>
   )
