@@ -35,4 +35,4 @@ jobs:
           test -f docs/FEATURE_MATURITY.md
           test -f docs/UPGRADE.md
           grep -q '## \[Unreleased\]' CHANGELOG.md
-          grep -q '0.3.3' Cargo.toml
+          grep -qE '^version = "[0-9]+\.[0-9]+\.[0-9]+"' Cargo.toml
