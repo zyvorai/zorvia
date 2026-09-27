@@ -1038,6 +1038,167 @@ impl Client {
         )
         .await
     }
+
+    // ── Observability: metrics, alerts, audit, chargeback, policy drift,
+    // events. All read-only except the alert lifecycle actions (evaluate,
+    // ack, silence, resolve).
+
+    pub async fn metrics_summary(&self) -> Result<serde_json::Value, Error> {
+        self.decode(self.request(Method::GET, "/api/atlas/v1/metrics/summary"))
+            .await
+    }
+
+    pub async fn metrics_ceph(&self, prefix: Option<&str>) -> Result<serde_json::Value, Error> {
+        let mut req = self.request(Method::GET, "/api/atlas/v1/metrics/ceph");
+        if let Some(prefix) = prefix {
+            req = req.query(&[("prefix", prefix)]);
+        }
+        self.decode(req).await
+    }
+
+    /// Persisted capacity/IO/job time-series for trend charts. `minutes`
+    /// clamped by Atlas to `[1, 2880]`, default `60`.
+    pub async fn metrics_history(&self, minutes: Option<i64>) -> Result<serde_json::Value, Error> {
+        let mut req = self.request(Method::GET, "/api/atlas/v1/metrics/history");
+        if let Some(minutes) = minutes {
+            req = req.query(&[("minutes", minutes.to_string())]);
+        }
+        self.decode(req).await
+    }
+
+    /// Least-squares projection of days-until-full. `minutes` clamped by
+    /// Atlas to `[1, 20160]`, default `1440`.
+    pub async fn metrics_forecast(&self, minutes: Option<i64>) -> Result<serde_json::Value, Error> {
+        let mut req = self.request(Method::GET, "/api/atlas/v1/metrics/forecast");
+        if let Some(minutes) = minutes {
+            req = req.query(&[("minutes", minutes.to_string())]);
+        }
+        self.decode(req).await
+    }
+
+    pub async fn list_alerts(&self, state: Option<&str>) -> Result<serde_json::Value, Error> {
+        let mut req = self.request(Method::GET, "/api/atlas/v1/alerts");
+        if let Some(state) = state {
+            req = req.query(&[("state", state)]);
+        }
+        self.decode(req).await
+    }
+
+    /// Runs the alert rules on demand (they also run on Atlas's own monitor
+    /// interval) -- a genuine side effect (creates/updates alert rows), not
+    /// a pure read, despite returning just a count.
+    pub async fn evaluate_alerts(&self) -> Result<serde_json::Value, Error> {
+        self.decode(self.request(Method::POST, "/api/atlas/v1/alerts/evaluate"))
+            .await
+    }
+
+    /// Records who saw an alert (operator, not a resolve).
+    pub async fn ack_alert(&self, id: &str) -> Result<serde_json::Value, Error> {
+        self.decode(self.request(
+            Method::POST,
+            &format!("/api/atlas/v1/alerts/{}/ack", urlencoding::encode(id)),
+        ))
+        .await
+    }
+
+    /// Suppresses webhook notification for a window (default 1h, capped at
+    /// 30d) -- the condition keeps being tracked and still shows in
+    /// `list_alerts`, it just won't re-notify until the window elapses.
+    pub async fn silence_alert(
+        &self,
+        id: &str,
+        secs: Option<i64>,
+    ) -> Result<serde_json::Value, Error> {
+        let mut req = self.request(
+            Method::POST,
+            &format!("/api/atlas/v1/alerts/{}/silence", urlencoding::encode(id)),
+        );
+        if let Some(secs) = secs {
+            req = req.query(&[("secs", secs.to_string())]);
+        }
+        self.decode(req).await
+    }
+
+    /// Operator override to resolve an open alert.
+    pub async fn resolve_alert(&self, id: &str) -> Result<serde_json::Value, Error> {
+        self.decode(self.request(
+            Method::POST,
+            &format!("/api/atlas/v1/alerts/{}/resolve", urlencoding::encode(id)),
+        ))
+        .await
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    pub async fn list_audit(
+        &self,
+        actor: Option<&str>,
+        action: Option<&str>,
+        resource_type: Option<&str>,
+        resource_id: Option<&str>,
+        limit: Option<i64>,
+    ) -> Result<serde_json::Value, Error> {
+        let mut req = self.request(Method::GET, "/api/atlas/v1/audit");
+        let mut query = Vec::new();
+        if let Some(actor) = actor {
+            query.push(("actor", actor.to_string()));
+        }
+        if let Some(action) = action {
+            query.push(("action", action.to_string()));
+        }
+        if let Some(resource_type) = resource_type {
+            query.push(("resource_type", resource_type.to_string()));
+        }
+        if let Some(resource_id) = resource_id {
+            query.push(("resource_id", resource_id.to_string()));
+        }
+        if let Some(limit) = limit {
+            query.push(("limit", limit.to_string()));
+        }
+        if !query.is_empty() {
+            req = req.query(&query);
+        }
+        self.decode(req).await
+    }
+
+    /// Raw CSV, not JSON -- Zorvia relays it byte-for-byte with the same
+    /// `text/csv` content type rather than wrapping it.
+    pub async fn export_audit_csv(&self) -> Result<String, Error> {
+        let response = self
+            .request(Method::GET, "/api/atlas/v1/audit.csv")
+            .send()
+            .await?;
+        let status = response.status();
+        let body = response.text().await?;
+        if status.is_success() {
+            Ok(body)
+        } else {
+            Err(Self::decode_error(status, body))
+        }
+    }
+
+    /// Per-tenant usage + optional cost (showback). Rate is configured on
+    /// Atlas's side via `ATLAS_CHARGEBACK_USD_PER_GIB_MONTH` (`0` = usage
+    /// only) -- a point-in-time snapshot, not a billing record.
+    pub async fn chargeback(&self) -> Result<serde_json::Value, Error> {
+        self.decode(self.request(Method::GET, "/api/atlas/v1/chargeback"))
+            .await
+    }
+
+    /// Volumes whose applied StorageClass no longer matches their policy
+    /// (or whose policy was deleted) -- configuration drift from intent.
+    pub async fn policy_drift(&self) -> Result<serde_json::Value, Error> {
+        self.decode(self.request(Method::GET, "/api/atlas/v1/policy-drift"))
+            .await
+    }
+
+    /// Unified activity feed (jobs + audit + alerts), newest first.
+    pub async fn list_events(&self, limit: Option<i64>) -> Result<serde_json::Value, Error> {
+        let mut req = self.request(Method::GET, "/api/atlas/v1/events");
+        if let Some(limit) = limit {
+            req = req.query(&[("limit", limit.to_string())]);
+        }
+        self.decode(req).await
+    }
 }
 
 #[cfg(test)]
@@ -1664,5 +1825,76 @@ mod tests {
         assert!(result.get("baseline").is_some());
         assert!(result.get("projected").is_some());
         assert_eq!(result["can_execute"], false);
+    }
+
+    // ── Observability: metrics, alerts, audit, chargeback, policy drift,
+    // events.
+
+    #[tokio::test]
+    #[ignore]
+    async fn live_metrics_endpoints_return_real_shapes() {
+        let c = live_client();
+        let summary = c.metrics_summary().await.unwrap();
+        assert!(summary.get("used_capacity_bytes").is_some());
+        c.metrics_ceph(None).await.unwrap();
+        let history = c.metrics_history(Some(60)).await.unwrap();
+        assert!(history.as_array().is_some());
+        let forecast = c.metrics_forecast(Some(1440)).await.unwrap();
+        assert!(forecast.get("days_to_full").is_some());
+    }
+
+    #[tokio::test]
+    #[ignore]
+    async fn live_alert_lifecycle_ack_silence_resolve() {
+        let c = live_client();
+        // Fake driver seeds an OSD-down + cluster-unhealthy alert only after
+        // the monitor rules run once -- evaluate on demand rather than
+        // waiting on its interval.
+        c.evaluate_alerts().await.unwrap();
+        let alerts = c.list_alerts(Some("open")).await.unwrap();
+        let alerts = alerts.as_array().unwrap();
+        assert!(
+            !alerts.is_empty(),
+            "fake driver should seed at least one open alert"
+        );
+        let id = alerts[0]["id"].as_str().unwrap().to_string();
+
+        let acked = c.ack_alert(&id).await.unwrap();
+        assert_eq!(acked["id"], id);
+        let silenced = c.silence_alert(&id, Some(60)).await.unwrap();
+        assert_eq!(silenced["silenced_secs"], 60);
+        let resolved = c.resolve_alert(&id).await.unwrap();
+        assert_eq!(resolved["state"], "resolved");
+
+        // Resolving an already-resolved alert is a real 404, not silently ok.
+        let err = c.resolve_alert(&id).await.unwrap_err();
+        match err {
+            Error::Upstream { status, .. } => assert_eq!(status, 404),
+            other => panic!("expected an Upstream 404, got: {other:?}"),
+        }
+
+        let audit = c
+            .list_audit(None, None, None, None, Some(10))
+            .await
+            .unwrap();
+        let audit = audit.as_array().unwrap();
+        assert!(audit.iter().any(|a| a["action"] == "alert.resolve"));
+    }
+
+    #[tokio::test]
+    #[ignore]
+    async fn live_audit_csv_chargeback_policy_drift_events() {
+        let c = live_client();
+        let csv = c.export_audit_csv().await.unwrap();
+        assert!(csv.starts_with("created_at,actor_id,action,resource_type,resource_id,status"));
+
+        let chargeback = c.chargeback().await.unwrap();
+        assert!(chargeback.get("tenants").is_some());
+
+        let drift = c.policy_drift().await.unwrap();
+        assert!(drift.get("drift").is_some());
+
+        let events = c.list_events(Some(5)).await.unwrap();
+        assert!(events.as_array().is_some());
     }
 }

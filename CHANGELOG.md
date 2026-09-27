@@ -9,6 +9,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Atlas observability** — `GET /api/v1/atlas/metrics/{summary,ceph,history,forecast}`,
+  `GET .../alerts[?state=]`, `POST .../alerts/evaluate`,
+  `POST .../alerts/:id/{ack,silence,resolve}`, `GET .../audit`,
+  `GET .../audit.csv` (raw CSV passthrough), `GET .../chargeback`,
+  `GET .../policy-drift`, `GET .../events`. Atlas alerts now surface on
+  Zorvia's existing `/app/alerts` page as an additional source (tagged
+  "Atlas", with ack/silence/resolve actions) instead of a second
+  disconnected alerts UI — Zorvia already has a real alerts feature.
+  Audit/chargeback/policy-drift/metrics get simple read-only views scoped
+  to the Atlas area of the Storage page (new
+  `web/src/pages/storage/AtlasObservabilitySection.tsx`) rather than being
+  merged into Zorvia's own audit-trail or cost/FinOps surfaces. Verified
+  live against a real `atlas-gateway`: the full alert lifecycle
+  (evaluate → ack → silence → resolve, with a real audit trail entry per
+  action and a real 404 on re-resolving an already-resolved alert), all
+  four metrics endpoints, and audit-CSV/chargeback/policy-drift/events
+  round-trip correctly.
+
 - **Atlas AI-assisted insights** — `POST /api/v1/atlas/ai/advisor`,
   `GET .../ai/anomalies`, `GET .../ai/incidents`, `POST .../ai/what-if`.
   Compute-only despite the `POST` verbs on advisor/what-if — every response
