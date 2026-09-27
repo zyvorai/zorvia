@@ -32,7 +32,7 @@
   --zf-ease: cubic-bezier(0.28, 0.11, 0.32, 1);
   --zf-disabled-bg: #dcdce1;
   --zf-disabled-text: #86868b;
-  --console-topbar-height: 52px;
+  --console-topbar-height: 44px;
   --zf-hover-tint: rgba(0, 0, 0, 0.04);
   --zf-active-tint: rgba(0, 0, 0, 0.06);
   --zf-focus-tint: rgba(0, 0, 0, 0.06);
@@ -41,6 +41,32 @@
   --font-display: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'SF Pro Text', 'Segoe UI',
     'Inter Variable', sans-serif;
   --font-mono: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+  /* apple.com surfaces: grey page, white borderless tiles, grey wells */
+  --zf-page: #f5f5f7;
+  --zf-tile: #ffffff;
+  --zf-well: #f5f5f7;
+  --zf-surface-2: #fbfbfd;
+  --zf-hairline-strong: #d2d2d7;
+  --zf-tertiary: #86868b;
+  --zf-tile-border: transparent;
+  --zf-input-bg: #ffffff;
+  --zf-card-shadow: 0 2px 12px rgba(0, 0, 0, 0.04);
+  --zf-card-shadow-hover: 0 4px 20px rgba(0, 0, 0, 0.08);
+  --zf-nav-link: rgba(0, 0, 0, 0.8);
+  --zf-hero-glow-a: rgba(0, 113, 227, 0.14);
+  --zf-hero-glow-b: rgba(50, 173, 230, 0.12);
+  --zf-success-bg: #e8f8ec;
+  --zf-success-border: #b8ecc4;
+  --zf-success-text: #1e7b34;
+  --zf-warning-bg: #fff6ed;
+  --zf-warning-border: #ffd8ba;
+  --zf-warning-text: #8b3d00;
+  --zf-danger-bg: #fff1f0;
+  --zf-danger-border: #ffc9c4;
+  --zf-danger-text: #c41e14;
+  --zf-info-bg: #eaf6fc;
+  --zf-info-border: #bfe6f5;
+  --zf-info-text: #0a6b99;
   color-scheme: light;
 }
 
@@ -72,6 +98,33 @@
   --zf-focus-tint: rgba(255, 255, 255, 0.14);
   --zf-nav-surface: rgba(22, 22, 23, 0.8);
   --zf-nav-border: rgba(255, 255, 255, 0.12);
+  --zf-focus-ring: 0 0 0 4px rgba(41, 151, 255, 0.4);
+  /* Netra dark: black page, #1d1d1f tiles, #2c2c2e wells, inset highlight */
+  --zf-page: #000000;
+  --zf-tile: #1d1d1f;
+  --zf-well: #2c2c2e;
+  --zf-surface-2: #2c2c2e;
+  --zf-hairline-strong: rgba(255, 255, 255, 0.16);
+  --zf-tertiary: #86868b;
+  --zf-tile-border: rgba(255, 255, 255, 0.12);
+  --zf-input-bg: rgba(255, 255, 255, 0.06);
+  --zf-card-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06);
+  --zf-card-shadow-hover: inset 0 1px 0 rgba(255, 255, 255, 0.08), 0 8px 24px rgba(0, 0, 0, 0.5);
+  --zf-nav-link: rgba(255, 255, 255, 0.8);
+  --zf-hero-glow-a: rgba(0, 113, 227, 0.18);
+  --zf-hero-glow-b: rgba(50, 173, 230, 0.16);
+  --zf-success-bg: rgba(48, 209, 88, 0.14);
+  --zf-success-border: rgba(48, 209, 88, 0.35);
+  --zf-success-text: #30d158;
+  --zf-warning-bg: rgba(255, 159, 10, 0.12);
+  --zf-warning-border: rgba(255, 159, 10, 0.35);
+  --zf-warning-text: #ffd60a;
+  --zf-danger-bg: rgba(255, 69, 58, 0.14);
+  --zf-danger-border: rgba(255, 69, 58, 0.35);
+  --zf-danger-text: #ff6961;
+  --zf-info-bg: rgba(100, 210, 255, 0.14);
+  --zf-info-border: rgba(100, 210, 255, 0.35);
+  --zf-info-text: #64d2ff;
   color-scheme: dark;
 }
 
@@ -866,10 +919,13 @@ a.zf-btn-success {
 
 /* —— Console shell (Netra-style top mega-nav, no sidebar) —— */
 .console-shell {
+  /* Inside the console, "canvas" utilities read as wells on the grey page. */
+  --zf-canvas: var(--zf-well);
+  --zf-canvas-alt: var(--zf-well);
   min-height: 100vh;
   display: flex;
   flex-direction: column;
-  background: var(--zf-canvas);
+  background: var(--zf-page);
   color: var(--zf-ink);
 }
 .console-topbar {
@@ -942,12 +998,11 @@ a.zf-btn-success {
   height: var(--console-topbar-height);
   display: inline-flex;
   align-items: center;
-  color: var(--zf-ink);
+  color: var(--zf-nav-link);
   font-size: 12px;
   font-weight: 400;
   letter-spacing: -0.01em;
   white-space: nowrap;
-  opacity: 0.88;
   text-decoration: none;
   cursor: pointer;
   transition: opacity 0.2s ease, color 0.2s ease;
@@ -965,11 +1020,10 @@ a.zf-btn-success {
   transition: transform 0.25s ease;
 }
 .console-nav-trigger:hover {
-  opacity: 1;
   color: var(--zf-ink);
 }
 .console-nav-trigger.active {
-  opacity: 1;
+  color: var(--zf-ink);
   font-weight: 500;
 }
 .console-nav-trigger.active::after {
@@ -977,11 +1031,14 @@ a.zf-btn-success {
 }
 .console-mega-panel {
   display: none;
-  background: var(--zf-surface);
+  background: var(--zf-tile);
   border: 1px solid var(--zf-hairline);
-  border-radius: 0 0 var(--zf-radius) var(--zf-radius);
+  border-radius: 0 0 18px 18px;
   padding: 20px 24px;
   box-shadow: var(--zf-shadow-elevated);
+}
+:root[data-theme='dark'] .console-mega-panel {
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06), var(--zf-shadow-3);
 }
 .console-mega-panel.open {
   display: block;
@@ -1158,13 +1215,39 @@ a.zf-btn-success {
 .stat-card-purple,
 .stat-card-orange,
 .stat-card-cyan,
-.stat-card-red {
-  background: var(--zf-surface) !important;
-  border: 1px solid var(--zf-hairline) !important;
-  border-radius: var(--zf-radius) !important;
-  box-shadow: none !important;
+.stat-card-red,
+.console-main :is(.bg-\[var\(--zf-surface\)\], .bg-\[var\(--zf-canvas\)\]).rounded-xl.border,
+.console-main :is(.bg-\[var\(--zf-surface\)\], .bg-\[var\(--zf-canvas\)\]).rounded-2xl.border {
+  background: var(--zf-tile) !important;
+  border: 1px solid var(--zf-tile-border) !important;
+  border-radius: 18px !important;
+  box-shadow: var(--zf-card-shadow) !important;
   backdrop-filter: none !important;
   color: var(--zf-ink) !important;
+  transition: box-shadow 0.3s var(--zf-ease), transform 0.3s var(--zf-ease);
+}
+:is(a, button).zf-panel:hover,
+:is(a, button).glass-card:hover,
+.console-main a:is(.bg-\[var\(--zf-surface\)\], .bg-\[var\(--zf-canvas\)\]).rounded-xl.border:hover {
+  box-shadow: var(--zf-card-shadow-hover) !important;
+}
+/* A tile nested in a tile becomes a flat well (apple.com grouped content). */
+:is(.zf-panel, .glass-card, .table-wrap, .console-main .rounded-xl.border, .console-main .rounded-2xl.border)
+  :is(.zf-panel, .glass-card, .rounded-xl.border:is(.bg-\[var\(--zf-surface\)\], .bg-\[var\(--zf-canvas\)\])) {
+  background: var(--zf-well) !important;
+  border-color: transparent !important;
+  border-radius: 14px !important;
+  box-shadow: none !important;
+}
+:root[data-theme='dark']
+  :is(.zf-panel, .glass-card, .table-wrap, .console-main .rounded-xl.border, .console-main .rounded-2xl.border)
+  :is(.zf-panel, .glass-card, .rounded-xl.border:is(.bg-\[var\(--zf-surface\)\], .bg-\[var\(--zf-canvas\)\])) {
+  border-color: var(--zf-hairline) !important;
+}
+.console-main .border-dashed.rounded-xl.border {
+  background: transparent !important;
+  border: 1px dashed var(--zf-hairline-strong) !important;
+  box-shadow: none !important;
 }
 
 /* Real frosted-glass surface (unlike .zf-panel/.glass-card above, which are
@@ -1207,7 +1290,7 @@ a.zf-btn-success {
   position: sticky;
   top: var(--console-topbar-height);
   z-index: 5;
-  background: var(--zf-canvas);
+  background: var(--zf-tile);
 }
 .zf-table-sort-btn {
   display: inline-flex;
@@ -1223,7 +1306,7 @@ a.zf-btn-success {
   transition: background-color 0.2s var(--zf-ease);
 }
 .zf-table-row:hover {
-  background: var(--zf-canvas-alt);
+  background: var(--zf-surface-2);
 }
 .zf-table-row.selected {
   background: color-mix(in srgb, var(--zf-cta) 8%, transparent);
@@ -1298,10 +1381,10 @@ select.input-field,
 textarea.input-field {
   width: 100%;
   min-height: var(--zf-hit-min);
-  border: 1px solid var(--zf-hairline);
-  background: var(--zf-fill-tertiary);
+  border: 1px solid var(--zf-hairline-strong);
+  background: var(--zf-input-bg);
   color: var(--zf-ink);
-  border-radius: var(--zf-radius);
+  border-radius: 12px;
   padding: 10px 14px;
   font: inherit;
   font-size: 15px;
@@ -1330,9 +1413,19 @@ textarea.input-field {
   color: var(--zf-ink);
   min-height: var(--zf-hit-min);
   padding: 10px 14px;
-  background: var(--zf-fill-tertiary);
-  border: 1px solid var(--zf-hairline);
-  border-radius: var(--zf-radius);
+  background: var(--zf-input-bg);
+  border: 1px solid var(--zf-hairline-strong);
+  border-radius: 12px;
+  transition: border-color 0.2s var(--zf-ease), box-shadow 0.2s var(--zf-ease);
+}
+:where(
+  input:not([type='checkbox'], [type='radio'], [type='range'], [type='file'], [type='color'], [type='hidden']),
+  select,
+  textarea
+):focus-visible {
+  outline: none;
+  border-color: var(--zf-cta);
+  box-shadow: var(--zf-focus-ring);
 }
 :where(textarea) {
   min-height: 0;
@@ -1367,9 +1460,13 @@ textarea.input-field {
 }
 .apple-eyebrow {
   margin: 0 0 12px;
-  font-size: 14px;
-  font-weight: 600;
-  letter-spacing: -0.01em;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--zf-cta);
+}
+:root[data-theme='dark'] .apple-eyebrow {
   color: var(--zf-link);
 }
 .apple-display {
@@ -1409,9 +1506,28 @@ textarea.input-field {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 0;
+  background: var(--zf-tile);
+  border: 1px solid var(--zf-tile-border);
+  border-radius: 18px;
+  box-shadow: var(--zf-card-shadow);
+  overflow: hidden;
+  margin: 8px 0 0;
+}
+.apple-metric-band > div:nth-child(2n) {
+  border-left: 1px solid var(--zf-hairline);
+}
+@media (min-width: 1024px) {
+  .apple-metric-band > div:not(:first-child) {
+    border-left: 1px solid var(--zf-hairline);
+  }
+}
+.apple-metric-band--flat {
+  background: transparent;
+  border: 0;
   border-top: 1px solid var(--zf-hairline);
   border-bottom: 1px solid var(--zf-hairline);
-  margin: 8px 0 0;
+  border-radius: 0;
+  box-shadow: none;
 }
 @media (min-width: 1024px) {
   .apple-metric-band {
@@ -1452,9 +1568,10 @@ textarea.input-field {
   align-items: center;
   gap: 8px 12px;
   padding: 8px 12px;
-  border: 1px solid var(--zf-hairline);
+  border: 1px solid var(--zf-tile-border);
   border-radius: var(--zf-radius-pill);
-  background: var(--zf-nav-surface);
+  background: var(--zf-tile);
+  box-shadow: var(--zf-card-shadow);
   -webkit-backdrop-filter: saturate(180%) blur(20px);
   backdrop-filter: saturate(180%) blur(20px);
   margin-bottom: 16px;
@@ -1474,10 +1591,10 @@ textarea.input-field {
 
 .table-wrap {
   overflow-x: auto;
-  border: 1px solid var(--zf-hairline);
+  border: 1px solid var(--zf-tile-border);
   border-radius: 18px;
-  background: var(--zf-surface);
-  box-shadow: var(--zf-shadow-1);
+  background: var(--zf-tile);
+  box-shadow: var(--zf-card-shadow);
 }
 .table-wrap table {
   width: 100%;
@@ -1485,17 +1602,18 @@ textarea.input-field {
   font-size: 14px;
 }
 .table-wrap th {
-  padding: 12px 16px;
+  padding: 14px 16px 10px;
   text-align: left;
   font-size: 12px;
   font-weight: 600;
-  color: var(--zf-muted);
+  color: var(--zf-tertiary);
   border-bottom: 1px solid var(--zf-hairline);
-  text-transform: none;
-  letter-spacing: -0.01em;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
 }
 .table-wrap td {
-  padding: 12px 16px;
+  height: 52px;
+  padding: 10px 16px;
   border-bottom: 1px solid var(--zf-hairline);
 }
 .table-wrap tr:last-child td {
@@ -1505,7 +1623,7 @@ textarea.input-field {
   transition: background-color 0.2s var(--zf-ease);
 }
 .table-wrap tbody tr:hover {
-  background: var(--zf-canvas-alt);
+  background: var(--zf-surface-2);
 }
 
 .list-empty {
@@ -1534,6 +1652,61 @@ textarea.input-field {
   margin-top: 12px;
 }
 
+/* Page hero: apple.com title scale in both themes; Netra's drifting
+   blue/cyan glow in dark only (light stays flat — color is deviation). */
+.page-hero {
+  position: relative;
+  isolation: isolate;
+  padding: 12px 0 4px;
+}
+.page-hero-title {
+  margin: 0;
+  font-size: clamp(32px, 4vw, 48px);
+  line-height: 1.08;
+  font-weight: 600;
+  letter-spacing: -0.015em;
+  color: var(--zf-ink);
+}
+.page-hero-lede {
+  margin: 10px 0 0;
+  max-width: 640px;
+  font-size: clamp(17px, 1.6vw, 21px);
+  line-height: 1.38;
+  letter-spacing: 0.004em;
+  color: var(--zf-secondary);
+}
+:root[data-theme='dark'] .page-hero::before {
+  content: '';
+  position: absolute;
+  inset: -40px -8% auto;
+  height: 280px;
+  background:
+    radial-gradient(ellipse at 30% 40%, var(--zf-hero-glow-a), transparent 60%),
+    radial-gradient(ellipse at 80% 20%, var(--zf-hero-glow-b), transparent 55%);
+  -webkit-mask-image: linear-gradient(to right, #000 45%, transparent 100%);
+  mask-image: linear-gradient(to right, #000 45%, transparent 100%);
+  pointer-events: none;
+  z-index: -1;
+  animation: heroDrift 22s ease-in-out infinite alternate;
+}
+@keyframes heroDrift {
+  from { background-position: 0% 0%, 0% 0%; }
+  to { background-position: 6% 4%, -5% -3%; }
+}
+.hero-tint-green { --zf-hero-glow-a: rgba(48, 209, 88, 0.22); --zf-hero-glow-b: rgba(48, 209, 88, 0.11); }
+.hero-tint-amber { --zf-hero-glow-a: rgba(255, 159, 10, 0.22); --zf-hero-glow-b: rgba(255, 159, 10, 0.11); }
+.hero-tint-purple { --zf-hero-glow-a: rgba(191, 90, 242, 0.22); --zf-hero-glow-b: rgba(191, 90, 242, 0.11); }
+.hero-tint-red { --zf-hero-glow-a: rgba(255, 69, 58, 0.2); --zf-hero-glow-b: rgba(255, 69, 58, 0.1); }
+.console-main {
+  overflow-x: clip;
+}
+
+/* State tints for badges and banners */
+.zf-tint-success { background: var(--zf-success-bg); border-color: var(--zf-success-border); color: var(--zf-success-text); }
+.zf-tint-warning { background: var(--zf-warning-bg); border-color: var(--zf-warning-border); color: var(--zf-warning-text); }
+.zf-tint-danger { background: var(--zf-danger-bg); border-color: var(--zf-danger-border); color: var(--zf-danger-text); }
+.zf-tint-info { background: var(--zf-info-bg); border-color: var(--zf-info-border); color: var(--zf-info-text); }
+
 .modal-backdrop,
 .glass-modal-backdrop {
   position: fixed;
@@ -1547,9 +1720,13 @@ textarea.input-field {
   backdrop-filter: blur(8px);
   transition: opacity 0.28s var(--zf-ease);
 }
+:root[data-theme='dark'] .modal-card,
+:root[data-theme='dark'] .glass-modal-card {
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08), var(--zf-shadow-3);
+}
 .modal-card,
 .glass-modal-card {
-  background: var(--zf-surface);
+  background: var(--zf-tile);
   border: 1px solid var(--zf-hairline);
   border-radius: 18px;
   padding: 24px;
@@ -1607,6 +1784,7 @@ textarea.input-field {
     animation: none;
     background: var(--zf-canvas-alt);
   }
+  .page-hero::before,
   .animate-fade-in,
   .animate-slide-in,
   .animate-pulse-dot,

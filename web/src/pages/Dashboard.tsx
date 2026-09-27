@@ -3,7 +3,7 @@
 
 import { useEffect, useState, useCallback } from 'react'
 import { listVMs, VM } from '../api/vm'
-import { Server, ArrowUpRight } from 'lucide-react'
+import { ArrowUpRight } from 'lucide-react'
 import { useWebSocketContext } from '../contexts/WebSocketContext'
 import { useToastContext } from '../contexts/ToastContext'
 import { SkeletonDashboard } from '../components/Skeleton'
@@ -137,7 +137,7 @@ export default function Dashboard() {
 
   return (
     <div className="apple-section apple-section--tight space-y-8">
-      <header>
+      <header className="page-hero">
         <p className="apple-eyebrow">{greeting}</p>
         <h1 className="apple-display">Zorvia</h1>
         <p className="apple-lede">

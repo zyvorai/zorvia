@@ -26,19 +26,13 @@ export function PageHeader({
   primaryAction,
 }: PageHeaderProps) {
   return (
-    <div className="flex items-start justify-between gap-4 mb-8 animate-fade-in">
+    <div className="page-hero flex flex-wrap items-end justify-between gap-4 mb-8 animate-fade-in">
       <div className="min-w-0">
         {eyebrow ? <p className="apple-eyebrow">{eyebrow}</p> : null}
-        <h1 className="text-[32px] font-semibold tracking-[-0.022em] text-[var(--zf-ink)] truncate">
-          {title}
-        </h1>
-        {description && (
-          <p className="text-[17px] text-[var(--zf-secondary)] mt-1.5 max-w-2xl leading-snug tracking-[-0.022em]">
-            {description}
-          </p>
-        )}
+        <h1 className="page-hero-title truncate">{title}</h1>
+        {description && <p className="page-hero-lede">{description}</p>}
       </div>
-      <div className="flex items-center gap-2 shrink-0">
+      <div className="flex items-center gap-2 shrink-0 pb-1">
         {onRefresh && (
           <button
             type="button"

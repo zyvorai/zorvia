@@ -30,7 +30,7 @@ export default function Home() {
         visual={<ConsoleStage />}
       />
 
-      <div className="apple-metric-band mkt-reveal" aria-label="What you get" style={{ maxWidth: '100%', margin: '0 auto 48px' }}>
+      <div className="apple-metric-band apple-metric-band--flat mkt-reveal" aria-label="What you get" style={{ maxWidth: '100%', margin: '0 auto 48px' }}>
         <div>
           <b>Create</b>
           <span>Linux & Windows</span>

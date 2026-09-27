@@ -14,16 +14,14 @@ interface TagEditorProps {
   onSuccess: () => void
 }
 
+const NEUTRAL_TAG = 'bg-[var(--zf-fill-tertiary)] text-[var(--zf-ink)] border border-[var(--zf-hairline)]'
+
 const TAG_COLORS: Record<string, string> = {
-  production: 'bg-red-600 text-white',
-  staging: 'bg-yellow-600 text-white',
-  development: 'bg-green-600 text-white',
-  testing: 'bg-[var(--zf-link)] text-white',
-  web: 'bg-purple-600 text-white',
-  database: 'bg-pink-600 text-white',
-  backend: 'bg-indigo-600 text-white',
-  frontend: 'bg-cyan-600 text-white',
-  default: 'bg-[var(--zf-canvas-alt)] text-[var(--zf-ink)]',
+  production: 'zf-tint-danger border',
+  staging: 'zf-tint-warning border',
+  development: 'zf-tint-success border',
+  testing: 'zf-tint-info border',
+  default: NEUTRAL_TAG,
 }
 
 export function getTagColor(tag: string): string {
@@ -91,7 +89,7 @@ export default function TagEditor({ vmName, currentTags, onClose, onSuccess }: T
                 {tag}
                 <button
                   onClick={() => handleRemoveTag(tag)}
-                  className="hover:bg-black/20 rounded-full p-0.5 transition"
+                  className="hover:bg-[var(--zf-active-tint)] rounded-full p-0.5 transition"
                 >
                   <X className="w-3.5 h-3.5" />
                 </button>

@@ -136,6 +136,33 @@ test.describe('lab console crawl', () => {
     const health = await request.get(`${liveBase}/api/v1/health`)
     expect(health.status()).toBe(200)
   })
+
+  test('light and dark theme screenshots', async ({ page }) => {
+    test.setTimeout(120_000)
+    await page.setViewportSize({ width: 1440, height: 900 })
+    for (const theme of ['light', 'dark'] as const) {
+      await page.evaluate((t) => localStorage.setItem('zorvia-theme', t), theme)
+      const shots: Array<[string, string]> = [
+        ['dashboard', '/app'],
+        ['vms', '/app/vms'],
+      ]
+      for (const [name, path] of shots) {
+        await page.goto(path, { waitUntil: 'load' })
+        await page.waitForTimeout(1500)
+        const applied = await page.evaluate(() => document.documentElement.getAttribute('data-theme'))
+        expect(applied === 'dark').toBe(theme === 'dark')
+        await page.screenshot({ path: `test-results/theme-${theme}-${name}.png` })
+      }
+      await page.goto('/app/vms', { waitUntil: 'load' })
+      await page.waitForTimeout(1500)
+      const vmLink = page.locator('a[href^="/app/vms/"]').first()
+      if (await vmLink.count()) {
+        await vmLink.click()
+        await page.waitForTimeout(2000)
+        await page.screenshot({ path: `test-results/theme-${theme}-vm-detail.png` })
+      }
+    }
+  })
 })
 
 test.describe('marketing pages', () => {

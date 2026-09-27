@@ -9,9 +9,9 @@ interface StatusBadgeProps {
 
 /** Netra: color is deviation — nominal (running/healthy) stays graphite. */
 const NOMINAL = 'text-[var(--zf-ink)] bg-[var(--zf-fill-tertiary)] border-[var(--zf-hairline)]'
-const DANGER = 'text-[var(--zf-danger)] bg-[var(--zf-danger)]/10 border-[var(--zf-danger)]/25'
-const WARNING = 'text-[var(--zf-warning)] bg-[var(--zf-warning)]/10 border-[var(--zf-warning)]/25'
-const SUCCESS = 'text-[var(--zf-success)] bg-[var(--zf-success)]/10 border-[var(--zf-success)]/25'
+const DANGER = 'zf-tint-danger'
+const WARNING = 'zf-tint-warning'
+const SUCCESS = 'zf-tint-success'
 
 const statusStyles: Record<string, string> = {
   running: NOMINAL,

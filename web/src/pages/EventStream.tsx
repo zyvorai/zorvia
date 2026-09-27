@@ -92,9 +92,9 @@ export default function EventStream() {
 
       <div className="flex flex-wrap items-center gap-3">
         <span
-          className={`inline-flex items-center gap-2 text-sm ${connected ? 'text-emerald-600' : 'text-amber-600'}`}
+          className={`inline-flex items-center gap-2 text-sm ${connected ? 'text-[var(--zf-success-text)]' : 'text-[var(--zf-warning-text)]'}`}
         >
-          <span className={`w-2 h-2 rounded-full ${connected ? 'bg-emerald-500' : 'bg-amber-500 animate-pulse'}`} />
+          <span className={`w-2 h-2 rounded-full ${connected ? 'bg-[var(--zf-success)]' : 'bg-[var(--zf-warning)] animate-pulse'}`} />
           {connected ? 'Connected' : 'Reconnecting…'}
         </span>
         <button

@@ -37,15 +37,15 @@ function VMRowActions({ vm, onUpdate, canWrite }: { vm: VM; onUpdate: () => void
   return (
     <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
       {vm.state === 'stopped' || vm.state === 'failed' ? (
-        <button onClick={handleStart} className="p-1.5 rounded-md text-emerald-700 hover:bg-emerald-50 transition-colors" title="Start">
+        <button onClick={handleStart} className="p-1.5 rounded-md text-[var(--zf-success-text)] hover:bg-[var(--zf-success-bg)] transition-colors" title="Start">
           <Play className="w-3.5 h-3.5" />
         </button>
       ) : (
-        <button onClick={handleStop} className="p-1.5 rounded-md text-[var(--zf-danger)] hover:bg-red-50 transition-colors" title="Stop">
+        <button onClick={handleStop} className="p-1.5 rounded-md text-[var(--zf-danger)] hover:bg-[var(--zf-danger-bg)] transition-colors" title="Stop">
           <Square className="w-3.5 h-3.5" />
         </button>
       )}
-      <Link to={`/app/vms/${vm.name}`} className="p-1.5 rounded-md text-[var(--zf-muted)] hover:text-[var(--zf-ink)] hover:bg-black/[0.04] transition-colors" title="Details">
+      <Link to={`/app/vms/${vm.name}`} className="p-1.5 rounded-md text-[var(--zf-muted)] hover:text-[var(--zf-ink)] hover:bg-[var(--zf-hover-tint)] transition-colors" title="Details">
         <MoreVertical className="w-3.5 h-3.5" />
       </Link>
     </div>
@@ -359,7 +359,7 @@ export default function VMList() {
                   className={`px-2.5 py-1 rounded-md text-xs font-medium transition ${
                     isSelected
                       ? getTagColor(tag) + ' text-[var(--zf-ink)]/90'
-                      : 'bg-[var(--zf-surface)] text-[var(--zf-muted)] hover:bg-black/[0.04] hover:text-[var(--zf-ink)] border border-[var(--zf-hairline)]'
+                      : 'bg-[var(--zf-surface)] text-[var(--zf-muted)] hover:bg-[var(--zf-hover-tint)] hover:text-[var(--zf-ink)] border border-[var(--zf-hairline)]'
                   }`}
                 >
                   {tag}<span className={isSelected ? 'ml-1 text-[var(--zf-ink)]/60' : 'ml-1 text-[var(--zf-muted)]'}>{vmCount}</span>
