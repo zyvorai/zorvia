@@ -549,7 +549,10 @@ pub mod web {
             .route("/images/cloud", get(fabric_list_cloud_images))
             .route("/images/downloads", get(fabric_list_downloads))
             .route("/images/cloud/download", post(fabric_start_download))
-            .route("/images/from-vm/{vm_name}", post(fabric_create_image_from_vm))
+            .route(
+                "/images/from-vm/{vm_name}",
+                post(fabric_create_image_from_vm),
+            )
             .route("/images/convert/{id}", get(fabric_get_convert_job))
             // Fabric-compat VM API (unwrapped JSON)
             .route("/vms", get(fabric_list_vms).post(fabric_create_vm))
