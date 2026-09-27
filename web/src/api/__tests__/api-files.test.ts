@@ -95,12 +95,6 @@ describe('audit', () => {
     expect(mockApiGet).toHaveBeenCalledWith(expect.stringContaining('/api/audit/logs?'))
   })
 
-  it('getAuditLog calls apiGet', async () => {
-    const { getAuditLog } = await import('../audit')
-    await getAuditLog('log1')
-    expect(mockApiGet).toHaveBeenCalledWith('/api/audit/logs/log1')
-  })
-
   it('exportAuditLogs uses apiFetch and returns blob', async () => {
     const { exportAuditLogs } = await import('../audit')
     const blob = new Blob(['csv'])
@@ -137,12 +131,6 @@ describe('backup', () => {
     const { listBackups } = await import('../backup')
     await listBackups('vm1')
     expect(mockApiGet).toHaveBeenCalledWith('/api/backups?vm=vm1')
-  })
-
-  it('getBackup calls apiGet', async () => {
-    const { getBackup } = await import('../backup')
-    await getBackup('b1')
-    expect(mockApiGet).toHaveBeenCalledWith('/api/backups/b1')
   })
 
   it('createBackup calls apiPost', async () => {
@@ -208,11 +196,6 @@ describe('backup', () => {
     expect(mockApiPostVoid).toHaveBeenCalledWith('/api/backups/policies/p1/disable')
   })
 
-  it('getBackupStats calls apiGet', async () => {
-    const { getBackupStats } = await import('../backup')
-    await getBackupStats()
-    expect(mockApiGet).toHaveBeenCalledWith('/api/backups/stats')
-  })
 })
 
 // ─── firmware.ts ──────────────────────────────────────────────────────────────
@@ -435,11 +418,6 @@ describe('snapshots', () => {
     expect(mockApiPostVoid).toHaveBeenCalledWith('/api/vms/vm1/snapshots/s1/revert')
   })
 
-  it('getSnapshotTree calls apiGet', async () => {
-    const { getSnapshotTree } = await import('../snapshots')
-    await getSnapshotTree('vm1')
-    expect(mockApiGet).toHaveBeenCalledWith('/api/vms/vm1/snapshots/tree')
-  })
 })
 
 // ─── vm.ts ────────────────────────────────────────────────────────────────────

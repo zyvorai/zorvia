@@ -88,10 +88,6 @@ export async function listBackups(vmName?: string): Promise<Backup[]> {
   return apiGet<Backup[]>(url)
 }
 
-export async function getBackup(id: string): Promise<Backup> {
-  return apiGet<Backup>(`${API_BASE}/backups/${id}`)
-}
-
 export async function createBackup(req: CreateBackupRequest): Promise<BackupJob> {
   return apiPost<BackupJob>(`${API_BASE}/backups`, req)
 }
@@ -132,15 +128,3 @@ export async function disableBackupPolicy(id: string): Promise<void> {
   return apiPostVoid(`${API_BASE}/backups/policies/${id}/disable`)
 }
 
-export interface BackupStats {
-  total_backups: number
-  total_size_bytes: number
-  by_type: Record<string, number>
-  by_vm: Record<string, number>
-  oldest_backup: string
-  newest_backup: string
-}
-
-export async function getBackupStats(): Promise<BackupStats> {
-  return apiGet<BackupStats>(`${API_BASE}/backups/stats`)
-}

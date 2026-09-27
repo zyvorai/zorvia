@@ -20,11 +20,6 @@ export interface VMSnapshot {
   warning?: string | null
 }
 
-export interface SnapshotTreeNode {
-  snapshot: VMSnapshot
-  children: SnapshotTreeNode[]
-}
-
 export interface CreateSnapshotRequest {
   name: string
   description?: string
@@ -86,8 +81,4 @@ export async function deleteSnapshot(vmName: string, id: string): Promise<void> 
 
 export async function revertSnapshot(vmName: string, id: string): Promise<void> {
   return apiPostVoid(`${API_BASE_URL}/vms/${vmName}/snapshots/${id}/revert`)
-}
-
-export async function getSnapshotTree(vmName: string): Promise<SnapshotTreeNode[]> {
-  return apiGet<SnapshotTreeNode[]>(`${API_BASE_URL}/vms/${vmName}/snapshots/tree`)
 }
