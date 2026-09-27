@@ -9,6 +9,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Atlas backend/RBD/bucket UI** — the Storage page's Atlas section now
+  exposes the backend, RBD, and object-store bucket lifecycle proxied in
+  the three prior entries below: backend create/discover/cordon/uncordon/
+  delete inline in the main Atlas card, plus two new sibling cards
+  (`web/src/pages/storage/AtlasRbdSection.tsx`,
+  `AtlasBucketsSection.tsx`) for RBD image create/resize/delete (grouped
+  by pool) and bucket create/delete. Split the growing inline Atlas block
+  out of `RookStorage.tsx` into `web/src/pages/storage/AtlasSection.tsx`
+  as part of this change rather than letting one file keep growing.
+  Deliberately out of scope for the UI: RBD clone/migrate/flatten/QoS/
+  snapshots, bucket object-level operations, and backup/restore creation
+  — the backend routes exist and are proxied, just not this pass's UI.
+
 - **Atlas object-store buckets + backups/restores** — bucket CRUD, object
   list/delete/upload-url/download-url/prune (presigned S3 URLs — bytes
   never transit through Zorvia or Atlas), `POST /api/v1/atlas/backup-jobs`,

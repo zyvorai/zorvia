@@ -196,3 +196,105 @@ export async function pollAtlasJob(
     await new Promise((r) => setTimeout(r, intervalMs))
   }
 }
+
+// ── Backend lifecycle ──
+
+export interface CreateAtlasBackendRequest {
+  name: string
+  backend_type?: 'ceph' | 'nfs' | 'zfs' | 'san' | 'cloud_block' | 'kubernetes'
+  mode?: 'managed_rook' | 'external' | 'read_only'
+  server?: string
+  targets?: string[]
+}
+
+export const createAtlasBackend = (body: CreateAtlasBackendRequest) =>
+  apiPost<AtlasBackend>('/api/v1/atlas/backends', body)
+export const deleteAtlasBackend = (id: string, purge = false) =>
+  apiFetchDelete(`/api/v1/atlas/backends/${encodeURIComponent(id)}${purge ? '?purge=true' : ''}`)
+export const discoverAtlasBackend = (id: string) =>
+  apiPost<unknown>(`/api/v1/atlas/backends/${encodeURIComponent(id)}/discover`)
+export const cordonAtlasBackend = (id: string) =>
+  apiPost<unknown>(`/api/v1/atlas/backends/${encodeURIComponent(id)}/cordon`)
+export const uncordonAtlasBackend = (id: string) =>
+  apiPost<unknown>(`/api/v1/atlas/backends/${encodeURIComponent(id)}/uncordon`)
+
+/** Shared with deleteAtlasVolume -- the DELETE routes here return a real
+    body worth reading (not just success/fail), so they use apiFetch
+    directly instead of the shared void-returning apiDelete. */
+async function apiFetchDelete<T>(url: string): Promise<T> {
+  const res = await apiFetch(url, { method: 'DELETE' })
+  if (!res.ok) {
+    const body = await res.text().catch(() => '')
+    throw new Error(formatHttpErrorBody(res.status, res.statusText, body))
+  }
+  return parseJsonResponse<T>(res)
+}
+
+// ── RBD images -- a separate identity space (rbd:<pool>/<image>) from the
+// AtlasVolume list above; Atlas returns just names for the list route, not
+// full objects. ──
+
+export interface CreateAtlasRbdImageRequest {
+  name: string
+  size_bytes: number
+  pool?: string
+  tenant_id?: string
+}
+
+export const listAtlasRbdImages = (pool?: string) =>
+  apiGet<{ pool: string; images: string[] }>(`/api/v1/atlas/rbd-images${pool ? `?pool=${encodeURIComponent(pool)}` : ''}`)
+export const createAtlasRbdImage = (body: CreateAtlasRbdImageRequest) =>
+  apiPost<AtlasJobEnvelope>('/api/v1/atlas/rbd-images', body)
+export const deleteAtlasRbdImage = (pool: string, image: string) =>
+  apiFetchDelete<AtlasJobEnvelope>(`/api/v1/atlas/rbd-images/${encodeURIComponent(pool)}/${encodeURIComponent(image)}`)
+export const resizeAtlasRbdImage = (pool: string, image: string, sizeBytes: number, allowShrink = false) =>
+  apiPost<AtlasJobEnvelope>(
+    `/api/v1/atlas/rbd-images/${encodeURIComponent(pool)}/${encodeURIComponent(image)}/resize`,
+    { size_bytes: sizeBytes, allow_shrink: allowShrink },
+  )
+
+// ── Object-store buckets + backups ──
+
+export interface AtlasBucket {
+  id: string
+  tenant_id: string
+  name: string
+  bucket_name?: string | null
+  endpoint?: string | null
+  region?: string | null
+  namespace?: string | null
+  state: string
+  created_at?: string | null
+}
+
+export interface AtlasBackup {
+  id: string
+  tenant_id: string
+  volume_id: string
+  snapshot_id?: string | null
+  bucket_id: string
+  object_key: string
+  format: string
+  state: string
+  created_at?: string | null
+}
+
+export interface CreateAtlasBucketRequest {
+  name: string
+  namespace?: string
+  storage_class?: string
+  max_objects?: number
+  max_size?: string
+}
+
+export const listAtlasBuckets = () => apiGet<AtlasBucket[]>('/api/v1/atlas/buckets')
+export const getAtlasBucketStats = (id: string) => apiGet<unknown>(`/api/v1/atlas/buckets/${encodeURIComponent(id)}/stats`)
+export const createAtlasBucket = (body: CreateAtlasBucketRequest) =>
+  apiPost<AtlasJobEnvelope>('/api/v1/atlas/buckets', body)
+export const deleteAtlasBucket = (id: string, force = false) =>
+  apiFetchDelete<AtlasJobEnvelope>(`/api/v1/atlas/buckets/${encodeURIComponent(id)}${force ? '?force=true' : ''}`)
+
+export const listAtlasBackups = (volumeId?: string) =>
+  apiGet<AtlasBackup[]>(`/api/v1/atlas/backups${volumeId ? `?volume_id=${encodeURIComponent(volumeId)}` : ''}`)
+export const deleteAtlasBackup = (id: string) =>
+  apiFetchDelete<AtlasJobEnvelope>(`/api/v1/atlas/backups/${encodeURIComponent(id)}`)
