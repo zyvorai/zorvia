@@ -288,7 +288,13 @@ mod tests {
                 "{method} {path}"
             );
         }
-        assert!(!role_has_permission(&Role::User, ApiPermission::ClusterAdmin));
-        assert!(!role_has_permission(&Role::Viewer, ApiPermission::ClusterAdmin));
+        assert!(!role_has_permission(
+            &Role::User,
+            ApiPermission::ClusterAdmin
+        ));
+        assert!(!role_has_permission(
+            &Role::Viewer,
+            ApiPermission::ClusterAdmin
+        ));
     }
 }
