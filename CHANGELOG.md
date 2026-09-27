@@ -9,6 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Atlas job status polling** — `GET /api/v1/atlas/jobs[/:id]`,
+  `POST /api/v1/atlas/jobs/:id/cancel`. Every Atlas write (volume
+  create/expand/delete) returns a `202` + job id that Zorvia previously
+  never checked again; this closes that gap. Verified live: cancelling an
+  already-terminal job correctly returns Atlas's real `409`.
+
 - **Atlas storage integration (optional)** — `ATLAS_URL`/`ATLAS_TOKEN` wires
   Zorvia to Atlas, the Zyvor-suite storage control plane, mirroring the
   existing Kryton integration pattern. Read-only inventory (backends,

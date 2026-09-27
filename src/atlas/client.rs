@@ -271,6 +271,34 @@ impl Client {
         }
         self.decode(req).await
     }
+
+    /// Every Atlas write (including volume create/expand/delete) returns a
+    /// job id -- this is how to find out what actually happened to it.
+    /// Atlas caps this list at 100 most-recent jobs server-side; there's no
+    /// pagination to request more.
+    pub async fn list_jobs(&self) -> Result<Vec<JobRecord>, Error> {
+        self.decode(self.request(Method::GET, "/api/atlas/v1/jobs"))
+            .await
+    }
+
+    pub async fn get_job(&self, id: &str) -> Result<JobRecord, Error> {
+        self.decode(self.request(
+            Method::GET,
+            &format!("/api/atlas/v1/jobs/{}", urlencoding::encode(id)),
+        ))
+        .await
+    }
+
+    /// Atlas requires admin-role on the token for this; returns `409` if the
+    /// job is already terminal (succeeded/failed) -- surfaced to the caller
+    /// as a normal `Error::Upstream`, not treated as a client-level error.
+    pub async fn cancel_job(&self, id: &str) -> Result<serde_json::Value, Error> {
+        self.decode(self.request(
+            Method::POST,
+            &format!("/api/atlas/v1/jobs/{}/cancel", urlencoding::encode(id)),
+        ))
+        .await
+    }
 }
 
 #[cfg(test)]
@@ -454,5 +482,61 @@ mod tests {
             result.get("error").is_none(),
             "unexpected error in response: {result:?}"
         );
+    }
+
+    #[tokio::test]
+    #[ignore]
+    async fn live_job_list_get_and_cancel_round_trip() {
+        let c = live_client();
+
+        // Create a volume to get a real job id -- exercises list/get end to
+        // end against an actual job this instance just created, not a
+        // fabricated id.
+        let name = format!(
+            "zorvia-live-job-test-{}",
+            chrono::Utc::now().timestamp_millis()
+        );
+        let create_result = c
+            .create_volume(CreateVolumeRequest {
+                tenant_id: String::new(),
+                name,
+                size_bytes: 1024 * 1024 * 1024,
+                kind: VolumeKind::Block,
+                policy: None,
+                pool: None,
+                owner: None,
+                kubernetes: None,
+            })
+            .await
+            .unwrap();
+        let job_id = create_result["job_id"]
+            .as_str()
+            .expect("create_volume response has a job_id")
+            .to_string();
+
+        let jobs = c.list_jobs().await.unwrap();
+        assert!(
+            jobs.iter().any(|j| j.id == job_id),
+            "expected job {job_id} in list_jobs()"
+        );
+
+        let job = c.get_job(&job_id).await.unwrap();
+        assert_eq!(job.id, job_id);
+        assert_eq!(job.job_type, "volume.create");
+
+        // This local instance has no Kubernetes cluster attached (see the
+        // create_volume test above), so the job fails fast rather than
+        // staying queued/running -- cancel on an already-terminal job
+        // should get Atlas's real 409, not silently succeed.
+        if job.is_terminal() {
+            let err = c.cancel_job(&job_id).await.unwrap_err();
+            match err {
+                Error::Upstream { status, .. } => assert_eq!(status, 409),
+                other => panic!("expected an Upstream 409, got: {other:?}"),
+            }
+        } else {
+            let result = c.cancel_job(&job_id).await.unwrap();
+            assert_eq!(result["cancelled"], true);
+        }
     }
 }

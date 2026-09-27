@@ -78,10 +78,11 @@ fn caller(auth: &Option<axum::Extension<crate::api::auth::AuthIdentity>>) -> Str
         .unwrap_or_else(|| "api-token".into())
 }
 
-async fn audit_atlas_volume(
+async fn audit_atlas(
     audit: &SharedAuditTrail,
     user: &str,
     action: crate::audit_trail::AuditAction,
+    resource_type: &str,
     name: &str,
     success: bool,
     details: serde_json::Value,
@@ -92,7 +93,7 @@ async fn audit_atlas_volume(
         user: user.to_string(),
         severity: crate::audit_trail::AuditSeverity::Info,
         action,
-        resource_type: "atlas_volume".into(),
+        resource_type: resource_type.into(),
         resource_name: name.to_string(),
         namespace: String::new(),
         details,
@@ -276,10 +277,11 @@ pub(super) async fn atlas_create_volume(
 
     let name = body.name.clone();
     let result = c.create_volume(body).await;
-    audit_atlas_volume(
+    audit_atlas(
         &audit,
         &caller(&auth),
         crate::audit_trail::AuditAction::Create,
+        "atlas_volume",
         &name,
         result.is_ok(),
         match &result {
@@ -308,10 +310,11 @@ pub(super) async fn atlas_expand_volume(
     drop(s);
 
     let result = c.expand_volume(&id, body.new_size_bytes).await;
-    audit_atlas_volume(
+    audit_atlas(
         &audit,
         &caller(&auth),
         crate::audit_trail::AuditAction::ScaleUp,
+        "atlas_volume",
         &id,
         result.is_ok(),
         match &result {
@@ -342,10 +345,11 @@ pub(super) async fn atlas_delete_volume(
     drop(s);
 
     let result = c.delete_volume(&id, query.confirm).await;
-    audit_atlas_volume(
+    audit_atlas(
         &audit,
         &caller(&auth),
         crate::audit_trail::AuditAction::Delete,
+        "atlas_volume",
         &id,
         result.is_ok(),
         match &result {
@@ -356,6 +360,63 @@ pub(super) async fn atlas_delete_volume(
     .await;
     match result {
         Ok(v) => (StatusCode::ACCEPTED, Json(v)).into_response(),
+        Err(e) => error_response(e),
+    }
+}
+
+pub(super) async fn atlas_list_jobs(State(state): State<SharedState>) -> Response {
+    let c = match client(&state).await {
+        Ok(v) => v,
+        Err(r) => return *r,
+    };
+    match c.list_jobs().await {
+        Ok(v) => Json(v).into_response(),
+        Err(e) => error_response(e),
+    }
+}
+
+pub(super) async fn atlas_get_job(
+    State(state): State<SharedState>,
+    Path(id): Path<String>,
+) -> Response {
+    let c = match client(&state).await {
+        Ok(v) => v,
+        Err(r) => return *r,
+    };
+    match c.get_job(&id).await {
+        Ok(v) => Json(v).into_response(),
+        Err(e) => error_response(e),
+    }
+}
+
+pub(super) async fn atlas_cancel_job(
+    State(state): State<SharedState>,
+    Path(id): Path<String>,
+    auth: Option<axum::Extension<crate::api::auth::AuthIdentity>>,
+) -> Response {
+    let s = state.read().await;
+    let Some(c) = s.atlas.clone() else {
+        return disabled_response();
+    };
+    let audit = s.audit.clone();
+    drop(s);
+
+    let result = c.cancel_job(&id).await;
+    audit_atlas(
+        &audit,
+        &caller(&auth),
+        crate::audit_trail::AuditAction::Reject,
+        "atlas_job",
+        &id,
+        result.is_ok(),
+        match &result {
+            Ok(v) => v.clone(),
+            Err(e) => serde_json::json!({ "error": e.to_string() }),
+        },
+    )
+    .await;
+    match result {
+        Ok(v) => Json(v).into_response(),
         Err(e) => error_response(e),
     }
 }

@@ -142,3 +142,28 @@ pub struct CreateVolumeRequest {
     #[serde(default)]
     pub kubernetes: Option<K8sVolumeOpts>,
 }
+
+/// A job record as surfaced by the API (`GET /jobs`, `GET /jobs/:id`) --
+/// every Atlas write (volume create/expand/delete included) returns one of
+/// these ids and this is how Zorvia can actually find out what happened to
+/// it, instead of only ever seeing "queued".
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct JobRecord {
+    pub id: String,
+    pub tenant_id: String,
+    pub job_type: String,
+    pub state: String,
+    pub requested_by: String,
+    pub progress_percent: i64,
+    pub error: Option<String>,
+    #[serde(default)]
+    pub result: serde_json::Value,
+    pub created_at: Option<String>,
+    pub updated_at: Option<String>,
+}
+
+impl JobRecord {
+    pub fn is_terminal(&self) -> bool {
+        self.state == "succeeded" || self.state == "failed"
+    }
+}
