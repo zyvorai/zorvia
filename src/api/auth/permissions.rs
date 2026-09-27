@@ -151,6 +151,16 @@ pub fn required_permission(method: &str, path: &str) -> Option<ApiPermission> {
         return Some(ApiPermission::VmDelete);
     }
 
+    // Atlas DR failover/promote/demote can flip which cluster is primary --
+    // require cluster.admin (the strictest tier) as defense-in-depth beyond
+    // Atlas's own token-role check, checked before the general storage.admin
+    // rule below. See docs/ATLAS_INTEGRATION.md's Disaster recovery section.
+    if path.starts_with("/v1/atlas/dr/")
+        && (path.ends_with("/promote") || path.ends_with("/demote") || path.ends_with("/failover"))
+    {
+        return Some(ApiPermission::ClusterAdmin);
+    }
+
     // Storage / Rook administration, plus Atlas's one write route (volume create) --
     // Atlas's GET routes fall through to the no-permission-required GET/HEAD branch
     // above, same as Kryton's.
@@ -284,6 +294,32 @@ mod tests {
         assert_eq!(required_permission("GET", "/v1/atlas/volumes"), None);
         assert_eq!(required_permission("GET", "/v1/atlas/status"), None);
         assert_eq!(required_permission("GET", "/v1/atlas/backends"), None);
+    }
+
+    #[test]
+    fn atlas_dr_failover_promote_demote_require_cluster_admin_not_just_storage_admin() {
+        assert_eq!(
+            required_permission("POST", "/v1/atlas/dr/mirrors/drm_1/promote"),
+            Some(ApiPermission::ClusterAdmin)
+        );
+        assert_eq!(
+            required_permission("POST", "/v1/atlas/dr/mirrors/drm_1/demote"),
+            Some(ApiPermission::ClusterAdmin)
+        );
+        assert_eq!(
+            required_permission("POST", "/v1/atlas/dr/failover"),
+            Some(ApiPermission::ClusterAdmin)
+        );
+        // Other DR writes (peer register/delete, mirror enable/disable, rpo)
+        // stay at the general Atlas storage.admin tier.
+        assert_eq!(
+            required_permission("POST", "/v1/atlas/dr/peers"),
+            Some(ApiPermission::StorageAdmin)
+        );
+        assert_eq!(
+            required_permission("POST", "/v1/atlas/volumes/vol_1/mirror"),
+            Some(ApiPermission::StorageAdmin)
+        );
     }
 
     #[test]

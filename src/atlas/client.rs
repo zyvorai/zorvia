@@ -827,6 +827,158 @@ impl Client {
         )
         .await
     }
+
+    // ── Disaster recovery (RBD mirroring) -- Atlas's own source labels this
+    // "scaffolding, real ops UNVERIFIED without a 2nd cluster"; see
+    // docs/ATLAS_INTEGRATION.md's Disaster recovery section. ──
+
+    pub async fn list_dr_peers(&self) -> Result<serde_json::Value, Error> {
+        self.decode(self.request(Method::GET, "/api/atlas/v1/dr/peers"))
+            .await
+    }
+
+    /// Registers a mirroring peer cluster (admin). `secret_ref` should name a
+    /// k8s Secret holding the peer bootstrap token -- never the token itself.
+    pub async fn register_dr_peer(
+        &self,
+        request: RegisterDrPeerRequest,
+    ) -> Result<serde_json::Value, Error> {
+        self.decode(
+            self.request(Method::POST, "/api/atlas/v1/dr/peers")
+                .json(&request),
+        )
+        .await
+    }
+
+    /// Removes a mirroring peer and any mirrors that referenced it (admin).
+    pub async fn delete_dr_peer(&self, id: &str) -> Result<serde_json::Value, Error> {
+        self.decode(self.request(
+            Method::DELETE,
+            &format!("/api/atlas/v1/dr/peers/{}", urlencoding::encode(id)),
+        ))
+        .await
+    }
+
+    pub async fn list_dr_mirrors(&self) -> Result<serde_json::Value, Error> {
+        self.decode(self.request(Method::GET, "/api/atlas/v1/dr/mirrors"))
+            .await
+    }
+
+    /// DR posture: mirror counts by role/state + worst observed RPO.
+    pub async fn dr_status(&self) -> Result<serde_json::Value, Error> {
+        self.decode(self.request(Method::GET, "/api/atlas/v1/dr/status"))
+            .await
+    }
+
+    /// Control-plane checklist before a failover drill -- `ready`/`blockers`
+    /// in the response is the real gate, this call always returns `200`.
+    pub async fn dr_preflight(&self) -> Result<serde_json::Value, Error> {
+        self.decode(self.request(Method::GET, "/api/atlas/v1/dr/preflight"))
+            .await
+    }
+
+    /// Enables RBD mirroring for a volume (admin, async job). `mode` must be
+    /// `snapshot` or `journal` (Atlas default: `snapshot`); `peer` picks a
+    /// registered DR peer, defaulting to the only one if exactly one exists.
+    pub async fn enable_mirror(
+        &self,
+        volume_id: &str,
+        mode: Option<&str>,
+        peer: Option<&str>,
+    ) -> Result<serde_json::Value, Error> {
+        let mut req = self.request(
+            Method::POST,
+            &format!(
+                "/api/atlas/v1/volumes/{}/mirror",
+                urlencoding::encode(volume_id)
+            ),
+        );
+        let mut query = Vec::new();
+        if let Some(mode) = mode {
+            query.push(("mode", mode));
+        }
+        if let Some(peer) = peer {
+            query.push(("peer", peer));
+        }
+        if !query.is_empty() {
+            req = req.query(&query);
+        }
+        self.decode(req).await
+    }
+
+    /// Disables RBD mirroring for a volume (admin, async job).
+    pub async fn disable_mirror(&self, volume_id: &str) -> Result<serde_json::Value, Error> {
+        self.decode(self.request(
+            Method::DELETE,
+            &format!(
+                "/api/atlas/v1/volumes/{}/mirror",
+                urlencoding::encode(volume_id)
+            ),
+        ))
+        .await
+    }
+
+    /// Failover: promote this cluster's copy to primary (admin, async job).
+    /// `force` is for split-brain / non-clean failover only (`rbd mirror
+    /// image promote --force`) -- without it, promote requires the mirror to
+    /// currently be `role=secondary`.
+    pub async fn promote_mirror(&self, id: &str, force: bool) -> Result<serde_json::Value, Error> {
+        let mut req = self.request(
+            Method::POST,
+            &format!(
+                "/api/atlas/v1/dr/mirrors/{}/promote",
+                urlencoding::encode(id)
+            ),
+        );
+        if force {
+            req = req.query(&[("force", "true")]);
+        }
+        self.decode(req).await
+    }
+
+    /// Demote this cluster's copy to secondary (admin, async job).
+    pub async fn demote_mirror(&self, id: &str) -> Result<serde_json::Value, Error> {
+        self.decode(self.request(
+            Method::POST,
+            &format!(
+                "/api/atlas/v1/dr/mirrors/{}/demote",
+                urlencoding::encode(id)
+            ),
+        ))
+        .await
+    }
+
+    /// Records an observed RPO sample for a mirror (operator).
+    pub async fn set_mirror_rpo(
+        &self,
+        id: &str,
+        rpo_seconds: Option<i64>,
+    ) -> Result<serde_json::Value, Error> {
+        self.decode(
+            self.request(
+                Method::POST,
+                &format!("/api/atlas/v1/dr/mirrors/{}/rpo", urlencoding::encode(id)),
+            )
+            .json(&serde_json::json!({ "rpo_seconds": rpo_seconds })),
+        )
+        .await
+    }
+
+    /// One-click failover runbook: runs preflight, then promotes `mirror_id`
+    /// (admin, async job). `confirm: true` is required -- Atlas rejects the
+    /// request with a `400` otherwise since this is destructive. If
+    /// preflight isn't `ready`, Atlas rejects with a `409` naming the
+    /// blockers unless `force` is also set.
+    pub async fn dr_failover(
+        &self,
+        request: DrFailoverRequest,
+    ) -> Result<serde_json::Value, Error> {
+        self.decode(
+            self.request(Method::POST, "/api/atlas/v1/dr/failover")
+                .json(&request),
+        )
+        .await
+    }
 }
 
 #[cfg(test)]
@@ -1293,6 +1445,114 @@ mod tests {
         match err {
             Error::Upstream { status, .. } => assert_eq!(status, 404),
             other => panic!("expected an Upstream 404, got: {other:?}"),
+        }
+    }
+
+    // ── Disaster recovery (RBD mirroring) -- scaffolding on Atlas's own side,
+    // "real ops UNVERIFIED without a 2nd cluster" per its source comment.
+    // These live tests exercise the control-plane catalog (peers/mirrors/
+    // preflight bookkeeping, job envelopes, role-transition guards) against
+    // the fake driver, which is everything verifiable without a second real
+    // Ceph cluster -- not a live two-site mirror drill.
+
+    #[tokio::test]
+    #[ignore]
+    async fn live_dr_peer_and_mirror_lifecycle() {
+        let c = live_client();
+        let peer = c
+            .register_dr_peer(RegisterDrPeerRequest {
+                name: format!("zorvia-live-peer-{}", chrono::Utc::now().timestamp_millis()),
+                cluster_fsid: None,
+                direction: Some("rx-tx".into()),
+                secret_ref: Some("secret/dr-peer-token".into()),
+            })
+            .await
+            .unwrap();
+        let peer_id = peer["id"].as_str().unwrap().to_string();
+
+        // The fake driver seeds `vol_rbd_nvme_prod_web-01-root` -- see the
+        // comment above `live_expand_volume_round_trips`.
+        let enabled = c
+            .enable_mirror("vol_rbd_nvme_prod_web-01-root", Some("snapshot"), None)
+            .await
+            .unwrap();
+        assert!(enabled.get("job_id").is_some());
+        let mirror_id = enabled["resource"]["mirror_id"]
+            .as_str()
+            .unwrap()
+            .to_string();
+
+        let mirrors = c.list_dr_mirrors().await.unwrap();
+        assert!(mirrors
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|m| m["id"] == mirror_id && m["role"] == "primary" && m["state"] == "enabled"));
+
+        // promote while already primary and not forced -- Atlas's own
+        // conflict guard, not a client-side check.
+        let err = c.promote_mirror(&mirror_id, false).await.unwrap_err();
+        match err {
+            Error::Upstream { status, .. } => assert_eq!(status, 409),
+            other => panic!("expected an Upstream 409, got: {other:?}"),
+        }
+
+        let demoted = c.demote_mirror(&mirror_id).await.unwrap();
+        assert!(demoted.get("job_id").is_some());
+        let promoted = c.promote_mirror(&mirror_id, false).await.unwrap();
+        assert!(promoted.get("job_id").is_some());
+
+        let rpo = c.set_mirror_rpo(&mirror_id, Some(45)).await.unwrap();
+        assert_eq!(rpo["rpo_seconds"], 45);
+
+        let disabled = c
+            .disable_mirror("vol_rbd_nvme_prod_web-01-root")
+            .await
+            .unwrap();
+        assert!(disabled.get("job_id").is_some());
+
+        // Atlas's delete_peer is unconditional (no rows-affected check), so
+        // this always returns 200 -- even for an id that never existed --
+        // unlike backend/bucket/backup delete, which do 404. Documented in
+        // docs/ATLAS_INTEGRATION.md rather than assumed to match the others.
+        let deleted = c.delete_dr_peer(&peer_id).await.unwrap();
+        assert_eq!(deleted["deleted"], true);
+    }
+
+    #[tokio::test]
+    #[ignore]
+    async fn live_dr_status_and_preflight_reflect_real_state() {
+        let c = live_client();
+        let status = c.dr_status().await.unwrap();
+        assert!(status.get("peers").is_some());
+        let preflight = c.dr_preflight().await.unwrap();
+        assert!(preflight.get("ready").is_some());
+        assert!(preflight.get("blockers").is_some());
+    }
+
+    #[tokio::test]
+    #[ignore]
+    async fn live_dr_failover_requires_confirm() {
+        let c = live_client();
+        let err = c
+            .dr_failover(DrFailoverRequest {
+                mirror_id: "drm_does-not-exist".into(),
+                confirm: false,
+                force: false,
+            })
+            .await
+            .unwrap_err();
+        match err {
+            Error::Upstream {
+                status, message, ..
+            } => {
+                assert_eq!(status, 400);
+                assert!(
+                    message.contains("confirm=true"),
+                    "expected the confirm-required message, got: {message}"
+                );
+            }
+            other => panic!("expected an Upstream 400, got: {other:?}"),
         }
     }
 }
