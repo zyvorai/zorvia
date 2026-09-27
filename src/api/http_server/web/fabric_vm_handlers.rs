@@ -159,6 +159,11 @@ pub struct CloudDownloadBody {
 }
 
 #[derive(Debug, Deserialize)]
+pub struct FromVmBody {
+    pub name: String,
+}
+
+#[derive(Debug, Deserialize)]
 pub struct CreateSnapshotBody {
     pub name: String,
     #[serde(default)]
@@ -245,6 +250,42 @@ pub async fn fabric_start_download(
         Ok(job) => (StatusCode::ACCEPTED, Json(json!(job))).into_response(),
         Err(e) => {
             let (st, j) = err_json(404, "NOT_FOUND", &e.to_string());
+            (st, j).into_response()
+        }
+    }
+}
+
+pub async fn fabric_create_image_from_vm(
+    State(state): State<SharedState>,
+    Path(vm_name): Path<String>,
+    AxumJson(body): AxumJson<FromVmBody>,
+) -> impl IntoResponse {
+    let s = state.read().await;
+    let namespace = s.namespace.clone();
+    let client = s.client();
+    drop(s);
+
+    match crate::golden_images::convert::ConvertRegistry::global()
+        .start(&vm_name, &body.name, &namespace, &client)
+        .await
+    {
+        Ok(job) => (StatusCode::ACCEPTED, Json(json!({"job_id": job.id}))).into_response(),
+        Err(crate::golden_images::convert::ConvertStartError::VmNotFound(e)) => {
+            let (st, j) = err_json(404, "NOT_FOUND", &sanitize_error(&e));
+            (st, j).into_response()
+        }
+        Err(crate::golden_images::convert::ConvertStartError::NoPersistentDisk(e)) => {
+            let (st, j) = err_json(400, "NO_PERSISTENT_DISK", &e);
+            (st, j).into_response()
+        }
+    }
+}
+
+pub async fn fabric_get_convert_job(Path(id): Path<String>) -> impl IntoResponse {
+    match crate::golden_images::convert::ConvertRegistry::global().get(&id) {
+        Some(job) => Json(json!(job)).into_response(),
+        None => {
+            let (st, j) = err_json(404, "NOT_FOUND", "conversion job not found");
             (st, j).into_response()
         }
     }
