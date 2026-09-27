@@ -24,7 +24,7 @@ The browser never receives `ATLAS_TOKEN`. Zorvia owns user authentication; the A
 
 Atlas isn't a separate top-level page — it's a set of sections on the existing Storage page (`/app/storage`, alongside Rook-Ceph), because both are answering the same question ("what storage do I have and what's it doing"), just from two different control planes. If `ATLAS_URL` is unset, the sections render a quiet "not configured" note instead of hiding entirely or erroring.
 
-The Atlas UI lives under `web/src/pages/storage/`: `AtlasSection.tsx` is the main orchestrator (status, backend lifecycle — create/discover/cordon/uncordon/delete, volume create/expand/delete, recent jobs), and `AtlasRbdSection.tsx`/`AtlasBucketsSection.tsx`/`AtlasDrSection.tsx` are sibling cards (only rendered once Atlas is enabled and connected) covering RBD image create/resize/delete, object-store bucket create/delete, and disaster recovery respectively. Deliberately out of scope for the UI, even though the backend routes exist and are proxied: RBD clone/migrate/flatten/QoS/snapshots, bucket object-level operations (list/upload/download/prune) and backup/restore creation — these are lower-frequency operations better suited to Atlas's own UI or CLI for now; revisit if there's real demand.
+The Atlas UI lives under `web/src/pages/storage/`: `AtlasSection.tsx` is the main orchestrator (status, backend lifecycle — create/discover/cordon/uncordon/delete, volume create/expand/delete, recent jobs), and `AtlasRbdSection.tsx`/`AtlasBucketsSection.tsx`/`AtlasDrSection.tsx`/`AtlasAiSection.tsx` are sibling cards (only rendered once Atlas is enabled and connected) covering RBD image create/resize/delete, object-store bucket create/delete, disaster recovery, and AI-assisted insights respectively. Deliberately out of scope for the UI, even though the backend routes exist and are proxied: RBD clone/migrate/flatten/QoS/snapshots, bucket object-level operations (list/upload/download/prune) and backup/restore creation — these are lower-frequency operations better suited to Atlas's own UI or CLI for now; revisit if there's real demand.
 
 ## Configuration
 
@@ -77,6 +77,10 @@ If `ATLAS_URL` is absent, Zorvia starts normally and the integration reports `en
 - `GET /api/v1/atlas/dr/mirrors`, `GET /api/v1/atlas/dr/status`, `GET /api/v1/atlas/dr/preflight` (report-only, always `200`; `ready`/`blockers` is the real gate)
 - `POST /api/v1/atlas/dr/mirrors/:id/{promote,demote}`, `POST /api/v1/atlas/dr/mirrors/:id/rpo`, `POST /api/v1/atlas/dr/failover`
 - `POST|DELETE /api/v1/atlas/volumes/:id/mirror` — enable/disable RBD mirroring for a volume
+- `POST /api/v1/atlas/ai/advisor` — `{question?, mode?}`; risk-scored advisory with evidence and recommended (not executed) actions
+- `GET /api/v1/atlas/ai/anomalies[?minutes=&sensitivity=]` — statistical anomaly detection over recent metric samples
+- `GET /api/v1/atlas/ai/incidents[?mode=]` — correlated incidents (alerts + anomalies + failed jobs grouped by likely cause)
+- `POST /api/v1/atlas/ai/what-if` — `{add_capacity_bytes?, horizon_days?, projected_growth_bytes_per_day?, assume_alerts_resolved?, assume_recovery_complete?}`; projects capacity/risk under a hypothetical
 
 Bucket create/delete and backup create/delete/restore are async jobs, same shape as the volume writes; everything else under buckets (stats, object list/delete, upload/download URL, prune) is synchronous — object operations never touch bytes through Zorvia or Atlas, they mint presigned S3 URLs so the browser talks to RGW directly. `delete` on a bucket is refused (`409`) while it still holds backups unless `?force=true`.
 
@@ -96,13 +100,17 @@ Cross-cluster RBD mirroring is **scaffolding on Atlas's own side** — its `dr.r
 - **`DELETE /dr/peers/:id` is unconditional**: Atlas's `delete_peer` doesn't check rows-affected, so it always returns `{"deleted":true}` — even for an id that never existed — unlike backend/bucket/backup delete, which 404 on a missing id. Don't infer "the peer existed" from a successful response.
 - The web UI (`AtlasDrSection.tsx`) shows a persistent warning quoting this caveat and requires the same confirm-dialog pattern used for other destructive actions before promote/demote/failover — including naming preflight blockers in the confirmation text when preflight isn't `ready`, rather than only stopping the user after the fact.
 
+## AI-assisted insights
+
+Compute-only, despite the `POST` verbs on `advisor`/`what-if`: none of the four routes mutate storage (`can_execute` is always `false` in every response). The local advisor is a deterministic rules-over-evidence engine, always available; an optional external OpenAI-compatible provider (configured on Atlas's side via `ATLAS_AI_BASE_URL`/`ATLAS_AI_MODEL`, not Zorvia's) can only rewrite the executive-summary text, never the risk score or evidence. Zorvia's web UI (`AtlasAiSection.tsx`) always passes `mode: "local"` to the advisor and `ai/incidents`, so it never triggers a real external-network call on Atlas's behalf just from loading the Storage page — a provider-narrated summary would need a direct API call with `mode: "auto"` or `"llm"`, which isn't wired into the UI. `GET /ai/incidents` already defaults to `mode=local` on Atlas's side for the same reason (narration is opt-in, not automatic, on a `GET` a dashboard might poll).
+
 ## Deliberately not proxied yet
 
-This is a read-only inventory integration plus volume/RBD/bucket lifecycle, job status polling, and disaster recovery scaffolding — not full Atlas lifecycle management. Not proxied:
+This is a read-only inventory integration plus volume/RBD/bucket lifecycle, job status polling, disaster recovery scaffolding, and AI-assisted insights — not full Atlas lifecycle management. Not proxied:
 
 - Job SSE watch (`GET /jobs/:id/watch`) — Zorvia has no established SSE-proxy pattern; polling `GET /jobs/:id` on the existing 10-15s refresh cadence is good enough for now
 - DataBridge (cloud-to-edge DB migration)
-- Tenant policy/quota writes, AI advisor, alerts, audit export
+- Tenant policy/quota writes, alerts, audit export, chargeback, policy-drift
 
 If any of these become a real need, they follow the same pattern as the volume routes here — add the client method, the handler, and (if it's a write) a permission check and audit entry.
 

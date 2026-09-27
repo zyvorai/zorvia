@@ -403,3 +403,98 @@ export const setAtlasMirrorRpo = (id: string, rpoSeconds: number) =>
     blockers unless `force` is also set. */
 export const atlasDrFailover = (mirrorId: string, force = false) =>
   apiPost<AtlasJobEnvelope>('/api/v1/atlas/dr/failover', { mirror_id: mirrorId, confirm: true, force })
+
+// ── AI-assisted insights -- compute-only (recommendation queries, not state
+// mutation) despite the POST verbs on advisor/what-if. The local advisor is
+// always available and never mutates storage. ──
+
+export interface AtlasAdvisorAction {
+  priority: number
+  title: string
+  rationale: string
+  inspect: string
+}
+
+export interface AtlasAdvisorResponse {
+  mode: string
+  risk_score: number
+  risk_level: string
+  summary: string
+  evidence: {
+    capacity_used_percent: number
+    days_to_full?: number | null
+    open_alerts: number
+    critical_alerts: number
+    warning_alerts: number
+    failed_jobs_15m: number
+    degraded_objects: number
+    unfound_objects: number
+    alert_titles: string[]
+  }
+  actions: AtlasAdvisorAction[]
+  warnings: string[]
+  can_execute: boolean
+}
+
+export interface AtlasAnomaly {
+  id: string
+  metric: string
+  label: string
+  severity: string
+  score: number
+  current: number
+  baseline: number
+  change_percent: number
+  direction: string
+  explanation: string
+  inspect: string
+}
+
+export interface AtlasAnomaliesResponse {
+  generated_at: string
+  window_minutes: number
+  telemetry_status: string
+  sensitivity: number
+  anomalies: AtlasAnomaly[]
+  warnings: string[]
+}
+
+export interface AtlasIncident {
+  id: string
+  category: string
+  severity: string
+  confidence: number
+  title: string
+  likely_cause: string
+  inspect: string[]
+}
+
+export interface AtlasIncidentsResponse {
+  generated_at: string
+  count: number
+  incidents: AtlasIncident[]
+  narrative?: string | null
+}
+
+export interface AtlasWhatIfRequest {
+  add_capacity_bytes?: number
+  horizon_days?: number
+  assume_alerts_resolved?: boolean
+  assume_recovery_complete?: boolean
+}
+
+export interface AtlasWhatIfResponse {
+  horizon_days: number
+  baseline: { risk_score: number; risk_level: string; capacity_used_percent: number; days_to_full?: number | null }
+  projected: { risk_score: number; risk_level: string; capacity_used_percent: number; days_to_full?: number | null }
+  risk_delta: number
+  actions: AtlasAdvisorAction[]
+  assumptions: string[]
+  can_execute: boolean
+}
+
+export const askAtlasAdvisor = (question: string) =>
+  apiPost<AtlasAdvisorResponse>('/api/v1/atlas/ai/advisor', { question, mode: 'local' })
+export const getAtlasAnomalies = () => apiGet<AtlasAnomaliesResponse>('/api/v1/atlas/ai/anomalies')
+export const getAtlasIncidents = () => apiGet<AtlasIncidentsResponse>('/api/v1/atlas/ai/incidents')
+export const runAtlasWhatIf = (body: AtlasWhatIfRequest) => apiPost<AtlasWhatIfResponse>('/api/v1/atlas/ai/what-if', body)

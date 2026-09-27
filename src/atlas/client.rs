@@ -979,6 +979,65 @@ impl Client {
         )
         .await
     }
+
+    // ── AI-assisted insights -- compute-only (recommendation queries, not
+    // state mutation) despite the POST verbs on advisor/what-if. The local
+    // advisor is always available and never mutates storage; an optional
+    // external provider can only rewrite the executive summary text.
+
+    /// Risk-scored advisory with evidence and recommended (not executed)
+    /// actions. `can_execute` in the response is always `false`.
+    pub async fn ai_advisor(&self, request: AiAdvisorRequest) -> Result<serde_json::Value, Error> {
+        self.decode(
+            self.request(Method::POST, "/api/atlas/v1/ai/advisor")
+                .json(&request),
+        )
+        .await
+    }
+
+    /// Statistical anomaly detection over recent metric samples.
+    /// `sensitivity` is a median-absolute-deviation multiplier (Atlas
+    /// default: `3.5`); `minutes` is the lookback window (default `360`).
+    pub async fn ai_anomalies(
+        &self,
+        minutes: Option<i64>,
+        sensitivity: Option<f64>,
+    ) -> Result<serde_json::Value, Error> {
+        let mut req = self.request(Method::GET, "/api/atlas/v1/ai/anomalies");
+        let mut query = Vec::new();
+        if let Some(minutes) = minutes {
+            query.push(("minutes".to_string(), minutes.to_string()));
+        }
+        if let Some(sensitivity) = sensitivity {
+            query.push(("sensitivity".to_string(), sensitivity.to_string()));
+        }
+        if !query.is_empty() {
+            req = req.query(&query);
+        }
+        self.decode(req).await
+    }
+
+    /// Correlated incidents (alerts + anomalies + failed jobs grouped by
+    /// likely cause). `mode` defaults to `local` here (unlike the advisor's
+    /// `auto` default) -- narration is strictly opt-in for this GET
+    /// endpoint since `auto`/`llm` can trigger a real external-network call.
+    pub async fn ai_incidents(&self, mode: Option<&str>) -> Result<serde_json::Value, Error> {
+        let mut req = self.request(Method::GET, "/api/atlas/v1/ai/incidents");
+        if let Some(mode) = mode {
+            req = req.query(&[("mode", mode)]);
+        }
+        self.decode(req).await
+    }
+
+    /// Projects capacity/risk under a hypothetical -- never mutates
+    /// anything, purely a forward projection over current inventory.
+    pub async fn ai_what_if(&self, request: AiWhatIfRequest) -> Result<serde_json::Value, Error> {
+        self.decode(
+            self.request(Method::POST, "/api/atlas/v1/ai/what-if")
+                .json(&request),
+        )
+        .await
+    }
 }
 
 #[cfg(test)]
@@ -1554,5 +1613,56 @@ mod tests {
             }
             other => panic!("expected an Upstream 400, got: {other:?}"),
         }
+    }
+
+    // ── AI-assisted insights -- local deterministic advisor, no external
+    // provider configured in this dev setup, so `mode` stays "local".
+
+    #[tokio::test]
+    #[ignore]
+    async fn live_ai_advisor_returns_real_evidence() {
+        let c = live_client();
+        let result = c
+            .ai_advisor(AiAdvisorRequest {
+                question: "is storage healthy?".into(),
+                mode: Some("local".into()),
+            })
+            .await
+            .unwrap();
+        assert_eq!(result["mode"], "local");
+        assert_eq!(result["can_execute"], false);
+        assert!(result.get("evidence").is_some());
+    }
+
+    #[tokio::test]
+    #[ignore]
+    async fn live_ai_anomalies_and_incidents_shapes() {
+        let c = live_client();
+        let anomalies = c.ai_anomalies(Some(360), Some(3.5)).await.unwrap();
+        assert_eq!(anomalies["window_minutes"], 360);
+        assert!(anomalies.get("anomalies").is_some());
+
+        let incidents = c.ai_incidents(Some("local")).await.unwrap();
+        assert!(incidents.get("incidents").is_some());
+        assert_eq!(incidents["can_execute"], false);
+    }
+
+    #[tokio::test]
+    #[ignore]
+    async fn live_ai_what_if_projects_without_mutating() {
+        let c = live_client();
+        let result = c
+            .ai_what_if(AiWhatIfRequest {
+                add_capacity_bytes: 2 * 1024 * 1024 * 1024 * 1024,
+                horizon_days: Some(30),
+                projected_growth_bytes_per_day: None,
+                assume_alerts_resolved: true,
+                assume_recovery_complete: false,
+            })
+            .await
+            .unwrap();
+        assert!(result.get("baseline").is_some());
+        assert!(result.get("projected").is_some());
+        assert_eq!(result["can_execute"], false);
     }
 }

@@ -158,6 +158,35 @@ pub struct CreateRestoreRequest {
     pub mode: Option<String>,
 }
 
+/// `POST /ai/advisor` request. `mode` is one of `auto` (default -- use an
+/// external provider if `ATLAS_AI_BASE_URL`/`ATLAS_AI_MODEL` are configured
+/// on Atlas, else the deterministic local advisor), `local` (never send
+/// operational context to an external model), or `llm` (require a
+/// configured provider, error if unavailable).
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub struct AiAdvisorRequest {
+    #[serde(default)]
+    pub question: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub mode: Option<String>,
+}
+
+/// `POST /ai/what-if` request -- projects capacity/risk under a hypothetical
+/// (e.g. "what if we add 2TiB and resolve every open alert").
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub struct AiWhatIfRequest {
+    #[serde(default)]
+    pub add_capacity_bytes: i64,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub horizon_days: Option<u16>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub projected_growth_bytes_per_day: Option<f64>,
+    #[serde(default)]
+    pub assume_alerts_resolved: bool,
+    #[serde(default)]
+    pub assume_recovery_complete: bool,
+}
+
 /// `POST /dr/peers` request. `secret_ref` should name a k8s Secret holding
 /// the peer bootstrap token -- never the token itself.
 #[derive(Debug, Clone, Serialize, Deserialize)]

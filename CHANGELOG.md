@@ -9,6 +9,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Atlas AI-assisted insights** — `POST /api/v1/atlas/ai/advisor`,
+  `GET .../ai/anomalies`, `GET .../ai/incidents`, `POST .../ai/what-if`.
+  Compute-only despite the `POST` verbs on advisor/what-if — every response
+  carries `can_execute: false`; the local deterministic advisor is always
+  available, an optional external provider (configured on Atlas's side)
+  can only rewrite the executive-summary text, never the risk score or
+  evidence. New `web/src/pages/storage/AtlasAiSection.tsx` card: ask-the-
+  advisor with a free-text question, an anomalies/correlated-incidents
+  read view, and a what-if capacity projector — always passes `mode:
+  "local"` so loading the Storage page never triggers a real external-
+  network call on Atlas's behalf. Verified live against a real
+  `atlas-gateway`: advisor returns real evidence (capacity/alerts/failed-
+  jobs), anomalies/incidents return the documented shape, and what-if
+  projects a capacity/risk delta without mutating anything.
+
 - **Atlas disaster recovery (RBD mirroring)** — `GET|POST /api/v1/atlas/dr/peers`,
   `DELETE .../dr/peers/:id`, `GET .../dr/mirrors`, `GET .../dr/status`,
   `GET .../dr/preflight`, `POST .../dr/mirrors/:id/{promote,demote}`,
