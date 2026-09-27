@@ -42,6 +42,7 @@ Start here: root [README.md](../README.md) (hero, gallery, quick start) · live 
 | Doc | Topic |
 |-----|--------|
 | [KRYTON_INTEGRATION.md](KRYTON_INTEGRATION.md) | Windows via Kryton — Create VM wizard + `/app/windows` |
+| [ATLAS_INTEGRATION.md](ATLAS_INTEGRATION.md) | Storage via Atlas — backend/RBD/object-store, DR, AI insights, governance, DataBridge |
 | [TERRAFORM.md](TERRAFORM.md) | Terraform scaffold + Fabric API module |
 
 ## TUI
