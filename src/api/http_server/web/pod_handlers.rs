@@ -233,6 +233,232 @@ async fn audit_pod(
     audit.write().await.record(entry);
 }
 
+// ── Pod actions, events, YAML ───────────────────────────────────────
+
+fn invalid_names(namespace: &str, name: &str) -> Option<axum::response::Response> {
+    if valid_k8s_name(namespace) && valid_k8s_name(name) {
+        return None;
+    }
+    let (st, j) = err_json(400, "INVALID", "invalid namespace or pod name");
+    Some((st, j).into_response())
+}
+
+fn kube_err(e: &kube::Error) -> axum::response::Response {
+    let (status, code) = match e {
+        kube::Error::Api(s) if s.code == 404 => (404, "NOT_FOUND"),
+        kube::Error::Api(s) if s.code == 403 => (403, "FORBIDDEN"),
+        _ => (500, "KUBE_ERROR"),
+    };
+    let (st, j) = err_json(status, code, &sanitize_error(e));
+    (st, j).into_response()
+}
+
+fn caller(auth: &Option<axum::Extension<crate::api::auth::AuthIdentity>>) -> String {
+    auth.as_ref()
+        .and_then(|a| a.0.username.clone())
+        .unwrap_or_else(|| "api-token".into())
+}
+
+#[derive(Debug, Deserialize)]
+pub struct DeletePodQuery {
+    /// Grace period in seconds; `0` force-deletes.
+    pub grace: Option<u32>,
+}
+
+pub async fn delete_pod_handler(
+    State(state): State<SharedState>,
+    Path((namespace, name)): Path<(String, String)>,
+    Query(q): Query<DeletePodQuery>,
+    auth: Option<axum::Extension<crate::api::auth::AuthIdentity>>,
+) -> axum::response::Response {
+    if let Some(r) = invalid_names(&namespace, &name) {
+        return r;
+    }
+    let s = state.read().await;
+    let client = s.kube_client.client();
+    let audit = s.audit.clone();
+    drop(s);
+
+    let api: Api<Pod> = Api::namespaced(client, &namespace);
+    let dp = kube::api::DeleteParams {
+        grace_period_seconds: q.grace,
+        ..Default::default()
+    };
+    let result = api.delete(&name, &dp).await;
+    audit_pod(
+        &audit,
+        &caller(&auth),
+        crate::audit_trail::AuditAction::Delete,
+        &namespace,
+        &name,
+        None,
+        result.is_ok(),
+        serde_json::json!({ "grace": q.grace }),
+    )
+    .await;
+    match result {
+        Ok(_) => Json(serde_json::json!({ "deleted": true, "namespace": namespace, "name": name }))
+            .into_response(),
+        Err(e) => kube_err(&e),
+    }
+}
+
+/// Kinds whose controller recreates a deleted pod.
+fn restartable_owner(kind: &str) -> bool {
+    matches!(
+        kind,
+        "ReplicaSet" | "StatefulSet" | "DaemonSet" | "ReplicationController"
+    )
+}
+
+pub async fn restart_pod_handler(
+    State(state): State<SharedState>,
+    Path((namespace, name)): Path<(String, String)>,
+    auth: Option<axum::Extension<crate::api::auth::AuthIdentity>>,
+) -> axum::response::Response {
+    if let Some(r) = invalid_names(&namespace, &name) {
+        return r;
+    }
+    let s = state.read().await;
+    let client = s.kube_client.client();
+    let audit = s.audit.clone();
+    drop(s);
+
+    let api: Api<Pod> = Api::namespaced(client, &namespace);
+    let pod = match api.get(&name).await {
+        Ok(p) => p,
+        Err(e) => return kube_err(&e),
+    };
+    let owner = pod
+        .metadata
+        .owner_references
+        .unwrap_or_default()
+        .into_iter()
+        .find(|o| o.controller == Some(true));
+    let Some(owner) = owner.filter(|o| restartable_owner(&o.kind)) else {
+        let (st, j) = err_json(
+            409,
+            "NOT_RESTARTABLE",
+            "pod is not managed by a ReplicaSet, StatefulSet, DaemonSet or ReplicationController; \
+             deleting it would not bring it back",
+        );
+        return (st, j).into_response();
+    };
+
+    let result = api.delete(&name, &kube::api::DeleteParams::default()).await;
+    audit_pod(
+        &audit,
+        &caller(&auth),
+        crate::audit_trail::AuditAction::Restart,
+        &namespace,
+        &name,
+        None,
+        result.is_ok(),
+        serde_json::json!({ "owner_kind": owner.kind, "owner": owner.name }),
+    )
+    .await;
+    match result {
+        Ok(_) => Json(serde_json::json!({
+            "restarted": true,
+            "owner_kind": owner.kind,
+            "owner": owner.name,
+        }))
+        .into_response(),
+        Err(e) => kube_err(&e),
+    }
+}
+
+#[derive(Debug, Serialize)]
+pub struct PodEvent {
+    pub r#type: String,
+    pub reason: String,
+    pub message: String,
+    pub count: i32,
+    pub source: String,
+    pub first_seen: Option<String>,
+    pub last_seen: Option<String>,
+}
+
+pub async fn pod_events_handler(
+    State(state): State<SharedState>,
+    Path((namespace, name)): Path<(String, String)>,
+) -> axum::response::Response {
+    use k8s_openapi::api::core::v1::Event;
+    if let Some(r) = invalid_names(&namespace, &name) {
+        return r;
+    }
+    let client = state.read().await.kube_client.client();
+    let api: Api<Event> = Api::namespaced(client, &namespace);
+    let lp = ListParams::default().fields(&format!(
+        "involvedObject.kind=Pod,involvedObject.name={name}"
+    ));
+    match api.list(&lp).await {
+        Ok(list) => {
+            let mut events: Vec<PodEvent> = list
+                .items
+                .into_iter()
+                .map(|e| {
+                    let last = e
+                        .last_timestamp
+                        .map(|t| t.0.to_string())
+                        .or_else(|| e.event_time.map(|t| t.0.to_string()));
+                    PodEvent {
+                        r#type: e.type_.unwrap_or_else(|| "Normal".into()),
+                        reason: e.reason.unwrap_or_default(),
+                        message: e.message.unwrap_or_default(),
+                        count: e.count.unwrap_or(1),
+                        source: e
+                            .source
+                            .and_then(|s| s.component)
+                            .or(e.reporting_component)
+                            .unwrap_or_default(),
+                        first_seen: e.first_timestamp.map(|t| t.0.to_string()),
+                        last_seen: last,
+                    }
+                })
+                .collect();
+            events.sort_by(|a, b| a.last_seen.cmp(&b.last_seen));
+            Json(serde_json::json!({ "events": events })).into_response()
+        }
+        Err(e) => kube_err(&e),
+    }
+}
+
+pub async fn pod_yaml_handler(
+    State(state): State<SharedState>,
+    Path((namespace, name)): Path<(String, String)>,
+) -> axum::response::Response {
+    if let Some(r) = invalid_names(&namespace, &name) {
+        return r;
+    }
+    let client = state.read().await.kube_client.client();
+    let api: Api<Pod> = Api::namespaced(client, &namespace);
+    match api.get(&name).await {
+        Ok(mut pod) => {
+            pod.metadata.managed_fields = None;
+            let mut value = match serde_json::to_value(&pod) {
+                Ok(v) => v,
+                Err(e) => {
+                    let (st, j) = err_json(500, "SERIALIZE", &e.to_string());
+                    return (st, j).into_response();
+                }
+            };
+            if let Some(obj) = value.as_object_mut() {
+                obj.insert("apiVersion".into(), "v1".into());
+                obj.insert("kind".into(), "Pod".into());
+            }
+            match serde_yaml::to_string(&value) {
+                Ok(yaml) => Json(serde_json::json!({ "yaml": yaml })).into_response(),
+                Err(e) => {
+                    let (st, j) = err_json(500, "SERIALIZE", &e.to_string());
+                    (st, j).into_response()
+                }
+            }
+        }
+        Err(e) => kube_err(&e),
+    }
+}
+
 // ── Logs ────────────────────────────────────────────────────────────
 
 #[derive(Debug, Deserialize)]
@@ -589,6 +815,21 @@ mod tests {
         assert!(!valid_k8s_name("a/b"));
         assert!(!valid_k8s_name("-lead"));
         assert!(!valid_k8s_name("Upper"));
+    }
+
+    #[test]
+    fn only_recreating_controllers_are_restartable() {
+        for k in [
+            "ReplicaSet",
+            "StatefulSet",
+            "DaemonSet",
+            "ReplicationController",
+        ] {
+            assert!(restartable_owner(k), "{k}");
+        }
+        for k in ["VirtualMachineInstance", "Job", "Node", ""] {
+            assert!(!restartable_owner(k), "{k}");
+        }
     }
 
     #[test]

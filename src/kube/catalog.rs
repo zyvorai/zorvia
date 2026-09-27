@@ -18,6 +18,54 @@ pub struct CloudImage {
     pub size_bytes: u64,
 }
 
+/// One entry in the Create VM / Disk Images catalog (`GET /api/images`, `zorvia images`).
+#[derive(Debug, Clone, Serialize, PartialEq, Eq)]
+pub struct DiskImage {
+    pub name: String,
+    pub path: String,
+    pub format: String,
+    pub size_bytes: u64,
+}
+
+const GIB: u64 = 1024 * 1024 * 1024;
+
+const CONTAINERDISKS: &[(&str, &str)] = &[
+    ("Ubuntu 24.04", "ubuntu:24.04"),
+    ("Ubuntu 22.04", "ubuntu:22.04"),
+    ("Ubuntu 20.04", "ubuntu:20.04"),
+    ("Ubuntu 18.04", "ubuntu:18.04"),
+    ("Fedora 41", "fedora:41"),
+    ("Fedora 40", "fedora:40"),
+    ("Fedora 39", "fedora:39"),
+    ("CentOS Stream 9", "centos-stream:9"),
+    ("CentOS Stream 8", "centos-stream:8"),
+    ("Debian 12", "debian:12"),
+    ("Debian 11", "debian:11"),
+    ("AlmaLinux 9", "almalinux:9"),
+    ("AlmaLinux 8", "almalinux:8"),
+    ("Rocky Linux 9", "rockylinux:9"),
+    ("Rocky Linux 8", "rockylinux:8"),
+    ("Alpine 3.19", "alpine:3.19"),
+];
+
+/// Blank disks plus ready quay.io/containerdisks images (major Linux).
+/// Containerdisk size is unknown until pulled, so it is reported as 0.
+pub fn disk_image_catalog() -> Vec<DiskImage> {
+    let blank = [20u64, 40].into_iter().map(|gi| DiskImage {
+        name: format!("Blank disk ({gi} Gi)"),
+        path: format!("blank:{gi}Gi"),
+        format: "blank".into(),
+        size_bytes: gi * GIB,
+    });
+    let containerdisks = CONTAINERDISKS.iter().map(|(name, image)| DiskImage {
+        name: format!("{name} (containerdisk)"),
+        path: format!("quay.io/containerdisks/{image}"),
+        format: "containerdisk".into(),
+        size_bytes: 0,
+    });
+    blank.chain(containerdisks).collect()
+}
+
 /// Unique containerdisk images referenced by OS templates.
 pub fn cloud_images_from_templates() -> Vec<CloudImage> {
     let mut seen = BTreeSet::new();
@@ -78,5 +126,19 @@ mod tests {
             .iter()
             .any(|i| i.distro.contains("ubuntu") || i.path.contains("ubuntu")));
         assert!(images.iter().any(|i| !i.url.is_empty()));
+    }
+
+    #[test]
+    fn disk_image_catalog_matches_api_shape() {
+        let images = disk_image_catalog();
+        assert_eq!(images.len(), 18);
+        assert_eq!(images[0].path, "blank:20Gi");
+        assert_eq!(images[0].size_bytes, 21_474_836_480);
+        assert_eq!(images[1].size_bytes, 42_949_672_960);
+        assert_eq!(images[2].name, "Ubuntu 24.04 (containerdisk)");
+        assert_eq!(images[2].path, "quay.io/containerdisks/ubuntu:24.04");
+        assert!(images[2..]
+            .iter()
+            .all(|i| i.format == "containerdisk" && i.size_bytes == 0));
     }
 }

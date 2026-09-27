@@ -69,8 +69,10 @@ Useful env on the API pod:
 | `/app/storage` | Rook-Ceph: cluster status, pools, filesystems, object stores, StorageClass/VolumeSnapshotClass creation |
 | `/app/windows` | Kryton Windows machine inventory (when `KRYTON_URL` is set) |
 | `/app/access-control` | User & role management (admin-only — see below) |
-| `/app/pods` | Every pod in the cluster: Terminal.app-style live logs and in-browser shell (admin-only — see [Pods](#pods-logs--exec)) |
-| `/app/disk-images` | Image catalog rendered as a black Terminal.app `ls -l` listing (see [Disk Images](#disk-images)) |
+| `/app/pods` | Every pod in the cluster: Terminal.app-style live logs, shell, events, YAML, restart/delete (admin-only — see [Pods](#pods-logs--exec)) |
+| `/app/pods/:ns/:name/logs` | Full-window logs for one pod (opened in a new tab from the Pods panel) |
+| `/app/disk-images` | Image catalog rendered as a black Terminal.app listing (see [Disk Images](#disk-images)) |
+| `/app/events` | Live VM event stream in a black Terminal.app window |
 
 Top nav: **Dashboard · Virtual Machines · Pods** (admin) as direct links, then the
 **Compute · Storage · Networking · Ops · Automation · Secure · Insights** mega-menus.
@@ -97,13 +99,15 @@ Catalog (`GET /api/images`) returns blank sizes plus major Linux containerdisks.
 ## Disk Images
 
 `/app/disk-images` shows the `GET /api/images` catalog inside a black macOS
-Terminal.app window, styled like `zorvia images ls -l` output:
+Terminal.app window, styled as the output of the real `zorvia images` CLI command
+(same catalog, shared `disk_image_catalog()` in `src/kube/catalog.rs`;
+`zorvia images -o json|yaml` for scripts):
 
 ![Disk Images](screenshots/readme-disk-images.png)
 
 | Element | Rendering |
 |---------|-----------|
-| Prompt | `zorvia@images:~$ zorvia images ls -l`, then `total N · <size>` (and `· K selected`) |
+| Prompt | `zorvia@images:~$ zorvia images`, then `total N · <size>` (and `· K selected`) |
 | NAME | Bold white |
 | FORMAT | `blank` yellow · `containerdisk` cyan · `qcow2` magenta · `raw` orange · `iso` green · `vmdk`/`vhd(x)` blue |
 | SIZE | Magenta, right-aligned; `—` for containerdisks (size unknown until pulled, API reports `0`) |
@@ -116,22 +120,39 @@ Terminal.app window, styled like `zorvia images ls -l` output:
   tracks the count.
 - Stat cards above the terminal: Total Images, Total Size, Formats, Selected.
 
+## Event Stream
+
+![Event Stream](screenshots/readme-event-stream.png)
+
+`/app/events` shows live VM lifecycle events from the authenticated SSE feed
+(`GET /api/events/stream`) in a black Terminal.app window. The prompt line reads
+`curl -sN /api/events/stream` (plus `| grep -i <level>` when filtered); level filter,
+pause/resume and clear sit in the title bar. Each line: time (grey), level (colored),
+VM (cyan), event type (magenta), message (ANSI-aware). Newest first, last 500 kept.
+
 ## Pods (logs & exec)
 
 `/app/pods` (admin-only) lists every pod across all namespaces with a namespace
 filter, search, and Running / Pending / Failed chips. Each row opens a bottom panel
 with a black Terminal.app-style **live log stream** (colorized levels, JSON, logfmt,
-HTTP; find, pause, download, previous container) or an **interactive shell**
-(`kubectl exec -it`, bash/sh, resize, exit code).
+HTTP; find, pause, download, previous container), an **interactive shell**
+(`kubectl exec -it`, bash/sh, resize, exit code), the pod's **events**, or its
+**YAML**. Pods can be **restarted** (controller-owned only) or **deleted** after a
+confirmation, and logs pop out into a new tab at `/app/pods/:ns/:name/logs`.
 
 | Route | Purpose |
 |-------|---------|
 | `GET /api/v1/pods?namespace=` | Pod summaries (`all`/empty = every namespace) |
 | `GET /api/v1/namespaces` | Namespace names for the filter |
+| `DELETE /api/v1/pods/{ns}/{pod}?grace=` | Delete a pod |
+| `POST /api/v1/pods/{ns}/{pod}/restart` | Delete a controller-owned pod so it is recreated (409 otherwise) |
+| `GET /api/v1/pods/{ns}/{pod}/events` | Events for the pod |
+| `GET /api/v1/pods/{ns}/{pod}/yaml` | Pod manifest as YAML (`managedFields` stripped) |
 | `GET /ws/pods/{ns}/{pod}/logs` | Follow logs (`container`, `tail`, `timestamps`, `previous`) |
 | `GET /ws/pods/{ns}/{pod}/exec` | Interactive TTY (`container`, `shell=auto\|bash\|sh`) |
 
-All four require `cluster.admin`; exec sessions are audited at High severity. Full
+All of them require `cluster.admin`; exec sessions are audited at High severity,
+restarts and deletes at Info. Full
 guide — UI, colorizing rules, WebSocket frame protocol, RBAC, audit and
 troubleshooting: **[PODS.md](PODS.md)**.
 
@@ -140,7 +161,7 @@ troubleshooting: **[PODS.md](PODS.md)**.
 | Op | How |
 |----|-----|
 | Start / stop / restart / delete | VM details, list, API |
-| Serial console | `/app/vms/:name/console` → Terminal → `GET /ws/console/:name` → KubeVirt `vmis/console` |
+| Serial console | `/app/vms/:name/console` → Terminal → `GET /ws/console/:name` → KubeVirt `vmis/console`. Black Terminal.app profile (same palette as the Pods terminals), sized to the window, copy-on-select toggle, reconnect in the title bar; the CLI equivalent is `zorvia console <vm>` |
 | VNC | Console page VNC tab → `GET /ws/vnc/:name` → KubeVirt `vmis/vnc` |
 | In-browser SSH | Console page SSH tab → `GET /ws/ssh/:name?user=` → proxies `ssh` or `virtctl ssh`, attached to a real pty (password auth works — an earlier plain-pipe version of this proxy couldn't complete OpenSSH's `/dev/tty` password prompt) |
 | Expose SSH/VNC/RDP | Port-forwards section or create-time flags → NodePort Service labeled `zorvia.io/vm=<name>` |
@@ -260,7 +281,7 @@ ClusterRole `zorvia` includes:
 - `storage.k8s.io` storageclasses (write), `snapshot.storage.k8s.io`
 - `ceph.rook.io`, `apiextensions.k8s.io`, `rbac.authorization.k8s.io`, `apps`, `scheduling.k8s.io` (Rook operator bootstrap)
 - snapshots CRDs, PVCs, pods, events (as in `deploy/k8s.yaml`)
-- core `pods/log` (get) and `pods/exec` (create, get) for the admin-only Pods page — see [PODS.md](PODS.md#kubernetes-rbac); existing installs must re-apply the role
+- core `pods` (delete), `pods/log` (get) and `pods/exec` (create, get) for the admin-only Pods page — see [PODS.md](PODS.md#kubernetes-rbac); existing installs must re-apply the role
 
 The Rook-bootstrap grants above are intentionally broad — installing an operator means creating its own RBAC, CRDs and Deployments. Skip `POST /storage/rook/bootstrap` and trim those rules if Rook is managed outside Zorvia.
 

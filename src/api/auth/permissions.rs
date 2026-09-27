@@ -280,6 +280,10 @@ mod tests {
             ("GET", "/v1/pods/"),
             ("GET", "/v1/pods?namespace=kube-system"),
             ("POST", "/v1/pods/default/web/exec"),
+            ("DELETE", "/v1/pods/default/web"),
+            ("POST", "/v1/pods/default/web/restart"),
+            ("GET", "/v1/pods/default/web/events"),
+            ("GET", "/v1/pods/default/web/yaml"),
             ("GET", "/v1/namespaces"),
         ] {
             assert_eq!(

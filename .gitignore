@@ -25,3 +25,8 @@ fixtures/golden-images/out/
 web/node_modules/
 web/dist/
 web/coverage/
+web/test-results/
+web/playwright-report/
+
+# Local agent / editor debug logs
+.cursor/*.log

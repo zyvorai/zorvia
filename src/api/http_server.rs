@@ -43,7 +43,10 @@ pub mod web {
 
     #[path = "pod_handlers.rs"]
     mod pod_handlers;
-    use pod_handlers::{list_namespaces_handler, list_pods_handler, ws_pod_exec, ws_pod_logs};
+    use pod_handlers::{
+        delete_pod_handler, list_namespaces_handler, list_pods_handler, pod_events_handler,
+        pod_yaml_handler, restart_pod_handler, ws_pod_exec, ws_pod_logs,
+    };
 
     #[path = "hotplug_handlers.rs"]
     mod hotplug_handlers;
@@ -805,6 +808,10 @@ pub mod web {
             )
             .route("/v1/quotas/{ns}/{name}", delete(delete_quota_handler))
             .route("/v1/pods", get(list_pods_handler))
+            .route("/v1/pods/{ns}/{name}", delete(delete_pod_handler))
+            .route("/v1/pods/{ns}/{name}/restart", post(restart_pod_handler))
+            .route("/v1/pods/{ns}/{name}/events", get(pod_events_handler))
+            .route("/v1/pods/{ns}/{name}/yaml", get(pod_yaml_handler))
             .route("/v1/namespaces", get(list_namespaces_handler))
             // Kryton Windows control plane (server-side token; Zorvia auth at edge)
             .route("/v1/kryton/status", get(kryton_status))

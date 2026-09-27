@@ -72,9 +72,9 @@ pub const FEATURES: &[Feature] = &[
     },
     Feature {
         id: "pod-ops",
-        name: "Pods: live logs + exec",
+        name: "Pods: logs, exec, events, YAML, restart/delete",
         maturity: Maturity::Beta,
-        notes: "cluster.admin only; needs pods/log + pods/exec RBAC; exec audited; see docs/PODS.md",
+        notes: "cluster.admin only; needs pods delete + pods/log + pods/exec RBAC; exec/restart/delete audited; see docs/PODS.md",
     },
     Feature {
         id: "schedulers",

@@ -1428,6 +1428,9 @@ textarea.zf-terminal-input::selection {
 .zf-ls tbody tr:hover td {
   background: rgba(255, 255, 255, 0.06);
 }
+.zf-ls tbody tr.zf-ls-static {
+  cursor: default;
+}
 .zf-ls tbody tr.is-on td {
   background: rgba(10, 132, 255, 0.28);
 }

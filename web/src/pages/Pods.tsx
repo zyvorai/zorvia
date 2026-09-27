@@ -2,17 +2,53 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { Maximize2, Minimize2, ScrollText, Search, SquareTerminal, X } from 'lucide-react'
+import {
+  Activity,
+  ExternalLink,
+  FileCode2,
+  Maximize2,
+  Minimize2,
+  RotateCw,
+  ScrollText,
+  Search,
+  SquareTerminal,
+  Trash2,
+  X,
+} from 'lucide-react'
 import { DataTable, EmptyState, PageHeader, StatusBadge, type DataTableColumn } from '../components/ui'
 import ErrorBanner from '../components/ErrorBanner'
-import { listNamespaces, listPods, type PodSummary } from '../api/pods'
+import ConfirmDialog from '../components/ConfirmDialog'
+import { useConfirm } from '../hooks/useConfirm'
+import { useToastContext } from '../contexts/ToastContext'
+import { toastFailure } from '../utils/toastError'
+import {
+  deletePod,
+  listNamespaces,
+  listPods,
+  podLogsPagePath,
+  restartPod,
+  type PodSummary,
+} from '../api/pods'
 
 const PodLogs = lazy(() => import('../components/PodLogs'))
 const PodExec = lazy(() => import('../components/PodExec'))
+const PodEvents = lazy(() => import('../components/PodEvents'))
+const PodYaml = lazy(() => import('../components/PodYaml'))
 
 const REFRESH_MS = 10_000
 type Filter = 'all' | 'running' | 'pending' | 'failed'
-type Mode = 'logs' | 'exec'
+type Mode = 'logs' | 'exec' | 'events' | 'yaml'
+
+/** Owners that recreate a deleted pod (must match `restartable_owner` in pod_handlers.rs). */
+const RESTARTABLE_OWNERS = new Set(['ReplicaSet', 'StatefulSet', 'DaemonSet', 'ReplicationController'])
+const canRestart = (p: PodSummary) => !!p.owner_kind && RESTARTABLE_OWNERS.has(p.owner_kind)
+
+const MODES: { mode: Mode; label: string; icon: typeof ScrollText }[] = [
+  { mode: 'logs', label: 'Logs', icon: ScrollText },
+  { mode: 'exec', label: 'Terminal', icon: SquareTerminal },
+  { mode: 'events', label: 'Events', icon: Activity },
+  { mode: 'yaml', label: 'YAML', icon: FileCode2 },
+]
 
 function badgeKey(pod: PodSummary): string {
   const s = pod.status
@@ -48,6 +84,9 @@ function containerNames(pod: PodSummary): string[] {
 const podKey = (p: PodSummary) => `${p.namespace}/${p.name}`
 
 export default function Pods() {
+  const toast = useToastContext()
+  const { confirmState, confirm, cancel } = useConfirm()
+  const [busy, setBusy] = useState<string | null>(null)
   const [pods, setPods] = useState<PodSummary[]>([])
   const [namespaces, setNamespaces] = useState<string[]>([])
   const [namespace, setNamespace] = useState('')
@@ -127,6 +166,52 @@ export default function Pods() {
     const keep = active && active.key === podKey(pod) && names.includes(active.container)
     setActive({ key: podKey(pod), mode, container: keep ? active!.container : names[0] ?? '' })
     requestAnimationFrame(() => panelRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' }))
+  }
+
+  const removePod = async (pod: PodSummary) => {
+    const managed = canRestart(pod)
+    const ok = await confirm(
+      `Delete pod ${pod.name}?`,
+      managed
+        ? `${pod.namespace}/${pod.name} will be deleted. Its ${pod.owner_kind} will create a replacement.`
+        : `${pod.namespace}/${pod.name} is not managed by a controller — it will be gone for good.`,
+      { confirmLabel: 'Delete pod', variant: 'danger' },
+    )
+    if (!ok) return
+    setBusy(podKey(pod))
+    try {
+      await deletePod(pod.namespace, pod.name)
+      toast.success(`Deleted ${pod.name}`)
+      if (active?.key === podKey(pod)) {
+        setActive(null)
+        setMaximized(false)
+      }
+      await load(true)
+    } catch (e) {
+      toastFailure(toast, `Could not delete ${pod.name}`, e)
+    } finally {
+      setBusy(null)
+    }
+  }
+
+  const restart = async (pod: PodSummary) => {
+    const ok = await confirm(
+      `Restart pod ${pod.name}?`,
+      `The pod is deleted and its ${pod.owner_kind} schedules a fresh replacement (new name, same spec). Running sessions and in-memory state are lost.`,
+      { confirmLabel: 'Restart', variant: 'warning' },
+    )
+    if (!ok) return
+    setBusy(podKey(pod))
+    try {
+      const res = await restartPod(pod.namespace, pod.name)
+      toast.success(`Restarting ${pod.name} — ${res.owner_kind} ${res.owner} will recreate it`)
+      if (active?.key === podKey(pod)) setActive(null)
+      await load(true)
+    } catch (e) {
+      toastFailure(toast, `Could not restart ${pod.name}`, e)
+    } finally {
+      setBusy(null)
+    }
   }
 
   const startResize = (e: React.PointerEvent) => {
@@ -214,6 +299,26 @@ export default function Pods() {
             <SquareTerminal className="w-3.5 h-3.5" />
             Terminal
           </button>
+          <button
+            type="button"
+            className="console-icon-btn"
+            onClick={() => void restart(p)}
+            disabled={!canRestart(p) || busy === podKey(p)}
+            aria-label={`Restart ${p.name}`}
+            title={canRestart(p) ? 'Restart (delete and let the controller recreate it)' : 'Not controller-managed'}
+          >
+            <RotateCw className="w-4 h-4" />
+          </button>
+          <button
+            type="button"
+            className="console-icon-btn"
+            onClick={() => void removePod(p)}
+            disabled={busy === podKey(p)}
+            aria-label={`Delete ${p.name}`}
+            title="Delete pod"
+          >
+            <Trash2 className="w-4 h-4" />
+          </button>
         </div>
       ),
     },
@@ -226,7 +331,7 @@ export default function Pods() {
       <PageHeader
         eyebrow="Ops"
         title="Pods"
-        description="Every pod in the cluster. Stream colorized logs or open a shell, Terminal.app style."
+        description="Every pod in the cluster. Stream colorized logs, open a shell, inspect events and YAML — Terminal.app style."
         onRefresh={() => void load()}
         refreshing={refreshing}
       />
@@ -310,28 +415,54 @@ export default function Pods() {
           style={maximized ? { top: 'calc(var(--console-topbar-height) + 12px)' } : { height: panelHeight }}
           data-testid="pod-panel"
         >
-          <div className="flex items-center gap-2 mb-2">
-            <button
-              type="button"
-              className={`zf-chip ${active.mode === 'logs' ? 'zf-chip-active' : ''}`}
-              aria-pressed={active.mode === 'logs'}
-              onClick={() => setActive({ ...active, mode: 'logs' })}
-            >
-              <ScrollText className="w-3.5 h-3.5" /> Logs
-            </button>
-            <button
-              type="button"
-              className={`zf-chip ${active.mode === 'exec' ? 'zf-chip-active' : ''}`}
-              aria-pressed={active.mode === 'exec'}
-              onClick={() => setActive({ ...active, mode: 'exec' })}
-              disabled={activePod.phase !== 'Running'}
-            >
-              <SquareTerminal className="w-3.5 h-3.5" /> Terminal
-            </button>
-            <span className="ml-2 text-sm text-[var(--zf-secondary)] truncate">
+          <div className="flex items-center gap-2 mb-2 flex-wrap">
+            {MODES.map(({ mode, label, icon: Icon }) => (
+              <button
+                key={mode}
+                type="button"
+                className={`zf-chip ${active.mode === mode ? 'zf-chip-active' : ''}`}
+                aria-pressed={active.mode === mode}
+                onClick={() => setActive({ ...active, mode })}
+                disabled={mode === 'exec' && activePod.phase !== 'Running'}
+              >
+                <Icon className="w-3.5 h-3.5" /> {label}
+              </button>
+            ))}
+            <span className="ml-2 text-sm text-[var(--zf-secondary)] truncate min-w-0">
               {activePod.namespace}/{activePod.name}
             </span>
             <div className="ml-auto flex items-center gap-1">
+              <a
+                className="console-icon-btn"
+                href={podLogsPagePath(activePod.namespace, activePod.name, active.container)}
+                target="_blank"
+                rel="noopener"
+                aria-label="Open logs in new tab"
+                title="Open logs in new tab"
+              >
+                <ExternalLink className="w-4 h-4" />
+              </a>
+              <button
+                type="button"
+                className="console-icon-btn"
+                onClick={() => void restart(activePod)}
+                disabled={!canRestart(activePod) || busy === active.key}
+                aria-label="Restart pod"
+                title={canRestart(activePod) ? 'Restart pod' : 'Not controller-managed'}
+              >
+                <RotateCw className="w-4 h-4" />
+              </button>
+              <button
+                type="button"
+                className="console-icon-btn"
+                onClick={() => void removePod(activePod)}
+                disabled={busy === active.key}
+                aria-label="Delete pod"
+                title="Delete pod"
+              >
+                <Trash2 className="w-4 h-4" />
+              </button>
+              <span className="w-px h-5 bg-[var(--zf-hairline)] mx-1" aria-hidden />
               <button
                 type="button"
                 className="console-icon-btn"
@@ -355,7 +486,7 @@ export default function Pods() {
           </div>
           <div className="flex-1 min-h-0">
             <Suspense fallback={<div className="zf-terminal zf-terminal-pro rounded-xl h-full" />}>
-              {active.mode === 'logs' ? (
+              {active.mode === 'logs' && (
                 <PodLogs
                   namespace={activePod.namespace}
                   pod={activePod.name}
@@ -363,7 +494,8 @@ export default function Pods() {
                   container={active.container}
                   onContainerChange={(c) => setActive({ ...active, container: c })}
                 />
-              ) : (
+              )}
+              {active.mode === 'exec' && (
                 <PodExec
                   namespace={activePod.namespace}
                   pod={activePod.name}
@@ -372,6 +504,8 @@ export default function Pods() {
                   onContainerChange={(c) => setActive({ ...active, container: c })}
                 />
               )}
+              {active.mode === 'events' && <PodEvents namespace={activePod.namespace} pod={activePod.name} />}
+              {active.mode === 'yaml' && <PodYaml namespace={activePod.namespace} pod={activePod.name} />}
             </Suspense>
           </div>
           {!maximized && (
@@ -386,6 +520,17 @@ export default function Pods() {
             </div>
           )}
         </div>
+      )}
+
+      {confirmState && (
+        <ConfirmDialog
+          title={confirmState.title}
+          message={confirmState.message}
+          confirmLabel={confirmState.confirmLabel ?? 'Delete'}
+          variant={confirmState.variant ?? 'danger'}
+          onConfirm={confirmState.onConfirm}
+          onCancel={cancel}
+        />
       )}
     </div>
   )

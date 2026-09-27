@@ -1,7 +1,7 @@
 // Copyright 2026 Zyvor AI Labs · https://zyvor.dev
 // SPDX-License-Identifier: Apache-2.0
 
-import { apiGet, getToken } from './client'
+import { apiDelete, apiGet, apiPost, getToken } from './client'
 
 export interface PodContainer {
   name: string
@@ -36,6 +36,46 @@ export async function listPods(namespace?: string): Promise<PodSummary[]> {
 export async function listNamespaces(): Promise<string[]> {
   const res = await apiGet<{ namespaces: string[] }>('/api/v1/namespaces')
   return res.namespaces ?? []
+}
+
+export interface PodEvent {
+  type: string
+  reason: string
+  message: string
+  count: number
+  source: string
+  first_seen: string | null
+  last_seen: string | null
+}
+
+const podPath = (namespace: string, pod: string) =>
+  `/api/v1/pods/${encodeURIComponent(namespace)}/${encodeURIComponent(pod)}`
+
+export function deletePod(namespace: string, pod: string, opts: { force?: boolean } = {}): Promise<void> {
+  return apiDelete(`${podPath(namespace, pod)}${opts.force ? '?grace=0' : ''}`)
+}
+
+export function restartPod(
+  namespace: string,
+  pod: string,
+): Promise<{ restarted: boolean; owner_kind: string; owner: string }> {
+  return apiPost(`${podPath(namespace, pod)}/restart`)
+}
+
+export async function podEvents(namespace: string, pod: string): Promise<PodEvent[]> {
+  const res = await apiGet<{ events: PodEvent[] }>(`${podPath(namespace, pod)}/events`)
+  return res.events ?? []
+}
+
+export async function podYaml(namespace: string, pod: string): Promise<string> {
+  const res = await apiGet<{ yaml: string }>(`${podPath(namespace, pod)}/yaml`)
+  return res.yaml ?? ''
+}
+
+/** SPA route for a full-window log view (opened in a new tab). */
+export function podLogsPagePath(namespace: string, pod: string, container?: string): string {
+  const base = `/app/pods/${encodeURIComponent(namespace)}/${encodeURIComponent(pod)}/logs`
+  return container ? `${base}?container=${encodeURIComponent(container)}` : base
 }
 
 /** Absolute ws(s):// URL for a `/ws/...` path, with the session token attached. */
