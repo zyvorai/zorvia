@@ -56,6 +56,7 @@ const Webhooks = lazy(() => import('./pages/Webhooks'))
 const Alerts = lazy(() => import('./pages/Alerts'))
 const WarmPools = lazy(() => import('./pages/WarmPools'))
 const AccessControl = lazy(() => import('./pages/AccessControl'))
+const Pods = lazy(() => import('./pages/Pods'))
 
 function ProtectedRoute({ children }: { children: ReactNode }) {
   const { isAuthenticated, loading } = useAuth()
@@ -139,6 +140,7 @@ function ConsoleRoutes() {
             <Route path="batch-import" element={<BatchImport />} />
             <Route path="windows" element={<KrytonWindows />} />
             <Route path="access-control" element={<AdminRoute><AccessControl /></AdminRoute>} />
+            <Route path="pods" element={<AdminRoute><Pods /></AdminRoute>} />
             <Route path="*" element={<Navigate to="/app" replace />} />
           </Routes>
         </Suspense>

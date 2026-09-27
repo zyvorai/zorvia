@@ -31,6 +31,8 @@ fn action_str(a: &crate::audit_trail::AuditAction) -> &'static str {
         Approve => "approve",
         Reject => "reject",
         ScheduleChange => "schedule_change",
+        Exec => "exec",
+        ViewLogs => "view_logs",
     }
 }
 

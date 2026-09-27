@@ -124,6 +124,11 @@ pub fn required_permission(method: &str, path: &str) -> Option<ApiPermission> {
         return Some(ApiPermission::UsersAdmin);
     }
 
+    // Cluster-wide pod inventory, logs and exec are admin-only even on GET
+    if path.starts_with("/v1/pods") || path.starts_with("/v1/namespaces") {
+        return Some(ApiPermission::ClusterAdmin);
+    }
+
     if method == "GET" || method == "HEAD" {
         return None;
     }
@@ -266,5 +271,24 @@ mod tests {
             Some(ApiPermission::StorageAdmin)
         );
         assert_eq!(required_permission("GET", "/vms"), None);
+    }
+
+    #[test]
+    fn pods_and_namespaces_require_cluster_admin() {
+        for (method, path) in [
+            ("GET", "/v1/pods"),
+            ("GET", "/v1/pods/"),
+            ("GET", "/v1/pods?namespace=kube-system"),
+            ("POST", "/v1/pods/default/web/exec"),
+            ("GET", "/v1/namespaces"),
+        ] {
+            assert_eq!(
+                required_permission(method, path),
+                Some(ApiPermission::ClusterAdmin),
+                "{method} {path}"
+            );
+        }
+        assert!(!role_has_permission(&Role::User, ApiPermission::ClusterAdmin));
+        assert!(!role_has_permission(&Role::Viewer, ApiPermission::ClusterAdmin));
     }
 }

@@ -38,6 +38,7 @@ import {
   Webhook,
   Bell,
   Layers3,
+  Boxes,
 } from 'lucide-react'
 
 export interface NavItem {
@@ -92,6 +93,7 @@ function dedupeNavPaths(items: NavItem[]): NavItem[] {
 export const TOP_DIRECT_LINKS: NavItem[] = [
   { label: 'Dashboard', path: '/app', icon: Home, blurb: 'Cluster overview and recent activity.' },
   { label: 'Virtual Machines', path: '/app/vms', icon: Server, blurb: 'List, start, stop, and manage VMs.' },
+  { label: 'Pods', path: '/app/pods', icon: Boxes, blurb: 'Logs and shell for every pod.', adminOnly: true },
 ]
 
 /** Mega-menu groups — Netra-style top nav (no sidebar). */

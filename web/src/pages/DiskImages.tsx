@@ -2,11 +2,11 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { useState, useEffect, useMemo } from 'react'
-import { Search, HardDrive } from 'lucide-react'
 import { apiFetch } from '../api/client'
 import ErrorBanner from '../components/ErrorBanner'
-import { PageHeader, Card, CardBody, EmptyState, DataTable, type DataTableColumn } from '../components/ui'
-import { SkeletonCard, SkeletonTable } from '../components/Skeleton'
+import { AppleTerminalFrame } from '../components/AppleTerminalFrame'
+import { PageHeader, Card, CardBody } from '../components/ui'
+import { SkeletonCard } from '../components/Skeleton'
 import { formatUserError } from '../utils/apiError'
 import { toastFailure } from '../utils/toastError'
 import { hintsForError } from '../utils/daemonHints'
@@ -21,7 +21,38 @@ function formatBytes(bytes: number): string {
   return `${(bytes / Math.pow(1024, i)).toFixed(1)} ${units[i]}`
 }
 
-const formatBadge = 'text-[var(--zf-muted)] bg-[var(--zf-canvas)] border-[var(--zf-hairline)]'
+/** Terminal.app ANSI-ish palette per image format. */
+const FORMAT_COLOR: Record<string, string> = {
+  blank: '#eaec23',
+  containerdisk: '#14f0f0',
+  qcow2: '#f935f8',
+  raw: '#ff9f0a',
+  iso: '#31e722',
+  vmdk: '#5ac8fa',
+  vhd: '#5ac8fa',
+  vhdx: '#5ac8fa',
+}
+
+function formatColor(format: string): string {
+  return FORMAT_COLOR[format.toLowerCase()] ?? '#cbcccd'
+}
+
+/** Registry refs and URLs read as links; `blank:` sizes stay plain. */
+function pathColor(path: string): string {
+  if (path.startsWith('blank:')) return '#818383'
+  if (/^(https?:\/\/|[\w.-]+\.[a-z]{2,}(:\d+)?\/)/i.test(path)) return '#64d2ff'
+  return '#31e722'
+}
+
+function splitRef(path: string): [string, string] {
+  const i = path.lastIndexOf(':')
+  if (i <= 0 || path.startsWith('blank:') || path.slice(i).includes('/')) return [path, '']
+  return [path.slice(0, i), path.slice(i)]
+}
+
+const PROMPT_USER = '#31e722'
+const PROMPT_PATH = '#5ac8fa'
+const DIM = '#818383'
 
 export default function DiskImages() {
   const toast = useToastContext()
@@ -55,37 +86,22 @@ export default function DiskImages() {
 
   const totalSize = images.reduce((sum, img) => sum + (img.size_bytes || 0), 0)
   const toggleSelect = (path: string) => setSelected(prev => { const next = new Set(prev); if (next.has(path)) next.delete(path); else next.add(path); return next })
+  const allSelected = filtered.length > 0 && filtered.every((img) => selected.has(img.path))
+  const toggleAll = () =>
+    setSelected((prev) => {
+      const next = new Set(prev)
+      filtered.forEach((img) => (allSelected ? next.delete(img.path) : next.add(img.path)))
+      return next
+    })
 
-  const imageColumns: DataTableColumn<DiskImage>[] = [
-    { key: 'name', header: 'Name', render: (img) => <span className="text-[var(--zf-ink)] font-medium">{img.name}</span> },
-    {
-      key: 'format',
-      header: 'Format',
-      render: (img) => <span className={`px-2 py-0.5 rounded-full text-xs font-medium border ${formatBadge}`}>{img.format}</span>,
-    },
-    { key: 'size', header: 'Size', render: (img) => <span className="text-[var(--zf-ink)] font-mono text-xs">{formatBytes(img.size_bytes)}</span> },
-    {
-      key: 'path',
-      header: 'Path',
-      render: (img) => (
-        <span className="text-[var(--zf-muted)] text-xs font-mono truncate block max-w-[250px]" title={img.path}>
-          {img.path}
-        </span>
-      ),
-    },
-  ]
-
-  if (loading) {
-    return (
-      <div className="space-y-6">
-        <PageHeader title="Disk Images" description="Browse and manage VM disk images" />
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-          {Array.from({ length: 4 }).map((_, i) => <SkeletonCard key={i} />)}
-        </div>
-        <SkeletonTable rows={5} cols={5} />
-      </div>
-    )
-  }
+  const prompt = (
+    <>
+      <span style={{ color: PROMPT_USER }}>zorvia@images</span>
+      <span style={{ color: DIM }}>:</span>
+      <span style={{ color: PROMPT_PATH }}>~</span>
+      <span style={{ color: DIM }}>$ </span>
+    </>
+  )
 
   return (
     <div className="space-y-6">
@@ -106,43 +122,114 @@ export default function DiskImages() {
       )}
 
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-        <Card><CardBody className="px-4 py-3"><div className="text-2xl font-bold text-[var(--zf-ink)]">{images.length}</div><div className="text-xs text-[var(--zf-muted)] mt-1">Total Images</div></CardBody></Card>
-        <Card><CardBody className="px-4 py-3"><div className="text-2xl font-bold text-[var(--zf-ink)]">{formatBytes(totalSize)}</div><div className="text-xs text-[var(--zf-muted)] mt-1">Total Size</div></CardBody></Card>
-        <Card><CardBody className="px-4 py-3"><div className="text-2xl font-bold text-[var(--zf-ink)]">{new Set(images.map(i => i.format)).size}</div><div className="text-xs text-[var(--zf-muted)] mt-1">Formats</div></CardBody></Card>
-        <Card><CardBody className="px-4 py-3"><div className="text-2xl font-bold text-[var(--zf-ink)]">{selected.size}</div><div className="text-xs text-[var(--zf-muted)] mt-1">Selected</div></CardBody></Card>
+        {loading ? (
+          Array.from({ length: 4 }).map((_, i) => <SkeletonCard key={i} />)
+        ) : (
+          <>
+            <Card><CardBody className="px-4 py-3"><div className="text-2xl font-bold text-[var(--zf-ink)]">{images.length}</div><div className="text-xs text-[var(--zf-muted)] mt-1">Total Images</div></CardBody></Card>
+            <Card><CardBody className="px-4 py-3"><div className="text-2xl font-bold text-[var(--zf-ink)]">{formatBytes(totalSize)}</div><div className="text-xs text-[var(--zf-muted)] mt-1">Total Size</div></CardBody></Card>
+            <Card><CardBody className="px-4 py-3"><div className="text-2xl font-bold text-[var(--zf-ink)]">{new Set(images.map(i => i.format)).size}</div><div className="text-xs text-[var(--zf-muted)] mt-1">Formats</div></CardBody></Card>
+            <Card><CardBody className="px-4 py-3"><div className="text-2xl font-bold text-[var(--zf-ink)]">{selected.size}</div><div className="text-xs text-[var(--zf-muted)] mt-1">Selected</div></CardBody></Card>
+          </>
+        )}
       </div>
 
-      <div className="relative">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[var(--zf-muted)]" />
-        <input type="text" value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search by name, format, or path..." aria-label="Search disk images"
-          className="input-field pl-10" />
-      </div>
-
-      <Card className="overflow-hidden">
-        <DataTable
-          columns={imageColumns}
-          rows={filtered}
-          getRowKey={(img) => img.path}
-          bordered={false}
-          selectedKeys={selected}
-          onToggleRow={toggleSelect}
-          onToggleAll={() => {
-            const allSelected = filtered.length > 0 && filtered.every((img) => selected.has(img.path))
-            setSelected((prev) => {
-              const next = new Set(prev)
-              filtered.forEach((img) => (allSelected ? next.delete(img.path) : next.add(img.path)))
-              return next
-            })
-          }}
-          onRowClick={(img) => toggleSelect(img.path)}
-          emptyState={
-            <EmptyState
-              icon={<HardDrive className="w-10 h-10" />}
-              title={images.length === 0 ? 'No disk images found' : 'No images match your search'}
+      <AppleTerminalFrame
+        title="images — zorvia — zsh"
+        className="zf-terminal-pro"
+        bodyClassName="max-h-[70vh] overflow-auto px-4 py-3"
+        trailing={
+          <div className="flex items-center gap-1.5 shrink-0">
+            <input
+              type="text"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="grep…"
+              aria-label="Search disk images"
+              className="zf-term-btn zf-term-input w-44"
             />
-          }
-        />
-      </Card>
+            <button type="button" className={`zf-term-btn${allSelected ? ' is-on' : ''}`} onClick={toggleAll} disabled={filtered.length === 0}>
+              {allSelected ? 'none' : 'all'}
+            </button>
+          </div>
+        }
+      >
+        <div className="whitespace-pre text-[#f2f2f2]" data-testid="disk-images-terminal">
+          <div>
+            {prompt}
+            <span>zorvia images ls -l</span>
+            {search && (
+              <>
+                <span style={{ color: DIM }}> | </span>
+                <span>grep -i </span>
+                <span style={{ color: '#eaec23' }}>{JSON.stringify(search)}</span>
+              </>
+            )}
+          </div>
+
+          {loading ? (
+            <div style={{ color: DIM }}>Loading images…<span className="zf-term-caret" /></div>
+          ) : filtered.length === 0 ? (
+            <div style={{ color: DIM }}>
+              {images.length === 0 ? 'total 0 — no disk images found' : 'grep: no images match'}
+            </div>
+          ) : (
+            <>
+              <div style={{ color: DIM }}>
+                total {filtered.length} · {formatBytes(filtered.reduce((s, i) => s + (i.size_bytes || 0), 0))}
+                {selected.size > 0 && ` · ${selected.size} selected`}
+              </div>
+              <table className="zf-ls mt-1 border-collapse">
+                <thead>
+                  <tr style={{ color: DIM }}>
+                    <th className="w-5" aria-label="Selected" />
+                    <th>NAME</th>
+                    <th>FORMAT</th>
+                    <th className="text-right">SIZE</th>
+                    <th>SOURCE</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {filtered.map((img) => {
+                    const on = selected.has(img.path)
+                    const [ref, tag] = splitRef(img.path)
+                    return (
+                      <tr
+                        key={img.path}
+                        className={on ? 'is-on' : undefined}
+                        tabIndex={0}
+                        aria-selected={on}
+                        onClick={() => toggleSelect(img.path)}
+                        onKeyDown={(e) => {
+                          if (e.key === ' ' || e.key === 'Enter') { e.preventDefault(); toggleSelect(img.path) }
+                        }}
+                      >
+                        <td style={{ color: on ? '#31e722' : '#4a4a4c' }}>{on ? '●' : '○'}</td>
+                        <td className="font-semibold text-white">{img.name}</td>
+                        <td style={{ color: formatColor(img.format) }}>{img.format}</td>
+                        <td className="text-right" style={{ color: img.size_bytes ? '#f935f8' : DIM }}>
+                          {img.size_bytes ? formatBytes(img.size_bytes) : '—'}
+                        </td>
+                        <td title={img.path}>
+                          <span style={{ color: pathColor(img.path) }}>{ref}</span>
+                          {tag && <span style={{ color: '#eaec23' }}>{tag}</span>}
+                        </td>
+                      </tr>
+                    )
+                  })}
+                </tbody>
+              </table>
+            </>
+          )}
+
+          {!loading && (
+            <div className="mt-1">
+              {prompt}
+              <span className="zf-term-caret" />
+            </div>
+          )}
+        </div>
+      </AppleTerminalFrame>
     </div>
   )
 }

@@ -67,6 +67,8 @@ pub enum AuditAction {
     Approve,
     Reject,
     ScheduleChange,
+    Exec,
+    ViewLogs,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, PartialOrd)]
@@ -262,7 +264,7 @@ impl AuditTrail {
         success: bool,
     ) {
         let severity = match &action {
-            AuditAction::Delete | AuditAction::Migrate => AuditSeverity::High,
+            AuditAction::Delete | AuditAction::Migrate | AuditAction::Exec => AuditSeverity::High,
             AuditAction::Create | AuditAction::Update | AuditAction::ConfigChange => {
                 AuditSeverity::Medium
             }
@@ -381,6 +383,8 @@ fn action_to_str(a: &AuditAction) -> &'static str {
         AuditAction::Approve => "Approve",
         AuditAction::Reject => "Reject",
         AuditAction::ScheduleChange => "ScheduleChange",
+        AuditAction::Exec => "Exec",
+        AuditAction::ViewLogs => "ViewLogs",
     }
 }
 
@@ -407,6 +411,8 @@ fn action_from_str(s: &str) -> AuditAction {
         "Approve" => AuditAction::Approve,
         "Reject" => AuditAction::Reject,
         "ScheduleChange" => AuditAction::ScheduleChange,
+        "Exec" => AuditAction::Exec,
+        "ViewLogs" => AuditAction::ViewLogs,
         _ => AuditAction::Update,
     }
 }

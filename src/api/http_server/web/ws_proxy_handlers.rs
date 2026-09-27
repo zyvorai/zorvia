@@ -40,6 +40,32 @@ fn authorize(state: &WebState, token: Option<&str>) -> bool {
     state.auth.resolve_credential(token).is_some()
 }
 
+/// Resolve a `?token=` credential and require `required`, mirroring
+/// `auth_middleware` (JWT role or API-token scopes). `/ws/*` sits outside the
+/// `/api` RBAC layer, so privileged sockets must call this before upgrading.
+pub(crate) fn authorize_permission(
+    state: &WebState,
+    token: Option<&str>,
+    required: crate::api::auth::permissions::ApiPermission,
+) -> Result<crate::api::auth::AuthIdentity, Box<axum::response::Response>> {
+    let Some(identity) = token
+        .filter(|t| !t.is_empty())
+        .and_then(|t| state.auth.resolve_credential(t))
+    else {
+        let (st, j) = err_json(401, "UNAUTHORIZED", "Missing or invalid token");
+        return Err(Box::new((st, j).into_response()));
+    };
+    if !identity.has_permission(required) {
+        let (st, j) = err_json(
+            403,
+            "FORBIDDEN",
+            &format!("Missing permission: {}", required.as_str()),
+        );
+        return Err(Box::new((st, j).into_response()));
+    }
+    Ok(identity)
+}
+
 /// TLS connector that trusts the Kubernetes API server CA from kubeconfig / in-cluster config.
 fn kube_tls_connector(config: &kube::Config) -> anyhow::Result<tokio_tungstenite::Connector> {
     let mut builder = native_tls::TlsConnector::builder();

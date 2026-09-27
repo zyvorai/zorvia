@@ -31,6 +31,13 @@ rules:
   - apiGroups: [""]
     resources: ["namespaces", "persistentvolumeclaims", "pods", "events"]
     verbs: ["get", "list", "watch"]
+  # Pods page (cluster.admin only in the API): streaming logs and interactive shell.
+  - apiGroups: [""]
+    resources: ["pods/log"]
+    verbs: ["get"]
+  - apiGroups: [""]
+    resources: ["pods/exec"]
+    verbs: ["create", "get"]
   # Quotas feature: real ResourceQuota objects.
   - apiGroups: [""]
     resources: ["resourcequotas"]

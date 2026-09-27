@@ -41,6 +41,10 @@ pub mod web {
     mod ws_proxy_handlers;
     use ws_proxy_handlers::{ws_console, ws_ssh, ws_vnc};
 
+    #[path = "pod_handlers.rs"]
+    mod pod_handlers;
+    use pod_handlers::{list_namespaces_handler, list_pods_handler, ws_pod_exec, ws_pod_logs};
+
     #[path = "hotplug_handlers.rs"]
     mod hotplug_handlers;
     use hotplug_handlers::*;
@@ -800,6 +804,8 @@ pub mod web {
                 get(list_quotas_handler).post(create_quota_handler),
             )
             .route("/v1/quotas/{ns}/{name}", delete(delete_quota_handler))
+            .route("/v1/pods", get(list_pods_handler))
+            .route("/v1/namespaces", get(list_namespaces_handler))
             // Kryton Windows control plane (server-side token; Zorvia auth at edge)
             .route("/v1/kryton/status", get(kryton_status))
             .route("/v1/kryton/capabilities", get(kryton_capabilities))
@@ -874,6 +880,8 @@ pub mod web {
             .route("/ws/console/{name}", get(ws_console))
             .route("/ws/vnc/{name}", get(ws_vnc))
             .route("/ws/ssh/{name}", get(ws_ssh))
+            .route("/ws/pods/{ns}/{name}/logs", get(ws_pod_logs))
+            .route("/ws/pods/{ns}/{name}/exec", get(ws_pod_exec))
             .nest("/api", api)
             .fallback_service(spa)
             .layer(middleware::from_fn(security_headers_middleware))
