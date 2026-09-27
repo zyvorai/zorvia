@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 use super::{SharedAuditTrail, SharedState};
-use crate::atlas::models::CreateVolumeRequest;
+use crate::atlas::models::{CloneRbdImageRequest, CreateRbdImageRequest, CreateVolumeRequest};
 use crate::atlas::{Client, Error as AtlasError};
 use axum::{
     extract::{Path, Query, State},
@@ -707,6 +707,308 @@ pub(super) async fn atlas_osd_reweight(
         crate::audit_trail::AuditAction::Update,
         "atlas_osd",
         &osd_id.to_string(),
+        result,
+    )
+    .await
+}
+
+// ── RBD images -- separate identity space (rbd:<pool>/<image>) from the
+// StorageVolume abstraction the volume handlers above use. ──
+
+fn rbd_resource_name(pool: &str, image: &str) -> String {
+    format!("{pool}/{image}")
+}
+
+#[derive(Debug, Deserialize)]
+pub(super) struct RbdListQuery {
+    pool: Option<String>,
+}
+
+pub(super) async fn atlas_list_rbd_images(
+    State(state): State<SharedState>,
+    Query(query): Query<RbdListQuery>,
+) -> Response {
+    let c = match client(&state).await {
+        Ok(v) => v,
+        Err(r) => return *r,
+    };
+    match c.list_rbd_images(query.pool.as_deref()).await {
+        Ok(v) => Json(v).into_response(),
+        Err(e) => error_response(e),
+    }
+}
+
+pub(super) async fn atlas_create_rbd_image(
+    State(state): State<SharedState>,
+    auth: Option<axum::Extension<crate::api::auth::AuthIdentity>>,
+    Json(body): Json<CreateRbdImageRequest>,
+) -> Response {
+    let (c, audit) = match write_client(&state).await {
+        Ok(v) => v,
+        Err(r) => return *r,
+    };
+    let name = rbd_resource_name(body.pool.as_deref().unwrap_or("-"), &body.name);
+    let result = c.create_rbd_image(body).await;
+    finish_write(
+        &audit,
+        &caller(&auth),
+        crate::audit_trail::AuditAction::Create,
+        "atlas_rbd_image",
+        &name,
+        result,
+    )
+    .await
+}
+
+pub(super) async fn atlas_delete_rbd_image(
+    State(state): State<SharedState>,
+    Path((pool, image)): Path<(String, String)>,
+    auth: Option<axum::Extension<crate::api::auth::AuthIdentity>>,
+) -> Response {
+    let (c, audit) = match write_client(&state).await {
+        Ok(v) => v,
+        Err(r) => return *r,
+    };
+    let result = c.delete_rbd_image(&pool, &image).await;
+    finish_write(
+        &audit,
+        &caller(&auth),
+        crate::audit_trail::AuditAction::Delete,
+        "atlas_rbd_image",
+        &rbd_resource_name(&pool, &image),
+        result,
+    )
+    .await
+}
+
+pub(super) async fn atlas_clone_rbd_image(
+    State(state): State<SharedState>,
+    Path((pool, image)): Path<(String, String)>,
+    auth: Option<axum::Extension<crate::api::auth::AuthIdentity>>,
+    Json(body): Json<CloneRbdImageRequest>,
+) -> Response {
+    let (c, audit) = match write_client(&state).await {
+        Ok(v) => v,
+        Err(r) => return *r,
+    };
+    let result = c.clone_rbd_image(&pool, &image, body).await;
+    finish_write(
+        &audit,
+        &caller(&auth),
+        crate::audit_trail::AuditAction::Clone,
+        "atlas_rbd_image",
+        &rbd_resource_name(&pool, &image),
+        result,
+    )
+    .await
+}
+
+#[derive(Debug, Deserialize)]
+pub(super) struct ResizeRbdImageBody {
+    size_bytes: i64,
+    #[serde(default)]
+    allow_shrink: bool,
+}
+
+pub(super) async fn atlas_resize_rbd_image(
+    State(state): State<SharedState>,
+    Path((pool, image)): Path<(String, String)>,
+    auth: Option<axum::Extension<crate::api::auth::AuthIdentity>>,
+    Json(body): Json<ResizeRbdImageBody>,
+) -> Response {
+    let (c, audit) = match write_client(&state).await {
+        Ok(v) => v,
+        Err(r) => return *r,
+    };
+    let result = c
+        .resize_rbd_image(&pool, &image, body.size_bytes, body.allow_shrink)
+        .await;
+    finish_write(
+        &audit,
+        &caller(&auth),
+        crate::audit_trail::AuditAction::ScaleUp,
+        "atlas_rbd_image",
+        &rbd_resource_name(&pool, &image),
+        result,
+    )
+    .await
+}
+
+#[derive(Debug, Deserialize)]
+pub(super) struct MigrateRbdImageQuery {
+    dest_pool: String,
+}
+
+pub(super) async fn atlas_migrate_rbd_image(
+    State(state): State<SharedState>,
+    Path((pool, image)): Path<(String, String)>,
+    Query(query): Query<MigrateRbdImageQuery>,
+    auth: Option<axum::Extension<crate::api::auth::AuthIdentity>>,
+) -> Response {
+    let (c, audit) = match write_client(&state).await {
+        Ok(v) => v,
+        Err(r) => return *r,
+    };
+    let result = c.migrate_rbd_image(&pool, &image, &query.dest_pool).await;
+    finish_write(
+        &audit,
+        &caller(&auth),
+        crate::audit_trail::AuditAction::Migrate,
+        "atlas_rbd_image",
+        &rbd_resource_name(&pool, &image),
+        result,
+    )
+    .await
+}
+
+pub(super) async fn atlas_flatten_rbd_image(
+    State(state): State<SharedState>,
+    Path((pool, image)): Path<(String, String)>,
+    auth: Option<axum::Extension<crate::api::auth::AuthIdentity>>,
+) -> Response {
+    let (c, audit) = match write_client(&state).await {
+        Ok(v) => v,
+        Err(r) => return *r,
+    };
+    let result = c.flatten_rbd_image(&pool, &image).await;
+    finish_write(
+        &audit,
+        &caller(&auth),
+        crate::audit_trail::AuditAction::Update,
+        "atlas_rbd_image",
+        &rbd_resource_name(&pool, &image),
+        result,
+    )
+    .await
+}
+
+#[derive(Debug, Deserialize)]
+pub(super) struct QosRbdImageQuery {
+    iops: Option<i64>,
+    bps: Option<i64>,
+}
+
+pub(super) async fn atlas_qos_rbd_image(
+    State(state): State<SharedState>,
+    Path((pool, image)): Path<(String, String)>,
+    Query(query): Query<QosRbdImageQuery>,
+    auth: Option<axum::Extension<crate::api::auth::AuthIdentity>>,
+) -> Response {
+    let (c, audit) = match write_client(&state).await {
+        Ok(v) => v,
+        Err(r) => return *r,
+    };
+    let result = c.qos_rbd_image(&pool, &image, query.iops, query.bps).await;
+    finish_write(
+        &audit,
+        &caller(&auth),
+        crate::audit_trail::AuditAction::ConfigChange,
+        "atlas_rbd_image",
+        &rbd_resource_name(&pool, &image),
+        result,
+    )
+    .await
+}
+
+pub(super) async fn atlas_list_rbd_snapshots(
+    State(state): State<SharedState>,
+    Path((pool, image)): Path<(String, String)>,
+) -> Response {
+    let c = match client(&state).await {
+        Ok(v) => v,
+        Err(r) => return *r,
+    };
+    match c.list_rbd_snapshots(&pool, &image).await {
+        Ok(v) => Json(v).into_response(),
+        Err(e) => error_response(e),
+    }
+}
+
+#[derive(Debug, Deserialize)]
+pub(super) struct RbdSnapshotBody {
+    name: String,
+}
+
+pub(super) async fn atlas_create_rbd_snapshot(
+    State(state): State<SharedState>,
+    Path((pool, image)): Path<(String, String)>,
+    auth: Option<axum::Extension<crate::api::auth::AuthIdentity>>,
+    Json(body): Json<RbdSnapshotBody>,
+) -> Response {
+    let (c, audit) = match write_client(&state).await {
+        Ok(v) => v,
+        Err(r) => return *r,
+    };
+    let result = c.create_rbd_snapshot(&pool, &image, &body.name).await;
+    finish_write(
+        &audit,
+        &caller(&auth),
+        crate::audit_trail::AuditAction::Snapshot,
+        "atlas_rbd_image",
+        &rbd_resource_name(&pool, &image),
+        result,
+    )
+    .await
+}
+
+pub(super) async fn atlas_rollback_rbd_image(
+    State(state): State<SharedState>,
+    Path((pool, image)): Path<(String, String)>,
+    auth: Option<axum::Extension<crate::api::auth::AuthIdentity>>,
+    Json(body): Json<RbdSnapshotBody>,
+) -> Response {
+    let (c, audit) = match write_client(&state).await {
+        Ok(v) => v,
+        Err(r) => return *r,
+    };
+    let result = c.rollback_rbd_image(&pool, &image, &body.name).await;
+    finish_write(
+        &audit,
+        &caller(&auth),
+        crate::audit_trail::AuditAction::Restore,
+        "atlas_rbd_image",
+        &rbd_resource_name(&pool, &image),
+        result,
+    )
+    .await
+}
+
+pub(super) async fn atlas_delete_rbd_snapshot(
+    State(state): State<SharedState>,
+    Path((pool, image, snap)): Path<(String, String, String)>,
+    auth: Option<axum::Extension<crate::api::auth::AuthIdentity>>,
+) -> Response {
+    let (c, audit) = match write_client(&state).await {
+        Ok(v) => v,
+        Err(r) => return *r,
+    };
+    let result = c.delete_rbd_snapshot(&pool, &image, &snap).await;
+    finish_write(
+        &audit,
+        &caller(&auth),
+        crate::audit_trail::AuditAction::Delete,
+        "atlas_rbd_snapshot",
+        &format!("{}/{}", rbd_resource_name(&pool, &image), snap),
+        result,
+    )
+    .await
+}
+
+pub(super) async fn atlas_refresh_rbd_usage(
+    State(state): State<SharedState>,
+    auth: Option<axum::Extension<crate::api::auth::AuthIdentity>>,
+) -> Response {
+    let (c, audit) = match write_client(&state).await {
+        Ok(v) => v,
+        Err(r) => return *r,
+    };
+    let result = c.refresh_rbd_usage().await;
+    finish_write(
+        &audit,
+        &caller(&auth),
+        crate::audit_trail::AuditAction::Update,
+        "atlas_rbd_usage",
+        "refresh",
         result,
     )
     .await

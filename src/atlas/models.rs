@@ -90,6 +90,31 @@ pub struct CreateBackendRequest {
     pub targets: Option<Vec<String>>,
 }
 
+/// `POST /rbd-images` request. A raw RBD image is a *separate identity
+/// space* (`rbd:<pool>/<image>`) from the `StorageVolume` abstraction the
+/// volume routes use -- not the same resource, don't conflate them.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CreateRbdImageRequest {
+    pub name: String,
+    pub size_bytes: i64,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub pool: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub tenant_id: Option<String>,
+}
+
+/// `POST /rbd-images/{pool}/{image}/clone` request.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CloneRbdImageRequest {
+    pub name: String,
+    /// Snapshot name to create + protect on the parent; Atlas defaults this
+    /// to `<clone>-base` when omitted.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub snap: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub tenant_id: Option<String>,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct StorageClassInfo {
     pub name: String,
