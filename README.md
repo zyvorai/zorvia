@@ -227,9 +227,11 @@ Two dozen capabilities, grouped by the job they do — not one wall of a table.
 ### Bring your own infrastructure
 - Distributed storage: Rook-Ceph pools, filesystems, and object stores, plus
   StorageClass provisioning (`/app/storage`).
-- Optional pluggable storage control plane via Atlas (`ATLAS_URL`) — Ceph/NFS/ZFS
-  backends, capacity overview, and volume provisioning alongside Rook-Ceph
-  (`/app/storage`).
+- Optional pluggable storage control plane via Atlas (`ATLAS_URL`) — backend/
+  RBD/object-store lifecycle, disaster recovery, AI-assisted insights,
+  governance, and cloud-to-edge DB migration (its own `/app/databridge`
+  page), alongside Rook-Ceph on `/app/storage`
+  ([docs/ATLAS_INTEGRATION.md](docs/ATLAS_INTEGRATION.md)).
 - GitOps: a Terraform scaffold and module over the Fabric API.
 
 No OpenShift tax. Same `VirtualMachine` objects, whether you're at a
@@ -393,7 +395,8 @@ map lives in [docs/WEB_CONSOLE.md](docs/WEB_CONSOLE.md).
 | `/app/vms/:name` | Power, expose, cloud-init, snapshots, hotplug, resize |
 | `/app/vms/:name/console` | Serial · VNC · SSH |
 | `/app/snapshots` · `/app/migrations` | Snapshots · live migration |
-| `/app/storage` · `/app/volumes` | Rook-Ceph · fleet PVCs |
+| `/app/storage` · `/app/volumes` | Rook-Ceph · fleet PVCs · optional Atlas backend/RBD/object-store/DR/governance |
+| `/app/databridge` | Atlas DataBridge: cloud-to-edge DB migration (optional) — [docs/ATLAS_INTEGRATION.md](docs/ATLAS_INTEGRATION.md) |
 | `/app/access-control` | Users & roles (admin) |
 | `/app/pods` | Every pod: Terminal.app-style live logs, shell, events, YAML, restart/delete (admin) — [docs/PODS.md](docs/PODS.md) |
 | `/app/disk-images` | Image catalog as a black Terminal.app listing (`zorvia images` on the CLI) |
