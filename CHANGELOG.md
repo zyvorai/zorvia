@@ -13,6 +13,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **VM serial console input** — keystrokes never reached the guest: xterm.js sends text WebSocket frames and KubeVirt's console only reads binary ones. The proxy now forwards text as binary, so Enter brings up the `login:` prompt.
 - **Disk Images prompt** — shows the real `zorvia images` command instead of a non-existent `zorvia images ls -l`.
 - **Repo hygiene** — `.gitignore` covers `web/test-results/`, `web/playwright-report/` and `.cursor/*.log`.
 - **Top-nav admin gating** — direct top-nav links now honor `adminOnly` (previously only mega-menu items were filtered).
@@ -20,6 +21,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Pods RBAC self-check** — `GET /api/v1/pods/capabilities` (SelfSubjectAccessReview for `pods/log`, `pods/exec`, `pods` delete); the Pods page greys out actions whose ClusterRole rule is missing and shows a notice naming it, instead of failing on click after an upgrade.
 - **Pods page extras** — **Events** and **YAML** panels (Terminal.app black; events colored by type with `×N` repeats, YAML syntax-colored with line numbers, copy/download), **Restart** (controller-owned pods only — `virt-launcher`/Job pods refused with 409) and **Delete** with confirmation, and **logs in a new tab** at `/app/pods/:ns/:name/logs`. New `DELETE /api/v1/pods/{ns}/{pod}`, `POST …/restart`, `GET …/events`, `GET …/yaml` (all `cluster.admin`, audited). RBAC adds `pods` delete.
 - **`zorvia images` CLI** — lists the same disk image catalog as `GET /api/images` / `/app/disk-images` (`-o table|json|yaml`); catalog now shared via `kube::catalog::disk_image_catalog()`.
 - **Terminal.app look everywhere** — VM serial console and in-browser SSH use the black Terminal.app profile (fit-to-window, copy-on-select, title-bar reconnect); Event Stream renders in a black terminal with filter/pause/clear in the title bar.

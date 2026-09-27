@@ -33,7 +33,16 @@ impl CdiPvcCloneSpec {
 pub fn data_volume_clone_manifest(spec: &CdiPvcCloneSpec) -> Result<Value> {
     spec.validate()?;
     let mut storage = json!({
-        "resources": { "requests": { "storage": spec.size } }
+        "resources": { "requests": { "storage": spec.size } },
+        // Same fix as golden_images::mod.rs's data_volume_manifest: CDI can
+        // normally infer this from the target StorageClass's StorageProfile,
+        // but not every cluster has one configured (e.g. k3s's built-in
+        // "local-path" ships without a StorageProfile access mode) -- CDI
+        // then rejects the clone with ErrClaimNotValid instead of cloning,
+        // so set it explicitly rather than depending on cluster-specific
+        // setup. Confirmed against a real cluster: cloning a PVC-backed VM's
+        // disk failed with exactly this error before this was added.
+        "accessModes": ["ReadWriteOnce"]
     });
     if let Some(sc) = &spec.storage_class {
         storage["storageClassName"] = json!(sc);
@@ -125,6 +134,19 @@ mod tests {
         assert_eq!(
             dv["spec"]["storage"]["resources"]["requests"]["storage"],
             "40Gi"
+        );
+    }
+
+    #[test]
+    fn clone_manifest_sets_an_explicit_access_mode() {
+        // Regression: verified against a real cluster -- CDI rejects a clone
+        // DataVolume with ErrClaimNotValid on any StorageClass whose
+        // StorageProfile doesn't declare an access mode (e.g. k3s's built-in
+        // "local-path"), unless one is set explicitly here.
+        let dv = data_volume_clone_manifest(&spec()).unwrap();
+        assert_eq!(
+            dv["spec"]["storage"]["accessModes"],
+            serde_json::json!(["ReadWriteOnce"])
         );
     }
 

@@ -44,8 +44,8 @@ pub mod web {
     #[path = "pod_handlers.rs"]
     mod pod_handlers;
     use pod_handlers::{
-        delete_pod_handler, list_namespaces_handler, list_pods_handler, pod_events_handler,
-        pod_yaml_handler, restart_pod_handler, ws_pod_exec, ws_pod_logs,
+        delete_pod_handler, list_namespaces_handler, list_pods_handler, pod_capabilities_handler,
+        pod_events_handler, pod_yaml_handler, restart_pod_handler, ws_pod_exec, ws_pod_logs,
     };
 
     #[path = "hotplug_handlers.rs"]
@@ -549,6 +549,8 @@ pub mod web {
             .route("/images/cloud", get(fabric_list_cloud_images))
             .route("/images/downloads", get(fabric_list_downloads))
             .route("/images/cloud/download", post(fabric_start_download))
+            .route("/images/from-vm/{vm_name}", post(fabric_create_image_from_vm))
+            .route("/images/convert/{id}", get(fabric_get_convert_job))
             // Fabric-compat VM API (unwrapped JSON)
             .route("/vms", get(fabric_list_vms).post(fabric_create_vm))
             .route("/vms/{name}", get(fabric_get_vm).delete(fabric_delete_vm))
@@ -808,6 +810,7 @@ pub mod web {
             )
             .route("/v1/quotas/{ns}/{name}", delete(delete_quota_handler))
             .route("/v1/pods", get(list_pods_handler))
+            .route("/v1/pods/capabilities", get(pod_capabilities_handler))
             .route("/v1/pods/{ns}/{name}", delete(delete_pod_handler))
             .route("/v1/pods/{ns}/{name}/restart", post(restart_pod_handler))
             .route("/v1/pods/{ns}/{name}/events", get(pod_events_handler))

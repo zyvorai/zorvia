@@ -41,10 +41,6 @@ export async function listAuditLogs(filters?: AuditLogFilters): Promise<AuditLog
   return apiGet<AuditLog[]>(url)
 }
 
-export async function getAuditLog(id: string): Promise<AuditLog> {
-  return apiGet<AuditLog>(`${API_BASE}/audit/logs/${id}`)
-}
-
 export async function exportAuditLogs(filters?: AuditLogFilters, format: 'json' | 'csv' = 'json'): Promise<Blob> {
   const params = new URLSearchParams()
   if (filters) {

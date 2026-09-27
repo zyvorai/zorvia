@@ -43,7 +43,8 @@ describe('yamlLineSegments', () => {
 
 const ESC = '\x1b['
 const paint = (code: string, s: string) => `${ESC}${code}m${s}${ESC}0m`
-const strip = (s: string) => s.replace(/\x1b\[[0-9;]*m/g, '')
+const SGR = new RegExp(`${String.fromCharCode(27)}\\[[0-9;]*m`, 'g')
+const strip = (s: string) => s.replace(SGR, '')
 
 describe('colorizeLogLine', () => {
   it('never changes the visible text', () => {

@@ -22,11 +22,14 @@ import { useConfirm } from '../hooks/useConfirm'
 import { useToastContext } from '../contexts/ToastContext'
 import { toastFailure } from '../utils/toastError'
 import {
+  ALL_POD_CAPABILITIES,
   deletePod,
   listNamespaces,
   listPods,
+  podCapabilities,
   podLogsPagePath,
   restartPod,
+  type PodCapabilities,
   type PodSummary,
 } from '../api/pods'
 
@@ -83,10 +86,19 @@ function containerNames(pod: PodSummary): string[] {
 
 const podKey = (p: PodSummary) => `${p.namespace}/${p.name}`
 
+/** ClusterRole rule each capability needs — shown when the service account lacks it. */
+const MISSING_RULE: Record<keyof PodCapabilities, { rule: string; feature: string }> = {
+  logs: { rule: 'pods/log: get', feature: 'Logs' },
+  exec: { rule: 'pods/exec: create, get', feature: 'Terminal' },
+  delete: { rule: 'pods: delete', feature: 'Restart and Delete' },
+}
+const noRbac = (cap: keyof PodCapabilities) => `Zorvia's ClusterRole is missing "${MISSING_RULE[cap].rule}"`
+
 export default function Pods() {
   const toast = useToastContext()
   const { confirmState, confirm, cancel } = useConfirm()
   const [busy, setBusy] = useState<string | null>(null)
+  const [caps, setCaps] = useState<PodCapabilities>(ALL_POD_CAPABILITIES)
   const [pods, setPods] = useState<PodSummary[]>([])
   const [namespaces, setNamespaces] = useState<string[]>([])
   const [namespace, setNamespace] = useState('')
@@ -125,7 +137,12 @@ export default function Pods() {
 
   useEffect(() => {
     listNamespaces().then(setNamespaces).catch(() => setNamespaces([]))
+    podCapabilities().then(setCaps).catch(() => setCaps(ALL_POD_CAPABILITIES))
   }, [])
+
+  const missing = (Object.keys(MISSING_RULE) as (keyof PodCapabilities)[]).filter((k) => !caps[k])
+  const restartBlock = (p: PodSummary) =>
+    !caps.delete ? noRbac('delete') : !canRestart(p) ? 'Not controller-managed' : null
 
   useEffect(() => {
     if (!maximized) return
@@ -285,7 +302,13 @@ export default function Pods() {
       className: 'text-right whitespace-nowrap',
       render: (p) => (
         <div className="inline-flex gap-2" onClick={(e) => e.stopPropagation()}>
-          <button type="button" className="zf-btn zf-btn-secondary zf-btn-xs" onClick={() => open(p, 'logs')}>
+          <button
+            type="button"
+            className="zf-btn zf-btn-secondary zf-btn-xs"
+            onClick={() => open(p, 'logs')}
+            disabled={!caps.logs}
+            title={caps.logs ? 'Stream logs' : noRbac('logs')}
+          >
             <ScrollText className="w-3.5 h-3.5" />
             Logs
           </button>
@@ -293,8 +316,8 @@ export default function Pods() {
             type="button"
             className="zf-btn zf-btn-secondary zf-btn-xs"
             onClick={() => open(p, 'exec')}
-            disabled={p.phase !== 'Running'}
-            title={p.phase !== 'Running' ? 'Pod is not running' : 'Open a shell'}
+            disabled={!caps.exec || p.phase !== 'Running'}
+            title={!caps.exec ? noRbac('exec') : p.phase !== 'Running' ? 'Pod is not running' : 'Open a shell'}
           >
             <SquareTerminal className="w-3.5 h-3.5" />
             Terminal
@@ -303,9 +326,9 @@ export default function Pods() {
             type="button"
             className="console-icon-btn"
             onClick={() => void restart(p)}
-            disabled={!canRestart(p) || busy === podKey(p)}
+            disabled={!!restartBlock(p) || busy === podKey(p)}
             aria-label={`Restart ${p.name}`}
-            title={canRestart(p) ? 'Restart (delete and let the controller recreate it)' : 'Not controller-managed'}
+            title={restartBlock(p) ?? 'Restart (delete and let the controller recreate it)'}
           >
             <RotateCw className="w-4 h-4" />
           </button>
@@ -313,9 +336,9 @@ export default function Pods() {
             type="button"
             className="console-icon-btn"
             onClick={() => void removePod(p)}
-            disabled={busy === podKey(p)}
+            disabled={!caps.delete || busy === podKey(p)}
             aria-label={`Delete ${p.name}`}
-            title="Delete pod"
+            title={caps.delete ? 'Delete pod' : noRbac('delete')}
           >
             <Trash2 className="w-4 h-4" />
           </button>
@@ -343,6 +366,27 @@ export default function Pods() {
           hints={['Pods requires the cluster.admin permission and pods list access for the Zorvia service account.']}
           onRetry={() => void load()}
         />
+      )}
+
+      {missing.length > 0 && (
+        <div
+          role="status"
+          data-testid="pods-rbac-notice"
+          className="rounded-xl border px-4 py-3 text-sm bg-[var(--zf-warning-bg)] border-[var(--zf-warning-border)] text-[var(--zf-warning-text)]"
+        >
+          <strong>{missing.map((k) => MISSING_RULE[k].feature).join(', ')} unavailable</strong> — the Zorvia service
+          account lacks {missing.map((k) => `"${MISSING_RULE[k].rule}"`).join(', ')}. Re-apply the Zorvia ClusterRole
+          (Helm upgrade or <code>kubectl apply -f deploy/k8s.yaml</code>); see{' '}
+          <a
+            className="underline"
+            href="https://github.com/zyvorai/zorvia/blob/main/docs/UPGRADE.md"
+            target="_blank"
+            rel="noopener"
+          >
+            UPGRADE.md
+          </a>
+          .
+        </div>
       )}
 
       <div className="toolbar-pill">
@@ -398,7 +442,7 @@ export default function Pods() {
         rows={visible}
         getRowKey={podKey}
         loading={loading}
-        onRowClick={(p) => open(p, 'logs')}
+        onRowClick={(p) => open(p, caps.logs ? 'logs' : 'events')}
         rowClassName={(p) => (active?.key === podKey(p) ? 'selected' : '')}
         emptyState={
           <EmptyState
@@ -423,7 +467,12 @@ export default function Pods() {
                 className={`zf-chip ${active.mode === mode ? 'zf-chip-active' : ''}`}
                 aria-pressed={active.mode === mode}
                 onClick={() => setActive({ ...active, mode })}
-                disabled={mode === 'exec' && activePod.phase !== 'Running'}
+                disabled={
+                  (mode === 'exec' && (!caps.exec || activePod.phase !== 'Running')) || (mode === 'logs' && !caps.logs)
+                }
+                title={
+                  mode === 'exec' && !caps.exec ? noRbac('exec') : mode === 'logs' && !caps.logs ? noRbac('logs') : undefined
+                }
               >
                 <Icon className="w-3.5 h-3.5" /> {label}
               </button>
@@ -446,9 +495,9 @@ export default function Pods() {
                 type="button"
                 className="console-icon-btn"
                 onClick={() => void restart(activePod)}
-                disabled={!canRestart(activePod) || busy === active.key}
+                disabled={!!restartBlock(activePod) || busy === active.key}
                 aria-label="Restart pod"
-                title={canRestart(activePod) ? 'Restart pod' : 'Not controller-managed'}
+                title={restartBlock(activePod) ?? 'Restart pod'}
               >
                 <RotateCw className="w-4 h-4" />
               </button>
@@ -456,9 +505,9 @@ export default function Pods() {
                 type="button"
                 className="console-icon-btn"
                 onClick={() => void removePod(activePod)}
-                disabled={busy === active.key}
+                disabled={!caps.delete || busy === active.key}
                 aria-label="Delete pod"
-                title="Delete pod"
+                title={caps.delete ? 'Delete pod' : noRbac('delete')}
               >
                 <Trash2 className="w-4 h-4" />
               </button>

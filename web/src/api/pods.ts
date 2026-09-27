@@ -38,6 +38,19 @@ export async function listNamespaces(): Promise<string[]> {
   return res.namespaces ?? []
 }
 
+/** Which pod RBAC rules the Zorvia service account actually has. */
+export interface PodCapabilities {
+  logs: boolean
+  exec: boolean
+  delete: boolean
+}
+
+export const ALL_POD_CAPABILITIES: PodCapabilities = { logs: true, exec: true, delete: true }
+
+export function podCapabilities(): Promise<PodCapabilities> {
+  return apiGet<PodCapabilities>('/api/v1/pods/capabilities')
+}
+
 export interface PodEvent {
   type: string
   reason: string

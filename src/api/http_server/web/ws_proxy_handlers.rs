@@ -176,7 +176,9 @@ async fn proxy_kube_ws(
     let to_kube = async {
         while let Some(Ok(msg)) = client_stream.next().await {
             let mapped = match msg {
-                Message::Text(t) => TMsg::Text(t.to_string().into()),
+                // KubeVirt's console/vnc streams silently drop text frames; xterm.js
+                // sends keystrokes as strings, so forward them as binary.
+                Message::Text(t) => TMsg::Binary(t.as_bytes().to_vec().into()),
                 Message::Binary(b) => TMsg::Binary(b.to_vec().into()),
                 Message::Ping(p) => TMsg::Ping(p.to_vec().into()),
                 Message::Pong(p) => TMsg::Pong(p.to_vec().into()),
