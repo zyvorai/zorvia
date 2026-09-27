@@ -22,7 +22,9 @@ The browser never receives `ATLAS_TOKEN`. Zorvia owns user authentication; the A
 
 ## Storage page integration
 
-Atlas isn't a separate top-level page — it's a section on the existing Storage page (`/app/storage`, alongside Rook-Ceph), because both are answering the same question ("what storage do I have and what's it doing"), just from two different control planes. If `ATLAS_URL` is unset, the section renders a quiet "not configured" note instead of hiding entirely or erroring.
+Atlas isn't a separate top-level page — it's a set of sections on the existing Storage page (`/app/storage`, alongside Rook-Ceph), because both are answering the same question ("what storage do I have and what's it doing"), just from two different control planes. If `ATLAS_URL` is unset, the sections render a quiet "not configured" note instead of hiding entirely or erroring.
+
+The Atlas UI lives under `web/src/pages/storage/`: `AtlasSection.tsx` is the main orchestrator (status, backend lifecycle — create/discover/cordon/uncordon/delete, volume create/expand/delete, recent jobs), and `AtlasRbdSection.tsx`/`AtlasBucketsSection.tsx` are sibling cards (only rendered once Atlas is enabled and connected) covering RBD image create/resize/delete and object-store bucket create/delete respectively. Deliberately out of scope for the UI, even though the backend routes exist and are proxied: RBD clone/migrate/flatten/QoS/snapshots, bucket object-level operations (list/upload/download/prune) and backup/restore creation — these are lower-frequency operations better suited to Atlas's own UI or CLI for now; revisit if there's real demand.
 
 ## Configuration
 
