@@ -23,4 +23,5 @@ render() {
 }
 
 render "$HERE/zorvia-share-card.html" 1200 630 "$HERE/zorvia-share-card.png" png
+render "$HERE/zorvia-share-card-dark.html" 1200 630 "$HERE/zorvia-share-card-dark.png" png
 render "$HERE/zorvia-social-card.html" 1600 900 "$HERE/zorvia-social-card.jpg" jpeg
