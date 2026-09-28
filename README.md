@@ -1,22 +1,32 @@
+<div align="center">
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/social/zorvia-share-card-dark.png">
+  <img src="docs/social/zorvia-share-card.png" alt="Zorvia — Kubernetes VMs, run like a platform, not a pile of YAML. A KubeVirt VM platform." width="820">
+</picture>
+
 # Zorvia
 
-[![CI](https://github.com/zyvorai/zorvia/actions/workflows/ci.yml/badge.svg)](https://github.com/zyvorai/zorvia/actions)
-[![License: Apache 2.0](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](LICENSE)
-[![Version](https://img.shields.io/github/v/release/zyvorai/zorvia?label=version&color=informational)](CHANGELOG.md)
-[![KubeVirt-native](https://img.shields.io/badge/KubeVirt-native-6d28d9.svg)](https://kubevirt.io/)
-[![Rust 1.89+](https://img.shields.io/badge/rust-1.89%2B-orange.svg)](https://www.rust-lang.org/)
+### Kubernetes VMs, run like a platform — not a pile of YAML.
 
-![Zorvia — KubeVirt VM platform](docs/social/zorvia-share-card.png)
+KubeVirt gives you `VirtualMachine` objects. Zorvia gives you the control plane around them.<br>
+CLI, interactive TUI and a signed-in web console — one API, live cluster objects, not a parallel mock store.
 
-**Kubernetes VMs, run like a platform — not a pile of YAML.**
+[![CI](https://img.shields.io/github/actions/workflow/status/zyvorai/zorvia/ci.yml?branch=main&style=flat-square&labelColor=1d1d1f&label=CI)](https://github.com/zyvorai/zorvia/actions)
+[![License: Apache 2.0](https://img.shields.io/badge/License-Apache%202.0-0071e3?style=flat-square&labelColor=1d1d1f)](LICENSE)
+[![Version](https://img.shields.io/github/v/release/zyvorai/zorvia?label=version&style=flat-square&color=0071e3&labelColor=1d1d1f)](CHANGELOG.md)
+[![KubeVirt-native](https://img.shields.io/badge/KubeVirt-native-0071e3?style=flat-square&labelColor=1d1d1f)](https://kubevirt.io/)
+[![Rust 1.89+](https://img.shields.io/badge/rust-1.89%2B-0071e3?style=flat-square&labelColor=1d1d1f&logo=rust&logoColor=white)](https://www.rust-lang.org/)
 
-**[Read the full docs](https://zyvorai.github.io/zorvia/)** — web console, day-2 ops, OIDC, Helm, and feature maturity.
+[**Quick start**](#quick-start) · [**Console**](#console-gallery) · [**Docs**](docs/README.md) · [**Talk to sales**](mailto:sales@zyvor.dev) · [**Star on GitHub**](https://github.com/zyvorai/zorvia)
 
-KubeVirt gives you `VirtualMachine` objects. Zorvia gives you the control plane around them: **create** from a template or blueprint instead of hand-writing CRDs, **operate** day-2 — hotplug, live migrate, snapshot — without downtime, **reach** the guest over an authenticated console/VNC/SSH, **govern** with real RBAC and quotas, and **prove** it after the fact with an exportable audit trail. CLI, interactive TUI, and a signed-in web console — one API, live cluster objects, not a parallel mock store.
+</div>
 
-[Try it now](#quick-start) · [Watch it work](#console-gallery) · [Talk to sales](mailto:sales@zyvor.dev) · [Star on GitHub](https://github.com/zyvorai/zorvia) · [Changelog](CHANGELOG.md)
+---
 
-## What you get
+## Create. Operate. Reach. Govern. Prove.
+
+**Create** from a template or blueprint instead of hand-writing CRDs. **Operate** day-2 — hotplug, live migrate, snapshot — without downtime. **Reach** the guest over an authenticated console, VNC or SSH. **Govern** with real RBAC and quotas. **Prove** it afterward with an exportable audit trail. Full docs: [zyvorai.github.io/zorvia](https://zyvorai.github.io/zorvia/).
 
 | Step | Surface | What it does |
 |------|---------|--------------|
@@ -26,636 +36,155 @@ KubeVirt gives you `VirtualMachine` objects. Zorvia gives you the control plane 
 | **4 · Guard** | RBAC · quotas · NetworkPolicy | Server-side roles, `ResourceQuota`, `NetworkPolicy` — not client-only checks |
 | **5 · Audit** | Trail · JSONL export | Persistent audit DB + `GET /api/audit/export` for SIEM shippers |
 
-![Zorvia dashboard](docs/screenshots/readme-dashboard.png)
+<div align="center">
 
-## Contents
+<img src="docs/screenshots/readme-dashboard.png" alt="Zorvia dashboard" width="860">
 
-- [What you get](#what-you-get)
-- [Console gallery](#console-gallery)
-- [Install](#install)
-- [Quick start](#quick-start)
-- [Why teams pick Zorvia](#why-teams-pick-zorvia)
-- [What's inside](#whats-inside)
-- [How it stacks up](#how-it-stacks-up)
-- [Platform surface](#platform-surface)
-- [Day-2 commands](#day-2-commands)
-- [Web console & API](#web-console--api)
-- [Profiles · blueprints · templates](#profiles--blueprints--templates)
-- [Operator toolkit](#operator-toolkit)
-- [Config & library](#config--library)
-- [Develop](#develop)
-- [Roadmap](#roadmap)
-- [Project security](#project-security)
-- [Get involved](#get-involved)
-- [Lab deploy](docs/LAB.md) · [Pods: logs & exec](docs/PODS.md) · [OIDC lab](docs/OIDC_LAB.md) · [Social assets](docs/social/README.md)
+</div>
+
+## What is in the box
+
+<table>
+<tr>
+<td valign="top" width="33%">
+<b>Ship it</b><br>
+43 named OS templates, 8 resource profiles and 5 multi-VM blueprints (LAMP, 3-tier, k8s-cluster, CI/CD, dev-stack). No hand-written VM CRDs.<br>
+<a href="docs/profiles-blueprints-templates.md">Profiles, blueprints, templates</a>
+</td>
+<td valign="top" width="33%">
+<b>Run day-2 without downtime</b><br>
+Hotplug CPU, memory, disk and NIC; live migration; disk resize. <code>zorvia change drift</code> and <code>zorvia change plan</code> catch problems before they ship.<br>
+<a href="docs/day-2-ops.md">Day-2 commands</a>
+</td>
+<td valign="top" width="33%">
+<b>Reach the guest</b><br>
+Serial, VNC and in-browser SSH with a real pty, all over authenticated WebSockets, from the same signed-in console.<br>
+<a href="docs/console-and-api.md">Web console and API</a>
+</td>
+</tr>
+<tr>
+<td valign="top" width="33%">
+<b>Govern who can</b><br>
+Admin, user and viewer accounts; server-side <code>ResourceQuota</code> and <code>NetworkPolicy</code> CRUD; opt-in OIDC SSO (Beta).<br>
+<a href="docs/OIDC.md">OIDC SSO</a>
+</td>
+<td valign="top" width="33%">
+<b>Prove it, protect it</b><br>
+Persistent audit trail with JSONL export, compliance posture against actual VM specs (PCI-DSS, HIPAA, SOC2), VolumeSnapshots and scheduled backups.<br>
+<a href="docs/whats-inside.md">What is inside</a>
+</td>
+<td valign="top" width="33%">
+<b>Fit more VMs, spend less</b><br>
+Placement Advisor and Capacity Planning against real Node capacity, a Resource Optimizer, and Warm Pools for burst capacity.<br>
+<a href="docs/platform-surface.md">Platform surface</a>
+</td>
+</tr>
+</table>
+
+One Fabric API sits behind the CLI, the interactive TUI and the web console, and every call ends in real Kubernetes objects: `VirtualMachine`, `VirtualMachineSnapshot`, `NetworkPolicy`, `ResourceQuota`, PVCs and DataVolumes. If a page shows a number, it came from the cluster. Diagram: [docs/whats-inside.md](docs/whats-inside.md).
 
 ## Console gallery
 
 One continuous session on a real lab cluster (HTTPS NodePort **30152**) — dashboard → VM list → in-browser console → live metrics. Not mockups.
 
-![Zorvia demo](docs/screenshots/readme-demo.gif)
+<div align="center">
+
+<img src="docs/screenshots/readme-demo.gif" alt="Zorvia demo" width="860">
 
 **Dashboard → VM list → open a VM's console → watch a real guest boot.** ~15–20s, no audio.
 
-![VM list](docs/screenshots/readme-vms-list.png)
-*Every `VirtualMachine`, real status, real names — not sample data.*
+</div>
 
-![In-browser console](docs/screenshots/readme-vm-console.png)
-*Serial console over an authenticated WebSocket. Real pty, real prompt.*
-
-![VM metrics](docs/screenshots/readme-vm-metrics.png)
-*CPU/memory pulled from the cluster, not synthesized for the screenshot.*
-
-![Template catalog](docs/screenshots/readme-templates.png)
-*43 named OS templates — the same list `zorvia template templates` prints.*
-
----
+<table>
+<tr>
+<td width="50%"><img src="docs/screenshots/readme-vms-list.png" alt="VM list"><br><i>Every <code>VirtualMachine</code>, real status, real names — not sample data.</i></td>
+<td width="50%"><img src="docs/screenshots/readme-vm-console.png" alt="In-browser console"><br><i>Serial console over an authenticated WebSocket. Real pty, real prompt.</i></td>
+</tr>
+<tr>
+<td width="50%"><img src="docs/screenshots/readme-vm-metrics.png" alt="VM metrics"><br><i>CPU/memory pulled from the cluster, not synthesized for the screenshot.</i></td>
+<td width="50%"><img src="docs/screenshots/readme-templates.png" alt="Template catalog"><br><i>43 named OS templates — the same list <code>zorvia template templates</code> prints.</i></td>
+</tr>
+</table>
 
 ## Install
 
-One binary, one Helm chart — bring your own KubeVirt cluster.
+One binary, one Helm chart — bring your own KubeVirt cluster. Requires Rust **1.89+**, a kubeconfig, and a cluster with **KubeVirt** (CDI optional for golden images / CDI clone).
 
 ```bash
-git clone https://github.com/zyvorai/zorvia.git
-cd zorvia
+git clone https://github.com/zyvorai/zorvia.git && cd zorvia
 cargo install --path . --features web   # `web` is the default feature
-# or: cargo build --release --features web → target/release/zorvia
-```
 
-Requires Rust **1.89+**, a kubeconfig, and a cluster with **KubeVirt** (CDI optional for golden images / CDI clone).
-
-**Helm (cluster install):**
-
-```bash
+# cluster install
 helm upgrade --install zorvia charts/zorvia -n zorvia-system --create-namespace \
   -f charts/zorvia/values-lab.yaml
 ```
 
 Production values: `charts/zorvia/values-production.yaml`. Lab remote deploy: [docs/LAB.md](docs/LAB.md).
 
----
-
 ## Quick start
 
-Profile → create → start → reach the guest. Five commands, one real VM.
+Profile → create → start → reach the guest. One real VM.
 
 ```bash
-# Size from a profile, then create
 zorvia profile show database
-zorvia vm create prod-db \
-  --template ubuntu-22.04 \
-  --cpus 6 --memory 16Gi --disk-size 200Gi
+zorvia vm create prod-db --template ubuntu-22.04 --cpus 6 --memory 16Gi --disk-size 200Gi
 zorvia vm start prod-db
 zorvia guest wait-ready prod-db --timeout 120
-zorvia guest guest-insight prod-db
-zorvia vm status                 # platform components + features
 zorvia vm status prod-db --watch
+zorvia blueprint deploy lamp --prefix myapp --start     # or a whole multi-VM stack
 ```
 
-Multi-VM stack:
-
-```bash
-zorvia blueprint blueprints
-zorvia blueprint deploy lamp --prefix myapp --start
-zorvia vm list
-```
-
-Web console (HTTPS NodePort **30152**, self-signed — use `curl -sk`):
-
-```bash
-./scripts/deploy-remote.sh <host> sus --quick
-# or: make deploy-remote H=<host> U=sus ARGS=--quick
-open https://<HOST>:30152/app
-```
-
-| Port | Role |
-|------|------|
-| **30152** | Cluster front door (UI + API) |
-| **5151** | In-pod listen / `zorvia api api-serve --tls --port 5151` |
-| **8080** | Config-file default when `--port` is omitted |
-
-```bash
-# Health + login + list VMs
-curl -sk https://HOST:30152/api/v1/health | jq .
-TOKEN=$(curl -sk -X POST https://HOST:30152/api/v1/auth/login \
-  -H 'Content-Type: application/json' \
-  -d '{"username":"admin","password":"…"}' | jq -r .token)
-curl -sk -H "Authorization: Bearer $TOKEN" https://HOST:30152/api/vms | jq .
-curl -sk -H "Authorization: Bearer $TOKEN" \
-  'https://HOST:30152/api/audit/export?format=jsonl' | head
-```
-
-Lab admin password comes from the `zorvia-auth` Secret (printed once on first deploy) — see [docs/LAB.md](docs/LAB.md). Change credentials before anything shared.
-
----
-
-## Why teams pick Zorvia
-
-KubeVirt is excellent at running VMs. What's missing is the control plane
-around them — who's allowed to create what, how you hotplug and live-migrate
-without downtime, how you actually reach the guest, and how you prove
-afterward who did what.
-
-Zorvia is that control plane: **one real backend** behind a CLI, a TUI, and a
-web console, all driving the same Kubernetes objects underneath —
-`ResourceQuota`, `NetworkPolicy`, `VirtualMachineSnapshot`, real Node
-capacity, real KubeVirt migration phases. If a page shows a number, it came
-from the cluster. If a button says it does something, it does it.
-
-Run the [quickstart](#quick-start) in five minutes, or [talk to us](#get-involved)
-about running it in production.
-
-## What's inside
-
-Two dozen capabilities, grouped by the job they do — not one wall of a table.
-
-### Ship it
-- **43** named OS templates — Ubuntu, Fedora, CentOS Stream, Debian, RHEL,
-  Alma, Rocky, openSUSE, Alpine, Arch, Oracle, FreeBSD, Flatcar, Talos,
-  Windows — no hand-written VM CRDs.
-- **8** resource profiles sized by workload (`--cpus`/`--memory`/`--disk-size`,
-  or apply inside a blueprint).
-- **5** blueprints for multi-VM stacks: LAMP, 3-tier, k8s-cluster, CI/CD,
-  dev-stack.
-- Golden image library: quay.io containerdisks + CDI `image-bundle` — the web
-  console's download button applies a real `DataVolume`.
-- Windows plane: a Create VM wizard backed by Kryton when `KRYTON_URL` is set
-  (`/app/create`, inventory at `/app/windows`).
-
-### Run day-2, without downtime
-- Hotplug CPU, memory, disk, and NIC; live migration; disk resize — from the
-  CLI or the web console.
-- Catch drift before it ships: `zorvia change drift` diffs desired vs. live,
-  `zorvia change plan` gates a change on downtime.
-- Browser ops has parity with the CLI: create, power, console, expose, and
-  snapshot a VM without leaving `/app`.
-- Debug the platform itself, not just the guest: the Pods page shows every
-  pod with colorized live logs, an `exec -it` shell, events, and YAML in a
-  Terminal.app-style panel. Restart/delete is admin-only and audited.
-
-### Reach the guest, govern who can
-- Serial, VNC, and in-browser SSH — a real pty, password auth works, all
-  over authenticated WebSockets.
-- Admin / user / viewer accounts at `/app/access-control`, admin-only user
-  management, and last-admin-lockout protection.
-- `ResourceQuota` and `NetworkPolicy` CRUD (`/app/quotas`,
-  `/app/network-policies`) — server-side enforcement, not a client-only
-  checkbox.
-- Opt-in OIDC SSO (Beta) via `ZORVIA_OIDC_ENABLED=1`.
-
-### Prove it, protect it
-- Compliance posture checked against actual VM specs — PCI-DSS, HIPAA, SOC2
-  (`/app/compliance`).
-- Persistent audit trail with JSONL export (`GET /api/audit/export`) for
-  whatever SIEM you already run.
-- VolumeSnapshots plus scheduled backups (`/app/backups`,
-  `/app/backup-scheduler`).
-- Automate power state with recurring start/stop/restart (`/app/schedules`),
-  and get paged on the way there — alerts and HTTPS webhooks with retry
-  (`/app/alerts`, `/app/webhooks`).
-
-### Fit more VMs, spend less
-- Placement Advisor and Capacity Planning against real Node capacity
-  (`/app/placement`, `/app/capacity`).
-- Resource Optimizer right-sizes from real usage, not guesses
-  (`/app/optimizer`).
-- Zones, Analytics, and a Service Map show what's running where
-  (`/app/zones`, `/app/analytics`, `/app/service-map`).
-- Warm Pools keep ready-to-claim VMs on standby for burst capacity
-  (`/app/warm-pools`).
-
-### Bring your own infrastructure
-- Distributed storage: Rook-Ceph pools, filesystems, and object stores, plus
-  StorageClass provisioning (`/app/storage`).
-- Optional pluggable storage control plane via Atlas (`ATLAS_URL`) — backend/
-  RBD/object-store lifecycle, disaster recovery, AI-assisted insights,
-  governance, and cloud-to-edge DB migration (its own `/app/databridge`
-  page), alongside Rook-Ceph on `/app/storage`
-  ([docs/ATLAS_INTEGRATION.md](docs/ATLAS_INTEGRATION.md)).
-- GitOps: a Terraform scaffold and module over the Fabric API.
-
-No OpenShift tax. Same `VirtualMachine` objects, whether you're at a
-terminal or in a browser.
-
-```mermaid
-flowchart LR
-    subgraph You["You"]
-        CLI["CLI\nzorvia vm create / clone / change plan"]
-        TUI["Interactive TUI\nzorvia api tui"]
-        WEB["Web console\nhttps://host:30152/app"]
-    end
-
-    subgraph API["Fabric API (same backend for all three)"]
-        AUTH["Auth · RBAC · audit"]
-        WS["WebSockets: serial · VNC · SSH"]
-    end
-
-    subgraph K8S["Your Kubernetes cluster"]
-        VM["VirtualMachine / VMI\n(KubeVirt)"]
-        SNAP["VirtualMachineSnapshot"]
-        NP["NetworkPolicy"]
-        RQ["ResourceQuota"]
-        PVC["PVC / DataVolume\n(CDI, Rook-Ceph)"]
-    end
-
-    CLI --> API
-    TUI --> API
-    WEB --> API
-    API --> VM
-    API --> SNAP
-    API --> NP
-    API --> RQ
-    API --> PVC
-```
-
-One Fabric API, three front ends, real objects at the other end every time.
+The web console is served on HTTPS NodePort **30152** (self-signed): `open https://<HOST>:30152/app`. Ports, the health/login/audit `curl` examples and the lab password Secret are in [Install and quick start](docs/getting-started.md#quick-start).
 
 ## How it stacks up
 
-Comparison, not vibes:
-
 |  | Hand-rolled `kubectl`/`virtctl` | Generic K8s dashboards | OpenShift Virtualization | **Zorvia** |
 |---|---|---|---|---|
-| VM create/day-2 without hand-written YAML | ❌ | ⚠️ view-only for VMs | ✅ | ✅ |
-| Same capability from CLI, TUI, *and* web | ❌ | ❌ (web only) | ⚠️ web + `virtctl`, no TUI | ✅ |
-| Cost/right-sizing, compliance, HA built in | ❌ | ❌ | ⚠️ partial add-ons | ✅ real, on by default |
-| Drift detection + change-plan gating | ❌ | ❌ | ❌ | ✅ (`zorvia change drift` / `zorvia change plan`) |
-| Runs on any KubeVirt cluster | ✅ | ✅ | ❌ OpenShift only | ✅ |
-| Open source, Apache-2.0 | ✅ | varies | ❌ | ✅ |
+| VM create/day-2 without hand-written YAML | No | Partial: view-only for VMs | Yes | Yes |
+| Same capability from CLI, TUI, *and* web | No | No (web only) | Partial: web + `virtctl`, no TUI | Yes |
+| Cost/right-sizing, compliance, HA built in | No | No | Partial: add-ons | Yes: real, on by default |
+| Drift detection + change-plan gating | No | No | No | Yes (`zorvia change drift` / `zorvia change plan`) |
+| Runs on any KubeVirt cluster | Yes | Yes | No: OpenShift only | Yes |
+| Open source, Apache-2.0 | Yes | Varies | No | Yes |
 
 Zorvia isn't a general Kubernetes dashboard — it's opinionated about one thing: VMs on KubeVirt, done like a platform.
 
----
-
-## Platform surface
-
-The quickstart above is the everyday path. Underneath it, Zorvia's CLI
-carries roughly **178 subcommands** across operator-grade surfaces most teams
-grow into over time — security, cost, multi-tenancy, backup/DR, HA,
-automation, observability. Per [DEVELOPMENT.md](DEVELOPMENT.md)'s own scope
-note, treat these as **advanced surfaces, not every-cluster guarantees**: the
-always-supported path is create → day-2 → snapshots → drift → plan → golden
-images → Terraform. Everything below is real and shipped — not a promise
-that every module fits every deployment.
-
-**Security & compliance**
-
-```bash
-zorvia security security-scan prod-db --scan-type deep
-zorvia security security-harden prod-db --profile cis
-zorvia security compliance-check prod-db --framework soc2
-zorvia security audit-list --security-only
-```
-
-**Cost & FinOps**
-
-```bash
-zorvia cost cost-analyze prod-db --period 30d
-zorvia cost cost-optimize --high-priority-only
-zorvia cost cost-waste --waste-type idle
-zorvia cost budget-create platform --amount 5000 --period monthly --alert-threshold 80
-```
-
-**Multi-tenancy & access**
-
-```bash
-zorvia tenancy tenants-create platform-team --owner alice --email alice@example.com
-zorvia tenancy users-create bob --email bob@example.com --role operator
-zorvia tenancy users-assign-role bob db-admin --scope namespace:staging
-zorvia tenancy quotas-create platform-quota --namespace platform --preset large
-```
-
-**Backup & disaster recovery**
-
-```bash
-zorvia backup backup-create prod-db --backup-type incremental
-zorvia backup backup-schedule-create nightly --schedule daily --vm prod-db
-zorvia backup backup-restore prod-db-full-20260901 --target prod-db-restore --start
-zorvia backup recovery-plan primary-site-failover
-```
-
-**High availability**
-
-```bash
-zorvia ha ha-config prod-db --enable --priority critical --eviction-strategy live-migrate
-zorvia ha ha-status prod-db
-zorvia ha evacuate-node worker-3 --max-parallel 4 --plan
-```
-
-**Automation & workflows**
-
-```bash
-zorvia automation automation-create nightly-snapshot --trigger schedule --enable
-zorvia automation workflow-create dr-failover --template disaster-recovery
-zorvia automation workflow-run dr-failover --watch
-zorvia automation schedule-create weekly-backup --rule nightly-snapshot --schedule weekly --enable
-```
-
-**Observability & insights**
-
-```bash
-zorvia observability metrics-query cpu_usage --aggregation p95
-zorvia observability alerts-active --severity critical
-zorvia observability insights-generate prod-db --insight-type performance
-zorvia observability trends-analyze cpu_usage --window 24
-```
-
----
-
-## Day-2 commands
-
-Once something's running, the everyday loop:
-
-```bash
-zorvia vm list
-zorvia vm get prod-db
-zorvia vm status
-zorvia vm status prod-db --watch
-zorvia vm pause prod-db && zorvia vm resume prod-db
-zorvia vm clone prod-db staging-db --start
-zorvia snapshot snapshot-create prod-db --name before-upgrade
-zorvia advisor health prod-db --detailed
-zorvia change drift desired.yaml
-zorvia change plan desired.yaml --vm prod-db
-zorvia api tui --interactive
-```
-
----
-
-## Web console & API
-
-Same backend, same auth, as the CLI — the console is a signed-in SPA served
-from the same NodePort as the API. This is the short version; the full route
-map lives in [docs/WEB_CONSOLE.md](docs/WEB_CONSOLE.md).
-
-| Route | Purpose |
-|-------|---------|
-| `/app` | Dashboard |
-| `/app/create` | Linux (cloud-init) or Windows (Kryton) create |
-| `/app/vms/:name` | Power, expose, cloud-init, snapshots, hotplug, resize, Rescue mode (admin) — [docs/RESCUE.md](docs/RESCUE.md) |
-| `/app/vms/:name/console` | Serial · VNC · SSH |
-| `/app/snapshots` · `/app/migrations` | Snapshots · live migration |
-| `/app/storage` · `/app/volumes` | Rook-Ceph · fleet PVCs · optional Atlas backend/RBD/object-store/DR/governance |
-| `/app/databridge` | Atlas DataBridge: cloud-to-edge DB migration (optional) — [docs/ATLAS_INTEGRATION.md](docs/ATLAS_INTEGRATION.md) |
-| `/app/access-control` | Users & roles (admin) |
-| `/app/pods` | Every pod: Terminal.app-style live logs, shell, events, YAML, restart/delete (admin) — [docs/PODS.md](docs/PODS.md) |
-| `/app/disk-images` | Image catalog as a black Terminal.app listing (`zorvia template images` on the CLI) |
-| `/app/quotas` · `/app/network-policies` | Real `ResourceQuota` / `NetworkPolicy` |
-| `/app/templates` · `/app/windows` | OS catalog · Kryton inventory |
-| `/app/placement` · `/app/capacity` · `/app/optimizer` | Placement · headroom · right-sizing |
-| `/app/backups` · `/app/schedules` · `/app/alerts` | Backup · power cron · alerts |
-
-```text
-wss://<HOST>:30152/ws/console/<vm>?token=<jwt>
-wss://<HOST>:30152/ws/vnc/<vm>?token=<jwt>
-wss://<HOST>:30152/ws/ssh/<vm>?token=<jwt>&user=ubuntu
-wss://<HOST>:30152/ws/pods/<ns>/<pod>/logs?token=<jwt>     # cluster.admin
-wss://<HOST>:30152/ws/pods/<ns>/<pod>/exec?token=<jwt>     # cluster.admin
-```
-
-Set `ZORVIA_EXPOSE_HOST` for correct NodePort SSH/VNC/RDP hostnames in the UI.
-
-**Fabric API (same auth as the console):**
-
-| Method | Path | Notes |
-|--------|------|-------|
-| POST | `/api/v1/auth/login` | JWT |
-| GET | `/api/v1/health` · `/api/v1/features` | Liveness · maturity registry |
-| GET/POST | `/api/vms` | List / create |
-| POST | `/api/vms/:name/start\|stop\|restart` | Power |
-| GET/POST | `/api/vms/:name/snapshots` | Snapshots |
-| GET | `/api/audit/export` | JSONL audit trail (`?format=jsonl`) |
-
-Password from `zorvia-auth` — not committed defaults. Lab smoke: [docs/LAB.md](docs/LAB.md).
-
----
-
-## Profiles · blueprints · templates
-
-Look up a shape, ship a stack, or name an OS — three lookup tables, no CRD
-authoring.
-
-**Profiles** — look up a shape, then pass resources on `create`:
-
-| Profile | CPU | Memory | Disk | Best for |
-|---------|-----|--------|------|----------|
-| minimal | 1 | 512Mi | 5Gi | Agents, jump hosts |
-| dev | 1 | 2Gi | 10Gi | Learning |
-| test | 2 | 4Gi | 20Gi | CI |
-| web | 4 | 8Gi | 40Gi | Nginx, static |
-| prod | 4 | 8Gi | 40Gi | Production apps |
-| database | 6 | 16Gi | 200Gi | Databases |
-| microservice | 2 | 4Gi | 20Gi | Node roles |
-| high-perf | 8 | 16Gi | 100Gi | ML / heavy I/O |
-
-```bash
-zorvia profile profiles
-zorvia profile show web
-zorvia vm create api --template fedora-40 --cpus 4 --memory 8Gi --disk-size 40Gi
-```
-
-**Blueprints** — multi-VM stacks (profiles applied inside the blueprint):
-
-| Blueprint | VMs | Stack |
-|-----------|-----|--------|
-| lamp | 2 | MySQL + Apache |
-| k8s-cluster | 3 | Control plane + workers |
-| 3tier | 3 | DB + app + Nginx |
-| cicd | 3 | GitLab + Jenkins + registry |
-| dev-stack | 3 | DB + Redis + workspace |
-
-```bash
-zorvia blueprint show lamp
-zorvia blueprint deploy lamp --prefix demo --dry-run
-zorvia blueprint deploy lamp --prefix demo --start
-```
-
-**Templates** — 43 named keys (aliases included): Ubuntu, Fedora, CentOS Stream, Debian, RHEL, Alma, Rocky, OpenSUSE, Alpine, Arch, Oracle, FreeBSD, Flatcar, Talos, Windows.
-
-```bash
-zorvia template templates
-zorvia template show ubuntu-24.04
-```
-
-Catalog: [docs/OS_TEMPLATES.md](docs/OS_TEMPLATES.md) · gallery shot above under [Console gallery](#console-gallery).
-
----
-
-## Operator toolkit
-
-Commands operators reach for once the fleet is already running — drift,
-change plans, guest insight, golden images, Terraform, placement:
-
-```bash
-zorvia change drift desired.yaml
-zorvia change drift desired.yaml --actual live.yaml --fail-on high -o json
-zorvia change plan desired.yaml --vm payments-01 --fail-on-downtime
-zorvia guest guest-insight payments-01 --strict
-zorvia guest image-bundle --distro ubuntu --version 22.04 --storage-class fast
-zorvia dev terraform-scaffold --output ./terraform/zorvia-vm --url https://HOST:30152
-zorvia inventory show
-zorvia inventory activity
-zorvia maintenance maintenance-plan worker-3
-zorvia placement placement-advisor --cpu 2 --memory-gib 4
-```
+## Documentation
 
 | Topic | Doc |
-|-------|-----|
-| Drift | [docs/DRIFT_GUARD.md](docs/DRIFT_GUARD.md) |
-| Change plans | [docs/CHANGE_PLANNER.md](docs/CHANGE_PLANNER.md) |
-| Guest insight | [docs/GUEST_INSIGHT.md](docs/GUEST_INSIGHT.md) |
-| Golden images | [docs/GOLDEN_IMAGES.md](docs/GOLDEN_IMAGES.md) |
-| OIDC SSO | [docs/OIDC.md](docs/OIDC.md) |
-| Feature maturity | [docs/FEATURE_MATURITY.md](docs/FEATURE_MATURITY.md) |
-| Enterprise plans | [docs/PHASE5_ENTERPRISE.md](docs/PHASE5_ENTERPRISE.md) |
-| Upgrade | [docs/UPGRADE.md](docs/UPGRADE.md) |
-| Terraform | [docs/TERRAFORM.md](docs/TERRAFORM.md) |
-| Kryton | [docs/KRYTON_INTEGRATION.md](docs/KRYTON_INTEGRATION.md) |
-| Atlas storage | [docs/ATLAS_INTEGRATION.md](docs/ATLAS_INTEGRATION.md) |
-| Inventory | [docs/VCENTER_FEATURE_MATRIX.md](docs/VCENTER_FEATURE_MATRIX.md) |
-| Snapshots | [docs/SNAPSHOTS.md](docs/SNAPSHOTS.md) |
-| TUI | [docs/INTERACTIVE_TUI.md](docs/INTERACTIVE_TUI.md) |
-| Docs index | [docs/README.md](docs/README.md) |
-| Command card | [QUICK_REFERENCE.md](QUICK_REFERENCE.md) |
+|---|---|
+| Every guide, by area | [docs/README.md](docs/README.md) |
+| Install, Helm, first VM, ports and API examples | [docs/getting-started.md](docs/getting-started.md) |
+| Why Zorvia, and every capability | [docs/whats-inside.md](docs/whats-inside.md) |
+| Web console routes and the Fabric HTTP API | [docs/console-and-api.md](docs/console-and-api.md) · [docs/WEB_CONSOLE.md](docs/WEB_CONSOLE.md) |
+| Profiles, blueprints, templates | [docs/profiles-blueprints-templates.md](docs/profiles-blueprints-templates.md) · [docs/OS_TEMPLATES.md](docs/OS_TEMPLATES.md) |
+| Day-2 commands and the operator toolkit | [docs/day-2-ops.md](docs/day-2-ops.md) · [docs/operator-toolkit.md](docs/operator-toolkit.md) |
+| Security, cost, tenancy, DR, HA, automation | [docs/platform-surface.md](docs/platform-surface.md) |
+| Config file and the Rust library | [docs/config-and-library.md](docs/config-and-library.md) |
+| Feature maturity and roadmap | [docs/roadmap.md](docs/roadmap.md) · [docs/FEATURE_MATURITY.md](docs/FEATURE_MATURITY.md) |
+| Lab deploy, pods, OIDC | [docs/LAB.md](docs/LAB.md) · [docs/PODS.md](docs/PODS.md) · [docs/OIDC_LAB.md](docs/OIDC_LAB.md) |
+| Development | [docs/develop.md](docs/develop.md) · [DEVELOPMENT.md](DEVELOPMENT.md) · [QUICK_REFERENCE.md](QUICK_REFERENCE.md) |
 
-Kryton: set `KRYTON_URL` (+ usually `KRYTON_TOKEN`, `KRYTON_PROJECT`) on the API pod. Tokens never reach the browser.
+<a id="whats-inside"></a><a id="why-teams-pick-zorvia"></a><a id="platform-surface"></a><a id="day-2-commands"></a><a id="web-console--api"></a><a id="profiles--blueprints--templates"></a><a id="operator-toolkit"></a><a id="config--library"></a><a id="develop"></a><a id="roadmap"></a>
 
-Terraform: no HashiCorp registry provider binary yet — scaffold + `schema.json` + `terraform/modules/zorvia_vm` ship today.
-
----
-
-## Config & library
-
-Zorvia is a library, not just a binary — validate or generate a VM config
-from the CLI, or build one programmatically in Rust:
-
-```bash
-zorvia template validate examples/ubuntu-cloud-init.yaml
-zorvia vm create my-vm --from-file examples/basic-vm.yaml
-zorvia template generate web --template ubuntu --kubevirt -o web.yaml
-zorvia config config-init && zorvia config config-show
-# ~/.config/zorvia/config.toml  ·  /etc/zorvia/config.toml
-```
-
-```yaml
-name: my-vm
-namespace: default
-cpu: { cores: 4, sockets: 1, threads: 1 }
-memory: { size: 8Gi }
-disks:
-  - name: rootdisk
-    size: 40Gi
-    boot_order: 1
-    source: { type: Blank }
-interfaces:
-  - name: default
-    network: default
-    model: virtio
-    network_type: Pod
-```
-
-```rust
-use zorvia::config::VMConfigBuilder;
-use zorvia::output::to_yaml;
-
-fn main() -> anyhow::Result<()> {
-    let cfg = VMConfigBuilder::new("my-vm")
-        .namespace("production")
-        .cpu(4, 1, 1)
-        .memory("8Gi")
-        .add_blank_disk("rootdisk", "40Gi", 1)
-        .add_pod_network("default")
-        .label("app", "webserver")
-        .build();
-    println!("{}", to_yaml(&cfg)?);
-    Ok(())
-}
-```
-
----
-
-## Develop
-
-Local dev loop, `make`-first:
-
-```bash
-make help
-make test
-make ci
-make status
-make release
-make tui
-make deploy-remote H=<host> U=sus
-```
-
-Architecture notes: [DEVELOPMENT.md](DEVELOPMENT.md).
-
----
-
-## Roadmap
-
-The roadmap is a feature-maturity registry, not a marketing slide: see
-**[docs/FEATURE_MATURITY.md](docs/FEATURE_MATURITY.md)** for GA / Beta /
-Experimental / Model-only. Only **GA** and documented **Beta** paths are
-production promises — query `GET /api/v1/features` on a running API for the
-live registry.
-
-Capabilities that need genuinely new infrastructure (not yet shipped):
-
-| Area | What's planned | Why it's not here yet |
-|------|-----------------|------------------------|
-| Disaster recovery | Site failover, cross-site replication | Needs a real DR/replication engine (`dr-replication` is model-only) |
-| Certificates & encryption | Cert lifecycle, disk/volume encryption (KMS) | Needs PKI and key-management integration from scratch |
-| Image upload / convert | Upload a disk image from your browser, format conversion | Needs a CDI upload-proxy client (TLS, multipart streaming) |
-| Autoscaling | Policy-driven automatic VM scaling | Policy engine exists; needs an execution loop against real load |
-| Datacenters & resource pools | vCenter-style hierarchical grouping | No equivalent Kubernetes primitive to build on yet |
-| Enterprise SSO | OIDC/SAML with PKCE + JWKS | OIDC Beta via `ZORVIA_OIDC_ENABLED=1`; SAML not yet |
-| S3 immutable backup / Transiva / GPU-NUMA | Phase 5 plan APIs | [docs/PHASE5_ENTERPRISE.md](docs/PHASE5_ENTERPRISE.md) |
-
-If one of these is a blocker for adopting Zorvia in your environment, that's
-exactly the kind of thing worth a conversation — [reach out](#get-involved)
-and tell us what you need.
-
----
+**Roadmap:** a feature-maturity registry, not a marketing slide. Only **GA** and documented **Beta** paths are production promises: [docs/roadmap.md](docs/roadmap.md), or `GET /api/v1/features` on a running API.
 
 ## Project security
 
-No `unsafe` on the product path. CORS off unless configured. TLS verification enforced.
-Profile/blueprint storage blocks path traversal. API errors are sanitized; auth inputs bounded.
-
-Report privately via [GitHub Security Advisories](https://github.com/zyvorai/zorvia/security/advisories)
-or `info@zyvor.dev` — [SECURITY.md](SECURITY.md).
-
----
+No `unsafe` on the product path. CORS off unless configured. TLS verification enforced. Profile/blueprint storage blocks path traversal. API errors are sanitized; auth inputs bounded. Report privately via [GitHub Security Advisories](https://github.com/zyvorai/zorvia/security/advisories) or `info@zyvor.dev` — [SECURITY.md](SECURITY.md).
 
 ## Get involved
 
-### Running this in production?
+- **Running this in production?** Production support, SLAs, and Zyvor Enterprise products are licensed separately. Contact [sales@zyvor.dev](mailto:sales@zyvor.dev) or see [zyvor.dev](https://zyvor.dev) — tell us your cluster size and what's on your [roadmap](docs/roadmap.md) list, and we'll tell you what's already possible today.
+- **Evaluating it?** Clone it and run the [quick start](#quick-start); every claim in this README maps to a route or command you can hit right now. Questions, bug reports and feature requests are welcome as [GitHub issues](https://github.com/zyvorai/zorvia/issues); a [star on the repo](https://github.com/zyvorai/zorvia) helps others find it.
+- **Contributing code?** PRs welcome — see [CONTRIBUTING.md](CONTRIBUTING.md).
 
-Production support, SLAs, and Zyvor Enterprise products are licensed
-separately. Contact [sales@zyvor.dev](mailto:sales@zyvor.dev) or see
-[zyvor.dev](https://zyvor.dev) — tell us your cluster size and what's on your
-list from the [Roadmap](#roadmap) above, and we'll tell you what's already
-possible today.
+## License
 
-### Evaluating it?
+Open source under the [Apache License, Version 2.0](LICENSE). You may use, modify, and run it for personal, lab, and commercial production use at no charge, subject to Apache-2.0 (preserve notices / NOTICE where required). See [NOTICE](NOTICE) — Apache-2.0 only (not dual-licensed with MIT).
 
-Clone it, run the [quickstart](#quick-start), and see for yourself — every
-claim in this README maps to a route or command you can hit right now.
-Questions, bug reports, and feature requests are welcome as
-[GitHub issues](https://github.com/zyvorai/zorvia/issues); if it's useful to
-you, a [star on the repo](https://github.com/zyvorai/zorvia) helps others
-find it.
+<div align="center">
 
-### Contributing code?
+Built on [KubeVirt](https://kubevirt.io/) and [kube-rs](https://github.com/kube-rs/kube). Part of the Zyvor platform — more at **[zyvor.dev](https://zyvor.dev)**.
 
-PRs welcome — see [CONTRIBUTING.md](CONTRIBUTING.md).
-
-### Open source (Apache-2.0)
-
-This repository is licensed under the [Apache License, Version 2.0](LICENSE).
-You may use, modify, and run it for personal, lab, and commercial production
-use at no charge, subject to Apache-2.0 (preserve notices / NOTICE where required).
-See [NOTICE](NOTICE) — Apache-2.0 only (not dual-licensed with MIT).
-
-Built on [KubeVirt](https://kubevirt.io/) and [kube-rs](https://github.com/kube-rs/kube).
+</div>

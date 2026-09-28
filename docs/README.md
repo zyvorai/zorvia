@@ -2,6 +2,21 @@
 
 Start here: root [README.md](../README.md) (hero, gallery, quick start) · live site [zyvorai.github.io/zorvia](https://zyvorai.github.io/zorvia/).
 
+## Guides (moved from the root README)
+
+| Doc | Topic |
+|-----|--------|
+| [getting-started.md](getting-started.md) | Install, Helm, first VM, ports, health/login/audit examples |
+| [whats-inside.md](whats-inside.md) | Why Zorvia and every capability, grouped by job |
+| [console-and-api.md](console-and-api.md) | Web console routes, WebSocket endpoints, Fabric HTTP API |
+| [profiles-blueprints-templates.md](profiles-blueprints-templates.md) | 8 profiles, 5 blueprints, 43 templates |
+| [day-2-ops.md](day-2-ops.md) | The everyday CLI loop |
+| [operator-toolkit.md](operator-toolkit.md) | Drift, change plans, guest insight, golden images, Terraform, placement |
+| [platform-surface.md](platform-surface.md) | Security, cost, tenancy, backup/DR, HA, automation, observability |
+| [config-and-library.md](config-and-library.md) | VM config files and the Rust library |
+| [develop.md](develop.md) | The make-first dev loop |
+| [roadmap.md](roadmap.md) | Feature maturity and what is not shipped yet |
+
 ## Core
 
 | Doc | Topic |
