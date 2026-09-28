@@ -215,6 +215,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **Docs: README is a landing page.** The detail moved into `docs/` (getting-started, whats-inside, console-and-api, profiles-blueprints-templates, day-2-ops, operator-toolkit, platform-surface, config-and-library, develop, roadmap); hero and badges restyled with a light/dark share card.
 - **CLI restructured into Cilium/kubectl-style nested subcommands, with colored `--help`** —
   **breaking**: the ~180 previously-flat top-level commands (`zorvia create`,
   `zorvia migrate`, `zorvia ha-config`, ...) now live under 25 category
