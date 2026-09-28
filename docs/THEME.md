@@ -107,7 +107,7 @@ let bar = resource_bar(75.0, 20);
 println!("CPU: [{}] 75%", bar);
 ```
 
-`zorvia status` (no VM name) does **not** use these helpers. That view matches Cilium's `cilium status`: raw ANSI (`\x1b[31–36m`) on the interlocking `/¯¯\` logo, plus emoji summaries (`✅ OK`, `❌ N errors`, `⚠️ N warnings`, `ℹ️ disabled`). Per-VM `zorvia status <name>` does use `cli::` colors. See [ADVANCED_FEATURES.md](ADVANCED_FEATURES.md).
+`zorvia vm status` (no VM name) does **not** use these helpers. That view matches Cilium's `cilium status`: raw ANSI (`\x1b[31–36m`) on the interlocking `/¯¯\` logo, plus emoji summaries (`✅ OK`, `❌ N errors`, `⚠️ N warnings`, `ℹ️ disabled`). Per-VM `zorvia vm status <name>` does use `cli::` colors. See [ADVANCED_FEATURES.md](ADVANCED_FEATURES.md).
 
 **One color crate, one deliberate exception**: `colored` is the only color crate for CLI/TUI output (`owo-colors` was removed — it had no usage independent of `colored`, both provided overlapping methods on the same types). `platform_status`'s raw ANSI (above) is the one intentional exception, kept exactly as Cilium's own output is byte-for-byte; do not migrate it to `colored`. Top-level errors (an `Err` bubbling all the way out of `zorvia::run()`) render through `miette`'s fancy diagnostic formatter (colored box, `×` marker) instead of a bare `Error: ...` line — see `src/main.rs`. This only wraps the final print site; every handler underneath still returns plain `anyhow::Result`.
 

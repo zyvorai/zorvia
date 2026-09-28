@@ -1,6 +1,6 @@
 # Change Planner
 
-`zorvia plan` turns Drift Guard findings into a conservative operational execution plan: what can change online, what needs a restart, what requires recreate, and what needs manual review.
+`zorvia change plan` turns Drift Guard findings into a conservative operational execution plan: what can change online, what needs a restart, what requires recreate, and what needs manual review.
 
 It does not apply changes. Use it for change windows, CI gates, and operator review before you mutate the cluster.
 
@@ -8,8 +8,8 @@ It does not apply changes. Use it for change windows, CI gates, and operator rev
 
 | Tool | Job |
 |------|-----|
-| `zorvia drift` | Semantic desired-vs-live (or file-vs-file) diff with severity |
-| `zorvia plan` | Turn those findings into downtime-aware steps |
+| `zorvia change drift` | Semantic desired-vs-live (or file-vs-file) diff with severity |
+| `zorvia change plan` | Turn those findings into downtime-aware steps |
 
 The planner assumes CPU/memory and network changes need a controlled restart unless you have confirmed hotplug support. Storage-source, firmware, machine-type, and TPM changes require recreation or explicit review.
 
@@ -17,18 +17,18 @@ The planner assumes CPU/memory and network changes need a controlled restart unl
 
 ```bash
 # Offline desired-vs-actual planning
-zorvia plan desired.yaml --actual live-capture.yaml
+zorvia change plan desired.yaml --actual live-capture.yaml
 
 # Plan against the live cluster
 zorvia --namespace production plan desired.yaml --vm payments-01
 
 # CI gates
-zorvia plan desired.yaml --actual current.yaml --fail-on-downtime
-zorvia plan desired.yaml --actual current.yaml --fail-on-recreate
+zorvia change plan desired.yaml --actual current.yaml --fail-on-downtime
+zorvia change plan desired.yaml --actual current.yaml --fail-on-recreate
 
 # Machine-readable output
-zorvia plan desired.yaml --actual current.yaml -o json
-zorvia plan desired.yaml --actual current.yaml -o yaml
+zorvia change plan desired.yaml --actual current.yaml -o json
+zorvia change plan desired.yaml --actual current.yaml -o yaml
 ```
 
 ## Typical plan shape
@@ -46,10 +46,10 @@ Use `--fail-on-downtime` or `--fail-on-recreate` in CI when a PR must not introd
 
 ```bash
 # 1. Capture drift
-zorvia drift desired.yaml --vm payments-01 -o json > drift.json
+zorvia change drift desired.yaml --vm payments-01 -o json > drift.json
 
 # 2. Build an execution plan
-zorvia plan desired.yaml --vm payments-01 -o json > plan.json
+zorvia change plan desired.yaml --vm payments-01 -o json > plan.json
 
 # 3. Apply only after review (CLI create/start/stop, web console, or GitOps)
 ```

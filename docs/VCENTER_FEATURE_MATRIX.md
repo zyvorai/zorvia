@@ -19,17 +19,17 @@ Zorvia maps familiar vCenter operator workflows onto Kubernetes and KubeVirt pri
 ## CLI
 
 ```bash
-zorvia inventory
-zorvia inventory --datacenter dc1 --cluster rack-a
-zorvia tag-set myvm env prod
-zorvia attribute-set myvm owner platform
-zorvia inventory-datacenter-set myvm dc1
-zorvia activity --limit 50
-zorvia maintenance-plan worker-3
-zorvia maintenance-enter worker-3 --dry-run
-zorvia maintenance-exit worker-3
-zorvia placement-advisor --cpu 2 --memory-gib 4
-zorvia placement-rebalance --threshold 0.15
+zorvia inventory show
+zorvia inventory show --datacenter dc1 --cluster rack-a
+zorvia inventory tag-set myvm env prod
+zorvia inventory attribute-set myvm owner platform
+zorvia inventory inventory-datacenter-set myvm dc1
+zorvia inventory activity --limit 50
+zorvia maintenance maintenance-plan worker-3
+zorvia maintenance maintenance-enter worker-3 --dry-run
+zorvia maintenance maintenance-exit worker-3
+zorvia placement placement-advisor --cpu 2 --memory-gib 4
+zorvia placement placement-rebalance --threshold 0.15
 ```
 
 ## Metadata conventions

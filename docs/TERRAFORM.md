@@ -7,7 +7,7 @@ console.
 ## Generate
 
 ```bash
-zorvia terraform-scaffold --output ./terraform/zorvia-vm \
+zorvia dev terraform-scaffold --output ./terraform/zorvia-vm \
   --url https://HOST:30152
 cd terraform/zorvia-vm
 cp terraform.tfvars.example terraform.tfvars

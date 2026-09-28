@@ -145,63 +145,63 @@ talos           # Latest - Kubernetes-native (2 CPU, 4GB RAM)
 
 ```bash
 # Ubuntu 24.04 (latest)
-zorvia create my-ubuntu --template ubuntu-24.04 --cpus 4 --memory 8Gi
+zorvia vm create my-ubuntu --template ubuntu-24.04 --cpus 4 --memory 8Gi
 
 # Fedora 41 (latest)
-zorvia create my-fedora --template fedora-41 --cpus 2 --memory 4Gi
+zorvia vm create my-fedora --template fedora-41 --cpus 2 --memory 4Gi
 
 # AlmaLinux (RHEL alternative)
-zorvia create my-alma --template almalinux --cpus 4 --memory 16Gi
+zorvia vm create my-alma --template almalinux --cpus 4 --memory 16Gi
 
 # Rocky Linux (another RHEL alternative)
-zorvia create my-rocky --template rocky --cpus 4 --memory 16Gi
+zorvia vm create my-rocky --template rocky --cpus 4 --memory 16Gi
 
 # Alpine (ultra lightweight!)
-zorvia create tiny-vm --template alpine --cpus 1 --memory 512Mi
+zorvia vm create tiny-vm --template alpine --cpus 1 --memory 512Mi
 
 # Arch Linux (bleeding edge)
-zorvia create arch-vm --template arch --cpus 2 --memory 2Gi
+zorvia vm create arch-vm --template arch --cpus 2 --memory 2Gi
 
 # OpenSUSE Tumbleweed (rolling)
-zorvia create suse-vm --template opensuse-tumbleweed
+zorvia vm create suse-vm --template opensuse-tumbleweed
 
 # FreeBSD (Unix)
-zorvia create bsd-vm --template freebsd-14
+zorvia vm create bsd-vm --template freebsd-14
 
 # Flatcar (container-optimized)
-zorvia create flatcar-vm --template flatcar
+zorvia vm create flatcar-vm --template flatcar
 
 # Talos (Kubernetes-native)
-zorvia create k8s-node --template talos --cpus 4 --memory 8Gi
+zorvia vm create k8s-node --template talos --cpus 4 --memory 8Gi
 
 # Windows Server 2022
-zorvia create win-server --template windows-2022 --cpus 8 --memory 16Gi
+zorvia vm create win-server --template windows-2022 --cpus 8 --memory 16Gi
 
 # Windows 11
-zorvia create win11-vm --template windows-11 --cpus 4 --memory 16Gi
+zorvia vm create win11-vm --template windows-11 --cpus 4 --memory 16Gi
 ```
 
 ### View Template Details:
 
 ```bash
 # Show template configuration
-zorvia template almalinux
+zorvia template show almalinux
 
 # Show as JSON
-zorvia template rocky --output json
+zorvia template show rocky --output json
 
 # Show as YAML
-zorvia template alpine --output yaml
+zorvia template show alpine --output yaml
 ```
 
 ### List All Templates:
 
 ```bash
 # Simple list
-zorvia templates
+zorvia template templates
 
-# Detailed / JSON output available on `zorvia template <name>`
-zorvia template ubuntu --output json
+# Detailed / JSON output available on `zorvia template show <name>`
+zorvia template show ubuntu --output json
 ```
 
 ## 📋 Template Specifications
@@ -346,7 +346,7 @@ All template commands support the Zorvia theme:
 
 ```bash
 # Colored template list
-zorvia templates
+zorvia template templates
 
 # Themed template details
 zorvia template ubuntu

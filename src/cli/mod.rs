@@ -479,6 +479,7 @@ pub enum TemplateCommands {
     },
 
     /// Show template details
+    #[command(name = "show")]
     Template {
         /// Template name
         name: String,
@@ -506,6 +507,7 @@ pub enum ProfileCommands {
     },
 
     /// Show specific profile details
+    #[command(name = "show")]
     Profile {
         /// Profile name
         name: String,
@@ -620,6 +622,7 @@ pub enum BlueprintCommands {
     },
 
     /// Show specific blueprint details
+    #[command(name = "show")]
     Blueprint {
         /// Blueprint name
         name: String,
@@ -2079,6 +2082,7 @@ pub enum TenancyCommands {
 pub enum InventoryCommands {
     // ========== VCENTER-STYLE OPERATIONS ==========
     /// Show Datacenter -> Cluster -> Host/Folder -> VM inventory
+    #[command(name = "show")]
     Inventory {
         #[arg(short = 'A', long)]
         all_namespaces: bool,

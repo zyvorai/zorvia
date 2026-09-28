@@ -1,14 +1,14 @@
 # Guest Insight
 
-`zorvia guest-insight` summarizes KubeVirt VMI guest integration from status alone. It reports phase, node, QEMU Guest Agent detection, guest OS/kernel metadata, interfaces, a readiness score (0–100), and recommendations — without logging into the VM.
+`zorvia guest guest-insight` summarizes KubeVirt VMI guest integration from status alone. It reports phase, node, QEMU Guest Agent detection, guest OS/kernel metadata, interfaces, a readiness score (0–100), and recommendations — without logging into the VM.
 
 ## CLI
 
 ```bash
-zorvia --namespace production guest-insight payments-01
-zorvia --namespace production guest-insight payments-01 -o json
-zorvia --namespace production guest-insight payments-01 -o yaml
-zorvia --namespace production guest-insight payments-01 --strict
+zorvia --namespace production guest guest-insight payments-01
+zorvia --namespace production guest guest-insight payments-01 -o json
+zorvia --namespace production guest guest-insight payments-01 -o yaml
+zorvia --namespace production guest guest-insight payments-01 --strict
 ```
 
 | Flag | Meaning |
@@ -48,6 +48,6 @@ KubeVirt surfaces guest-agent data on the VMI `status` when the agent is connect
 
 ## Related
 
-- Wait for Ready + IP: `zorvia wait-ready <vm>`
+- Wait for Ready + IP: `zorvia guest wait-ready <vm>`
 - Web metrics: `GET /api/vms/:name/metrics` (guest OS / filesystem when the agent is up)
 - [WEB_CONSOLE.md](WEB_CONSOLE.md) · [DRIFT_GUARD.md](DRIFT_GUARD.md)

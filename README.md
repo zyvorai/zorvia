@@ -67,7 +67,7 @@ One continuous session on a real lab cluster (HTTPS NodePort **30152**) — dash
 *CPU/memory pulled from the cluster, not synthesized for the screenshot.*
 
 ![Template catalog](docs/screenshots/readme-templates.png)
-*43 named OS templates — the same list `zorvia templates` prints.*
+*43 named OS templates — the same list `zorvia template templates` prints.*
 
 ---
 
@@ -101,23 +101,23 @@ Profile → create → start → reach the guest. Five commands, one real VM.
 
 ```bash
 # Size from a profile, then create
-zorvia profile database
-zorvia create prod-db \
+zorvia profile show database
+zorvia vm create prod-db \
   --template ubuntu-22.04 \
   --cpus 6 --memory 16Gi --disk-size 200Gi
-zorvia start prod-db
-zorvia wait-ready prod-db --timeout 120
-zorvia guest-insight prod-db
-zorvia status                 # platform components + features
-zorvia status prod-db --watch
+zorvia vm start prod-db
+zorvia guest wait-ready prod-db --timeout 120
+zorvia guest guest-insight prod-db
+zorvia vm status                 # platform components + features
+zorvia vm status prod-db --watch
 ```
 
 Multi-VM stack:
 
 ```bash
-zorvia blueprints
-zorvia deploy lamp --prefix myapp --start
-zorvia list
+zorvia blueprint blueprints
+zorvia blueprint deploy lamp --prefix myapp --start
+zorvia vm list
 ```
 
 Web console (HTTPS NodePort **30152**, self-signed — use `curl -sk`):
@@ -131,7 +131,7 @@ open https://<HOST>:30152/app
 | Port | Role |
 |------|------|
 | **30152** | Cluster front door (UI + API) |
-| **5151** | In-pod listen / `zorvia api-serve --tls --port 5151` |
+| **5151** | In-pod listen / `zorvia api api-serve --tls --port 5151` |
 | **8080** | Config-file default when `--port` is omitted |
 
 ```bash
@@ -185,8 +185,8 @@ Two dozen capabilities, grouped by the job they do — not one wall of a table.
 ### Run day-2, without downtime
 - Hotplug CPU, memory, disk, and NIC; live migration; disk resize — from the
   CLI or the web console.
-- Catch drift before it ships: `zorvia drift` diffs desired vs. live,
-  `zorvia plan` gates a change on downtime.
+- Catch drift before it ships: `zorvia change drift` diffs desired vs. live,
+  `zorvia change plan` gates a change on downtime.
 - Browser ops has parity with the CLI: create, power, console, expose, and
   snapshot a VM without leaving `/app`.
 - Debug the platform itself, not just the guest: the Pods page shows every
@@ -240,8 +240,8 @@ terminal or in a browser.
 ```mermaid
 flowchart LR
     subgraph You["You"]
-        CLI["CLI\nzorvia create / clone / plan"]
-        TUI["Interactive TUI\nzorvia tui"]
+        CLI["CLI\nzorvia vm create / clone / change plan"]
+        TUI["Interactive TUI\nzorvia api tui"]
         WEB["Web console\nhttps://host:30152/app"]
     end
 
@@ -279,7 +279,7 @@ Comparison, not vibes:
 | VM create/day-2 without hand-written YAML | ❌ | ⚠️ view-only for VMs | ✅ | ✅ |
 | Same capability from CLI, TUI, *and* web | ❌ | ❌ (web only) | ⚠️ web + `virtctl`, no TUI | ✅ |
 | Cost/right-sizing, compliance, HA built in | ❌ | ❌ | ⚠️ partial add-ons | ✅ real, on by default |
-| Drift detection + change-plan gating | ❌ | ❌ | ❌ | ✅ (`zorvia drift` / `zorvia plan`) |
+| Drift detection + change-plan gating | ❌ | ❌ | ❌ | ✅ (`zorvia change drift` / `zorvia change plan`) |
 | Runs on any KubeVirt cluster | ✅ | ✅ | ❌ OpenShift only | ✅ |
 | Open source, Apache-2.0 | ✅ | varies | ❌ | ✅ |
 
@@ -301,63 +301,63 @@ that every module fits every deployment.
 **Security & compliance**
 
 ```bash
-zorvia security-scan prod-db --scan-type deep
-zorvia security-harden prod-db --profile cis
-zorvia compliance-check prod-db --framework soc2
-zorvia audit-list --security-only
+zorvia security security-scan prod-db --scan-type deep
+zorvia security security-harden prod-db --profile cis
+zorvia security compliance-check prod-db --framework soc2
+zorvia security audit-list --security-only
 ```
 
 **Cost & FinOps**
 
 ```bash
-zorvia cost-analyze prod-db --period 30d
-zorvia cost-optimize --high-priority-only
-zorvia cost-waste --waste-type idle
-zorvia budget-create platform --amount 5000 --period monthly --alert-threshold 80
+zorvia cost cost-analyze prod-db --period 30d
+zorvia cost cost-optimize --high-priority-only
+zorvia cost cost-waste --waste-type idle
+zorvia cost budget-create platform --amount 5000 --period monthly --alert-threshold 80
 ```
 
 **Multi-tenancy & access**
 
 ```bash
-zorvia tenants-create platform-team --owner alice --email alice@example.com
-zorvia users-create bob --email bob@example.com --role operator
-zorvia users-assign-role bob db-admin --scope namespace:staging
-zorvia quotas-create platform-quota --namespace platform --preset large
+zorvia tenancy tenants-create platform-team --owner alice --email alice@example.com
+zorvia tenancy users-create bob --email bob@example.com --role operator
+zorvia tenancy users-assign-role bob db-admin --scope namespace:staging
+zorvia tenancy quotas-create platform-quota --namespace platform --preset large
 ```
 
 **Backup & disaster recovery**
 
 ```bash
-zorvia backup-create prod-db --backup-type incremental
-zorvia backup-schedule-create nightly --schedule daily --vm prod-db
-zorvia backup-restore prod-db-full-20260901 --target prod-db-restore --start
-zorvia recovery-plan primary-site-failover
+zorvia backup backup-create prod-db --backup-type incremental
+zorvia backup backup-schedule-create nightly --schedule daily --vm prod-db
+zorvia backup backup-restore prod-db-full-20260901 --target prod-db-restore --start
+zorvia backup recovery-plan primary-site-failover
 ```
 
 **High availability**
 
 ```bash
-zorvia ha-config prod-db --enable --priority critical --eviction-strategy live-migrate
-zorvia ha-status prod-db
-zorvia evacuate-node worker-3 --max-parallel 4 --plan
+zorvia ha ha-config prod-db --enable --priority critical --eviction-strategy live-migrate
+zorvia ha ha-status prod-db
+zorvia ha evacuate-node worker-3 --max-parallel 4 --plan
 ```
 
 **Automation & workflows**
 
 ```bash
-zorvia automation-create nightly-snapshot --trigger schedule --enable
-zorvia workflow-create dr-failover --template disaster-recovery
-zorvia workflow-run dr-failover --watch
-zorvia schedule-create weekly-backup --rule nightly-snapshot --schedule weekly --enable
+zorvia automation automation-create nightly-snapshot --trigger schedule --enable
+zorvia automation workflow-create dr-failover --template disaster-recovery
+zorvia automation workflow-run dr-failover --watch
+zorvia automation schedule-create weekly-backup --rule nightly-snapshot --schedule weekly --enable
 ```
 
 **Observability & insights**
 
 ```bash
-zorvia metrics-query cpu_usage --aggregation p95
-zorvia alerts-active --severity critical
-zorvia insights-generate prod-db --insight-type performance
-zorvia trends-analyze cpu_usage --window 24
+zorvia observability metrics-query cpu_usage --aggregation p95
+zorvia observability alerts-active --severity critical
+zorvia observability insights-generate prod-db --insight-type performance
+zorvia observability trends-analyze cpu_usage --window 24
 ```
 
 ---
@@ -367,17 +367,17 @@ zorvia trends-analyze cpu_usage --window 24
 Once something's running, the everyday loop:
 
 ```bash
-zorvia list
-zorvia get prod-db
-zorvia status
-zorvia status prod-db --watch
-zorvia pause prod-db && zorvia resume prod-db
-zorvia clone prod-db staging-db --start
-zorvia snapshot-create prod-db --name before-upgrade
-zorvia health prod-db --detailed
-zorvia drift desired.yaml
-zorvia plan desired.yaml --vm prod-db
-zorvia tui --interactive
+zorvia vm list
+zorvia vm get prod-db
+zorvia vm status
+zorvia vm status prod-db --watch
+zorvia vm pause prod-db && zorvia vm resume prod-db
+zorvia vm clone prod-db staging-db --start
+zorvia snapshot snapshot-create prod-db --name before-upgrade
+zorvia advisor health prod-db --detailed
+zorvia change drift desired.yaml
+zorvia change plan desired.yaml --vm prod-db
+zorvia api tui --interactive
 ```
 
 ---
@@ -399,7 +399,7 @@ map lives in [docs/WEB_CONSOLE.md](docs/WEB_CONSOLE.md).
 | `/app/databridge` | Atlas DataBridge: cloud-to-edge DB migration (optional) — [docs/ATLAS_INTEGRATION.md](docs/ATLAS_INTEGRATION.md) |
 | `/app/access-control` | Users & roles (admin) |
 | `/app/pods` | Every pod: Terminal.app-style live logs, shell, events, YAML, restart/delete (admin) — [docs/PODS.md](docs/PODS.md) |
-| `/app/disk-images` | Image catalog as a black Terminal.app listing (`zorvia images` on the CLI) |
+| `/app/disk-images` | Image catalog as a black Terminal.app listing (`zorvia template images` on the CLI) |
 | `/app/quotas` · `/app/network-policies` | Real `ResourceQuota` / `NetworkPolicy` |
 | `/app/templates` · `/app/windows` | OS catalog · Kryton inventory |
 | `/app/placement` · `/app/capacity` · `/app/optimizer` | Placement · headroom · right-sizing |
@@ -449,9 +449,9 @@ authoring.
 | high-perf | 8 | 16Gi | 100Gi | ML / heavy I/O |
 
 ```bash
-zorvia profiles
-zorvia profile web
-zorvia create api --template fedora-40 --cpus 4 --memory 8Gi --disk-size 40Gi
+zorvia profile profiles
+zorvia profile show web
+zorvia vm create api --template fedora-40 --cpus 4 --memory 8Gi --disk-size 40Gi
 ```
 
 **Blueprints** — multi-VM stacks (profiles applied inside the blueprint):
@@ -465,16 +465,16 @@ zorvia create api --template fedora-40 --cpus 4 --memory 8Gi --disk-size 40Gi
 | dev-stack | 3 | DB + Redis + workspace |
 
 ```bash
-zorvia blueprint lamp
-zorvia deploy lamp --prefix demo --dry-run
-zorvia deploy lamp --prefix demo --start
+zorvia blueprint show lamp
+zorvia blueprint deploy lamp --prefix demo --dry-run
+zorvia blueprint deploy lamp --prefix demo --start
 ```
 
 **Templates** — 43 named keys (aliases included): Ubuntu, Fedora, CentOS Stream, Debian, RHEL, Alma, Rocky, OpenSUSE, Alpine, Arch, Oracle, FreeBSD, Flatcar, Talos, Windows.
 
 ```bash
-zorvia templates
-zorvia template ubuntu-24.04
+zorvia template templates
+zorvia template show ubuntu-24.04
 ```
 
 Catalog: [docs/OS_TEMPLATES.md](docs/OS_TEMPLATES.md) · gallery shot above under [Console gallery](#console-gallery).
@@ -487,16 +487,16 @@ Commands operators reach for once the fleet is already running — drift,
 change plans, guest insight, golden images, Terraform, placement:
 
 ```bash
-zorvia drift desired.yaml
-zorvia drift desired.yaml --actual live.yaml --fail-on high -o json
-zorvia plan desired.yaml --vm payments-01 --fail-on-downtime
-zorvia guest-insight payments-01 --strict
-zorvia image-bundle --distro ubuntu --version 22.04 --storage-class fast
-zorvia terraform-scaffold --output ./terraform/zorvia-vm --url https://HOST:30152
-zorvia inventory
-zorvia activity
-zorvia maintenance-plan worker-3
-zorvia placement-advisor --cpu 2 --memory-gib 4
+zorvia change drift desired.yaml
+zorvia change drift desired.yaml --actual live.yaml --fail-on high -o json
+zorvia change plan desired.yaml --vm payments-01 --fail-on-downtime
+zorvia guest guest-insight payments-01 --strict
+zorvia guest image-bundle --distro ubuntu --version 22.04 --storage-class fast
+zorvia dev terraform-scaffold --output ./terraform/zorvia-vm --url https://HOST:30152
+zorvia inventory show
+zorvia inventory activity
+zorvia maintenance maintenance-plan worker-3
+zorvia placement placement-advisor --cpu 2 --memory-gib 4
 ```
 
 | Topic | Doc |
@@ -530,10 +530,10 @@ Zorvia is a library, not just a binary — validate or generate a VM config
 from the CLI, or build one programmatically in Rust:
 
 ```bash
-zorvia validate examples/ubuntu-cloud-init.yaml
-zorvia create my-vm --from-file examples/basic-vm.yaml
-zorvia generate web --template ubuntu --kubevirt -o web.yaml
-zorvia config-init && zorvia config-show
+zorvia template validate examples/ubuntu-cloud-init.yaml
+zorvia vm create my-vm --from-file examples/basic-vm.yaml
+zorvia template generate web --template ubuntu --kubevirt -o web.yaml
+zorvia config config-init && zorvia config config-show
 # ~/.config/zorvia/config.toml  ·  /etc/zorvia/config.toml
 ```
 

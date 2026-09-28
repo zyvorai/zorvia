@@ -26,7 +26,7 @@ Start here: root [README.md](../README.md) (hero, gallery, quick start) · live 
 | [SNAPSHOTS.md](SNAPSHOTS.md) | Snapshot create/restore/retention |
 | [DISK_MANAGEMENT.md](DISK_MANAGEMENT.md) | Disks and volumes |
 | [NETWORK_MANAGEMENT.md](NETWORK_MANAGEMENT.md) | Networking |
-| [ADVANCED_FEATURES.md](ADVANCED_FEATURES.md) | Platform `zorvia status` + advanced CLI |
+| [ADVANCED_FEATURES.md](ADVANCED_FEATURES.md) | Platform `zorvia vm status` + advanced CLI |
 | [GUEST_INSIGHT.md](GUEST_INSIGHT.md) | QEMU Guest Agent readiness |
 | [GOLDEN_IMAGES.md](GOLDEN_IMAGES.md) | quay.io containerdisks + CDI `image-bundle` |
 
@@ -34,8 +34,8 @@ Start here: root [README.md](../README.md) (hero, gallery, quick start) · live 
 
 | Doc | Topic |
 |-----|--------|
-| [DRIFT_GUARD.md](DRIFT_GUARD.md) | Semantic desired-vs-live drift (`zorvia drift`) |
-| [CHANGE_PLANNER.md](CHANGE_PLANNER.md) | Operational change plan (`zorvia plan`) |
+| [DRIFT_GUARD.md](DRIFT_GUARD.md) | Semantic desired-vs-live drift (`zorvia change drift`) |
+| [CHANGE_PLANNER.md](CHANGE_PLANNER.md) | Operational change plan (`zorvia change plan`) |
 | [VCENTER_FEATURE_MATRIX.md](VCENTER_FEATURE_MATRIX.md) | Inventory, activity, maintenance, placement |
 
 ## Integrations

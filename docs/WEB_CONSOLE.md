@@ -1,6 +1,6 @@
 # Zorvia Web Console & HTTP API
 
-The Fabric-compatible SPA (`web/`) and Axum API (`zorvia api-serve`) manage KubeVirt VMs from the browser. Lab front door is Kubernetes in-pod HTTPS on NodePort **30152**.
+The Fabric-compatible SPA (`web/`) and Axum API (`zorvia api api-serve`) manage KubeVirt VMs from the browser. Lab front door is Kubernetes in-pod HTTPS on NodePort **30152**.
 
 ## Lab access
 
@@ -94,20 +94,20 @@ Wizard supports:
 - **Expose**: SSH (22), VNC (5900, Windows create path), RDP (3389) as Kubernetes **NodePort** Services
 - **Auto-start** after create (default)
 
-Catalog (`GET /api/images`) returns blank sizes plus major Linux containerdisks. `GET /api/images/cloud` lists unique containerdisk images sourced from the 43 OS templates. `POST /api/images/cloud/download` genuinely imports the image — it applies a real CDI `DataVolume` + stable `DataSource` to the cluster (same manifests as `zorvia image-bundle`, see [GOLDEN_IMAGES.md](GOLDEN_IMAGES.md)) and returns a `datavolume:<name>` reference usable directly as a Create VM disk image.
+Catalog (`GET /api/images`) returns blank sizes plus major Linux containerdisks. `GET /api/images/cloud` lists unique containerdisk images sourced from the 43 OS templates. `POST /api/images/cloud/download` genuinely imports the image — it applies a real CDI `DataVolume` + stable `DataSource` to the cluster (same manifests as `zorvia guest image-bundle`, see [GOLDEN_IMAGES.md](GOLDEN_IMAGES.md)) and returns a `datavolume:<name>` reference usable directly as a Create VM disk image.
 
 ## Disk Images
 
 `/app/disk-images` shows the `GET /api/images` catalog inside a black macOS
-Terminal.app window, styled as the output of the real `zorvia images` CLI command
+Terminal.app window, styled as the output of the real `zorvia template images` CLI command
 (same catalog, shared `disk_image_catalog()` in `src/kube/catalog.rs`;
-`zorvia images -o json|yaml` for scripts):
+`zorvia template images -o json|yaml` for scripts):
 
 ![Disk Images](screenshots/readme-disk-images.png)
 
 | Element | Rendering |
 |---------|-----------|
-| Prompt | `zorvia@images:~$ zorvia images`, then `total N · <size>` (and `· K selected`) |
+| Prompt | `zorvia@images:~$ zorvia template images`, then `total N · <size>` (and `· K selected`) |
 | NAME | Bold white |
 | FORMAT | `blank` yellow · `containerdisk` cyan · `qcow2` magenta · `raw` orange · `iso` green · `vmdk`/`vhd(x)` blue |
 | SIZE | Magenta, right-aligned; `—` for containerdisks (size unknown until pulled, API reports `0`) |
@@ -161,7 +161,7 @@ troubleshooting: **[PODS.md](PODS.md)**.
 | Op | How |
 |----|-----|
 | Start / stop / restart / delete | VM details, list, API |
-| Serial console | `/app/vms/:name/console` → Terminal → `GET /ws/console/:name` → KubeVirt `vmis/console`. Black Terminal.app profile (same palette as the Pods terminals), sized to the window, copy-on-select toggle, reconnect in the title bar; the CLI equivalent is `zorvia console <vm>` |
+| Serial console | `/app/vms/:name/console` → Terminal → `GET /ws/console/:name` → KubeVirt `vmis/console`. Black Terminal.app profile (same palette as the Pods terminals), sized to the window, copy-on-select toggle, reconnect in the title bar; the CLI equivalent is `zorvia vm console <vm>` |
 | VNC | Console page VNC tab → `GET /ws/vnc/:name` → KubeVirt `vmis/vnc` |
 | In-browser SSH | Console page SSH tab → `GET /ws/ssh/:name?user=` → proxies `ssh` or `virtctl ssh`, attached to a real pty (password auth works — an earlier plain-pipe version of this proxy couldn't complete OpenSSH's `/dev/tty` password prompt) |
 | Expose SSH/VNC/RDP | Port-forwards section or create-time flags → NodePort Service labeled `zorvia.io/vm=<name>` |

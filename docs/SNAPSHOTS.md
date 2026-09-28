@@ -32,13 +32,13 @@ Zorvia's VM Snapshots & Backup System provides production-grade snapshot managem
 
 ```bash
 # Create snapshot with auto-generated name
-zorvia snapshot-create my-vm
+zorvia snapshot snapshot-create my-vm
 
 # Create snapshot with custom name
-zorvia snapshot-create my-vm --name pre-upgrade-backup
+zorvia snapshot snapshot-create my-vm --name pre-upgrade-backup
 
 # Create snapshot with description
-zorvia snapshot-create my-vm \
+zorvia snapshot snapshot-create my-vm \
   --name before-update \
   --description "Before OS upgrade to Ubuntu 24.04"
 ```
@@ -47,57 +47,57 @@ zorvia snapshot-create my-vm \
 
 ```bash
 # List all snapshots in namespace
-zorvia snapshot-list
+zorvia snapshot snapshot-list
 
 # List snapshots for specific VM
-zorvia snapshot-list my-vm
+zorvia snapshot snapshot-list my-vm
 
 # List in different formats
-zorvia snapshot-list --output yaml
-zorvia snapshot-list --output json
+zorvia snapshot snapshot-list --output yaml
+zorvia snapshot snapshot-list --output json
 ```
 
 ### 🔍 Get Snapshot Details
 
 ```bash
 # Get snapshot details (YAML format)
-zorvia snapshot-get my-snapshot
+zorvia snapshot snapshot-get my-snapshot
 
 # Get details in JSON format
-zorvia snapshot-get my-snapshot --output json
+zorvia snapshot snapshot-get my-snapshot --output json
 ```
 
 ### 🔄 Restore from Snapshot
 
 ```bash
 # Restore to new VM
-zorvia snapshot-restore my-snapshot --target restored-vm
+zorvia snapshot snapshot-restore my-snapshot --target restored-vm
 
 # Restore and start immediately
-zorvia snapshot-restore my-snapshot --target restored-vm --start
+zorvia snapshot snapshot-restore my-snapshot --target restored-vm --start
 
 # Restore in-place (overwrite existing VM)
-zorvia snapshot-restore my-snapshot --in-place
+zorvia snapshot snapshot-restore my-snapshot --in-place
 
 # Restore in-place with custom target
-zorvia snapshot-restore my-snapshot --target my-vm --in-place
+zorvia snapshot snapshot-restore my-snapshot --target my-vm --in-place
 ```
 
 ### 🗑️ Delete Snapshot
 
 ```bash
 # Delete snapshot (with confirmation)
-zorvia snapshot-delete old-snapshot
+zorvia snapshot snapshot-delete old-snapshot
 
 # Delete snapshot (skip confirmation)
-zorvia snapshot-delete old-snapshot --yes
+zorvia snapshot snapshot-delete old-snapshot --yes
 ```
 
 ---
 
 ## 📊 Command Reference
 
-### `zorvia snapshot-create`
+### `zorvia snapshot snapshot-create`
 
 Create a VM snapshot.
 
@@ -108,11 +108,11 @@ Create a VM snapshot.
 
 **Examples:**
 ```bash
-zorvia snapshot-create prod-db --name daily-backup
-zorvia snapshot-create web-server --description "Before deployment"
+zorvia snapshot snapshot-create prod-db --name daily-backup
+zorvia snapshot snapshot-create web-server --description "Before deployment"
 ```
 
-### `zorvia snapshot-list`
+### `zorvia snapshot snapshot-list`
 
 List snapshots.
 
@@ -123,13 +123,13 @@ List snapshots.
 
 **Examples:**
 ```bash
-zorvia snapshot-list                    # All snapshots
-zorvia snapshot-list prod-db            # Snapshots for prod-db
-zorvia snapshot-list -A                 # All namespaces
-zorvia snapshot-list --output json      # JSON format
+zorvia snapshot snapshot-list                    # All snapshots
+zorvia snapshot snapshot-list prod-db            # Snapshots for prod-db
+zorvia snapshot snapshot-list -A                 # All namespaces
+zorvia snapshot snapshot-list --output json      # JSON format
 ```
 
-### `zorvia snapshot-get`
+### `zorvia snapshot snapshot-get`
 
 Show detailed snapshot information.
 
@@ -139,11 +139,11 @@ Show detailed snapshot information.
 
 **Examples:**
 ```bash
-zorvia snapshot-get my-snapshot
-zorvia snapshot-get my-snapshot --output json
+zorvia snapshot snapshot-get my-snapshot
+zorvia snapshot snapshot-get my-snapshot --output json
 ```
 
-### `zorvia snapshot-delete`
+### `zorvia snapshot snapshot-delete`
 
 Delete a snapshot.
 
@@ -153,11 +153,11 @@ Delete a snapshot.
 
 **Examples:**
 ```bash
-zorvia snapshot-delete old-snapshot
-zorvia snapshot-delete old-snapshot --yes
+zorvia snapshot snapshot-delete old-snapshot
+zorvia snapshot snapshot-delete old-snapshot --yes
 ```
 
-### `zorvia snapshot-restore`
+### `zorvia snapshot snapshot-restore`
 
 Restore VM from snapshot.
 
@@ -169,9 +169,9 @@ Restore VM from snapshot.
 
 **Examples:**
 ```bash
-zorvia snapshot-restore backup-20260205 --target restored-vm
-zorvia snapshot-restore backup-20260205 --in-place
-zorvia snapshot-restore backup-20260205 --target new-vm --start
+zorvia snapshot snapshot-restore backup-20260205 --target restored-vm
+zorvia snapshot snapshot-restore backup-20260205 --in-place
+zorvia snapshot snapshot-restore backup-20260205 --target new-vm --start
 ```
 
 ---
@@ -182,22 +182,22 @@ zorvia snapshot-restore backup-20260205 --target new-vm --start
 
 ```bash
 # Create daily snapshot
-zorvia snapshot-create prod-db \
+zorvia snapshot snapshot-create prod-db \
   --name "prod-db-daily-$(date +%Y%m%d)" \
   --description "Daily backup"
 
 # List recent snapshots
-zorvia snapshot-list prod-db
+zorvia snapshot snapshot-list prod-db
 
 # Verify snapshot is ready
-zorvia snapshot-get prod-db-daily-20260205
+zorvia snapshot snapshot-get prod-db-daily-20260205
 ```
 
 ### Example 2: Pre-Deployment Backup
 
 ```bash
 # Create snapshot before deployment
-zorvia snapshot-create web-server \
+zorvia snapshot snapshot-create web-server \
   --name pre-deploy-v2.0 \
   --description "Before v2.0 deployment"
 
@@ -205,7 +205,7 @@ zorvia snapshot-create web-server \
 # ... deploy your application ...
 
 # If deployment fails, restore
-zorvia snapshot-restore pre-deploy-v2.0 \
+zorvia snapshot snapshot-restore pre-deploy-v2.0 \
   --target web-server \
   --in-place \
   --start
@@ -215,36 +215,36 @@ zorvia snapshot-restore pre-deploy-v2.0 \
 
 ```bash
 # Create snapshot of production
-zorvia snapshot-create prod-db --name prod-snapshot
+zorvia snapshot snapshot-create prod-db --name prod-snapshot
 
 # Restore to new VM for testing
-zorvia snapshot-restore prod-snapshot \
+zorvia snapshot snapshot-restore prod-snapshot \
   --target test-db \
   --start
 
 # Verify test VM
-zorvia status test-db
+zorvia vm status test-db
 
 # Snapshot controller shows on platform status (Snapshots: ✅ OK / ℹ️ disabled)
-zorvia status
+zorvia vm status
 ```
 
 ### Example 4: Disaster Recovery
 
 ```bash
 # List available snapshots
-zorvia snapshot-list prod-db
+zorvia snapshot snapshot-list prod-db
 
 # Check snapshot details
-zorvia snapshot-get prod-db-daily-20260204
+zorvia snapshot snapshot-get prod-db-daily-20260204
 
 # Restore to recover
-zorvia snapshot-restore prod-db-daily-20260204 \
+zorvia snapshot snapshot-restore prod-db-daily-20260204 \
   --target prod-db-recovered \
   --start
 
 # Verify recovered VM
-zorvia health prod-db-recovered
+zorvia advisor health prod-db-recovered
 ```
 
 ---
@@ -290,7 +290,7 @@ Creating snapshot for VM: prod-db
   Status:    InProgress
 
 ℹ Check snapshot status with:
-  zorvia snapshot-get prod-db-snapshot-20260205-140530
+  zorvia snapshot snapshot-get prod-db-snapshot-20260205-140530
 ```
 
 ### Snapshot Restore
@@ -376,41 +376,41 @@ async fn main() -> anyhow::Result<()> {
 
 ```bash
 # Create snapshot
-zorvia snapshot-create my-vm --name pre-update
+zorvia snapshot snapshot-create my-vm --name pre-update
 
 # Check VM health before restore
-zorvia health my-vm
+zorvia advisor health my-vm
 
 # Restore if needed
-zorvia snapshot-restore pre-update --in-place
+zorvia snapshot snapshot-restore pre-update --in-place
 ```
 
 ### With Profiles
 
 ```bash
 # Create VM with profile
-zorvia create my-vm --template ubuntu-22.04 --profile database
+zorvia vm create my-vm --template ubuntu-22.04 --profile database
 
 # Create snapshot
-zorvia snapshot-create my-vm --name initial-state
+zorvia snapshot snapshot-create my-vm --name initial-state
 
 # Restore maintains the same resource configuration
-zorvia snapshot-restore initial-state --target my-vm-copy
+zorvia snapshot snapshot-restore initial-state --target my-vm-copy
 ```
 
 ### With Blueprints
 
 ```bash
 # Deploy blueprint
-zorvia deploy lamp --prefix prod
+zorvia blueprint deploy lamp --prefix prod
 
 # Snapshot all VMs in the stack
-zorvia snapshot-create prod-mysql-db --name lamp-backup-db
-zorvia snapshot-create prod-web-server --name lamp-backup-web
+zorvia snapshot snapshot-create prod-mysql-db --name lamp-backup-db
+zorvia snapshot snapshot-create prod-web-server --name lamp-backup-web
 
 # Restore entire stack if needed
-zorvia snapshot-restore lamp-backup-db --in-place
-zorvia snapshot-restore lamp-backup-web --in-place
+zorvia snapshot snapshot-restore lamp-backup-db --in-place
+zorvia snapshot snapshot-restore lamp-backup-web --in-place
 ```
 
 ---

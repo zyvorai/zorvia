@@ -1593,14 +1593,14 @@ pub async fn run(mut cli: Cli) -> Result<()> {
                 (
                     "OS templates and config generation",
                     "template",
-                    vec!["generate", "templates", "images", "template", "validate"],
+                    vec!["generate", "templates", "images", "show", "validate"],
                 ),
                 (
                     "Reusable VM configuration profiles",
                     "profile",
                     vec![
                         "profiles",
-                        "profile",
+                        "show",
                         "profile-create",
                         "profile-edit",
                         "profile-delete",
@@ -1611,7 +1611,7 @@ pub async fn run(mut cli: Cli) -> Result<()> {
                     "blueprint",
                     vec![
                         "blueprints",
-                        "blueprint",
+                        "show",
                         "deploy",
                         "blueprint-create",
                         "blueprint-edit",
@@ -1788,7 +1788,7 @@ pub async fn run(mut cli: Cli) -> Result<()> {
                     "Inventory, tags, attributes, and activity",
                     "inventory",
                     vec![
-                        "inventory",
+                        "show",
                         "tag-set",
                         "tag-remove",
                         "attribute-set",

@@ -13,9 +13,9 @@ OK/disabled lines, workloads, and feature inventory:
 
 ```bash
 # Platform / cluster status
-zorvia status
-zorvia status -o json
-zorvia status --wait --wait-duration 5m
+zorvia vm status
+zorvia vm status -o json
+zorvia vm status --wait --wait-duration 5m
 ```
 
 Example (colors + emojis abbreviated):
@@ -39,13 +39,13 @@ Example (colors + emojis abbreviated):
 
 ```bash
 # Show detailed VM status
-zorvia status my-vm
+zorvia vm status my-vm
 
 # Watch mode - continuously update status
-zorvia status my-vm --watch
+zorvia vm status my-vm --watch
 
 # Custom update interval (in seconds)
-zorvia status my-vm --watch --interval 5
+zorvia vm status my-vm --watch --interval 5
 ```
 
 ### Example VM output
@@ -91,20 +91,20 @@ Clone an existing VM to create a new one with the same configuration.
 
 ```bash
 # Basic clone
-zorvia clone source-vm target-vm
+zorvia vm clone source-vm target-vm
 
 # Clone and start immediately
-zorvia clone source-vm target-vm --start
+zorvia vm clone source-vm target-vm --start
 ```
 
 ### Example
 
 ```bash
 # Clone production database for testing
-zorvia clone prod-db test-db
+zorvia vm clone prod-db test-db
 
 # Clone and start for development
-zorvia clone web-server-1 web-server-2 --start
+zorvia vm clone web-server-1 web-server-2 --start
 ```
 
 ### What Gets Cloned
@@ -128,16 +128,16 @@ View resource allocation across all VMs with sorting and filtering.
 
 ```bash
 # Show resources in current namespace
-zorvia resources
+zorvia vm resources
 
 # Show resources across all namespaces
-zorvia resources --all-namespaces
+zorvia vm resources --all-namespaces
 
 # Sort by CPU usage
-zorvia resources --sort-by cpu
+zorvia vm resources --sort-by cpu
 
 # Sort by memory
-zorvia resources --sort-by memory
+zorvia vm resources --sort-by memory
 ```
 
 ### Example Output
@@ -183,13 +183,13 @@ Export existing VM configurations for backup or migration.
 
 ```bash
 # Export to stdout
-zorvia export my-vm
+zorvia vm export my-vm
 
 # Export to file
-zorvia export my-vm --output backup.yaml
+zorvia vm export my-vm --output backup.yaml
 
 # Export as KubeVirt manifest
-zorvia export my-vm --kubevirt --output vm.kubevirt.yaml
+zorvia vm export my-vm --kubevirt --output vm.kubevirt.yaml
 ```
 
 ### Use Cases
@@ -209,10 +209,10 @@ Interactive, guided VM creation with prompts and defaults.
 
 ```bash
 # Start wizard without pre-filling name
-zorvia wizard
+zorvia vm wizard
 
 # Start wizard with name pre-filled
-zorvia wizard my-new-vm
+zorvia vm wizard my-new-vm
 ```
 
 ### Interactive Flow
@@ -267,16 +267,16 @@ Create multiple VMs at once from a batch configuration file.
 
 ```bash
 # Dry run to preview
-zorvia batch cluster.yaml --dry-run
+zorvia vm batch cluster.yaml --dry-run
 
 # Create all VMs
-zorvia batch cluster.yaml
+zorvia vm batch cluster.yaml
 
 # Override namespace for all VMs
-zorvia batch cluster.yaml --namespace production
+zorvia vm batch cluster.yaml --namespace production
 
 # Continue on errors instead of stopping
-zorvia batch cluster.yaml --continue-on-error
+zorvia vm batch cluster.yaml --continue-on-error
 ```
 
 ### Batch Configuration Format
@@ -384,7 +384,7 @@ Found 3 VMs to create
 Use `resources` command to understand cluster utilization before creating new VMs:
 
 ```bash
-zorvia resources --all-namespaces --sort-by cpu
+zorvia vm resources --all-namespaces --sort-by cpu
 ```
 
 ### 2. VM Templating
@@ -392,7 +392,7 @@ zorvia resources --all-namespaces --sort-by cpu
 Export an existing VM as a template:
 
 ```bash
-zorvia export prod-db --output templates/database-template.yaml
+zorvia vm export prod-db --output templates/database-template.yaml
 # Edit template
 # Use with batch command
 ```
@@ -401,9 +401,9 @@ zorvia export prod-db --output templates/database-template.yaml
 
 ```bash
 # Clone production to staging for testing
-zorvia clone prod-web staging-web
-zorvia get staging-web  # Verify
-zorvia start staging-web  # Test
+zorvia vm clone prod-web staging-web
+zorvia vm get staging-web  # Verify
+zorvia vm start staging-web  # Test
 ```
 
 ### 4. Monitoring with Watch
@@ -411,7 +411,7 @@ zorvia start staging-web  # Test
 Monitor VM startup in real-time:
 
 ```bash
-zorvia status my-vm --watch --interval 2
+zorvia vm status my-vm --watch --interval 2
 ```
 
 ### 5. Infrastructure as Code
@@ -421,7 +421,7 @@ Combine batch configurations with git:
 ```bash
 git clone https://github.com/myorg/vm-configs.git
 cd vm-configs/production
-zorvia batch web-cluster.yaml
+zorvia vm batch web-cluster.yaml
 ```
 
 ---
@@ -457,14 +457,14 @@ zorvia batch web-cluster.yaml
 
 ```bash
 # Create load-balanced web cluster
-zorvia batch examples/batch-web-cluster.yaml
+zorvia vm batch examples/batch-web-cluster.yaml
 
 # Monitor resource usage
-zorvia resources --namespace production
+zorvia vm resources --namespace production
 
 # Check status of all servers
 for vm in web-server-{1..3}; do
-  zorvia status $vm
+  zorvia vm status $vm
 done
 ```
 
@@ -472,25 +472,25 @@ done
 
 ```bash
 # Interactive creation for quick dev VM
-zorvia wizard
+zorvia vm wizard
 
 # Clone for teammate
-zorvia clone my-dev-vm teammate-dev-vm --start
+zorvia vm clone my-dev-vm teammate-dev-vm --start
 
 # Export configuration for sharing
-zorvia export my-dev-vm --output team-dev-config.yaml
+zorvia vm export my-dev-vm --output team-dev-config.yaml
 ```
 
 ### Scenario 3: Disaster Recovery
 
 ```bash
 # Export all VMs for backup
-for vm in $(zorvia list --output json | jq -r '.[].metadata.name'); do
-  zorvia export $vm --output backups/$vm.yaml
+for vm in $(zorvia vm list --output json | jq -r '.[].metadata.name'); do
+  zorvia vm export $vm --output backups/$vm.yaml
 done
 
 # Restore from backups
-zorvia batch backups/*.yaml
+zorvia vm batch backups/*.yaml
 ```
 
 ---
@@ -502,8 +502,8 @@ Many items once listed as “next” here now ship elsewhere:
 | Capability | Where |
 |------------|--------|
 | Snapshots & retention | [SNAPSHOTS.md](SNAPSHOTS.md) |
-| Health & monitoring | CLI `zorvia status` (platform) / `zorvia health` / `zorvia monitor-*`; web metrics |
-| Live migration | CLI `zorvia migrate` / HA helpers |
+| Health & monitoring | CLI `zorvia vm status` (platform) / `zorvia advisor health` / `zorvia monitor ...`; web metrics |
+| Live migration | CLI `zorvia migration migrate` / HA helpers |
 | Web console & Fabric API | [WEB_CONSOLE.md](WEB_CONSOLE.md) |
 | Drift / plan / guest insight | [DRIFT_GUARD.md](DRIFT_GUARD.md), [CHANGE_PLANNER.md](CHANGE_PLANNER.md), [GUEST_INSIGHT.md](GUEST_INSIGHT.md) |
 

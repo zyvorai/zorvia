@@ -2,14 +2,14 @@
 
 Drift Guard performs semantic desired-vs-actual comparison for KubeVirt `VirtualMachine` resources. It is designed for both local CI checks and live Kubernetes/KubeVirt clusters.
 
-## Why this is different from `zorvia diff`
+## Why this is different from `zorvia dev diff`
 
-`zorvia diff` compares two local configuration files. Drift Guard is operational: it canonicalizes Zorvia `VMConfig` into KubeVirt, removes controller-managed Kubernetes noise, normalizes named arrays, assigns change severity, and can compare directly with the live VM returned by the Kubernetes API.
+`zorvia dev diff` compares two local configuration files. Drift Guard is operational: it canonicalizes Zorvia `VMConfig` into KubeVirt, removes controller-managed Kubernetes noise, normalizes named arrays, assigns change severity, and can compare directly with the live VM returned by the Kubernetes API.
 
 ## Live cluster check
 
 ```bash
-zorvia drift vm.yaml
+zorvia change drift vm.yaml
 ```
 
 The VM name and namespace are inferred from the desired manifest. Override the VM name when needed:
@@ -23,15 +23,15 @@ A non-default kubeconfig supplied through the existing global `--kubeconfig` opt
 ## File-to-file / CI check
 
 ```bash
-zorvia drift desired.yaml --actual captured-live.yaml --fail-on medium
+zorvia change drift desired.yaml --actual captured-live.yaml --fail-on medium
 ```
 
 Supported output formats:
 
 ```bash
-zorvia drift desired.yaml --actual live.yaml --output table
-zorvia drift desired.yaml --actual live.yaml --output json
-zorvia drift desired.yaml --actual live.yaml --output yaml
+zorvia change drift desired.yaml --actual live.yaml --output table
+zorvia change drift desired.yaml --actual live.yaml --output json
+zorvia change drift desired.yaml --actual live.yaml --output yaml
 ```
 
 ## CI gate
@@ -48,7 +48,7 @@ zorvia drift desired.yaml --actual live.yaml --output yaml
 Example:
 
 ```bash
-zorvia drift desired.yaml --actual live.yaml --fail-on high --output json > drift.json
+zorvia change drift desired.yaml --actual live.yaml --fail-on high --output json > drift.json
 ```
 
 When a finding meets or exceeds the threshold, Zorvia returns a non-zero status after rendering the report.
@@ -58,7 +58,7 @@ When a finding meets or exceeds the threshold, Zorvia returns a non-zero status 
 Use repeatable RFC 6901-style JSON pointers:
 
 ```bash
-zorvia drift desired.yaml \
+zorvia change drift desired.yaml \
   --ignore /metadata/labels/build-id \
   --ignore '/metadata/annotations/*'
 ```

@@ -11,19 +11,19 @@ Zorvia provides a fully interactive Terminal User Interface (TUI) with dialogs, 
 ### Basic Mode
 ```bash
 # Launch basic TUI
-zorvia tui
+zorvia api tui
 
 # With specific namespace
-zorvia tui --namespace production
+zorvia api tui --namespace production
 ```
 
 ### Enhanced Interactive Mode
 ```bash
 # Launch with full interactive features
-zorvia tui --interactive
+zorvia api tui --interactive
 
 # With custom theme
-zorvia tui --interactive --theme dark
+zorvia api tui --interactive --theme dark
 ```
 
 ## Interactive Features
@@ -243,10 +243,10 @@ Long-running operations show progress:
 
 ```bash
 # Dark theme (default)
-zorvia tui --interactive --theme dark
+zorvia api tui --interactive --theme dark
 
 # Light theme
-zorvia tui --interactive --theme light
+zorvia api tui --interactive --theme light
 ```
 
 ### Configuration
@@ -334,7 +334,7 @@ create = "c"
 
 ```bash
 # Launch interactive TUI
-zorvia tui --interactive
+zorvia api tui --interactive
 
 # Create database VM
 1. Press 2 (VM List)
