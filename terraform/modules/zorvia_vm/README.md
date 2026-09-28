@@ -16,4 +16,4 @@ module "web" {
 ```
 
 This is the supported GitOps path until a registry-published `zyvorai/zorvia` provider exists.
-See `schema.json` from `zorvia terraform-scaffold` for the resource contract.
+See `schema.json` from `zorvia dev terraform-scaffold` for the resource contract.

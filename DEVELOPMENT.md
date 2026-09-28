@@ -56,7 +56,7 @@ src/
 ├── rook/               (Rook-Ceph CRD client, manifests, operator bootstrap, health)
 ├── golden_images/      (CDI DataVolume/DataSource bundle generation + download jobs)
 ├── kryton/             (Kryton Windows control-plane proxy client)
-├── platform_status/    (Cilium-style `zorvia status` logo + component probe)
+├── platform_status/    (Cilium-style `zorvia vm status` logo + component probe)
 └── [10 more modules]   (networking, finops, edge, secrets, etc.)
 ```
 

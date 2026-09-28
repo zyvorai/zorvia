@@ -4,62 +4,62 @@
 
 ### VM Snapshots & Backup
 ```bash
-zorvia snapshot-create my-vm --name backup-20260205
-zorvia snapshot-list my-vm          # List snapshots for VM
-zorvia snapshot-list                # List all snapshots
-zorvia snapshot-get backup-20260205 # Get snapshot details
-zorvia snapshot-restore backup-20260205 --target restored-vm
-zorvia snapshot-restore backup-20260205 --in-place  # Overwrite existing
-zorvia snapshot-delete old-snapshot
+zorvia snapshot snapshot-create my-vm --name backup-20260205
+zorvia snapshot snapshot-list my-vm          # List snapshots for VM
+zorvia snapshot snapshot-list                # List all snapshots
+zorvia snapshot snapshot-get backup-20260205 # Get snapshot details
+zorvia snapshot snapshot-restore backup-20260205 --target restored-vm
+zorvia snapshot snapshot-restore backup-20260205 --in-place  # Overwrite existing
+zorvia snapshot snapshot-delete old-snapshot
 ```
 
 ### VM Profiles
 ```bash
-zorvia profiles                  # List all profiles
-zorvia profiles --details        # Detailed profile info
-zorvia profile database          # View specific profile
+zorvia profile profiles                  # List all profiles
+zorvia profile profiles --details        # Detailed profile info
+zorvia profile show database          # View specific profile
 ```
 
 ### Multi-VM Blueprints
 ```bash
-zorvia blueprints                # List all blueprints
-zorvia blueprints --tag web      # Filter by tag
-zorvia blueprint lamp            # View blueprint details
-zorvia deploy lamp --dry-run     # Preview deployment
-zorvia deploy lamp --prefix prod # Deploy with custom prefix
-zorvia deploy lamp --start       # Deploy and start VMs
+zorvia blueprint blueprints                # List all blueprints
+zorvia blueprint blueprints --tag web      # Filter by tag
+zorvia blueprint show lamp            # View blueprint details
+zorvia blueprint deploy lamp --dry-run     # Preview deployment
+zorvia blueprint deploy lamp --prefix prod # Deploy with custom prefix
+zorvia blueprint deploy lamp --start       # Deploy and start VMs
 ```
 
 ### Resource Recommendations
 ```bash
-zorvia recommend database        # Database workload
-zorvia recommend web             # Web server workload
-zorvia recommend ml              # Machine learning workload
+zorvia advisor recommend database        # Database workload
+zorvia advisor recommend web             # Web server workload
+zorvia advisor recommend ml              # Machine learning workload
 ```
 
 ### Health Checks
 ```bash
-zorvia health my-vm              # Check VM health
-zorvia health my-vm --detailed   # Detailed checks
+zorvia advisor health my-vm              # Check VM health
+zorvia advisor health my-vm --detailed   # Detailed checks
 ```
 
 ### VM Operations
 ```bash
-zorvia create myvm --template ubuntu --profile prod
-zorvia list                      # List all VMs
-zorvia get myvm                  # Get VM details
-zorvia start myvm                # Start VM
-zorvia stop myvm                 # Stop VM
-zorvia pause myvm                # Pause running VMI
-zorvia resume myvm               # Resume paused VMI
-zorvia terraform-scaffold --output ./terraform/zorvia-vm
-zorvia wait-image ubuntu-import --timeout 120
-zorvia wait-ready myvm --timeout 120
-zorvia delete myvm               # Delete VM
-zorvia status                    # Platform status (Cilium-style logo + features)
-zorvia status myvm               # Detailed VM status
-zorvia status myvm --watch       # Watch VM status
-zorvia clone source target       # Clone VM
+zorvia vm create myvm --template ubuntu --profile prod
+zorvia vm list                      # List all VMs
+zorvia vm get myvm                  # Get VM details
+zorvia vm start myvm                # Start VM
+zorvia vm stop myvm                 # Stop VM
+zorvia vm pause myvm                # Pause running VMI
+zorvia vm resume myvm               # Resume paused VMI
+zorvia dev terraform-scaffold --output ./terraform/zorvia-vm
+zorvia guest wait-image ubuntu-import --timeout 120
+zorvia guest wait-ready myvm --timeout 120
+zorvia vm delete myvm               # Delete VM
+zorvia vm status                    # Platform status (Cilium-style logo + features)
+zorvia vm status myvm               # Detailed VM status
+zorvia vm status myvm --watch       # Watch VM status
+zorvia vm clone source target       # Clone VM
 ```
 
 ### Web console & API
@@ -150,23 +150,23 @@ curl -sk -X POST -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application
 
 ### Drift, plan & guest insight
 ```bash
-zorvia drift desired.yaml
-zorvia plan desired.yaml --vm myvm
-zorvia guest-insight myvm
-zorvia guest-insight myvm -o json --strict
+zorvia change drift desired.yaml
+zorvia change plan desired.yaml --vm myvm
+zorvia guest guest-insight myvm
+zorvia guest guest-insight myvm -o json --strict
 ```
 
 ### Templates
 ```bash
-zorvia templates                 # List all templates
-zorvia template ubuntu-22.04     # View template details
+zorvia template templates                 # List all templates
+zorvia template show ubuntu-22.04     # View template details
 ```
 
 ### Disk images
 ```bash
-zorvia images                    # Blank disks + quay.io containerdisks (same list as /app/disk-images)
-zorvia images -o json            # or -o yaml, for scripts
-zorvia create web --container-disk quay.io/containerdisks/ubuntu:24.04
+zorvia template images                    # Blank disks + quay.io containerdisks (same list as /app/disk-images)
+zorvia template images -o json            # or -o yaml, for scripts
+zorvia vm create web --container-disk quay.io/containerdisks/ubuntu:24.04
 ```
 
 ### Kryton (Windows plane)
@@ -178,10 +178,10 @@ open https://HOST:30152/app/windows
 
 ### vCenter-style ops
 ```bash
-zorvia inventory                 # DC -> Cluster -> Host/Folder -> VM
-zorvia activity                  # Recent tasks / events / alarms
-zorvia maintenance-plan NODE
-zorvia placement-advisor --cpu 2 --memory-gib 4
+zorvia inventory show             # DC -> Cluster -> Host/Folder -> VM
+zorvia inventory activity                  # Recent tasks / events / alarms
+zorvia maintenance maintenance-plan NODE
+zorvia placement placement-advisor --cpu 2 --memory-gib 4
 # See docs/VCENTER_FEATURE_MATRIX.md
 ```
 
@@ -191,18 +191,18 @@ zorvia placement-advisor --cpu 2 --memory-gib 4
 # Golden CDI library (needs StorageClass + CDI):
 STORAGE_CLASS=fast ./fixtures/golden-images/generate-bundles.sh
 kubectl apply -f fixtures/golden-images/out/
-zorvia image-bundle --help
+zorvia guest image-bundle --help
 # See docs/GOLDEN_IMAGES.md
 ```
 
 ### Advanced
 ```bash
-zorvia wizard                    # Interactive wizard
-zorvia batch config.yaml         # Batch operations
-zorvia export myvm               # Export config
-zorvia validate config.yaml      # Validate config
-zorvia terraform-scaffold --output ./terraform/zorvia-vm
-zorvia api-serve --tls --port 5151
+zorvia vm wizard                    # Interactive wizard
+zorvia vm batch config.yaml         # Batch operations
+zorvia vm export myvm               # Export config
+zorvia template validate config.yaml      # Validate config
+zorvia dev terraform-scaffold --output ./terraform/zorvia-vm
+zorvia api api-serve --tls --port 5151
 ```
 
 ---
@@ -276,34 +276,34 @@ zorvia api-serve --tls --port 5151
 
 ### Create Development VM
 ```bash
-zorvia create dev-vm --template ubuntu --profile dev
-zorvia start dev-vm
+zorvia vm create dev-vm --template ubuntu --profile dev
+zorvia vm start dev-vm
 ```
 
 ### Create Production Database
 ```bash
-zorvia recommend database
-zorvia create prod-db --template almalinux --profile database
-zorvia health prod-db
-zorvia start prod-db
+zorvia advisor recommend database
+zorvia vm create prod-db --template almalinux --profile database
+zorvia advisor health prod-db
+zorvia vm start prod-db
 ```
 
 ### Deploy LAMP Stack
 ```bash
-zorvia blueprint lamp
-zorvia deploy lamp --prefix myapp --start
-zorvia list
+zorvia blueprint show lamp
+zorvia blueprint deploy lamp --prefix myapp --start
+zorvia vm list
 ```
 
 ### Deploy Kubernetes Cluster
 ```bash
-zorvia blueprint k8s-cluster
-zorvia deploy k8s-cluster --prefix prod --start
+zorvia blueprint show k8s-cluster
+zorvia blueprint deploy k8s-cluster --prefix prod --start
 ```
 
 ### Check VM Health
 ```bash
-zorvia health my-vm --detailed
+zorvia advisor health my-vm --detailed
 ```
 
 ---
