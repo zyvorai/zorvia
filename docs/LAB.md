@@ -64,7 +64,7 @@ curl -sk -H "Authorization: Bearer $TOKEN" \
 | Port | Role |
 |------|------|
 | **30152** | Cluster front door (UI + API NodePort) |
-| **5151** | In-pod listen (`zorvia api-serve --tls --port 5151`) |
+| **5151** | In-pod listen (`zorvia api api-serve --tls --port 5151`) |
 | **8080** | Config-file default when `--port` is omitted |
 
 Set `ZORVIA_EXPOSE_HOST` so the UI shows the correct host for NodePort SSH/VNC/RDP.

@@ -11,7 +11,7 @@ echo ""
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 echo "1. Templates (shows OS-specific colors)"
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-./target/release/zorvia templates
+./target/release/zorvia template templates
 echo ""
 
 # Show validation message
@@ -19,7 +19,7 @@ echo "━━━━━━━━━━━━━━━━━━━━━━━━�
 echo "2. Validation (shows success message)"
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 if [ -f "examples/basic-vm.yaml" ]; then
-    ./target/release/zorvia validate examples/basic-vm.yaml
+    ./target/release/zorvia template validate examples/basic-vm.yaml
 else
     echo "  (No example file found - would show: ✓ Configuration is valid)"
 fi
@@ -34,10 +34,10 @@ echo ""
 
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 echo "To see more themed output, try:"
-echo "  • zorvia list             (requires cluster)"
-echo "  • zorvia get <vm-name>    (requires cluster)"
-echo "  • zorvia resources        (requires cluster)"
-echo "  • zorvia wizard           (interactive)"
+echo "  • zorvia vm list             (requires cluster)"
+echo "  • zorvia vm get <vm-name>    (requires cluster)"
+echo "  • zorvia vm resources        (requires cluster)"
+echo "  • zorvia vm wizard           (interactive)"
 echo ""
 echo "All success messages (✓) are shown in GREEN"
 echo "All error messages (✗) are shown in RED"

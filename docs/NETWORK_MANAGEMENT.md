@@ -11,13 +11,13 @@ List and inspect network interfaces attached to VMs.
 **Usage:**
 ```bash
 # List all interfaces for a VM
-zorvia network-list my-vm
+zorvia network network-list my-vm
 
 # Show details for a specific interface
-zorvia network-get my-vm eth0
+zorvia network network-get my-vm eth0
 
 # JSON/YAML output
-zorvia network-list my-vm --output json
+zorvia network network-list my-vm --output json
 ```
 
 **Supported Interface Types:**
@@ -45,13 +45,13 @@ Monitor network bandwidth usage in real-time.
 **Usage:**
 ```bash
 # Show bandwidth for all interfaces
-zorvia network-bandwidth my-vm
+zorvia network network-bandwidth my-vm
 
 # Monitor specific interface
-zorvia network-bandwidth my-vm --interface eth0
+zorvia network network-bandwidth my-vm --interface eth0
 
 # Watch mode (continuous updates)
-zorvia network-bandwidth my-vm --watch --interval 5
+zorvia network network-bandwidth my-vm --watch --interval 5
 ```
 
 **Metrics Tracked:**
@@ -95,16 +95,16 @@ Analyze network traffic flows and identify top talkers.
 **Usage:**
 ```bash
 # Analyze traffic for the last 15 minutes
-zorvia network-traffic my-vm
+zorvia network network-traffic my-vm
 
 # Analyze specific interface
-zorvia network-traffic my-vm --interface eth0
+zorvia network network-traffic my-vm --interface eth0
 
 # Custom time period and top N talkers
-zorvia network-traffic my-vm --period 1h --top 20
+zorvia network network-traffic my-vm --period 1h --top 20
 
 # JSON/YAML output
-zorvia network-traffic my-vm --output json
+zorvia network network-traffic my-vm --output json
 ```
 
 **Analysis Capabilities:**
@@ -146,16 +146,16 @@ Manage Kubernetes and Cilium network policies.
 **Usage:**
 ```bash
 # List all network policies
-zorvia network-policies
+zorvia network network-policies
 
 # Show all namespaces
-zorvia network-policies --all-namespaces
+zorvia network network-policies --all-namespaces
 
 # Show policy details
-zorvia network-policy web-policy
+zorvia network network-policy web-policy
 
 # YAML/JSON output
-zorvia network-policy web-policy --output yaml
+zorvia network network-policy web-policy --output yaml
 ```
 
 **Policy Features:**
@@ -373,10 +373,10 @@ let yaml = manager.generate_yaml("api-policy");
 **Regular Monitoring:**
 ```bash
 # Set up monitoring cron job
-*/5 * * * * zorvia network-bandwidth production-vm >> /var/log/bandwidth.log
+*/5 * * * * zorvia network network-bandwidth production-vm >> /var/log/bandwidth.log
 
 # Alert on high bandwidth
-zorvia network-bandwidth my-vm | \
+zorvia network network-bandwidth my-vm | \
   awk '/RX RATE.*GB\/s/ {system("alert-high-bandwidth.sh")}'
 ```
 
@@ -390,7 +390,7 @@ zorvia network-bandwidth my-vm | \
 **Security Monitoring:**
 ```bash
 # Daily traffic analysis
-zorvia network-traffic my-vm --period 24h --top 50 --output json > traffic-report.json
+zorvia network network-traffic my-vm --period 24h --top 50 --output json > traffic-report.json
 
 # Identify unusual patterns
 jq '.top_talkers[] | select(.total_bytes > 10000000000)' traffic-report.json
@@ -465,10 +465,10 @@ hubble observe --namespace default
 **Interface Not Showing Up:**
 ```bash
 # Cluster components (KubeVirt, CDI, snapshots, …)
-zorvia status
+zorvia vm status
 
 # Check VM status
-zorvia status my-vm
+zorvia vm status my-vm
 
 # Verify network attachment
 kubectl get network-attachment-definitions
@@ -483,7 +483,7 @@ kubectl describe vmi my-vm
 kubectl logs -n kube-system -l app=kube-ipam
 
 # Verify network configuration
-zorvia network-get my-vm eth0
+zorvia network network-get my-vm eth0
 ```
 
 ### Bandwidth Issues
@@ -506,7 +506,7 @@ netstat -i
 tc qdisc show dev eth0
 
 # Verify network policy restrictions
-zorvia network-policies
+zorvia network network-policies
 ```
 
 ### Traffic Analysis Issues
@@ -534,10 +534,10 @@ kubectl top pods
 **Traffic Blocked Unexpectedly:**
 ```bash
 # Check applied policies
-zorvia network-policies --all-namespaces
+zorvia network network-policies --all-namespaces
 
 # View policy details
-zorvia network-policy my-policy --output yaml
+zorvia network network-policy my-policy --output yaml
 
 # Test connectivity
 kubectl run test --rm -it --image=busybox -- wget -O- my-service

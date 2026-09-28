@@ -11,13 +11,13 @@ Expand VM disks seamlessly with integrated PVC resizing and filesystem expansion
 **Usage:**
 ```bash
 # Expand a disk to 100Gi
-zorvia disk-expand my-vm root 100Gi
+zorvia disk disk-expand my-vm root 100Gi
 
 # Show expansion plan without executing
-zorvia disk-expand my-vm root 100Gi --plan
+zorvia disk disk-expand my-vm root 100Gi --plan
 
 # Specify custom PVC name
-zorvia disk-expand my-vm root 100Gi --pvc my-custom-pvc
+zorvia disk disk-expand my-vm root 100Gi --pvc my-custom-pvc
 ```
 
 **Features:**
@@ -41,10 +41,10 @@ Monitor disk usage and get alerts when disks need attention.
 **Usage:**
 ```bash
 # Quick health check
-zorvia disk-health my-vm
+zorvia disk disk-health my-vm
 
 # Detailed disk information
-zorvia disk-health my-vm --detailed
+zorvia disk disk-health my-vm --detailed
 ```
 
 **Health Status Levels:**
@@ -88,7 +88,7 @@ Alerts:
   ⚠ Disk /data usage is high (90.0% used, 20Gi available)
     Consider expanding disk or cleaning up unused data
 
-ℹ Use 'zorvia disk-expand' to expand disks
+ℹ Use 'zorvia disk disk-expand' to expand disks
 ```
 
 ### 3. Expansion Scripts (`disk-script`)
@@ -98,19 +98,19 @@ Generate automated filesystem expansion scripts for different configurations.
 **Usage:**
 ```bash
 # Generate script for LVM with ext4
-zorvia disk-script --filesystem lvm --device /dev/vda
+zorvia disk disk-script --filesystem lvm --device /dev/vda
 
 # Generate script for XFS on LVM
-zorvia disk-script --filesystem lvm-xfs --device /dev/vda
+zorvia disk disk-script --filesystem lvm-xfs --device /dev/vda
 
 # Generate script for direct ext4 partition
-zorvia disk-script --filesystem ext4 --device /dev/sda
+zorvia disk disk-script --filesystem ext4 --device /dev/sda
 
 # Save to file
-zorvia disk-script --filesystem lvm --device /dev/vda --output expand.sh
+zorvia disk disk-script --filesystem lvm --device /dev/vda --output expand.sh
 
 # Generate dry-run script
-zorvia disk-script --filesystem lvm --device /dev/vda --dry-run
+zorvia disk disk-script --filesystem lvm --device /dev/vda --dry-run
 ```
 
 **Supported Filesystems:**
@@ -189,19 +189,19 @@ View disk usage statistics across VMs.
 **Usage:**
 ```bash
 # Show usage for all VMs
-zorvia disk-usage
+zorvia disk disk-usage
 
 # Show usage for specific VM
-zorvia disk-usage --vm my-vm
+zorvia disk disk-usage --vm my-vm
 
 # Sort by usage percentage
-zorvia disk-usage --sort-by usage
+zorvia disk disk-usage --sort-by usage
 
 # Sort by size
-zorvia disk-usage --sort-by size
+zorvia disk disk-usage --sort-by size
 
 # JSON output
-zorvia disk-usage --output json
+zorvia disk disk-usage --output json
 ```
 
 **Sort Options:**
@@ -263,7 +263,7 @@ let plan = expansion.create_plan("my-vm", &config)?;
 2. **PVC Expansion:**
    ```bash
    # Zorvia handles this automatically
-   zorvia disk-expand my-vm root 100Gi
+   zorvia disk disk-expand my-vm root 100Gi
 
    # Or manually with kubectl
    kubectl patch pvc my-pvc -p '{"spec":{"resources":{"requests":{"storage":"100Gi"}}}}'
@@ -272,7 +272,7 @@ let plan = expansion.create_plan("my-vm", &config)?;
 3. **Filesystem Expansion in VM:**
    ```bash
    # Generate and run expansion script
-   zorvia disk-script --filesystem lvm --device /dev/vda --output expand.sh
+   zorvia disk disk-script --filesystem lvm --device /dev/vda --output expand.sh
    chmod +x expand.sh
    sudo ./expand.sh
    ```
@@ -301,7 +301,7 @@ Schedule regular disk health checks:
 
 ```bash
 # Check daily with cron
-0 9 * * * zorvia disk-health my-vm --detailed | mail -s "VM Disk Health" admin@example.com
+0 9 * * * zorvia disk disk-health my-vm --detailed | mail -s "VM Disk Health" admin@example.com
 ```
 
 ### 2. Proactive Expansion
@@ -310,8 +310,8 @@ Expand disks before they reach critical levels:
 
 ```bash
 # Check and expand if needed
-if zorvia disk-health my-vm | grep -q "WARNING\|CRITICAL"; then
-    zorvia disk-expand my-vm root 100Gi
+if zorvia disk disk-health my-vm | grep -q "WARNING\|CRITICAL"; then
+    zorvia disk disk-expand my-vm root 100Gi
 fi
 ```
 
@@ -321,7 +321,7 @@ Always test expansion scripts in dry-run mode first:
 
 ```bash
 # Generate dry-run script
-zorvia disk-script --filesystem lvm --device /dev/vda --dry-run > test-expand.sh
+zorvia disk disk-script --filesystem lvm --device /dev/vda --dry-run > test-expand.sh
 
 # Review the script
 cat test-expand.sh
@@ -337,13 +337,13 @@ Create a snapshot before expanding critical disks:
 
 ```bash
 # Create snapshot
-zorvia snapshot-create my-vm --name pre-expansion-backup
+zorvia snapshot snapshot-create my-vm --name pre-expansion-backup
 
 # Expand disk
-zorvia disk-expand my-vm root 100Gi
+zorvia disk disk-expand my-vm root 100Gi
 
 # Verify and delete snapshot if successful
-zorvia snapshot-delete pre-expansion-backup
+zorvia snapshot snapshot-delete pre-expansion-backup
 ```
 
 ### 5. Monitor After Expansion
@@ -352,7 +352,7 @@ Verify successful expansion:
 
 ```bash
 # Check health after expansion
-zorvia disk-health my-vm --detailed
+zorvia disk disk-health my-vm --detailed
 
 # Verify filesystem size
 df -h
@@ -373,7 +373,7 @@ kubectl get pvc -n default
 kubectl describe pvc my-pvc
 
 # Check if VM is running (some storage requires VM restart)
-zorvia restart my-vm
+zorvia vm restart my-vm
 
 # Force rescan
 kubectl delete pod -l kubevirt.io/vm=my-vm
@@ -392,7 +392,7 @@ lsblk
 echo 1 | sudo tee /sys/class/block/vda/device/rescan
 
 # Run expansion script
-zorvia disk-script --filesystem lvm --device /dev/vda --output expand.sh
+zorvia disk disk-script --filesystem lvm --device /dev/vda --output expand.sh
 chmod +x expand.sh
 sudo ./expand.sh
 ```
@@ -460,11 +460,11 @@ plan.steps.push(ExpansionStep {
 
 ```bash
 # Expand all disks in namespace
-for vm in $(zorvia list --output json | jq -r '.[].name'); do
+for vm in $(zorvia vm list --output json | jq -r '.[].name'); do
     echo "Checking $vm..."
-    if zorvia disk-health $vm | grep -q "WARNING\|CRITICAL"; then
+    if zorvia disk disk-health $vm | grep -q "WARNING\|CRITICAL"; then
         echo "Expanding $vm..."
-        zorvia disk-expand $vm root 100Gi
+        zorvia disk disk-expand $vm root 100Gi
     fi
 done
 ```
@@ -473,7 +473,7 @@ done
 
 ```bash
 # Export metrics for Prometheus
-zorvia disk-usage --output json | jq -r '.[] |
+zorvia disk disk-usage --output json | jq -r '.[] |
     "disk_usage{vm=\"\(.vm)\",mount=\"\(.mount)\"} \(.usage_percent)"'
 ```
 

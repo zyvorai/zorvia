@@ -36,16 +36,16 @@ Pre-configured resource profiles that eliminate guesswork when creating VMs. Eac
 
 ```bash
 # List all profiles
-zorvia profiles
+zorvia profile profiles
 
 # Show detailed profile information
-zorvia profiles --details
+zorvia profile profiles --details
 
 # View specific profile
-zorvia profile database
+zorvia profile show database
 
 # Create VM with profile
-zorvia create mydb --template ubuntu --profile database
+zorvia vm create mydb --template ubuntu --profile database
 ```
 
 ### Example Output
@@ -113,34 +113,34 @@ VMs: 3 (db + cache + workspace)
 
 ```bash
 # List all blueprints
-zorvia blueprints
+zorvia blueprint blueprints
 
 # Show detailed blueprint info
-zorvia blueprints --details
+zorvia blueprint blueprints --details
 
 # Filter by tag
-zorvia blueprints --tag web
+zorvia blueprint blueprints --tag web
 
 # View specific blueprint
-zorvia blueprint lamp
+zorvia blueprint show lamp
 
 # Deploy blueprint (dry run)
-zorvia deploy lamp --dry-run
+zorvia blueprint deploy lamp --dry-run
 
 # Deploy blueprint with custom prefix
-zorvia deploy lamp --prefix myapp
+zorvia blueprint deploy lamp --prefix myapp
 
 # Deploy and start all VMs
-zorvia deploy lamp --start
+zorvia blueprint deploy lamp --start
 
 # Deploy to specific namespace
-zorvia deploy k8s-cluster --prefix prod --namespace production
+zorvia blueprint deploy k8s-cluster --prefix prod --namespace production
 ```
 
 ### Example: Deploy LAMP Stack
 
 ```bash
-$ zorvia deploy lamp --dry-run
+$ zorvia blueprint deploy lamp --dry-run
 
 ℹ Deploying blueprint: lamp
   Description: LAMP Stack (Linux + Apache + MySQL + PHP)
@@ -183,16 +183,16 @@ Automated diagnostics that analyze VM configurations and provide actionable reco
 
 ```bash
 # Check VM config file health
-zorvia health examples/my-vm.yaml
+zorvia advisor health examples/my-vm.yaml
 
 # Check running VM health
-zorvia health my-running-vm
+zorvia advisor health my-running-vm
 
 # Show detailed checks
-zorvia health my-vm --detailed
+zorvia advisor health my-vm --detailed
 
 # Cluster/platform status (logo, components, features)
-zorvia status
+zorvia vm status
 ```
 
 ### Example Output
@@ -231,21 +231,21 @@ Smart resource suggestions based on workload type. Get instant recommendations f
 
 ```bash
 # Get recommendations for workload
-zorvia recommend database
+zorvia advisor recommend database
 
 # Show alternatives
-zorvia recommend web --alternatives
+zorvia advisor recommend web --alternatives
 
 # Examples
-zorvia recommend ci
-zorvia recommend cache
-zorvia recommend ml
+zorvia advisor recommend ci
+zorvia advisor recommend cache
+zorvia advisor recommend ml
 ```
 
 ### Example: Database Workload
 
 ```bash
-$ zorvia recommend database
+$ zorvia advisor recommend database
 
 ═══ Resource Recommendations for: database ═══
 
@@ -261,7 +261,7 @@ $ zorvia recommend database
   Recommended OS: ubuntu-22.04, debian-12, almalinux
 
   ℹ Quick create command:
-    zorvia create mydb --template ubuntu-22.04 --profile database
+    zorvia vm create mydb --template ubuntu-22.04 --profile database
 ```
 
 ### Supported Workload Types
@@ -282,46 +282,46 @@ $ zorvia recommend database
 
 ```bash
 # Get recommendation
-zorvia recommend development
+zorvia advisor recommend development
 
 # Create with recommended profile
-zorvia create dev-vm --template ubuntu --profile dev
+zorvia vm create dev-vm --template ubuntu --profile dev
 ```
 
 ### Example 2: Production Database
 
 ```bash
 # Check what's recommended for database
-zorvia recommend database
+zorvia advisor recommend database
 
 # Create with database profile
-zorvia create prod-db --template almalinux --profile database
+zorvia vm create prod-db --template almalinux --profile database
 
 # Verify health
-zorvia health prod-db
+zorvia advisor health prod-db
 ```
 
 ### Example 3: Deploy Complete Stack
 
 ```bash
 # See what's available
-zorvia blueprints
+zorvia blueprint blueprints
 
 # Deploy 3-tier application
-zorvia deploy 3tier --prefix myapp --start
+zorvia blueprint deploy 3tier --prefix myapp --start
 
 # Check deployed VMs
-zorvia list
+zorvia vm list
 ```
 
 ### Example 4: CI/CD Infrastructure
 
 ```bash
 # Review blueprint
-zorvia blueprint cicd
+zorvia blueprint show cicd
 
 # Deploy with custom naming
-zorvia deploy cicd --prefix ci-prod --namespace devops
+zorvia blueprint deploy cicd --prefix ci-prod --namespace devops
 
 # VMs created:
 # - ci-prod-gitlab-server
@@ -337,41 +337,41 @@ zorvia deploy cicd --prefix ci-prod --namespace devops
 
 ```bash
 # 1. Get recommendations for your workload
-zorvia recommend web
+zorvia advisor recommend web
 
 # 2. Check available templates
-zorvia templates
+zorvia template templates
 
 # 3. View profile details
-zorvia profile web
+zorvia profile show web
 
 # 4. Create VM with profile
-zorvia create web-server --template ubuntu-24.04 --profile web
+zorvia vm create web-server --template ubuntu-24.04 --profile web
 
 # 5. Run health check
-zorvia health web-server
+zorvia advisor health web-server
 
 # 6. Start the VM
-zorvia start web-server
+zorvia vm start web-server
 ```
 
 ### Advanced Workflow: Multi-VM Deployment
 
 ```bash
 # 1. Explore available blueprints
-zorvia blueprints --details
+zorvia blueprint blueprints --details
 
 # 2. Review specific blueprint
-zorvia blueprint k8s-cluster
+zorvia blueprint show k8s-cluster
 
 # 3. Dry run deployment
-zorvia deploy k8s-cluster --prefix prod --dry-run
+zorvia blueprint deploy k8s-cluster --prefix prod --dry-run
 
 # 4. Actually deploy
-zorvia deploy k8s-cluster --prefix prod --start
+zorvia blueprint deploy k8s-cluster --prefix prod --start
 
 # 5. Monitor VMs
-zorvia list
+zorvia vm list
 ```
 
 ---
@@ -440,7 +440,7 @@ health::tests::test_workload_match ... ok
 - [ ] Auto-scaling recommendations
 - [ ] ML-based optimization
 
-Custom profile/blueprint CRUD and cost tooling already ship in the CLI (`zorvia profile-*`, `zorvia blueprint-*`, cost commands).
+Custom profile/blueprint CRUD and cost tooling already ship in the CLI (`zorvia profile ...`, `zorvia blueprint ...`, `zorvia cost ...`).
 
 ---
 
@@ -465,6 +465,6 @@ Zorvia's innovative features provide:
 ✅ **Smart Recommendations** - AI-like resource suggestions
 ✅ **Dependency Management** - Automatic VM ordering
 ✅ **All with Themed CLI** - Beautiful colored output
-✅ **Platform status** - `zorvia status` with a Cilium-style colorful logo, component lines, and feature inventory
+✅ **Platform status** - `zorvia vm status` with a Cilium-style colorful logo, component lines, and feature inventory
 
 **No other KubeVirt CLI tool offers these capabilities!** 🚀
