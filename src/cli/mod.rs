@@ -2172,14 +2172,10 @@ pub enum MaintenanceCommands {
     },
 
     /// Show host maintenance state and remaining VMIs
-    MaintenanceStatus {
-        node: String,
-    },
+    MaintenanceStatus { node: String },
 
     /// Uncordon a host and leave maintenance mode
-    MaintenanceExit {
-        node: String,
-    },
+    MaintenanceExit { node: String },
 }
 
 #[derive(Subcommand, Debug)]
@@ -2639,8 +2635,6 @@ pub enum ConfigCommands {
     },
 }
 
-
-
 /// Parse duration strings like `5m`, `30s`, `1h`, or plain seconds.
 fn parse_duration_arg(s: &str) -> Result<std::time::Duration, String> {
     let s = s.trim();
@@ -2850,7 +2844,9 @@ mod tests {
         assert!(matches!(*cli.command, Commands::Vm(VmCommands::Stop { name }) if name == "vm1"));
 
         let cli = parse(&["zorvia", "vm", "restart", "vm1"]).unwrap();
-        assert!(matches!(*cli.command, Commands::Vm(VmCommands::Restart { name }) if name == "vm1"));
+        assert!(
+            matches!(*cli.command, Commands::Vm(VmCommands::Restart { name }) if name == "vm1")
+        );
     }
 
     #[test]
@@ -2911,14 +2907,19 @@ mod tests {
     #[test]
     fn test_templates_command() {
         let cli = parse(&["zorvia", "template", "templates"]).unwrap();
-        assert!(matches!(*cli.command, Commands::Template(TemplateCommands::Templates)));
+        assert!(matches!(
+            *cli.command,
+            Commands::Template(TemplateCommands::Templates)
+        ));
     }
 
     #[test]
     fn test_validate_command() {
         let cli = parse(&["zorvia", "template", "validate", "config.yaml"]).unwrap();
         match *cli.command {
-            Commands::Template(TemplateCommands::Validate { file }) => assert_eq!(file, "config.yaml"),
+            Commands::Template(TemplateCommands::Validate { file }) => {
+                assert_eq!(file, "config.yaml")
+            }
             _ => panic!("Expected Validate command"),
         }
     }
@@ -2946,7 +2947,15 @@ mod tests {
 
     #[test]
     fn test_cost_analyze() {
-        let cli = parse(&["zorvia", "cost", "cost-analyze", "db-vm", "--period", "weekly"]).unwrap();
+        let cli = parse(&[
+            "zorvia",
+            "cost",
+            "cost-analyze",
+            "db-vm",
+            "--period",
+            "weekly",
+        ])
+        .unwrap();
         match *cli.command {
             Commands::Cost(CostCommands::CostAnalyze { vm, period, .. }) => {
                 assert_eq!(vm, Some("db-vm".to_string()));
@@ -3006,7 +3015,15 @@ mod tests {
 
     #[test]
     fn test_wait_image_command() {
-        let cli = parse(&["zorvia", "guest", "wait-image", "ubuntu-import", "--timeout", "30"]).unwrap();
+        let cli = parse(&[
+            "zorvia",
+            "guest",
+            "wait-image",
+            "ubuntu-import",
+            "--timeout",
+            "30",
+        ])
+        .unwrap();
         match *cli.command {
             Commands::Guest(GuestCommands::WaitImage { name, timeout }) => {
                 assert_eq!(name, "ubuntu-import");
@@ -3061,7 +3078,15 @@ mod tests {
 
     #[test]
     fn test_snapshot_create() {
-        let cli = parse(&["zorvia", "snapshot", "snapshot-create", "my-vm", "--name", "snap1"]).unwrap();
+        let cli = parse(&[
+            "zorvia",
+            "snapshot",
+            "snapshot-create",
+            "my-vm",
+            "--name",
+            "snap1",
+        ])
+        .unwrap();
         match *cli.command {
             Commands::Snapshot(SnapshotCommands::SnapshotCreate { vm, name, .. }) => {
                 assert_eq!(vm, "my-vm");

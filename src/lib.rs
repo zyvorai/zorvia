@@ -112,7 +112,13 @@ pub use output::{format_output, to_json, to_yaml, OutputFormat};
 pub use utils::{format_bytes, generate_id, percent_to_u8, ZorviaError};
 
 use anyhow::Result;
-use cli::{Cli, Commands};
+use cli::{
+    AdvisorCommands, ApiCommands, AutomationCommands, BackupCommands, BlueprintCommands,
+    ChangeCommands, Cli, Commands, ConfigCommands, CostCommands, DevCommands, DiskCommands,
+    GuestCommands, HaCommands, InventoryCommands, MaintenanceCommands, MigrationCommands,
+    MonitorCommands, NetworkCommands, ObservabilityCommands, PlacementCommands, ProfileCommands,
+    SecurityCommands, SnapshotCommands, TemplateCommands, TenancyCommands, VmCommands,
+};
 use config::AppConfig;
 
 /// Main entry point for the library
@@ -278,8 +284,14 @@ pub async fn run(mut cli: Cli) -> Result<()> {
                 dry_run,
                 continue_on_error,
             } => {
-                handlers::vm::handle_batch(file, namespace, dry_run, continue_on_error, &cli.namespace)
-                    .await?;
+                handlers::vm::handle_batch(
+                    file,
+                    namespace,
+                    dry_run,
+                    continue_on_error,
+                    &cli.namespace,
+                )
+                .await?;
             }
         },
 
@@ -439,7 +451,10 @@ pub async fn run(mut cli: Cli) -> Result<()> {
                 vm,
                 name,
                 description,
-            } => handlers::infra::handle_snapshot_create(vm, name, description, &cli.namespace).await?,
+            } => {
+                handlers::infra::handle_snapshot_create(vm, name, description, &cli.namespace)
+                    .await?
+            }
             SnapshotCommands::SnapshotList {
                 vm,
                 all_namespaces,
@@ -498,7 +513,10 @@ pub async fn run(mut cli: Cli) -> Result<()> {
                 size,
                 pvc,
                 plan,
-            } => handlers::infra::handle_disk_expand(vm, disk, size, pvc, plan, &cli.namespace).await?,
+            } => {
+                handlers::infra::handle_disk_expand(vm, disk, size, pvc, plan, &cli.namespace)
+                    .await?
+            }
             DiskCommands::DiskHealth { vm, detailed } => {
                 handlers::infra::handle_disk_health(vm, detailed, &cli.namespace).await?
             }
@@ -550,7 +568,8 @@ pub async fn run(mut cli: Cli) -> Result<()> {
                 all_namespaces,
                 output,
             } => {
-                handlers::infra::handle_network_policies(all_namespaces, output, &cli.namespace).await?
+                handlers::infra::handle_network_policies(all_namespaces, output, &cli.namespace)
+                    .await?
             }
             NetworkCommands::NetworkPolicy { name, output } => {
                 handlers::infra::handle_network_policy(name, output)?
@@ -564,23 +583,35 @@ pub async fn run(mut cli: Cli) -> Result<()> {
                 migration_type,
                 plan,
             } => {
-                handlers::backup::handle_migrate(vm, target_node, migration_type, plan, &cli.namespace)
-                    .await?;
+                handlers::backup::handle_migrate(
+                    vm,
+                    target_node,
+                    migration_type,
+                    plan,
+                    &cli.namespace,
+                )
+                .await?;
             }
             MigrationCommands::MigrationStatus {
                 vm,
                 watch,
                 interval,
             } => {
-                handlers::backup::handle_migration_status(vm, watch, interval, &cli.namespace).await?;
+                handlers::backup::handle_migration_status(vm, watch, interval, &cli.namespace)
+                    .await?;
             }
             MigrationCommands::MigrationList {
                 all_namespaces,
                 state,
                 output,
             } => {
-                handlers::backup::handle_migration_list(all_namespaces, state, output, &cli.namespace)
-                    .await?;
+                handlers::backup::handle_migration_list(
+                    all_namespaces,
+                    state,
+                    output,
+                    &cli.namespace,
+                )
+                .await?;
             }
         },
 
@@ -661,19 +692,26 @@ pub async fn run(mut cli: Cli) -> Result<()> {
                 target,
                 start,
             } => {
-                handlers::backup::handle_backup_restore(backup, target, start, &cli.namespace).await?;
+                handlers::backup::handle_backup_restore(backup, target, start, &cli.namespace)
+                    .await?;
             }
             BackupCommands::BackupVerify {
                 name,
                 verification_type,
             } => {
-                handlers::backup::handle_backup_verify(name, verification_type, &cli.namespace).await?;
+                handlers::backup::handle_backup_verify(name, verification_type, &cli.namespace)
+                    .await?;
             }
             BackupCommands::BackupSchedules { output } => {
                 handlers::backup::handle_backup_schedules(output, &cli.namespace)?;
             }
             BackupCommands::BackupScheduleCreate { name, schedule, vm } => {
-                handlers::backup::handle_backup_schedule_create(name, schedule, vm, &cli.namespace)?;
+                handlers::backup::handle_backup_schedule_create(
+                    name,
+                    schedule,
+                    vm,
+                    &cli.namespace,
+                )?;
             }
             BackupCommands::RecoveryPlan { name, output } => {
                 handlers::backup::handle_recovery_plan(name, output, &cli.namespace)?;
@@ -706,7 +744,12 @@ pub async fn run(mut cli: Cli) -> Result<()> {
                 profile,
                 verify_only,
             } => {
-                handlers::security::handle_security_harden(vm, profile, verify_only, &cli.namespace)?;
+                handlers::security::handle_security_harden(
+                    vm,
+                    profile,
+                    verify_only,
+                    &cli.namespace,
+                )?;
             }
             SecurityCommands::SecurityProfiles { details } => {
                 handlers::security::handle_security_profiles(details)?;
@@ -773,7 +816,9 @@ pub async fn run(mut cli: Cli) -> Result<()> {
                 period,
                 scope,
                 alert_threshold,
-            } => handlers::cost::handle_budget_create(name, amount, period, scope, alert_threshold)?,
+            } => {
+                handlers::cost::handle_budget_create(name, amount, period, scope, alert_threshold)?
+            }
             CostCommands::BudgetStatus { name, output } => {
                 handlers::cost::handle_budget_status(name, output)?
             }
@@ -804,14 +849,18 @@ pub async fn run(mut cli: Cli) -> Result<()> {
                 description,
                 trigger,
                 enable,
-            } => handlers::automation::handle_automation_create(name, description, trigger, enable)?,
+            } => {
+                handlers::automation::handle_automation_create(name, description, trigger, enable)?
+            }
             AutomationCommands::AutomationGet { rule, output } => {
                 handlers::automation::handle_automation_get(rule, output)?
             }
             AutomationCommands::AutomationRun { rule, dry_run } => {
                 handlers::automation::handle_automation_run(rule, dry_run)?
             }
-            AutomationCommands::WorkflowList { output } => handlers::automation::handle_workflow_list(output)?,
+            AutomationCommands::WorkflowList { output } => {
+                handlers::automation::handle_workflow_list(output)?
+            }
             AutomationCommands::WorkflowCreate {
                 name,
                 description,
@@ -848,8 +897,12 @@ pub async fn run(mut cli: Cli) -> Result<()> {
                 source,
                 search,
                 limit,
-            } => handlers::observability::handle_logs_query(start, end, level, source, search, limit)?,
-            ObservabilityCommands::LogsStats { group_by } => handlers::observability::handle_logs_stats(group_by)?,
+            } => handlers::observability::handle_logs_query(
+                start, end, level, source, search, limit,
+            )?,
+            ObservabilityCommands::LogsStats { group_by } => {
+                handlers::observability::handle_logs_stats(group_by)?
+            }
             ObservabilityCommands::LogsPatterns { min_count } => {
                 handlers::observability::handle_logs_patterns(min_count)?
             }
@@ -866,7 +919,11 @@ pub async fn run(mut cli: Cli) -> Result<()> {
                 vm,
                 cpu_threshold,
                 memory_threshold,
-            } => handlers::observability::handle_metrics_snapshot(vm, cpu_threshold, memory_threshold)?,
+            } => handlers::observability::handle_metrics_snapshot(
+                vm,
+                cpu_threshold,
+                memory_threshold,
+            )?,
             ObservabilityCommands::AlertsList {
                 enabled_only,
                 severity,
@@ -986,7 +1043,9 @@ pub async fn run(mut cli: Cli) -> Result<()> {
                 utilization,
                 output,
             } => handlers::multitenancy::handle_quotas_show(quota, utilization, output)?,
-            TenancyCommands::GroupsList { output } => handlers::multitenancy::handle_groups_list(output)?,
+            TenancyCommands::GroupsList { output } => {
+                handlers::multitenancy::handle_groups_list(output)?
+            }
             TenancyCommands::GroupsCreate {
                 name,
                 description,
@@ -1147,7 +1206,8 @@ pub async fn run(mut cli: Cli) -> Result<()> {
                 .await?
             }
             MaintenanceCommands::MaintenanceStatus { node } => {
-                handlers::vcenter::handle_maintenance_status(node, cli.kubeconfig.as_deref()).await?
+                handlers::vcenter::handle_maintenance_status(node, cli.kubeconfig.as_deref())
+                    .await?
             }
             MaintenanceCommands::MaintenanceExit { node } => {
                 handlers::vcenter::handle_maintenance_exit(node, cli.kubeconfig.as_deref()).await?
@@ -1213,7 +1273,9 @@ pub async fn run(mut cli: Cli) -> Result<()> {
                 sort_by,
                 output,
             } => handlers::devexp::handle_config_list(category, tag, sort_by, output)?,
-            DevCommands::ConfigDelete { name, yes } => handlers::devexp::handle_config_delete(name, yes)?,
+            DevCommands::ConfigDelete { name, yes } => {
+                handlers::devexp::handle_config_delete(name, yes)?
+            }
             DevCommands::Diff {
                 source,
                 target,
@@ -1221,7 +1283,8 @@ pub async fn run(mut cli: Cli) -> Result<()> {
                 output,
             } => handlers::devexp::handle_diff(source, target, show_unchanged, output)?,
             DevCommands::TerraformScaffold { output, url } => {
-                let written = crate::terraform::write_scaffold(std::path::Path::new(&output), &url)?;
+                let written =
+                    crate::terraform::write_scaffold(std::path::Path::new(&output), &url)?;
                 println!("Wrote Terraform scaffold:");
                 for f in written {
                     println!("  {f}");
@@ -1371,8 +1434,12 @@ pub async fn run(mut cli: Cli) -> Result<()> {
                 .await?;
             }
             ApiCommands::ApiStatus { output } => handlers::api::handle_api_status(output)?,
-            ApiCommands::ApiRoutes { method, output } => handlers::api::handle_api_routes(method, output)?,
-            ApiCommands::ApiSpec { format, output } => handlers::api::handle_api_spec(format, output)?,
+            ApiCommands::ApiRoutes { method, output } => {
+                handlers::api::handle_api_routes(method, output)?
+            }
+            ApiCommands::ApiSpec { format, output } => {
+                handlers::api::handle_api_spec(format, output)?
+            }
             ApiCommands::ApiKeyList {
                 active_only,
                 output,
@@ -1382,7 +1449,9 @@ pub async fn run(mut cli: Cli) -> Result<()> {
                 permissions,
                 rate_limit,
             } => handlers::api::handle_api_key_create(name, permissions, rate_limit)?,
-            ApiCommands::ApiKeyDelete { key, yes } => handlers::api::handle_api_key_delete(key, yes)?,
+            ApiCommands::ApiKeyDelete { key, yes } => {
+                handlers::api::handle_api_key_delete(key, yes)?
+            }
             ApiCommands::WebhookList {
                 active_only,
                 output,
@@ -1401,7 +1470,8 @@ pub async fn run(mut cli: Cli) -> Result<()> {
                 theme,
                 interactive,
             } => {
-                handlers::api::handle_tui(cli.namespace.clone(), theme, interactive, no_splash).await?
+                handlers::api::handle_tui(cli.namespace.clone(), theme, interactive, no_splash)
+                    .await?
             }
         },
 
@@ -1495,31 +1565,300 @@ pub async fn run(mut cli: Cli) -> Result<()> {
             println!("{}", color::header("Zorvia Commands"));
             println!();
             let groups = [
-                ("VM lifecycle: create, list, inspect, and control virtual machines", "vm", vec!["create", "list", "get", "delete", "start", "stop", "restart", "pause", "resume", "console", "ssh", "vnc", "logs", "status", "clone", "resources", "export", "wizard", "batch"]),
-                ("OS templates and config generation", "template", vec!["generate", "templates", "images", "template", "validate"]),
-                ("Reusable VM configuration profiles", "profile", vec!["profiles", "profile", "profile-create", "profile-edit", "profile-delete"]),
-                ("Multi-VM blueprints and deployment", "blueprint", vec!["blueprints", "blueprint", "deploy", "blueprint-create", "blueprint-edit", "blueprint-delete", "blueprint-validate"]),
-                ("Health checks and recommendations", "advisor", vec!["health", "recommend"]),
-                ("VM disk snapshots", "snapshot", vec!["snapshot-create", "snapshot-list", "snapshot-get", "snapshot-delete", "snapshot-restore"]),
-                ("Live resource monitoring", "monitor", vec!["monitor-live", "monitor-stats", "monitor-compare", "monitor-top"]),
-                ("Disk management", "disk", vec!["disk-expand", "disk-health", "disk-script", "disk-usage"]),
-                ("Networking", "network", vec!["network-list", "network-get", "network-bandwidth", "network-traffic", "network-policies", "network-policy"]),
-                ("VM live migration", "migration", vec!["migrate", "migration-status", "migration-list"]),
-                ("High availability and node evacuation", "ha", vec!["ha-config", "ha-status", "evacuate-node", "evacuation-status"]),
-                ("Backup, restore, and disaster recovery", "backup", vec!["backup-create", "backup-list", "backup-get", "backup-delete", "backup-restore", "backup-verify", "backup-schedules", "backup-schedule-create", "recovery-plan", "recovery-execute"]),
-                ("Security scanning, compliance, and audit", "security", vec!["security-scan", "security-assess", "security-harden", "security-profiles", "compliance-check", "compliance-report", "audit-list", "audit-get", "audit-stats"]),
-                ("Cost analysis, budgets, and optimization", "cost", vec!["cost-analyze", "cost-summary", "cost-report", "budget-list", "budget-create", "budget-status", "cost-optimize", "cost-waste", "cost-forecast"]),
-                ("Automation, workflows, and schedules", "automation", vec!["automation-list", "automation-create", "automation-get", "automation-run", "workflow-list", "workflow-create", "workflow-get", "workflow-run", "workflow-executions", "schedule-list", "schedule-create"]),
-                ("Logs, metrics, alerts, and insights", "observability", vec!["logs-query", "logs-stats", "logs-patterns", "metrics-collect", "metrics-query", "metrics-snapshot", "alerts-list", "alerts-create", "alerts-active", "alerts-resolve", "insights-generate", "recommendations", "trends-analyze", "health-check", "event-list", "event-recent"]),
-                ("Multi-tenancy: tenants, users, roles, quotas, groups", "tenancy", vec!["tenants-list", "tenants-create", "tenants-show", "tenants-delete", "users-list", "users-create", "users-assign-role", "roles-list", "roles-show", "roles-create", "quotas-list", "quotas-create", "quotas-show", "groups-list", "groups-create", "groups-add-user"]),
-                ("Inventory, tags, attributes, and activity", "inventory", vec!["inventory", "tag-set", "tag-remove", "attribute-set", "attribute-remove", "inventory-datacenter-set", "inventory-cluster-set", "inventory-folder-set", "activity"]),
-                ("Maintenance mode", "maintenance", vec!["maintenance-plan", "maintenance-enter", "maintenance-status", "maintenance-exit"]),
-                ("Placement advice and rebalancing", "placement", vec!["placement-advisor", "placement-rebalance"]),
-                ("Developer tooling", "dev", vec!["completions", "config-save", "config-load", "config-list", "config-delete", "diff", "terraform-scaffold"]),
-                ("Drift detection and change planning", "change", vec!["drift", "plan"]),
-                ("Guest agent insight and image readiness", "guest", vec!["guest-insight", "image-bundle", "wait-ready", "wait-image"]),
-                ("API server, keys, webhooks, and TUI", "api", vec!["api-serve", "api-status", "api-routes", "api-spec", "api-key-list", "api-key-create", "api-key-delete", "webhook-list", "webhook-create", "webhook-delete", "tui"]),
-                ("Zorvia's own CLI configuration file", "config", vec!["config-show", "config-init"]),
+                (
+                    "VM lifecycle: create, list, inspect, and control virtual machines",
+                    "vm",
+                    vec![
+                        "create",
+                        "list",
+                        "get",
+                        "delete",
+                        "start",
+                        "stop",
+                        "restart",
+                        "pause",
+                        "resume",
+                        "console",
+                        "ssh",
+                        "vnc",
+                        "logs",
+                        "status",
+                        "clone",
+                        "resources",
+                        "export",
+                        "wizard",
+                        "batch",
+                    ],
+                ),
+                (
+                    "OS templates and config generation",
+                    "template",
+                    vec!["generate", "templates", "images", "template", "validate"],
+                ),
+                (
+                    "Reusable VM configuration profiles",
+                    "profile",
+                    vec![
+                        "profiles",
+                        "profile",
+                        "profile-create",
+                        "profile-edit",
+                        "profile-delete",
+                    ],
+                ),
+                (
+                    "Multi-VM blueprints and deployment",
+                    "blueprint",
+                    vec![
+                        "blueprints",
+                        "blueprint",
+                        "deploy",
+                        "blueprint-create",
+                        "blueprint-edit",
+                        "blueprint-delete",
+                        "blueprint-validate",
+                    ],
+                ),
+                (
+                    "Health checks and recommendations",
+                    "advisor",
+                    vec!["health", "recommend"],
+                ),
+                (
+                    "VM disk snapshots",
+                    "snapshot",
+                    vec![
+                        "snapshot-create",
+                        "snapshot-list",
+                        "snapshot-get",
+                        "snapshot-delete",
+                        "snapshot-restore",
+                    ],
+                ),
+                (
+                    "Live resource monitoring",
+                    "monitor",
+                    vec![
+                        "monitor-live",
+                        "monitor-stats",
+                        "monitor-compare",
+                        "monitor-top",
+                    ],
+                ),
+                (
+                    "Disk management",
+                    "disk",
+                    vec!["disk-expand", "disk-health", "disk-script", "disk-usage"],
+                ),
+                (
+                    "Networking",
+                    "network",
+                    vec![
+                        "network-list",
+                        "network-get",
+                        "network-bandwidth",
+                        "network-traffic",
+                        "network-policies",
+                        "network-policy",
+                    ],
+                ),
+                (
+                    "VM live migration",
+                    "migration",
+                    vec!["migrate", "migration-status", "migration-list"],
+                ),
+                (
+                    "High availability and node evacuation",
+                    "ha",
+                    vec![
+                        "ha-config",
+                        "ha-status",
+                        "evacuate-node",
+                        "evacuation-status",
+                    ],
+                ),
+                (
+                    "Backup, restore, and disaster recovery",
+                    "backup",
+                    vec![
+                        "backup-create",
+                        "backup-list",
+                        "backup-get",
+                        "backup-delete",
+                        "backup-restore",
+                        "backup-verify",
+                        "backup-schedules",
+                        "backup-schedule-create",
+                        "recovery-plan",
+                        "recovery-execute",
+                    ],
+                ),
+                (
+                    "Security scanning, compliance, and audit",
+                    "security",
+                    vec![
+                        "security-scan",
+                        "security-assess",
+                        "security-harden",
+                        "security-profiles",
+                        "compliance-check",
+                        "compliance-report",
+                        "audit-list",
+                        "audit-get",
+                        "audit-stats",
+                    ],
+                ),
+                (
+                    "Cost analysis, budgets, and optimization",
+                    "cost",
+                    vec![
+                        "cost-analyze",
+                        "cost-summary",
+                        "cost-report",
+                        "budget-list",
+                        "budget-create",
+                        "budget-status",
+                        "cost-optimize",
+                        "cost-waste",
+                        "cost-forecast",
+                    ],
+                ),
+                (
+                    "Automation, workflows, and schedules",
+                    "automation",
+                    vec![
+                        "automation-list",
+                        "automation-create",
+                        "automation-get",
+                        "automation-run",
+                        "workflow-list",
+                        "workflow-create",
+                        "workflow-get",
+                        "workflow-run",
+                        "workflow-executions",
+                        "schedule-list",
+                        "schedule-create",
+                    ],
+                ),
+                (
+                    "Logs, metrics, alerts, and insights",
+                    "observability",
+                    vec![
+                        "logs-query",
+                        "logs-stats",
+                        "logs-patterns",
+                        "metrics-collect",
+                        "metrics-query",
+                        "metrics-snapshot",
+                        "alerts-list",
+                        "alerts-create",
+                        "alerts-active",
+                        "alerts-resolve",
+                        "insights-generate",
+                        "recommendations",
+                        "trends-analyze",
+                        "health-check",
+                        "event-list",
+                        "event-recent",
+                    ],
+                ),
+                (
+                    "Multi-tenancy: tenants, users, roles, quotas, groups",
+                    "tenancy",
+                    vec![
+                        "tenants-list",
+                        "tenants-create",
+                        "tenants-show",
+                        "tenants-delete",
+                        "users-list",
+                        "users-create",
+                        "users-assign-role",
+                        "roles-list",
+                        "roles-show",
+                        "roles-create",
+                        "quotas-list",
+                        "quotas-create",
+                        "quotas-show",
+                        "groups-list",
+                        "groups-create",
+                        "groups-add-user",
+                    ],
+                ),
+                (
+                    "Inventory, tags, attributes, and activity",
+                    "inventory",
+                    vec![
+                        "inventory",
+                        "tag-set",
+                        "tag-remove",
+                        "attribute-set",
+                        "attribute-remove",
+                        "inventory-datacenter-set",
+                        "inventory-cluster-set",
+                        "inventory-folder-set",
+                        "activity",
+                    ],
+                ),
+                (
+                    "Maintenance mode",
+                    "maintenance",
+                    vec![
+                        "maintenance-plan",
+                        "maintenance-enter",
+                        "maintenance-status",
+                        "maintenance-exit",
+                    ],
+                ),
+                (
+                    "Placement advice and rebalancing",
+                    "placement",
+                    vec!["placement-advisor", "placement-rebalance"],
+                ),
+                (
+                    "Developer tooling",
+                    "dev",
+                    vec![
+                        "completions",
+                        "config-save",
+                        "config-load",
+                        "config-list",
+                        "config-delete",
+                        "diff",
+                        "terraform-scaffold",
+                    ],
+                ),
+                (
+                    "Drift detection and change planning",
+                    "change",
+                    vec!["drift", "plan"],
+                ),
+                (
+                    "Guest agent insight and image readiness",
+                    "guest",
+                    vec!["guest-insight", "image-bundle", "wait-ready", "wait-image"],
+                ),
+                (
+                    "API server, keys, webhooks, and TUI",
+                    "api",
+                    vec![
+                        "api-serve",
+                        "api-status",
+                        "api-routes",
+                        "api-spec",
+                        "api-key-list",
+                        "api-key-create",
+                        "api-key-delete",
+                        "webhook-list",
+                        "webhook-create",
+                        "webhook-delete",
+                        "tui",
+                    ],
+                ),
+                (
+                    "Zorvia's own CLI configuration file",
+                    "config",
+                    vec!["config-show", "config-init"],
+                ),
             ];
 
             for (group_doc, group_key, cmds) in &groups {
@@ -1538,7 +1877,9 @@ pub async fn run(mut cli: Cli) -> Result<()> {
 
             println!(
                 "{}",
-                color::muted("Use 'zorvia <group> <command> --help' for details on a specific command")
+                color::muted(
+                    "Use 'zorvia <group> <command> --help' for details on a specific command"
+                )
             );
         }
     }
