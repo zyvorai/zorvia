@@ -1,9 +1,8 @@
 // Color helpers for CLI and TUI
-// CLI colors use colored/owo_colors for terminal output
+// CLI colors use `colored` for terminal output
 // TUI colors use ratatui::style::Color for TUI rendering
 
 use colored::Colorize;
-use owo_colors::OwoColorize;
 use ratatui::style::Color;
 
 /// TUI color palette - Coral-Terracotta Orange theme (Pantone 7416 C)

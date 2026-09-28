@@ -54,7 +54,6 @@ rand = "0.10"
 ratatui = "0.30"
 crossterm = "0.29"
 colored = "3.1"
-owo-colors = "4.0"
 miette = { version = "7.0", features = ["fancy"] }
 toml = "1"
 dirs = "7.0"
