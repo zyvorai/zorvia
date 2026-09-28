@@ -111,6 +111,8 @@ println!("CPU: [{}] 75%", bar);
 
 **One color crate, one deliberate exception**: `colored` is the only color crate for CLI/TUI output (`owo-colors` was removed — it had no usage independent of `colored`, both provided overlapping methods on the same types). `platform_status`'s raw ANSI (above) is the one intentional exception, kept exactly as Cilium's own output is byte-for-byte; do not migrate it to `colored`. Top-level errors (an `Err` bubbling all the way out of `zorvia::run()`) render through `miette`'s fancy diagnostic formatter (colored box, `×` marker) instead of a bare `Error: ...` line — see `src/main.rs`. This only wraps the final print site; every handler underneath still returns plain `anyhow::Result`.
 
+**`--help` styling**: `Cli` (`src/cli/mod.rs`) sets `clap::builder::Styles` (magenta headers/usage, green literals, cyan placeholders — the same header/value palette `tui::colors::cli` uses) so `zorvia --help` and every subcommand's `--help` are colored by clap itself, not a hand-rolled wrapper. The ~180 commands are grouped into 25 nested subcommand categories (`zorvia vm create`, `zorvia migration migrate`, etc. — see the CHANGELOG's "CLI restructured" entry for the full list and rationale) so `--help` shows one line per group instead of one long flat list; `zorvia commands` mirrors the same grouping.
+
 ### 4. Loading Configuration
 
 ```rust

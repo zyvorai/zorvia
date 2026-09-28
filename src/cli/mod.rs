@@ -1,9 +1,25 @@
+use clap::builder::styling::{AnsiColor, Styles};
 use clap::{Parser, Subcommand};
+
+/// Colored `--help`/`--version`/error styling, matching the palette
+/// `tui::colors::cli` already uses for the rest of the CLI's output
+/// (magenta headers, green literals, cyan placeholders).
+fn styles() -> Styles {
+    Styles::styled()
+        .header(AnsiColor::Magenta.on_default().bold())
+        .usage(AnsiColor::Magenta.on_default().bold())
+        .literal(AnsiColor::Green.on_default().bold())
+        .placeholder(AnsiColor::Cyan.on_default())
+        .error(AnsiColor::Red.on_default().bold())
+        .valid(AnsiColor::Green.on_default())
+        .invalid(AnsiColor::Yellow.on_default())
+}
 
 #[derive(Parser, Debug)]
 #[command(name = "zorvia")]
 #[command(about = "Craft VMs for KubeVirt with Rust power!", long_about = None)]
 #[command(version)]
+#[command(styles = styles())]
 pub struct Cli {
     /// Kubernetes namespace
     #[arg(long, default_value = "default", env = "ZORVIA_NAMESPACE")]
@@ -27,6 +43,158 @@ pub struct Cli {
 
 #[derive(Subcommand, Debug)]
 pub enum Commands {
+    /// VM lifecycle: create, list, inspect, and control virtual machines
+    #[command(subcommand)]
+    Vm(VmCommands),
+
+    /// OS templates and config generation
+    #[command(subcommand)]
+    Template(TemplateCommands),
+
+    /// Reusable VM configuration profiles
+    #[command(subcommand)]
+    Profile(ProfileCommands),
+
+    /// Multi-VM blueprints and deployment
+    #[command(subcommand)]
+    Blueprint(BlueprintCommands),
+
+    /// Health checks and recommendations
+    #[command(subcommand)]
+    Advisor(AdvisorCommands),
+
+    /// VM disk snapshots
+    #[command(subcommand)]
+    Snapshot(SnapshotCommands),
+
+    /// Live resource monitoring
+    #[command(subcommand)]
+    Monitor(MonitorCommands),
+
+    /// Disk management
+    #[command(subcommand)]
+    Disk(DiskCommands),
+
+    /// Networking
+    #[command(subcommand)]
+    Network(NetworkCommands),
+
+    /// VM live migration
+    #[command(subcommand)]
+    Migration(MigrationCommands),
+
+    /// High availability and node evacuation
+    #[command(subcommand)]
+    Ha(HaCommands),
+
+    /// Backup, restore, and disaster recovery
+    #[command(subcommand)]
+    Backup(BackupCommands),
+
+    /// Security scanning, compliance, and audit
+    #[command(subcommand)]
+    Security(SecurityCommands),
+
+    /// Cost analysis, budgets, and optimization
+    #[command(subcommand)]
+    Cost(CostCommands),
+
+    /// Automation, workflows, and schedules
+    #[command(subcommand)]
+    Automation(AutomationCommands),
+
+    /// Logs, metrics, alerts, and insights
+    #[command(subcommand)]
+    Observability(ObservabilityCommands),
+
+    /// Multi-tenancy: tenants, users, roles, quotas, groups
+    #[command(subcommand)]
+    Tenancy(TenancyCommands),
+
+    /// Inventory, tags, attributes, and activity
+    #[command(subcommand)]
+    Inventory(InventoryCommands),
+
+    /// Maintenance mode
+    #[command(subcommand)]
+    Maintenance(MaintenanceCommands),
+
+    /// Placement advice and rebalancing
+    #[command(subcommand)]
+    Placement(PlacementCommands),
+
+    /// Developer tooling
+    #[command(subcommand)]
+    Dev(DevCommands),
+
+    /// Drift detection and change planning
+    #[command(subcommand)]
+    Change(ChangeCommands),
+
+    /// Guest agent insight and image readiness
+    #[command(subcommand)]
+    Guest(GuestCommands),
+
+    /// API server, keys, webhooks, and TUI
+    #[command(subcommand)]
+    Api(ApiCommands),
+
+    /// Zorvia's own CLI configuration file
+    #[command(subcommand)]
+    Config(ConfigCommands),
+
+    /// Initialize a new zorvia project
+    Init {
+        /// Project name
+        name: String,
+
+        /// Project type (basic, dev, prod, microservices, data-pipeline)
+        #[arg(short, long, default_value = "basic")]
+        project_type: String,
+
+        /// Target directory
+        #[arg(short, long)]
+        directory: Option<String>,
+
+        /// Default namespace
+        #[arg(long)]
+        namespace: Option<String>,
+
+        /// Skip example files
+        #[arg(long)]
+        no_examples: bool,
+
+        /// Include CI/CD configuration
+        #[arg(long)]
+        ci: bool,
+
+        /// Skip git initialization
+        #[arg(long)]
+        no_git: bool,
+    },
+
+    /// Show environment and version information
+    Info {
+        /// Show detailed information
+        #[arg(short, long)]
+        detailed: bool,
+
+        /// Run diagnostics
+        #[arg(long)]
+        diagnostics: bool,
+
+        /// Output format (text, yaml, json)
+        #[arg(short, long, default_value = "text")]
+        output: String,
+    },
+
+    /// List all commands grouped by category
+    #[command(name = "commands")]
+    CommandList,
+}
+
+#[derive(Subcommand, Debug)]
+pub enum VmCommands {
     /// Create a new VM
     Create {
         /// VM name
@@ -167,70 +335,6 @@ pub enum Commands {
         tail: u32,
     },
 
-    /// Generate a VM manifest without creating it
-    Generate {
-        /// VM name
-        name: String,
-
-        /// Use a template
-        #[arg(short, long)]
-        template: Option<String>,
-
-        /// Load configuration from file
-        #[arg(short, long)]
-        from_file: Option<String>,
-
-        /// Number of CPU cores
-        #[arg(long)]
-        cpus: Option<u32>,
-
-        /// Memory size
-        #[arg(long)]
-        memory: Option<String>,
-
-        /// Disk size
-        #[arg(long)]
-        disk_size: Option<String>,
-
-        /// Output file (defaults to stdout)
-        #[arg(short, long)]
-        output: Option<String>,
-
-        /// Output format (yaml, json)
-        #[arg(long, default_value = "yaml")]
-        format: String,
-
-        /// Generate KubeVirt VirtualMachine CRD instead of VMConfig
-        #[arg(long)]
-        kubevirt: bool,
-    },
-
-    /// List available templates
-    Templates,
-
-    /// List the disk image catalog (blank disks + quay.io containerdisks)
-    Images {
-        /// Output format (table, json, yaml)
-        #[arg(short, long, default_value = "table")]
-        output: String,
-    },
-
-    /// Show template details
-    Template {
-        /// Template name
-        name: String,
-
-        /// Output format (yaml, json)
-        #[arg(short, long, default_value = "yaml")]
-        output: String,
-    },
-
-    /// Validate a VM configuration file
-    Validate {
-        /// Path to configuration file
-        file: String,
-    },
-
     /// Show platform status (Cilium-style) or detailed VM status
     Status {
         /// VM name (omit for cluster/platform status)
@@ -322,7 +426,77 @@ pub enum Commands {
         #[arg(long)]
         continue_on_error: bool,
     },
+}
 
+#[derive(Subcommand, Debug)]
+pub enum TemplateCommands {
+    /// Generate a VM manifest without creating it
+    Generate {
+        /// VM name
+        name: String,
+
+        /// Use a template
+        #[arg(short, long)]
+        template: Option<String>,
+
+        /// Load configuration from file
+        #[arg(short, long)]
+        from_file: Option<String>,
+
+        /// Number of CPU cores
+        #[arg(long)]
+        cpus: Option<u32>,
+
+        /// Memory size
+        #[arg(long)]
+        memory: Option<String>,
+
+        /// Disk size
+        #[arg(long)]
+        disk_size: Option<String>,
+
+        /// Output file (defaults to stdout)
+        #[arg(short, long)]
+        output: Option<String>,
+
+        /// Output format (yaml, json)
+        #[arg(long, default_value = "yaml")]
+        format: String,
+
+        /// Generate KubeVirt VirtualMachine CRD instead of VMConfig
+        #[arg(long)]
+        kubevirt: bool,
+    },
+
+    /// List available templates
+    Templates,
+
+    /// List the disk image catalog (blank disks + quay.io containerdisks)
+    Images {
+        /// Output format (table, json, yaml)
+        #[arg(short, long, default_value = "table")]
+        output: String,
+    },
+
+    /// Show template details
+    Template {
+        /// Template name
+        name: String,
+
+        /// Output format (yaml, json)
+        #[arg(short, long, default_value = "yaml")]
+        output: String,
+    },
+
+    /// Validate a VM configuration file
+    Validate {
+        /// Path to configuration file
+        file: String,
+    },
+}
+
+#[derive(Subcommand, Debug)]
+pub enum ProfileCommands {
     // ========== INNOVATIVE FEATURES ==========
     /// List VM resource profiles (dev, prod, high-perf, etc.)
     Profiles {
@@ -430,7 +604,10 @@ pub enum Commands {
         #[arg(short, long)]
         yes: bool,
     },
+}
 
+#[derive(Subcommand, Debug)]
+pub enum BlueprintCommands {
     /// List multi-VM blueprints (LAMP, Kubernetes, 3-tier, etc.)
     Blueprints {
         /// Filter by tag
@@ -450,6 +627,24 @@ pub enum Commands {
         /// Output format (yaml, json)
         #[arg(short, long, default_value = "yaml")]
         output: String,
+    },
+
+    /// Deploy a multi-VM blueprint
+    Deploy {
+        /// Blueprint name
+        blueprint: String,
+
+        /// Name prefix for VMs (default: blueprint name)
+        #[arg(short, long)]
+        prefix: Option<String>,
+
+        /// Start VMs after creation
+        #[arg(long)]
+        start: bool,
+
+        /// Dry run - show what would be created
+        #[arg(long)]
+        dry_run: bool,
     },
 
     /// Create a custom blueprint
@@ -495,25 +690,10 @@ pub enum Commands {
         #[arg(short, long)]
         detailed: bool,
     },
+}
 
-    /// Deploy a multi-VM blueprint
-    Deploy {
-        /// Blueprint name
-        blueprint: String,
-
-        /// Name prefix for VMs (default: blueprint name)
-        #[arg(short, long)]
-        prefix: Option<String>,
-
-        /// Start VMs after creation
-        #[arg(long)]
-        start: bool,
-
-        /// Dry run - show what would be created
-        #[arg(long)]
-        dry_run: bool,
-    },
-
+#[derive(Subcommand, Debug)]
+pub enum AdvisorCommands {
     /// Run health check on a VM configuration or running VM
     Health {
         /// VM name (for running VM) or config file path
@@ -533,7 +713,10 @@ pub enum Commands {
         #[arg(short, long)]
         alternatives: bool,
     },
+}
 
+#[derive(Subcommand, Debug)]
+pub enum SnapshotCommands {
     // ========== VM SNAPSHOTS & BACKUP ==========
     /// Create a VM snapshot
     SnapshotCreate {
@@ -600,7 +783,10 @@ pub enum Commands {
         #[arg(long)]
         start: bool,
     },
+}
 
+#[derive(Subcommand, Debug)]
+pub enum MonitorCommands {
     // ========== PERFORMANCE MONITORING ==========
     /// Show live performance monitoring for a VM
     MonitorLive {
@@ -650,7 +836,10 @@ pub enum Commands {
         #[arg(short, long, default_value = "10")]
         limit: usize,
     },
+}
 
+#[derive(Subcommand, Debug)]
+pub enum DiskCommands {
     // ========== DISK MANAGEMENT ==========
     /// Expand VM disk size
     DiskExpand {
@@ -714,7 +903,10 @@ pub enum Commands {
         #[arg(short, long, default_value = "table")]
         output: String,
     },
+}
 
+#[derive(Subcommand, Debug)]
+pub enum NetworkCommands {
     // ========== NETWORK MANAGEMENT ==========
     /// List network interfaces for a VM
     NetworkList {
@@ -799,7 +991,10 @@ pub enum Commands {
         #[arg(short, long, default_value = "yaml")]
         output: String,
     },
+}
 
+#[derive(Subcommand, Debug)]
+pub enum MigrationCommands {
     // ========== VM MIGRATION & HIGH AVAILABILITY ==========
     /// Migrate a VM to another node
     Migrate {
@@ -847,7 +1042,10 @@ pub enum Commands {
         #[arg(short, long, default_value = "table")]
         output: String,
     },
+}
 
+#[derive(Subcommand, Debug)]
+pub enum HaCommands {
     /// Configure VM high availability
     HAConfig {
         /// VM name
@@ -915,7 +1113,10 @@ pub enum Commands {
         #[arg(short, long)]
         watch: bool,
     },
+}
 
+#[derive(Subcommand, Debug)]
+pub enum BackupCommands {
     // ========== BACKUP & DISASTER RECOVERY ==========
     /// Create a VM backup
     BackupCreate {
@@ -1033,7 +1234,10 @@ pub enum Commands {
         #[arg(long)]
         dry_run: bool,
     },
+}
 
+#[derive(Subcommand, Debug)]
+pub enum SecurityCommands {
     // ========== SECURITY & COMPLIANCE ==========
     /// Scan VM for security vulnerabilities
     SecurityScan {
@@ -1157,7 +1361,10 @@ pub enum Commands {
         #[arg(short, long, default_value = "table")]
         output: String,
     },
+}
 
+#[derive(Subcommand, Debug)]
+pub enum CostCommands {
     // ========== COST MANAGEMENT & OPTIMIZATION ==========
     /// Show VM cost analysis
     CostAnalyze {
@@ -1289,7 +1496,10 @@ pub enum Commands {
         #[arg(short, long, default_value = "table")]
         output: String,
     },
+}
 
+#[derive(Subcommand, Debug)]
+pub enum AutomationCommands {
     // ========== AUTOMATION & ORCHESTRATION ==========
     /// List automation rules
     AutomationList {
@@ -1423,7 +1633,10 @@ pub enum Commands {
         #[arg(long)]
         enable: bool,
     },
+}
 
+#[derive(Subcommand, Debug)]
+pub enum ObservabilityCommands {
     // ========== OBSERVABILITY & ANALYTICS ==========
     /// Query logs
     LogsQuery {
@@ -1620,6 +1833,35 @@ pub enum Commands {
         output: String,
     },
 
+    /// List activity events
+    EventList {
+        /// Filter by VM name
+        #[arg(long)]
+        vm: Option<String>,
+
+        /// Maximum number of events to show
+        #[arg(short, long, default_value = "20")]
+        limit: usize,
+
+        /// Output format (text, yaml, json)
+        #[arg(short, long, default_value = "text")]
+        output: String,
+    },
+
+    /// Show recent activity events
+    EventRecent {
+        /// Maximum number of events to show
+        #[arg(short, long, default_value = "10")]
+        limit: usize,
+
+        /// Output format (text, yaml, json)
+        #[arg(short, long, default_value = "text")]
+        output: String,
+    },
+}
+
+#[derive(Subcommand, Debug)]
+pub enum TenancyCommands {
     // ========== MULTI-TENANCY & RBAC ==========
     /// List tenants
     TenantsList {
@@ -1831,7 +2073,10 @@ pub enum Commands {
         /// User ID or username
         user: String,
     },
+}
 
+#[derive(Subcommand, Debug)]
+pub enum InventoryCommands {
     // ========== VCENTER-STYLE OPERATIONS ==========
     /// Show Datacenter -> Cluster -> Host/Folder -> VM inventory
     Inventory {
@@ -1846,39 +2091,47 @@ pub enum Commands {
         #[arg(short, long, default_value = "table")]
         output: String,
     },
+
     /// Set/remove VM tags backed by Kubernetes labels
     TagSet {
         vm: String,
         key: String,
         value: String,
     },
+
     TagRemove {
         vm: String,
         key: String,
     },
+
     /// Set/remove custom attributes backed by Kubernetes annotations
     AttributeSet {
         vm: String,
         key: String,
         value: String,
     },
+
     AttributeRemove {
         vm: String,
         key: String,
     },
+
     /// Logical inventory assignment
     InventoryDatacenterSet {
         vm: String,
         datacenter: String,
     },
+
     InventoryClusterSet {
         vm: String,
         cluster: String,
     },
+
     InventoryFolderSet {
         vm: String,
         folder: String,
     },
+
     /// Recent Tasks, Events and Alarms derived from Kubernetes Events
     Activity {
         #[arg(short = 'A', long)]
@@ -1894,6 +2147,10 @@ pub enum Commands {
         #[arg(short, long, default_value = "table")]
         output: String,
     },
+}
+
+#[derive(Subcommand, Debug)]
+pub enum MaintenanceCommands {
     /// Dry-run a host maintenance/evacuation plan
     MaintenancePlan {
         node: String,
@@ -1902,6 +2159,7 @@ pub enum Commands {
         #[arg(short, long, default_value = "table")]
         output: String,
     },
+
     /// Cordon a host and submit migrations/controlled stops
     MaintenanceEnter {
         node: String,
@@ -1912,14 +2170,20 @@ pub enum Commands {
         #[arg(long)]
         force: bool,
     },
+
     /// Show host maintenance state and remaining VMIs
     MaintenanceStatus {
         node: String,
     },
+
     /// Uncordon a host and leave maintenance mode
     MaintenanceExit {
         node: String,
     },
+}
+
+#[derive(Subcommand, Debug)]
+pub enum PlacementCommands {
     /// Explain the best node for a prospective VM
     PlacementAdvisor {
         #[arg(long)]
@@ -1935,6 +2199,7 @@ pub enum Commands {
         #[arg(short, long, default_value = "table")]
         output: String,
     },
+
     /// Recommend migrations that reduce node imbalance; does not execute them
     PlacementRebalance {
         #[arg(long, default_value = "0.15")]
@@ -1944,6 +2209,10 @@ pub enum Commands {
         #[arg(short, long, default_value = "table")]
         output: String,
     },
+}
+
+#[derive(Subcommand, Debug)]
+pub enum DevCommands {
     // ========== DEVELOPER EXPERIENCE & TOOLING ==========
     /// Generate shell completions
     Completions {
@@ -2041,6 +2310,20 @@ pub enum Commands {
         output: String,
     },
 
+    /// Write a Terraform scaffold that drives the Zorvia HTTP API
+    TerraformScaffold {
+        /// Output directory
+        #[arg(short, long, default_value = "./terraform/zorvia-vm")]
+        output: String,
+
+        /// Zorvia API base URL embedded in the example
+        #[arg(long, default_value = "https://127.0.0.1:30152")]
+        url: String,
+    },
+}
+
+#[derive(Subcommand, Debug)]
+pub enum ChangeCommands {
     /// Detect semantic drift between a desired VM and live or captured state
     Drift {
         /// Desired VM manifest (KubeVirt VirtualMachine or Zorvia VMConfig)
@@ -2107,7 +2390,10 @@ pub enum Commands {
         #[arg(short, long, default_value = "table")]
         output: String,
     },
+}
 
+#[derive(Subcommand, Debug)]
+pub enum GuestCommands {
     /// Inspect QEMU Guest Agent and guest OS/network visibility for a VM
     GuestInsight {
         /// VM name
@@ -2179,63 +2465,10 @@ pub enum Commands {
         #[arg(long, default_value_t = 90)]
         timeout: u64,
     },
+}
 
-    /// Write a Terraform scaffold that drives the Zorvia HTTP API
-    TerraformScaffold {
-        /// Output directory
-        #[arg(short, long, default_value = "./terraform/zorvia-vm")]
-        output: String,
-
-        /// Zorvia API base URL embedded in the example
-        #[arg(long, default_value = "https://127.0.0.1:30152")]
-        url: String,
-    },
-
-    /// Initialize a new zorvia project
-    Init {
-        /// Project name
-        name: String,
-
-        /// Project type (basic, dev, prod, microservices, data-pipeline)
-        #[arg(short, long, default_value = "basic")]
-        project_type: String,
-
-        /// Target directory
-        #[arg(short, long)]
-        directory: Option<String>,
-
-        /// Default namespace
-        #[arg(long)]
-        namespace: Option<String>,
-
-        /// Skip example files
-        #[arg(long)]
-        no_examples: bool,
-
-        /// Include CI/CD configuration
-        #[arg(long)]
-        ci: bool,
-
-        /// Skip git initialization
-        #[arg(long)]
-        no_git: bool,
-    },
-
-    /// Show environment and version information
-    Info {
-        /// Show detailed information
-        #[arg(short, long)]
-        detailed: bool,
-
-        /// Run diagnostics
-        #[arg(long)]
-        diagnostics: bool,
-
-        /// Output format (text, yaml, json)
-        #[arg(short, long, default_value = "text")]
-        output: String,
-    },
-
+#[derive(Subcommand, Debug)]
+pub enum ApiCommands {
     // ========== API & REST INTERFACE ==========
     /// Start the REST API server
     ApiServe {
@@ -2371,32 +2604,6 @@ pub enum Commands {
         yes: bool,
     },
 
-    /// List activity events
-    EventList {
-        /// Filter by VM name
-        #[arg(long)]
-        vm: Option<String>,
-
-        /// Maximum number of events to show
-        #[arg(short, long, default_value = "20")]
-        limit: usize,
-
-        /// Output format (text, yaml, json)
-        #[arg(short, long, default_value = "text")]
-        output: String,
-    },
-
-    /// Show recent activity events
-    EventRecent {
-        /// Maximum number of events to show
-        #[arg(short, long, default_value = "10")]
-        limit: usize,
-
-        /// Output format (text, yaml, json)
-        #[arg(short, long, default_value = "text")]
-        output: String,
-    },
-
     /// Launch interactive TUI
     Tui {
         /// Disable splash screen
@@ -2411,7 +2618,10 @@ pub enum Commands {
         #[arg(short, long)]
         interactive: bool,
     },
+}
 
+#[derive(Subcommand, Debug)]
+pub enum ConfigCommands {
     /// Show current configuration
     #[command(name = "config-show")]
     ConfigShow {
@@ -2427,11 +2637,9 @@ pub enum Commands {
         #[arg(long)]
         force: bool,
     },
-
-    /// List all commands grouped by category
-    #[command(name = "commands")]
-    CommandList,
 }
+
+
 
 /// Parse duration strings like `5m`, `30s`, `1h`, or plain seconds.
 fn parse_duration_arg(s: &str) -> Result<std::time::Duration, String> {
@@ -2458,7 +2666,7 @@ mod tests {
     use clap::Parser;
 
     fn parse(args: &[&str]) -> Result<Cli, clap::Error> {
-        // The Commands enum has 146 variants, requiring a larger stack in debug mode.
+        // The nested Commands enum tree has many variants, requiring a larger stack in debug mode.
         // Run parsing in a thread with 16MB stack to avoid stack overflow.
         let args_owned: Vec<String> = args.iter().map(|s| s.to_string()).collect();
         std::thread::Builder::new()
@@ -2471,9 +2679,9 @@ mod tests {
 
     #[test]
     fn test_create_command() {
-        let cli = parse(&["zorvia", "create", "my-vm", "--template", "ubuntu"]).unwrap();
+        let cli = parse(&["zorvia", "vm", "create", "my-vm", "--template", "ubuntu"]).unwrap();
         match *cli.command {
-            Commands::Create { name, template, .. } => {
+            Commands::Vm(VmCommands::Create { name, template, .. }) => {
                 assert_eq!(name, "my-vm");
                 assert_eq!(template, Some("ubuntu".to_string()));
             }
@@ -2483,11 +2691,11 @@ mod tests {
 
     #[test]
     fn test_status_platform_no_name() {
-        let cli = parse(&["zorvia", "status"]).unwrap();
+        let cli = parse(&["zorvia", "vm", "status"]).unwrap();
         match *cli.command {
-            Commands::Status {
+            Commands::Vm(VmCommands::Status {
                 name, wait, output, ..
-            } => {
+            }) => {
                 assert!(name.is_none());
                 assert!(!wait);
                 assert_eq!(output, "summary");
@@ -2498,9 +2706,9 @@ mod tests {
 
     #[test]
     fn test_status_vm_name() {
-        let cli = parse(&["zorvia", "status", "myvm", "--watch"]).unwrap();
+        let cli = parse(&["zorvia", "vm", "status", "myvm", "--watch"]).unwrap();
         match *cli.command {
-            Commands::Status { name, watch, .. } => {
+            Commands::Vm(VmCommands::Status { name, watch, .. }) => {
                 assert_eq!(name.as_deref(), Some("myvm"));
                 assert!(watch);
             }
@@ -2510,13 +2718,13 @@ mod tests {
 
     #[test]
     fn test_status_wait_duration() {
-        let cli = parse(&["zorvia", "status", "--wait", "--wait-duration", "30s"]).unwrap();
+        let cli = parse(&["zorvia", "vm", "status", "--wait", "--wait-duration", "30s"]).unwrap();
         match *cli.command {
-            Commands::Status {
+            Commands::Vm(VmCommands::Status {
                 wait,
                 wait_duration,
                 ..
-            } => {
+            }) => {
                 assert!(wait);
                 assert_eq!(wait_duration, std::time::Duration::from_secs(30));
             }
@@ -2540,6 +2748,7 @@ mod tests {
     fn test_create_with_resources() {
         let cli = parse(&[
             "zorvia",
+            "vm",
             "create",
             "test-vm",
             "--template",
@@ -2553,13 +2762,13 @@ mod tests {
         ])
         .unwrap();
         match *cli.command {
-            Commands::Create {
+            Commands::Vm(VmCommands::Create {
                 name,
                 cpus,
                 memory,
                 disk_size,
                 ..
-            } => {
+            }) => {
                 assert_eq!(name, "test-vm");
                 assert_eq!(cpus, Some(4));
                 assert_eq!(memory, Some("8Gi".to_string()));
@@ -2573,6 +2782,7 @@ mod tests {
     fn test_create_dry_run() {
         let cli = parse(&[
             "zorvia",
+            "vm",
             "create",
             "my-vm",
             "--template",
@@ -2581,19 +2791,19 @@ mod tests {
         ])
         .unwrap();
         match *cli.command {
-            Commands::Create { dry_run, .. } => assert!(dry_run),
+            Commands::Vm(VmCommands::Create { dry_run, .. }) => assert!(dry_run),
             _ => panic!("Expected Create command"),
         }
     }
 
     #[test]
     fn test_list_command() {
-        let cli = parse(&["zorvia", "list"]).unwrap();
+        let cli = parse(&["zorvia", "vm", "list"]).unwrap();
         match *cli.command {
-            Commands::List {
+            Commands::Vm(VmCommands::List {
                 all_namespaces,
                 output,
-            } => {
+            }) => {
                 assert!(!all_namespaces);
                 assert_eq!(output, "table");
             }
@@ -2603,27 +2813,27 @@ mod tests {
 
     #[test]
     fn test_list_all_namespaces() {
-        let cli = parse(&["zorvia", "list", "-A"]).unwrap();
+        let cli = parse(&["zorvia", "vm", "list", "-A"]).unwrap();
         match *cli.command {
-            Commands::List { all_namespaces, .. } => assert!(all_namespaces),
+            Commands::Vm(VmCommands::List { all_namespaces, .. }) => assert!(all_namespaces),
             _ => panic!("Expected List command"),
         }
     }
 
     #[test]
     fn test_get_command() {
-        let cli = parse(&["zorvia", "get", "my-vm"]).unwrap();
+        let cli = parse(&["zorvia", "vm", "get", "my-vm"]).unwrap();
         match *cli.command {
-            Commands::Get { name, .. } => assert_eq!(name, "my-vm"),
+            Commands::Vm(VmCommands::Get { name, .. }) => assert_eq!(name, "my-vm"),
             _ => panic!("Expected Get command"),
         }
     }
 
     #[test]
     fn test_delete_command() {
-        let cli = parse(&["zorvia", "delete", "my-vm", "--yes"]).unwrap();
+        let cli = parse(&["zorvia", "vm", "delete", "my-vm", "--yes"]).unwrap();
         match *cli.command {
-            Commands::Delete { name, yes } => {
+            Commands::Vm(VmCommands::Delete { name, yes }) => {
                 assert_eq!(name, "my-vm");
                 assert!(yes);
             }
@@ -2633,40 +2843,40 @@ mod tests {
 
     #[test]
     fn test_start_stop_restart() {
-        let cli = parse(&["zorvia", "start", "vm1"]).unwrap();
-        assert!(matches!(*cli.command, Commands::Start { name } if name == "vm1"));
+        let cli = parse(&["zorvia", "vm", "start", "vm1"]).unwrap();
+        assert!(matches!(*cli.command, Commands::Vm(VmCommands::Start { name }) if name == "vm1"));
 
-        let cli = parse(&["zorvia", "stop", "vm1"]).unwrap();
-        assert!(matches!(*cli.command, Commands::Stop { name } if name == "vm1"));
+        let cli = parse(&["zorvia", "vm", "stop", "vm1"]).unwrap();
+        assert!(matches!(*cli.command, Commands::Vm(VmCommands::Stop { name }) if name == "vm1"));
 
-        let cli = parse(&["zorvia", "restart", "vm1"]).unwrap();
-        assert!(matches!(*cli.command, Commands::Restart { name } if name == "vm1"));
+        let cli = parse(&["zorvia", "vm", "restart", "vm1"]).unwrap();
+        assert!(matches!(*cli.command, Commands::Vm(VmCommands::Restart { name }) if name == "vm1"));
     }
 
     #[test]
     fn test_pause_resume() {
-        let cli = parse(&["zorvia", "pause", "vm1"]).unwrap();
-        assert!(matches!(*cli.command, Commands::Pause { name } if name == "vm1"));
+        let cli = parse(&["zorvia", "vm", "pause", "vm1"]).unwrap();
+        assert!(matches!(*cli.command, Commands::Vm(VmCommands::Pause { name }) if name == "vm1"));
 
-        let cli = parse(&["zorvia", "resume", "vm1"]).unwrap();
-        assert!(matches!(*cli.command, Commands::Resume { name } if name == "vm1"));
+        let cli = parse(&["zorvia", "vm", "resume", "vm1"]).unwrap();
+        assert!(matches!(*cli.command, Commands::Vm(VmCommands::Resume { name }) if name == "vm1"));
     }
 
     #[test]
     fn test_namespace_default() {
-        let cli = parse(&["zorvia", "list"]).unwrap();
+        let cli = parse(&["zorvia", "vm", "list"]).unwrap();
         assert_eq!(cli.namespace, "default");
     }
 
     #[test]
     fn test_namespace_override() {
-        let cli = parse(&["zorvia", "--namespace", "prod", "list"]).unwrap();
+        let cli = parse(&["zorvia", "--namespace", "prod", "vm", "list"]).unwrap();
         assert_eq!(cli.namespace, "prod");
     }
 
     #[test]
     fn test_verbose_flag() {
-        let cli = parse(&["zorvia", "-v", "list"]).unwrap();
+        let cli = parse(&["zorvia", "-v", "vm", "list"]).unwrap();
         assert!(cli.verbose);
     }
 
@@ -2674,6 +2884,7 @@ mod tests {
     fn test_generate_command() {
         let cli = parse(&[
             "zorvia",
+            "template",
             "generate",
             "test-vm",
             "--template",
@@ -2683,12 +2894,12 @@ mod tests {
         ])
         .unwrap();
         match *cli.command {
-            Commands::Generate {
+            Commands::Template(TemplateCommands::Generate {
                 name,
                 template,
                 format,
                 ..
-            } => {
+            }) => {
                 assert_eq!(name, "test-vm");
                 assert_eq!(template, Some("ubuntu".to_string()));
                 assert_eq!(format, "json");
@@ -2699,33 +2910,33 @@ mod tests {
 
     #[test]
     fn test_templates_command() {
-        let cli = parse(&["zorvia", "templates"]).unwrap();
-        assert!(matches!(*cli.command, Commands::Templates));
+        let cli = parse(&["zorvia", "template", "templates"]).unwrap();
+        assert!(matches!(*cli.command, Commands::Template(TemplateCommands::Templates)));
     }
 
     #[test]
     fn test_validate_command() {
-        let cli = parse(&["zorvia", "validate", "config.yaml"]).unwrap();
+        let cli = parse(&["zorvia", "template", "validate", "config.yaml"]).unwrap();
         match *cli.command {
-            Commands::Validate { file } => assert_eq!(file, "config.yaml"),
+            Commands::Template(TemplateCommands::Validate { file }) => assert_eq!(file, "config.yaml"),
             _ => panic!("Expected Validate command"),
         }
     }
 
     #[test]
     fn test_profiles_command() {
-        let cli = parse(&["zorvia", "profiles", "--details"]).unwrap();
+        let cli = parse(&["zorvia", "profile", "profiles", "--details"]).unwrap();
         match *cli.command {
-            Commands::Profiles { details } => assert!(details),
+            Commands::Profile(ProfileCommands::Profiles { details }) => assert!(details),
             _ => panic!("Expected Profiles command"),
         }
     }
 
     #[test]
     fn test_health_command() {
-        let cli = parse(&["zorvia", "health", "my-vm", "--detailed"]).unwrap();
+        let cli = parse(&["zorvia", "advisor", "health", "my-vm", "--detailed"]).unwrap();
         match *cli.command {
-            Commands::Health { target, detailed } => {
+            Commands::Advisor(AdvisorCommands::Health { target, detailed }) => {
                 assert_eq!(target, "my-vm");
                 assert!(detailed);
             }
@@ -2735,9 +2946,9 @@ mod tests {
 
     #[test]
     fn test_cost_analyze() {
-        let cli = parse(&["zorvia", "cost-analyze", "db-vm", "--period", "weekly"]).unwrap();
+        let cli = parse(&["zorvia", "cost", "cost-analyze", "db-vm", "--period", "weekly"]).unwrap();
         match *cli.command {
-            Commands::CostAnalyze { vm, period, .. } => {
+            Commands::Cost(CostCommands::CostAnalyze { vm, period, .. }) => {
                 assert_eq!(vm, Some("db-vm".to_string()));
                 assert_eq!(period, "weekly");
             }
@@ -2749,6 +2960,7 @@ mod tests {
     fn test_security_scan() {
         let cli = parse(&[
             "zorvia",
+            "security",
             "security-scan",
             "web-vm",
             "--scan-type",
@@ -2757,12 +2969,12 @@ mod tests {
         ])
         .unwrap();
         match *cli.command {
-            Commands::SecurityScan {
+            Commands::Security(SecurityCommands::SecurityScan {
                 vm,
                 scan_type,
                 containers,
                 ..
-            } => {
+            }) => {
                 assert_eq!(vm, "web-vm");
                 assert_eq!(scan_type, "deep");
                 assert!(containers);
@@ -2773,18 +2985,18 @@ mod tests {
 
     #[test]
     fn test_tui_command() {
-        let cli = parse(&["zorvia", "tui", "--interactive"]).unwrap();
+        let cli = parse(&["zorvia", "api", "tui", "--interactive"]).unwrap();
         match *cli.command {
-            Commands::Tui { interactive, .. } => assert!(interactive),
+            Commands::Api(ApiCommands::Tui { interactive, .. }) => assert!(interactive),
             _ => panic!("Expected Tui command"),
         }
     }
 
     #[test]
     fn test_wait_ready_command() {
-        let cli = parse(&["zorvia", "wait-ready", "web-01", "--timeout", "15"]).unwrap();
+        let cli = parse(&["zorvia", "guest", "wait-ready", "web-01", "--timeout", "15"]).unwrap();
         match *cli.command {
-            Commands::WaitReady { name, timeout } => {
+            Commands::Guest(GuestCommands::WaitReady { name, timeout }) => {
                 assert_eq!(name, "web-01");
                 assert_eq!(timeout, 15);
             }
@@ -2794,9 +3006,9 @@ mod tests {
 
     #[test]
     fn test_wait_image_command() {
-        let cli = parse(&["zorvia", "wait-image", "ubuntu-import", "--timeout", "30"]).unwrap();
+        let cli = parse(&["zorvia", "guest", "wait-image", "ubuntu-import", "--timeout", "30"]).unwrap();
         match *cli.command {
-            Commands::WaitImage { name, timeout } => {
+            Commands::Guest(GuestCommands::WaitImage { name, timeout }) => {
                 assert_eq!(name, "ubuntu-import");
                 assert_eq!(timeout, 30);
             }
@@ -2808,6 +3020,7 @@ mod tests {
     fn test_terraform_scaffold_command() {
         let cli = parse(&[
             "zorvia",
+            "dev",
             "terraform-scaffold",
             "--output",
             "/tmp/tf",
@@ -2816,7 +3029,7 @@ mod tests {
         ])
         .unwrap();
         match *cli.command {
-            Commands::TerraformScaffold { output, url } => {
+            Commands::Dev(DevCommands::TerraformScaffold { output, url }) => {
                 assert_eq!(output, "/tmp/tf");
                 assert_eq!(url, "https://lab:30152");
             }
@@ -2831,14 +3044,14 @@ mod tests {
 
     #[test]
     fn test_missing_required_arg_fails() {
-        assert!(parse(&["zorvia", "create"]).is_err()); // name is required
+        assert!(parse(&["zorvia", "vm", "create"]).is_err()); // name is required
     }
 
     #[test]
     fn test_clone_command() {
-        let cli = parse(&["zorvia", "clone", "source-vm", "clone-vm"]).unwrap();
+        let cli = parse(&["zorvia", "vm", "clone", "source-vm", "clone-vm"]).unwrap();
         match *cli.command {
-            Commands::Clone { source, target, .. } => {
+            Commands::Vm(VmCommands::Clone { source, target, .. }) => {
                 assert_eq!(source, "source-vm");
                 assert_eq!(target, "clone-vm");
             }
@@ -2848,9 +3061,9 @@ mod tests {
 
     #[test]
     fn test_snapshot_create() {
-        let cli = parse(&["zorvia", "snapshot-create", "my-vm", "--name", "snap1"]).unwrap();
+        let cli = parse(&["zorvia", "snapshot", "snapshot-create", "my-vm", "--name", "snap1"]).unwrap();
         match *cli.command {
-            Commands::SnapshotCreate { vm, name, .. } => {
+            Commands::Snapshot(SnapshotCommands::SnapshotCreate { vm, name, .. }) => {
                 assert_eq!(vm, "my-vm");
                 assert_eq!(name, Some("snap1".to_string()));
             }
@@ -2862,6 +3075,7 @@ mod tests {
     fn test_backup_create() {
         let cli = parse(&[
             "zorvia",
+            "backup",
             "backup-create",
             "db-vm",
             "--backup-type",
@@ -2869,9 +3083,9 @@ mod tests {
         ])
         .unwrap();
         match *cli.command {
-            Commands::BackupCreate {
+            Commands::Backup(BackupCommands::BackupCreate {
                 vm, backup_type, ..
-            } => {
+            }) => {
                 assert_eq!(vm, "db-vm");
                 assert_eq!(backup_type, "incremental");
             }
@@ -2883,6 +3097,7 @@ mod tests {
     fn test_migrate_command() {
         let cli = parse(&[
             "zorvia",
+            "migration",
             "migrate",
             "vm1",
             "--target-node",
@@ -2891,12 +3106,12 @@ mod tests {
         ])
         .unwrap();
         match *cli.command {
-            Commands::Migrate {
+            Commands::Migration(MigrationCommands::Migrate {
                 vm,
                 target_node,
                 plan,
                 ..
-            } => {
+            }) => {
                 assert_eq!(vm, "vm1");
                 assert_eq!(target_node, Some("node2".to_string()));
                 assert!(plan);

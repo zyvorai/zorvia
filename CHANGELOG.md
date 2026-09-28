@@ -213,6 +213,33 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   review — all volume-mutating routes are genuinely async (`202` + a job
   envelope, not a finished result).
 
+### Changed
+
+- **CLI restructured into Cilium/kubectl-style nested subcommands, with colored `--help`** —
+  **breaking**: the ~180 previously-flat top-level commands (`zorvia create`,
+  `zorvia migrate`, `zorvia ha-config`, ...) now live under 25 category
+  groups (`zorvia vm create`, `zorvia migration migrate`,
+  `zorvia ha ha-config`, ...): `vm`, `template`, `profile`, `blueprint`,
+  `advisor`, `snapshot`, `monitor`, `disk`, `network`, `migration`, `ha`,
+  `backup`, `security`, `cost`, `automation`, `observability`, `tenancy`,
+  `inventory`, `maintenance`, `placement`, `dev`, `change`, `guest`, `api`,
+  `config` — plus `init`, `info`, and `commands` staying top-level, same as
+  `git init`/`git --version`. `zorvia --help` now shows every group with a
+  one-line description instead of one undifferentiated ~180-entry list, via
+  a real `clap::builder::Styles` (colored headers/usage/literals/
+  placeholders, matching the palette `tui::colors::cli` already uses
+  elsewhere) rather than a hand-styled wrapper. `zorvia commands` is
+  regenerated to show the same grouping with the new two-word invocations.
+  Every flag, positional argument, and handler behavior is unchanged —
+  only the subcommand path changed. Shell completions (`zorvia completions`)
+  pick up the new structure automatically since they're generated from
+  `Cli::command()`, not hand-maintained. Builds on the color-crate
+  consolidation (`colored` as the one CLI/TUI color crate, `miette` for
+  top-level error rendering) shipped just before this.
+  **Docs and example scripts referencing the old flat commands are being
+  updated in a follow-up pass** — `--help`/`zorvia commands` are the
+  authoritative source of the current syntax in the meantime.
+
 ## [0.3.4] - 2026-09-27
 
 ### Added
