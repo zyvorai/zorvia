@@ -188,6 +188,16 @@ pub enum Commands {
         output: String,
     },
 
+    /// Read-only report on the VMs Zorvia can see and what it manages today
+    Adopt {
+        /// Report on all namespaces
+        #[arg(short = 'A', long)]
+        all_namespaces: bool,
+        /// Output format (table, yaml, json)
+        #[arg(short, long, default_value = "table")]
+        output: String,
+    },
+
     /// List all commands grouped by category
     #[command(name = "commands")]
     CommandList,

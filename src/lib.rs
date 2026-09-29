@@ -45,6 +45,7 @@ pub mod tui;
 pub mod utils;
 
 // Innovative features
+pub mod adopt;
 pub mod aiml;
 pub mod api;
 pub mod automation;
@@ -1560,6 +1561,10 @@ pub async fn run(mut cli: Cli) -> Result<()> {
             diagnostics,
             output,
         } => handlers::devexp::handle_info(detailed, diagnostics, output, &cli.namespace)?,
+        Commands::Adopt {
+            all_namespaces,
+            output,
+        } => handlers::adopt::handle_adopt(all_namespaces, output, &cli.namespace).await?,
         Commands::CommandList => {
             use tui::colors::cli as color;
             println!("{}", color::header("Zorvia Commands"));
@@ -1870,7 +1875,7 @@ pub async fn run(mut cli: Cli) -> Result<()> {
             }
 
             println!("  {}", color::header("Top-level"));
-            for cmd in ["init", "info", "commands"] {
+            for cmd in ["init", "info", "adopt", "commands"] {
                 println!("    {}", color::value(cmd));
             }
             println!();

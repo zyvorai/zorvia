@@ -41,6 +41,7 @@ Set `ZORVIA_EXPOSE_HOST` for correct NodePort SSH/VNC/RDP hostnames in the UI.
 |--------|------|-------|
 | POST | `/api/v1/auth/login` | JWT |
 | GET | `/api/v1/health` · `/api/v1/features` | Liveness · maturity registry |
+| GET | `/api/v1/adopt/report` | Read-only adoption report (`?all_namespaces=true`); same as `zorvia adopt` |
 | GET/POST | `/api/vms` | List / create |
 | POST | `/api/vms/:name/start\|stop\|restart` | Power |
 | GET/POST | `/api/vms/:name/snapshots` | Snapshots |
