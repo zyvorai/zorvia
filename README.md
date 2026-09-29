@@ -18,7 +18,7 @@ CLI, interactive TUI and a signed-in web console — one API, live cluster objec
 [![KubeVirt-native](https://img.shields.io/badge/KubeVirt-native-0071e3?style=flat-square&labelColor=1d1d1f)](https://kubevirt.io/)
 [![Rust 1.89+](https://img.shields.io/badge/rust-1.89%2B-0071e3?style=flat-square&labelColor=1d1d1f&logo=rust&logoColor=white)](https://www.rust-lang.org/)
 
-[**Quick start**](#quick-start) · [**Console**](#console-gallery) · [**Docs**](docs/README.md) · [**Leaving OpenShift?**](docs/leave-openshift.md) · [**Get Enterprise**](mailto:sales@zyvor.dev) · [**Star on GitHub**](https://github.com/zyvorai/zorvia)
+[**Quick start**](#quick-start) · [**Console**](#console-gallery) · [**Docs**](docs/README.md) · [**Leaving OpenShift?**](docs/leave-openshift.md) · [**Book a demo**](https://zyvor.dev/schedule?utm_source=github&utm_medium=zorvia&utm_campaign=readme_hero) · [**30-day PoC**](https://zyvor.dev/poc?utm_source=github&utm_medium=zorvia&utm_campaign=readme_hero) · [**Star on GitHub**](https://github.com/zyvorai/zorvia)
 
 </div>
 
@@ -147,7 +147,7 @@ OpenShift Virtualization runs KubeVirt, so your VMs are already `VirtualMachine`
 
 - **Zorvia** — free, Apache-2.0, no subscription. Point it at your KubeVirt cluster, read-only first: [adoption runbook](docs/adopt-existing-kubevirt-cluster.md).
 - **Coming from VMware?** Zorvia has no production importer of its own. Use the Zyvor suite: [Transiva](https://github.com/zyvorai/transiva) (export) → [h2kvm](https://github.com/zyvorai/h2kvm) (convert, deploy) → [GuestKit](https://github.com/zyvorai/guestkit) (assure) → Zorvia (operate). Community tiers are free; h2kvm needs a paid licence for production.
-- **Zorvia Enterprise** — the commercial edition, with production support and SLAs. Ask what else is covered today: [sales@zyvor.dev](mailto:sales@zyvor.dev).
+- **Commercial support** — production support and SLAs by contract, on top of the free Apache-2.0 code. Scope and terms are agreed with sales: [talk to sales](https://zyvor.dev/contact?intent=sales&utm_source=github&utm_medium=zorvia&utm_campaign=readme_edition), or [book a demo](https://zyvor.dev/schedule?utm_source=github&utm_medium=zorvia&utm_campaign=readme_edition).
 
 <div align="center">
 
@@ -163,7 +163,7 @@ OpenShift Virtualization runs KubeVirt, so your VMs are already `VirtualMachine`
 
 </div>
 
-> **Running this for a business?** Zorvia Enterprise adds support and SLAs you can put in a contract. Write to [sales@zyvor.dev](mailto:sales@zyvor.dev).
+> **Running this for a business?** Commercial support gives you support and SLAs you can put in a contract. [Book a demo](https://zyvor.dev/schedule?utm_source=github&utm_medium=zorvia&utm_campaign=readme_edition) or start a [30-day PoC](https://zyvor.dev/poc?utm_source=github&utm_medium=zorvia&utm_campaign=readme_edition) on a real cluster, then follow the [adoption runbook](docs/adopt-existing-kubevirt-cluster.md).
 
 ## Documentation
 
@@ -192,7 +192,7 @@ No `unsafe` on the product path. CORS off unless configured. TLS verification en
 
 ## Get involved
 
-- **Running this in production?** Take Zorvia Enterprise. Production support, SLAs, and Zyvor Enterprise products are licensed separately: contact [sales@zyvor.dev](mailto:sales@zyvor.dev) — tell us your cluster size and what's on your [roadmap](docs/roadmap.md) list, and we'll tell you what's already possible today.
+- **Running this in production?** Production support and SLAs are available by contract; other Zyvor products are licensed separately. [Book a demo](https://zyvor.dev/schedule?utm_source=github&utm_medium=zorvia&utm_campaign=readme_footer) or start a [30-day PoC](https://zyvor.dev/poc?utm_source=github&utm_medium=zorvia&utm_campaign=readme_footer). Tell us your cluster size and what's on your [roadmap](docs/roadmap.md) list, and we'll tell you what's already possible today. Fallback: sales@zyvor.dev.
 - **Evaluating it?** Clone it and run the [quick start](#quick-start); every claim in this README maps to a route or command you can hit right now. Questions, bug reports and feature requests are welcome as [GitHub issues](https://github.com/zyvorai/zorvia/issues); a [star on the repo](https://github.com/zyvorai/zorvia) helps others find it.
 - **Contributing code?** PRs welcome — see [CONTRIBUTING.md](CONTRIBUTING.md).
 
@@ -202,6 +202,6 @@ Open source under the [Apache License, Version 2.0](LICENSE). You may use, modif
 
 <div align="center">
 
-Built on [KubeVirt](https://kubevirt.io/) and [kube-rs](https://github.com/kube-rs/kube). Part of the Zyvor platform — more at **[zyvor.dev](https://zyvor.dev)**.
+Built on [KubeVirt](https://kubevirt.io/) and [kube-rs](https://github.com/kube-rs/kube). Part of the Zyvor platform — more at **[zyvor.dev](https://zyvor.dev/?utm_source=github&utm_medium=zorvia&utm_campaign=readme_footer)**.
 
 </div>

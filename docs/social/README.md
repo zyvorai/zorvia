@@ -43,7 +43,7 @@ dark, in `compare/`. Sources: `compare-lanes.html` (hero: "Pick your control pla
 Every Zorvia row must trace to [FEATURE_MATURITY.md](../FEATURE_MATURITY.md) and OpenShift rows to [leave-openshift.md](../leave-openshift.md).
 ZeusOS cells are vendor-stated (https://zyvor.dev/zeus-os; editions and pricing are not public, so say "ask"). Migration-card facts come from the
 Transiva and h2kvm `docs/ce-vs-enterprise.md` files. The comment at the top of each card lists its sources. Re-check the "as of" date in the footer and the ZeusOS rows before each new campaign.
-ZeusOS is a separate proprietary product, not Zorvia Enterprise.
+ZeusOS is a separate proprietary product, not Zorvia commercial support.
 
 ### Post copy
 
@@ -53,7 +53,7 @@ ZeusOS is a separate proprietary product, not Zorvia Enterprise.
 >
 > If you are weighing a Red Hat subscription against your VMs, the workloads do not have to change, only the control plane around them. We wrote the honest comparison, including where OpenShift is the better choice (support contract, certified operators, multi-cluster today).
 >
-> Zorvia: open source, Apache-2.0, CLI + TUI + web on any KubeVirt cluster. ZeusOS: our separate, proprietary visual workspace. Zorvia Enterprise: sales@zyvor.dev.
+> Zorvia: open source, Apache-2.0, CLI + TUI + web on any KubeVirt cluster. ZeusOS: our separate, proprietary visual workspace. Book a demo or start a 30-day PoC: zyvor.dev/schedule.
 >
 > github.com/zyvorai/zorvia
 >
