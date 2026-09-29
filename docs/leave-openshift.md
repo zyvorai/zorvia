@@ -2,27 +2,27 @@
 
 OpenShift Virtualization runs KubeVirt. Its VMs are ordinary KubeVirt `VirtualMachine` objects. So moving off OpenShift's control plane does not mean rewriting your VMs. It means choosing a different platform around the same objects.
 
-Zorvia, and its commercial Enterprise edition, are one way to do that. This page compares them with OpenShift, including where OpenShift is the better choice.
+Zorvia, with optional commercial support, is one way to do that. This page compares them with OpenShift, including where OpenShift is the better choice.
 
 > Every Zorvia "Yes" below maps to a feature in [FEATURE_MATURITY.md](FEATURE_MATURITY.md). Only **GA** and **Beta** items are production promises. Anything **Experimental** is labelled as such.
 
-## Two editions
+## Free code, optional commercial support
 
-| | **Zorvia** | **Zorvia Enterprise** |
+| | **Zorvia** | **Commercial support** |
 |---|---|---|
-| Licence | Apache-2.0, free for production | Commercial, licensed separately |
+| Licence | Apache-2.0, free for production | Same Apache-2.0 code, plus a support contract |
 | Best for | Teams that run KubeVirt themselves and want a real control plane without a subscription | Teams that need production support and SLAs they can put in a contract |
 | Surfaces | CLI, TUI, web console, one Fabric API | Same |
 | Support | Community (GitHub issues) | Production support and SLAs |
-| Start | [Quick start](../README.md#quick-start) | [sales@zyvor.dev](mailto:sales@zyvor.dev) |
+| Start | [Quick start](../README.md#quick-start) | [Book a demo](https://zyvor.dev/schedule?utm_source=github&utm_medium=zorvia&utm_campaign=docs_leave_openshift) or [30-day PoC](https://zyvor.dev/poc?utm_source=github&utm_medium=zorvia&utm_campaign=docs_leave_openshift) |
 
-**Start with Zorvia** to prove the model against your own cluster at no cost. **Take Zorvia Enterprise** when you need support you can put in a contract. Tell sales your cluster size and what you need, and they will say what is included today.
+**Start with Zorvia** to prove the model against your own cluster at no cost. **Add commercial support** when you need support you can put in a contract. Tell sales your cluster size and what you need, and they will say what is included today.
 
 ZeusOS is a separate Zyvor product. It is proprietary (not open source) and is not the enterprise edition of Zorvia. See [zyvor.dev/zeus-os](https://zyvor.dev/zeus-os) if you want to look at it.
 
 ## Honest comparison
 
-| Capability | OpenShift Virtualization | Zorvia | Zorvia Enterprise |
+| Capability | OpenShift Virtualization | Zorvia | Commercial support |
 |---|---|---|---|
 | VM create and day-2 without hand-written YAML | Yes | Yes (`vm-lifecycle`, GA) | Same as Zorvia |
 | Live migration between nodes | Yes | Yes (`live-migration`, GA; needs shared storage) | Same as Zorvia |
@@ -53,7 +53,7 @@ ZeusOS is a separate Zyvor product. It is proprietary (not open source) and is n
 - You want the same actions from a terminal, a TUI and a browser.
 - You want drift and change-plan checks before a change ships.
 
-## Choose Zorvia Enterprise when
+## Choose commercial support when
 
 - You want the same KubeVirt-native approach with a vendor behind it.
 - You need production support and SLAs in a contract.
@@ -75,5 +75,5 @@ Red Hat does not publish a list price for OpenShift Virtualization. It states th
 
 ## Talk to us
 
-- **Zorvia Enterprise:** [sales@zyvor.dev](mailto:sales@zyvor.dev). Tell us your node count and your current subscription, and we will tell you what is possible today.
+- **Commercial support:** [talk to sales](https://zyvor.dev/contact?intent=sales&utm_source=github&utm_medium=zorvia&utm_campaign=docs_leave_openshift) (fallback sales@zyvor.dev). Tell us your node count and your current subscription, and we will tell you what is possible today.
 - **Also from Zyvor:** [ZeusOS](https://zyvor.dev/zeus-os), a separate proprietary product.

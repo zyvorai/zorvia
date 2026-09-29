@@ -16,7 +16,7 @@ Start here: root [README.md](../README.md) (hero, gallery, quick start) · live 
 | [config-and-library.md](config-and-library.md) | VM config files and the Rust library |
 | [develop.md](develop.md) | The make-first dev loop |
 | [roadmap.md](roadmap.md) | Feature maturity and what is not shipped yet |
-| [leave-openshift.md](leave-openshift.md) | Zorvia vs OpenShift Virtualization vs Zorvia Enterprise, honestly |
+| [leave-openshift.md](leave-openshift.md) | Zorvia vs OpenShift Virtualization vs Zorvia with commercial support, honestly |
 | [adopt-existing-kubevirt-cluster.md](adopt-existing-kubevirt-cluster.md) | Point Zorvia at an existing KubeVirt cluster, read-only first |
 
 ## Core
