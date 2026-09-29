@@ -29,6 +29,10 @@ pub mod web {
     mod fabric_vm_handlers;
     use fabric_vm_handlers::*;
 
+    #[path = "adopt_handlers.rs"]
+    mod adopt_handlers;
+    use adopt_handlers::*;
+
     #[path = "advanced_handlers.rs"]
     mod advanced_handlers;
     use advanced_handlers::*;
@@ -1152,6 +1156,7 @@ pub mod web {
             .route("/v1/atlas/databridge/cutovers", get(atlas_db_list_cutovers))
             .route("/v1/health", get(health_handler))
             .route("/v1/features", get(features_registry_handler))
+            .route("/v1/adopt/report", get(adopt_report_handler))
             .route(
                 "/v1/enterprise/s3-backup/plan",
                 post(enterprise_s3_backup_plan),

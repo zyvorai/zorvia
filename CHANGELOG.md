@@ -9,6 +9,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **`zorvia adopt`** — read-only report on the VMs Zorvia can see and which
+  GA/Beta capabilities apply, with `-A` and `-o table|json|yaml`; also
+  `GET /api/v1/adopt/report`. Shared logic in `src/adopt`.
 - **Rescue mode** — the Rescue tab's frontend (built but never wired) now
   has a real backend: `POST /api/vms/:name/rescue` (set-hostname,
   inject-ssh-key, enable-ssh) creates a privileged Kubernetes Job that
