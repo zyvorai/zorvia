@@ -18,7 +18,7 @@ CLI, interactive TUI and a signed-in web console — one API, live cluster objec
 [![KubeVirt-native](https://img.shields.io/badge/KubeVirt-native-0071e3?style=flat-square&labelColor=1d1d1f)](https://kubevirt.io/)
 [![Rust 1.89+](https://img.shields.io/badge/rust-1.89%2B-0071e3?style=flat-square&labelColor=1d1d1f&logo=rust&logoColor=white)](https://www.rust-lang.org/)
 
-[**Quick start**](#quick-start) · [**Console**](#console-gallery) · [**Docs**](docs/README.md) · [**Leaving OpenShift?**](docs/leave-openshift.md) · [**Get Enterprise**](https://zyvor.dev/zeus-os) · [**Star on GitHub**](https://github.com/zyvorai/zorvia)
+[**Quick start**](#quick-start) · [**Console**](#console-gallery) · [**Docs**](docs/README.md) · [**Leaving OpenShift?**](docs/leave-openshift.md) · [**Get Enterprise**](mailto:sales@zyvor.dev) · [**Star on GitHub**](https://github.com/zyvorai/zorvia)
 
 </div>
 
@@ -154,10 +154,9 @@ Zorvia isn't a general Kubernetes dashboard — it's opinionated about one thing
 OpenShift Virtualization runs KubeVirt, so your VMs are already `VirtualMachine` objects. Leaving means changing the control plane around them, not rewriting them.
 
 - **Zorvia** — free, Apache-2.0, no subscription. Point it at your KubeVirt cluster, read-only first: [adoption runbook](docs/adopt-existing-kubevirt-cluster.md).
-- **ZeusOS Enterprise** — the commercial edition, with vendor support, multi-cluster and help planning the move. 30-day trial: [zyvor.dev/zeus-os](https://zyvor.dev/zeus-os).
-- **Stay on OpenShift** if you need a Red Hat contract, certified operators or telco-grade networking today. The [honest comparison](docs/leave-openshift.md) says where.
+- **Zorvia Enterprise** — the commercial edition, with production support and SLAs. Ask what else is covered today: [sales@zyvor.dev](mailto:sales@zyvor.dev).
 
-> **Running this for a business?** Enterprise adds support you can put in a contract. [Try ZeusOS Enterprise](https://zyvor.dev/zeus-os) or write to [sales@zyvor.dev](mailto:sales@zyvor.dev).
+> **Running this for a business?** Zorvia Enterprise adds support and SLAs you can put in a contract. Write to [sales@zyvor.dev](mailto:sales@zyvor.dev).
 
 ## Documentation
 
@@ -186,7 +185,7 @@ No `unsafe` on the product path. CORS off unless configured. TLS verification en
 
 ## Get involved
 
-- **Running this in production?** Take the Enterprise edition. Production support, SLAs, and Zyvor Enterprise products are licensed separately: start a 30-day trial at [zyvor.dev/zeus-os](https://zyvor.dev/zeus-os), or contact [sales@zyvor.dev](mailto:sales@zyvor.dev) — tell us your cluster size and what's on your [roadmap](docs/roadmap.md) list, and we'll tell you what's already possible today.
+- **Running this in production?** Take Zorvia Enterprise. Production support, SLAs, and Zyvor Enterprise products are licensed separately: contact [sales@zyvor.dev](mailto:sales@zyvor.dev) — tell us your cluster size and what's on your [roadmap](docs/roadmap.md) list, and we'll tell you what's already possible today.
 - **Evaluating it?** Clone it and run the [quick start](#quick-start); every claim in this README maps to a route or command you can hit right now. Questions, bug reports and feature requests are welcome as [GitHub issues](https://github.com/zyvorai/zorvia/issues); a [star on the repo](https://github.com/zyvorai/zorvia) helps others find it.
 - **Contributing code?** PRs welcome — see [CONTRIBUTING.md](CONTRIBUTING.md).
 

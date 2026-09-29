@@ -32,6 +32,6 @@ Once the read-only view is right, grant write roles per the RBAC in [WEB_CONSOLE
 ## Limits
 
 - Live migration needs shared storage (same as [FEATURE_MATURITY.md](FEATURE_MATURITY.md) notes).
-- Moving VMs to a different cluster is not a shipped Zorvia feature. For that, contact [sales@zyvor.dev](mailto:sales@zyvor.dev) about ZeusOS Enterprise.
+- Moving VMs to a different cluster is not a shipped Zorvia feature. For that, contact [sales@zyvor.dev](mailto:sales@zyvor.dev) about Zorvia Enterprise.
 
 Back to [Leaving OpenShift](leave-openshift.md).

@@ -2,41 +2,41 @@
 
 OpenShift Virtualization runs KubeVirt. Its VMs are ordinary KubeVirt `VirtualMachine` objects. So moving off OpenShift's control plane does not mean rewriting your VMs. It means choosing a different platform around the same objects.
 
-Zorvia and ZeusOS are two ways to do that. This page compares them with OpenShift, including where OpenShift is the better choice.
+Zorvia, and its commercial Enterprise edition, are one way to do that. This page compares them with OpenShift, including where OpenShift is the better choice.
 
 > Every Zorvia "Yes" below maps to a feature in [FEATURE_MATURITY.md](FEATURE_MATURITY.md). Only **GA** and **Beta** items are production promises. Anything **Experimental** is labelled as such.
 
-## Two doors
+## Two editions
 
-| | **Zorvia** | **ZeusOS Enterprise** |
+| | **Zorvia** | **Zorvia Enterprise** |
 |---|---|---|
-| Licence | Apache-2.0, free for production | Commercial. Trial, then licence via [sales@zyvor.dev](mailto:sales@zyvor.dev) |
-| Best for | Teams that run KubeVirt themselves and want a real control plane without a subscription | Teams that want vendor support, multi-cluster, incident tooling and help moving workloads |
-| Surfaces | CLI, TUI, web console, one Fabric API | Web, TUI, CLI and API |
-| Support | Community (GitHub issues) | Vendor support under your licence |
-| Start | [Quick start](../README.md#quick-start) | [zyvor.dev/zeus-os](https://zyvor.dev/zeus-os) (30-day trial, no sign-up) |
+| Licence | Apache-2.0, free for production | Commercial, licensed separately |
+| Best for | Teams that run KubeVirt themselves and want a real control plane without a subscription | Teams that need production support and SLAs they can put in a contract |
+| Surfaces | CLI, TUI, web console, one Fabric API | Same |
+| Support | Community (GitHub issues) | Production support and SLAs |
+| Start | [Quick start](../README.md#quick-start) | [sales@zyvor.dev](mailto:sales@zyvor.dev) |
 
-**Start with Zorvia** to prove the model against your own cluster at no cost. **Move to Enterprise** when you need support you can put in a contract, more than one cluster under one roof, or a partner to help with the move.
+**Start with Zorvia** to prove the model against your own cluster at no cost. **Take Zorvia Enterprise** when you need support you can put in a contract. Tell sales your cluster size and what you need, and they will say what is included today.
 
-Editions listed on the ZeusOS page are Community (single cluster), Professional (multi-cluster), Enterprise (AI incident center) and Service Provider (multi-tenant). Pricing is by quote.
+ZeusOS is a separate Zyvor product. It is proprietary (not open source) and is not the enterprise edition of Zorvia. See [zyvor.dev/zeus-os](https://zyvor.dev/zeus-os) if you want to look at it.
 
 ## Honest comparison
 
-| Capability | OpenShift Virtualization | Zorvia | ZeusOS Enterprise |
+| Capability | OpenShift Virtualization | Zorvia | Zorvia Enterprise |
 |---|---|---|---|
-| VM create and day-2 without hand-written YAML | Yes | Yes (`vm-lifecycle`, GA) | Yes |
-| Live migration between nodes | Yes | Yes (`live-migration`, GA; needs shared storage) | Yes |
-| Snapshots and restore | Yes | Yes (`snapshots-restore`, GA) | Yes |
-| Web console with VNC and serial | Yes | Yes (`web-console`, GA) | Yes |
-| Terminal UI | No | Yes | Yes |
-| Audit trail with export | Cluster audit log | Yes (`audit-trail`, GA, JSONL export) | Yes |
-| SSO | Built-in OAuth server | OIDC (`oidc`, Beta) | See ZeusOS docs |
-| Drift detection and change-plan gating | No | Yes (`zorvia change drift` / `zorvia change plan`) | Yes |
-| Runs on any KubeVirt cluster | No, OpenShift only | Yes | Yes |
+| VM create and day-2 without hand-written YAML | Yes | Yes (`vm-lifecycle`, GA) | Same as Zorvia |
+| Live migration between nodes | Yes | Yes (`live-migration`, GA; needs shared storage) | Same as Zorvia |
+| Snapshots and restore | Yes | Yes (`snapshots-restore`, GA) | Same as Zorvia |
+| Web console with VNC and serial | Yes | Yes (`web-console`, GA) | Same as Zorvia |
+| Terminal UI | No | Yes | Same as Zorvia |
+| Audit trail with export | Cluster audit log | Yes (`audit-trail`, GA, JSONL export) | Same as Zorvia |
+| SSO | Built-in OAuth server | OIDC (`oidc`, Beta) | Same as Zorvia |
+| Drift detection and change-plan gating | No | Yes (`zorvia change drift` / `zorvia change plan`) | Same as Zorvia |
+| Runs on any KubeVirt cluster | No, OpenShift only | Yes | Same as Zorvia |
 | Licence cost | Red Hat subscription | $0 | Commercial licence |
-| Vendor support contract | Yes (Red Hat) | No, community | Yes |
-| Multi-cluster management | Yes (Advanced Cluster Management) | Experimental (`fleet-multicluster`, inventory stub) | Yes (Professional and up) |
-| VM migration from VMware | Yes (Migration Toolkit for Virtualization) | Experimental (`transiva-migration`, plan only) | Ask sales; migration tooling sits on the Enterprise side |
+| Vendor support contract | Yes (Red Hat) | No, community | Yes (production support and SLAs) |
+| Multi-cluster management | Yes (Advanced Cluster Management) | Experimental (`fleet-multicluster`, inventory stub) | Ask sales |
+| VM migration from VMware | Yes (Migration Toolkit for Virtualization) | Experimental (`transiva-migration`, plan only) | Ask sales |
 | Operator lifecycle and certified ecosystem | Yes (OLM, certified operators) | No | No |
 | Telco-grade networking (SR-IOV, NFV, encrypted mesh) | Mature | Experimental (`gpu-sriov-numa`, plan only) | Ask sales |
 
@@ -53,11 +53,11 @@ Editions listed on the ZeusOS page are Community (single cluster), Professional 
 - You want the same actions from a terminal, a TUI and a browser.
 - You want drift and change-plan checks before a change ships.
 
-## Choose ZeusOS Enterprise when
+## Choose Zorvia Enterprise when
 
 - You want the same KubeVirt-native approach with a vendor behind it.
-- You run several clusters or need help planning a migration.
-- You want a partner to be accountable for the move.
+- You need production support and SLAs in a contract.
+- You have multi-cluster or migration needs. Ask sales what is covered today; the Experimental items in the table above are not promises.
 
 ## What does not change
 
@@ -75,5 +75,5 @@ Red Hat does not publish a list price for OpenShift Virtualization. It states th
 
 ## Talk to us
 
-- **Try Enterprise:** [zyvor.dev/zeus-os](https://zyvor.dev/zeus-os)
-- **Talk to sales:** [sales@zyvor.dev](mailto:sales@zyvor.dev). Tell us your node count and your current subscription, and we will tell you what is possible today.
+- **Zorvia Enterprise:** [sales@zyvor.dev](mailto:sales@zyvor.dev). Tell us your node count and your current subscription, and we will tell you what is possible today.
+- **Also from Zyvor:** [ZeusOS](https://zyvor.dev/zeus-os), a separate proprietary product.

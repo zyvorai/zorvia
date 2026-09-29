@@ -111,7 +111,7 @@ function TrustBand() {
               Coming from OpenShift Virtualization?{' '}
               <Link to="/docs/leave-openshift">Read the honest comparison →</Link>
               {' · '}
-              <Link to="https://zyvor.dev/zeus-os">Try Enterprise →</Link>
+              <Link to="mailto:sales@zyvor.dev">Get Zorvia Enterprise →</Link>
             </p>
           </div>
           <div className={styles.trustBadges}>
