@@ -107,6 +107,12 @@ function TrustBand() {
             <Link to="https://github.com/zyvorai/zorvia#readme">
               Read the full README →
             </Link>
+            <p>
+              Coming from OpenShift Virtualization?{' '}
+              <Link to="/docs/leave-openshift">Read the honest comparison →</Link>
+              {' · '}
+              <Link to="https://zyvor.dev/zeus-os">Try Enterprise →</Link>
+            </p>
           </div>
           <div className={styles.trustBadges}>
             <img

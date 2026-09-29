@@ -89,8 +89,9 @@ Two dozen capabilities, grouped by the job they do — not one wall of a table.
   ([docs/ATLAS_INTEGRATION.md](ATLAS_INTEGRATION.md)).
 - GitOps: a Terraform scaffold and module over the Fabric API.
 
-No OpenShift tax. Same `VirtualMachine` objects, whether you're at a
-terminal or in a browser.
+Same `VirtualMachine` objects, whether you're at a terminal or in a
+browser. Coming from OpenShift Virtualization? See
+[leave-openshift.md](leave-openshift.md).
 
 ```mermaid
 flowchart LR

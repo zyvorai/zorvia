@@ -82,10 +82,10 @@
   <table>
     <tr><th>Feature</th><th>OCP Console</th><th>Zorvia</th></tr>
     <tr><td>Prerequisite</td><td class="cross">Full OpenShift cluster ($$$)</td><td class="check">Any K8s + KubeVirt</td></tr>
-    <tr><td>License cost</td><td class="cross">$50K-200K/year</td><td class="check">Proprietary (competitive)</td></tr>
+    <tr><td>License cost</td><td class="cross">Red Hat subscription (per bare-metal node)</td><td class="check">Apache-2.0, no licence fee</td></tr>
     <tr><td>VNC Console</td><td class="check">Yes</td><td class="check">Yes + Sendkey</td></tr>
     <tr><td>VM lifecycle</td><td class="check">Yes</td><td class="check">Yes + CLI (60+ commands)</td></tr>
-    <tr><td>Metrics</td><td class="check">Prometheus required</td><td class="check">Built-in (no setup)</td></tr>
+    <tr><td>Metrics</td><td class="check">Prometheus required</td><td class="check">Read from the cluster</td></tr>
     <tr><td>Host hardware info</td><td class="cross">No</td><td class="check">PCI, RAM, partitions, services</td></tr>
     <tr><td>Standalone deployment</td><td class="cross">No (OCP only)</td><td class="check">Single binary + static files</td></tr>
     <tr><td>Edge/K3s support</td><td class="cross">No</td><td class="check">Yes (K3s, K8s, any distro)</td></tr>
@@ -147,7 +147,7 @@
     </div>
     <div class="card">
       <h4>Lightweight</h4>
-      <p>Single <code>zorvia</code> image with embedded SPA. Runs on K3s at the edge. No OpenShift, no Prometheus, no external dependencies.</p>
+      <p>Single <code>zorvia</code> image with embedded SPA. Runs on K3s at the edge. Runs on any KubeVirt cluster, including K3s.</p>
     </div>
     <div class="card">
       <h4>Migration Ready</h4>
@@ -157,7 +157,7 @@
 
   <div class="cta-box">
     <h3>The complete KubeVirt management platform</h3>
-    <p>No OpenShift license. No broken Cockpit dialogs. No raw YAML.<br>Just Zorvia. CLI + Web. Done.</p>
+    <p>No Red Hat subscription. No broken Cockpit dialogs. No raw YAML.<br>Just Zorvia. CLI + Web. Done.</p>
   </div>
   <div class="footer"><p>Zorvia Competitive Analysis &mdash; Apache License 2.0 &mdash; ZyvorAI Labs Private Limited</p></div>
 </div>
