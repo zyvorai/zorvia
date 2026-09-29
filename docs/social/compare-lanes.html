@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <title>OpenShift vs Zorvia vs ZeusOS (lanes)</title>
 <!-- OpenShift vs Zorvia vs ZeusOS (lanes). Size and theme come from the URL hash (see compare.js); build with ./docs/social/build-social-cards.sh.
-     Every claim maps to docs/FEATURE_MATURITY.md, docs/leave-openshift.md or https://zyvor.dev/zeus-os. -->
+     Sources: Zorvia = docs/FEATURE_MATURITY.md; OpenShift = docs/leave-openshift.md; ZeusOS is vendor-stated (zyvor.dev/zeus-os). -->
 <link rel="stylesheet" href="compare.css">
 </head>
 <body>
@@ -22,31 +22,34 @@
   </div>
 
   <h1>Same KubeVirt VMs. <em>Pick your control plane.</em></h1>
-  <p class="sub">OpenShift Virtualization runs KubeVirt. So do Zorvia and ZeusOS. Here is the honest difference.</p>
+  <p class="sub">OpenShift Virtualization runs KubeVirt. So do Zorvia and ZeusOS. Here is the honest difference, row by row.</p>
   <div class="lanes">
     <div class="lane os"><span class="tag">Red Hat</span><div class="nm">OpenShift</div><div class="lc"><span class="chip grey">Subscription</span></div>
       <div class="lrows">
         <div class="lr"><small>Licence</small><div><span class="mk n">&#10007;</span> Per-node Red Hat subscription</div></div>
         <div class="lr"><small>Runs on</small><div><span class="mk n">&#10007;</span> OpenShift only</div></div>
         <div class="lr"><small>Interfaces</small><div><span class="mk a">&#9680;</span> Web console + CLI, no TUI</div></div>
+        <div class="lr"><small>VMware migration</small><div><span class="mk y">&#10003;</span> Migration Toolkit (MTV)</div></div>
+        <div class="lr"><small>Multi-cluster</small><div><span class="mk y">&#10003;</span> Advanced Cluster Mgmt</div></div>
         <div class="lr"><small>Support</small><div><span class="mk y">&#10003;</span> Red Hat contract</div></div>
-        <div class="lr"><small>Multi-cluster</small><div><span class="mk y">&#10003;</span> Advanced Cluster Management</div></div>
       </div></div>
     <div class="lane zv"><span class="tag">Open source</span><div class="nm">Zorvia</div><div class="lc"><span class="chip blue">Apache-2.0</span></div>
       <div class="lrows">
         <div class="lr"><small>Licence</small><div><span class="mk y">&#10003;</span> $0, free for production</div></div>
         <div class="lr"><small>Runs on</small><div><span class="mk y">&#10003;</span> Any KubeVirt cluster</div></div>
-        <div class="lr"><small>Interfaces</small><div><span class="mk y">&#10003;</span> CLI, TUI and web, one API</div></div>
-        <div class="lr"><small>Support</small><div><span class="mk a">&#9680;</span> Community; Zorvia Enterprise for SLAs</div></div>
-        <div class="lr"><small>Multi-cluster</small><div><span class="mk n">&#10007;</span> Not yet (Experimental)</div></div>
+        <div class="lr"><small>Interfaces</small><div><span class="mk y">&#10003;</span> CLI, TUI, web + drift gating</div></div>
+        <div class="lr"><small>VMware migration</small><div><span class="mk a">&#9680;</span> Transiva + h2kvm suite (separate)</div></div>
+        <div class="lr"><small>Multi-cluster</small><div><span class="mk a">&#9680;</span> Experimental</div></div>
+        <div class="lr"><small>Support</small><div><span class="mk a">&#9680;</span> Community; Enterprise for SLAs</div></div>
       </div></div>
     <div class="lane zs"><span class="tag">Proprietary</span><div class="nm">ZeusOS</div><div class="lc"><span class="chip purple">Commercial</span></div>
       <div class="lrows">
-        <div class="lr"><small>Licence</small><div><span class="mk a">&#9680;</span> Commercial; 30-day free trial</div></div>
-        <div class="lr"><small>Runs on</small><div><span class="mk a">&#9680;</span> KubeVirt on Kubernetes 1.31+</div></div>
-        <div class="lr"><small>Interfaces</small><div><span class="mk y">&#10003;</span> Web dashboard and TUI</div></div>
-        <div class="lr"><small>Safety</small><div><span class="mk y">&#10003;</span> Approval-gated changes, audit trail</div></div>
-        <div class="lr"><small>Multi-cluster</small><div><span class="mk y">&#10003;</span> Professional edition</div></div>
+        <div class="lr"><small>Licence</small><div><span class="mk a">&#9680;</span> Commercial; 30-day trial</div></div>
+        <div class="lr"><small>Runs on</small><div><span class="mk y">&#10003;</span> Any conformant Kubernetes</div></div>
+        <div class="lr"><small>Interfaces</small><div><span class="mk y">&#10003;</span> Web, TUI; approval-gated</div></div>
+        <div class="lr"><small>VMware migration</small><div><span class="mk y">&#10003;</span> Migration Factory</div></div>
+        <div class="lr"><small>Multi-cluster</small><div><span class="mk y">&#10003;</span> Paid editions</div></div>
+        <div class="lr"><small>Support</small><div><span class="mk a">&#9680;</span> Ask sales</div></div>
       </div></div>
   </div>
   <div class="foot">

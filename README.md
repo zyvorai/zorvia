@@ -146,13 +146,19 @@ Zorvia isn't a general Kubernetes dashboard — it's opinionated about one thing
 OpenShift Virtualization runs KubeVirt, so your VMs are already `VirtualMachine` objects. Leaving means changing the control plane around them, not rewriting them.
 
 - **Zorvia** — free, Apache-2.0, no subscription. Point it at your KubeVirt cluster, read-only first: [adoption runbook](docs/adopt-existing-kubevirt-cluster.md).
+- **Coming from VMware?** Zorvia has no production importer of its own. Use the Zyvor suite: [Transiva](https://github.com/zyvorai/transiva) (export) → [h2kvm](https://github.com/zyvorai/h2kvm) (convert, deploy) → [GuestKit](https://github.com/zyvorai/guestkit) (assure) → Zorvia (operate). Community tiers are free; h2kvm needs a paid licence for production.
 - **Zorvia Enterprise** — the commercial edition, with production support and SLAs. Ask what else is covered today: [sales@zyvor.dev](mailto:sales@zyvor.dev).
 
 <div align="center">
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="docs/social/compare/scorecard-1200x630-dark.png">
-  <img src="docs/social/compare/scorecard-1200x630.png" alt="Scorecard comparing OpenShift, Zorvia and ZeusOS across eight rows. OpenShift leads on support contract, multi-cluster and VMware migration tooling; Zorvia leads on licence cost, running on any KubeVirt cluster, TUI and drift gating." width="820">
+  <img src="docs/social/compare/scorecard-1200x630.png" alt="Scorecard comparing OpenShift, Zorvia and ZeusOS across nine rows. OpenShift leads on support contract, multi-cluster and integrated VMware migration; Zorvia leads on licence cost, running on any KubeVirt cluster, TUI and built-in drift gating." width="820">
+</picture>
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/social/compare/migration-1200x630-dark.png">
+  <img src="docs/social/compare/migration-1200x630.png" alt="VMware to KubeVirt, four tools one path: Transiva exports, h2kvm converts and deploys, GuestKit assures, Zorvia operates, each with Community and Enterprise tiers." width="820">
 </picture>
 
 </div>
