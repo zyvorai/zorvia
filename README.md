@@ -36,12 +36,6 @@ CLI, interactive TUI and a signed-in web console — one API, live cluster objec
 | **4 · Guard** | RBAC · quotas · NetworkPolicy | Server-side roles, `ResourceQuota`, `NetworkPolicy` — not client-only checks |
 | **5 · Audit** | Trail · JSONL export | Persistent audit DB + `GET /api/audit/export` for SIEM shippers |
 
-<div align="center">
-
-<img src="docs/screenshots/readme-dashboard.png" alt="Zorvia dashboard" width="860">
-
-</div>
-
 ## What is in the box
 
 <table>
@@ -95,17 +89,6 @@ One continuous session on a real lab cluster (HTTPS NodePort **30152**) — dash
 
 </div>
 
-<table>
-<tr>
-<td width="50%"><img src="docs/screenshots/readme-vms-list.png" alt="VM list"><br><i>Every <code>VirtualMachine</code>, real status, real names — not sample data.</i></td>
-<td width="50%"><img src="docs/screenshots/readme-vm-console.png" alt="In-browser console"><br><i>Serial console over an authenticated WebSocket. Real pty, real prompt.</i></td>
-</tr>
-<tr>
-<td width="50%"><img src="docs/screenshots/readme-vm-metrics.png" alt="VM metrics"><br><i>CPU/memory pulled from the cluster, not synthesized for the screenshot.</i></td>
-<td width="50%"><img src="docs/screenshots/readme-templates.png" alt="Template catalog"><br><i>43 named OS templates — the same list <code>zorvia template templates</code> prints.</i></td>
-</tr>
-</table>
-
 ## Install
 
 One binary, one Helm chart — bring your own KubeVirt cluster. Requires Rust **1.89+**, a kubeconfig, and a cluster with **KubeVirt** (CDI optional for golden images / CDI clone).
@@ -151,10 +134,28 @@ Zorvia isn't a general Kubernetes dashboard — it's opinionated about one thing
 
 ## Leaving OpenShift?
 
+<div align="center">
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/social/compare/lanes-1200x630-dark.png">
+  <img src="docs/social/compare/lanes-1200x630.png" alt="Same KubeVirt VMs, pick your control plane: OpenShift (Red Hat subscription), Zorvia (open source, Apache-2.0) and ZeusOS (proprietary, commercial) compared side by side." width="820">
+</picture>
+
+</div>
+
 OpenShift Virtualization runs KubeVirt, so your VMs are already `VirtualMachine` objects. Leaving means changing the control plane around them, not rewriting them.
 
 - **Zorvia** — free, Apache-2.0, no subscription. Point it at your KubeVirt cluster, read-only first: [adoption runbook](docs/adopt-existing-kubevirt-cluster.md).
 - **Zorvia Enterprise** — the commercial edition, with production support and SLAs. Ask what else is covered today: [sales@zyvor.dev](mailto:sales@zyvor.dev).
+
+<div align="center">
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/social/compare/scorecard-1200x630-dark.png">
+  <img src="docs/social/compare/scorecard-1200x630.png" alt="Scorecard comparing OpenShift, Zorvia and ZeusOS across eight rows. OpenShift leads on support contract, multi-cluster and VMware migration tooling; Zorvia leads on licence cost, running on any KubeVirt cluster, TUI and drift gating." width="820">
+</picture>
+
+</div>
 
 > **Running this for a business?** Zorvia Enterprise adds support and SLAs you can put in a contract. Write to [sales@zyvor.dev](mailto:sales@zyvor.dev).
 
