@@ -23,7 +23,7 @@ image, as the small dot on the Create step; the Zyvor mark is drawn inline in bl
 ```
 
 Needs Google Chrome and macOS `sips` (override the browser with `CHROME=/path/to/chrome`). The script renders all
-three outputs above.
+outputs above and the comparison cards below.
 
 ## GitHub social preview
 
@@ -35,13 +35,14 @@ CHANGELOG.
 
 ## OpenShift vs Zorvia vs ZeusOS cards
 
-Three concepts, each in 1600x900 (LinkedIn/X, JPG), 1200x630 (OG/README, PNG) and 1080x1080 (square, PNG), light and
+Four concepts, each in 1600x900 (LinkedIn/X, JPG), 1200x630 (OG/README, PNG) and 1080x1080 (square, PNG), light and
 dark, in `compare/`. Sources: `compare-lanes.html` (hero: "Pick your control plane"), `compare-scorecard.html`,
-`compare-poster.html`, sharing `compare.css` and `compare.js`. Size and theme come from the URL hash, for example
-`compare-lanes.html#1200x630-dark`. `./docs/social/build-social-cards.sh` renders all 18.
+`compare-poster.html`, `compare-migration.html` (Transiva > h2kvm > GuestKit > Zorvia, Community vs Enterprise), sharing `compare.css` and `compare.js`. Size and theme come from the URL hash, for example
+`compare-lanes.html#1200x630-dark`. `./docs/social/build-social-cards.sh` renders all 24.
 
-Every row must trace to [FEATURE_MATURITY.md](../FEATURE_MATURITY.md), [leave-openshift.md](../leave-openshift.md) or
-https://zyvor.dev/zeus-os. Re-check the "as of" date in the footer and the ZeusOS rows before each new campaign.
+Every Zorvia row must trace to [FEATURE_MATURITY.md](../FEATURE_MATURITY.md) and OpenShift rows to [leave-openshift.md](../leave-openshift.md).
+ZeusOS cells are vendor-stated (https://zyvor.dev/zeus-os; editions and pricing are not public, so say "ask"). Migration-card facts come from the
+Transiva and h2kvm `docs/ce-vs-enterprise.md` files. The comment at the top of each card lists its sources. Re-check the "as of" date in the footer and the ZeusOS rows before each new campaign.
 ZeusOS is a separate proprietary product, not Zorvia Enterprise.
 
 ### Post copy
@@ -65,6 +66,11 @@ ZeusOS is a separate proprietary product, not Zorvia Enterprise.
 
 ### Alt text
 
-- **lanes**: Three columns comparing OpenShift (Red Hat subscription, OpenShift only, Red Hat support, Advanced Cluster Management), Zorvia (open source Apache-2.0, any KubeVirt cluster, CLI, TUI and web, no multi-cluster yet) and ZeusOS (proprietary commercial, web dashboard and TUI, approval-gated changes, Professional multi-cluster). Headline: Same KubeVirt VMs. Pick your control plane.
-- **scorecard**: A table with eight rows comparing OpenShift, Zorvia and ZeusOS, marked yes, partial or not yet. OpenShift leads on support contract, multi-cluster and VMware migration tooling; Zorvia leads on licence cost, running on any KubeVirt cluster, TUI and drift gating.
+- **lanes**: Three columns comparing OpenShift (Red Hat subscription, OpenShift only, Red Hat support, Advanced Cluster Management), Zorvia (open source Apache-2.0, any KubeVirt cluster, CLI, TUI and web, multi-cluster Experimental, VMware migration through the separate Transiva and h2kvm suite) and ZeusOS (proprietary commercial, web and TUI, approval-gated changes, Migration Factory, multi-cluster in paid editions). Headline: Same KubeVirt VMs. Pick your control plane.
+- **scorecard**: A table with nine rows comparing OpenShift, Zorvia and ZeusOS, marked yes, partial or no. OpenShift leads on support contract, multi-cluster and integrated VMware migration; Zorvia leads on licence cost, running on any KubeVirt cluster, TUI and built-in drift gating, with multi-cluster still Experimental.
 - **poster**: Leave the subscription. Keep the VMs. Three cards: OpenShift for Red Hat contract and certified operators, Zorvia open source, ZeusOS proprietary commercial.
+- **migration**: Leaving VMware, four tools one path. Transiva exports (Apache-2.0; Enterprise adds CBT, waves and 10+ providers), h2kvm converts and deploys to KubeVirt (production licence; Enterprise adds HA operator, Windows and SAN/Ceph runbooks), GuestKit scores boot readiness (Apache-2.0), Zorvia operates day 2. Zorvia's own importer is Experimental.
+
+**LinkedIn, migration** (use `compare/migration-1600x900.jpg`)
+
+> Leaving VMware for KubeVirt? Export with Transiva, convert with h2kvm, assure with GuestKit, operate on Zorvia. Four tools, each with a free community tier; h2kvm needs a paid licence in production, and Zorvia's own importer is still Experimental. github.com/zyvorai/zorvia #KubeVirt #VMware

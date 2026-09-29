@@ -26,9 +26,9 @@ render "$HERE/zorvia-share-card.html" 1200 630 "$HERE/zorvia-share-card.png" png
 render "$HERE/zorvia-share-card-dark.html" 1200 630 "$HERE/zorvia-share-card-dark.png" png
 render "$HERE/zorvia-social-card.html" 1600 900 "$HERE/zorvia-social-card.jpg" jpeg
 
-# OpenShift vs Zorvia vs ZeusOS comparison cards: 3 concepts x 3 sizes x light/dark.
+# OpenShift vs Zorvia vs ZeusOS comparison cards: 4 concepts x 3 sizes x light/dark.
 mkdir -p "$HERE/compare"
-for concept in lanes scorecard poster; do
+for concept in lanes scorecard poster migration; do
   for size in 1600x900 1200x630 1080x1080; do
     w="${size%x*}"; h="${size#*x}"
     for theme in light dark; do

@@ -36,7 +36,7 @@ ZeusOS is a separate Zyvor product. It is proprietary (not open source) and is n
 | Licence cost | Red Hat subscription | $0 | Commercial licence |
 | Vendor support contract | Yes (Red Hat) | No, community | Yes (production support and SLAs) |
 | Multi-cluster management | Yes (Advanced Cluster Management) | Experimental (`fleet-multicluster`, inventory stub) | Ask sales |
-| VM migration from VMware | Yes (Migration Toolkit for Virtualization) | Experimental (`transiva-migration`, plan only) | Ask sales |
+| VM migration from VMware | Yes (Migration Toolkit for Virtualization) | Zorvia's own importer is Experimental (`transiva-migration`, plan only); use the Zyvor suite, Transiva then h2kvm then GuestKit (separate tools) | Migration Factory (Transiva, h2kvm); ask sales |
 | Operator lifecycle and certified ecosystem | Yes (OLM, certified operators) | No | No |
 | Telco-grade networking (SR-IOV, NFV, encrypted mesh) | Mature | Experimental (`gpu-sriov-numa`, plan only) | Ask sales |
 
@@ -65,7 +65,7 @@ Your `VirtualMachine`, `DataVolume` and `PersistentVolumeClaim` objects stay as 
 
 ## What is not done yet
 
-- Zorvia has no production VM importer. Transiva (VMware to KubeVirt) is Experimental and plan-only. Do not plan a migration around it.
+- Zorvia has no production VM importer of its own; its Transiva hook is Experimental and plan-only. Migrating from VMware today means the separate Zyvor suite: Transiva (export; Apache-2.0 Community, Platform adds CBT and waves), h2kvm (convert and deploy to KubeVirt; free for non-production, paid licence for production) and GuestKit (boot-readiness). None of these are driven from the Zorvia console yet.
 - Running Zorvia on OpenShift itself has not been verified. See the runbook for what to check.
 - Format conversion (VMDK, VHD to qcow2) is not shipped.
 
