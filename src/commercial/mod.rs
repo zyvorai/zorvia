@@ -7,8 +7,12 @@
 //! from VM operational state and from the auth database.
 
 pub mod catalog;
+pub mod diagnostics;
 pub mod model;
+pub mod redact;
 pub mod store;
+pub mod support;
+pub mod timers;
 
 pub use model::*;
 pub use store::CommercialStore;

@@ -140,6 +140,24 @@ pub fn required_permission(method: &str, path: &str) -> Option<ApiPermission> {
         };
     }
 
+    // Support: exporting or uploading a diagnostic bundle reads cluster
+    // state, so it needs cluster.admin for every method. Owner assignment is
+    // the support desk (users.admin). Everything else is org-scoped in the
+    // store and open to any authenticated role.
+    if path.starts_with("/v1/support/") && path.contains("/diagnostics") {
+        return Some(ApiPermission::ClusterAdmin);
+    }
+    if path.starts_with("/v1/support/admin") {
+        return Some(ApiPermission::UsersAdmin);
+    }
+    if path.starts_with("/v1/support/") {
+        return if method == "GET" || method == "HEAD" {
+            None
+        } else {
+            Some(ApiPermission::VmRead)
+        };
+    }
+
     // Cluster-wide pod inventory, logs and exec are admin-only even on GET
     if path.starts_with("/v1/pods") || path.starts_with("/v1/namespaces") {
         return Some(ApiPermission::ClusterAdmin);
@@ -260,6 +278,27 @@ mod tests {
             Some(ApiPermission::VmRead)
         );
         assert_eq!(required_permission("GET", "/v1/commercial/contracts"), None);
+    }
+
+    #[test]
+    fn support_routes_are_gated() {
+        assert_eq!(
+            required_permission("POST", "/v1/support/diagnostics"),
+            Some(ApiPermission::ClusterAdmin)
+        );
+        assert_eq!(
+            required_permission("POST", "/v1/support/cases/c1/diagnostics/upload"),
+            Some(ApiPermission::ClusterAdmin)
+        );
+        assert_eq!(
+            required_permission("POST", "/v1/support/admin/cases/c1/assign"),
+            Some(ApiPermission::UsersAdmin)
+        );
+        assert_eq!(
+            required_permission("POST", "/v1/support/cases"),
+            Some(ApiPermission::VmRead)
+        );
+        assert_eq!(required_permission("GET", "/v1/support/cases"), None);
     }
 
     #[test]

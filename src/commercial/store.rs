@@ -18,10 +18,11 @@ use std::sync::Mutex;
 /// Ordered, append-only migrations. Never edit a shipped entry; add a new
 /// version. There are no down-migrations: rollback is restoring the backup
 /// taken before upgrade (docs/COMMERCIAL_OFFERINGS.md).
-const MIGRATIONS: &[(i64, &str, &str)] = &[(
-    1,
-    "initial commercial schema",
-    "CREATE TABLE orgs (
+const MIGRATIONS: &[(i64, &str, &str)] = &[
+    (
+        1,
+        "initial commercial schema",
+        "CREATE TABLE orgs (
         id TEXT PRIMARY KEY,
         name TEXT NOT NULL UNIQUE,
         created_at TEXT NOT NULL
@@ -73,7 +74,68 @@ const MIGRATIONS: &[(i64, &str, &str)] = &[(
         detail TEXT NOT NULL
     );
     CREATE INDEX contract_history_contract ON contract_history(contract_id);",
-)];
+    ),
+    (
+        2,
+        "support cases",
+        "CREATE TABLE support_cases (
+            id TEXT PRIMARY KEY,
+            org_id TEXT NOT NULL REFERENCES orgs(id),
+            cluster_id TEXT NOT NULL,
+            contract_id TEXT,
+            severity TEXT NOT NULL,
+            title TEXT NOT NULL,
+            description TEXT NOT NULL,
+            status TEXT NOT NULL,
+            owner TEXT,
+            created_by TEXT NOT NULL,
+            coverage TEXT NOT NULL,
+            first_response_due TEXT,
+            first_response_at TEXT,
+            resolution_due TEXT,
+            resolution_paused_secs INTEGER,
+            reopen_count INTEGER NOT NULL DEFAULT 0,
+            resolved_at TEXT,
+            closed_at TEXT,
+            created_at TEXT NOT NULL,
+            updated_at TEXT NOT NULL
+        );
+        CREATE INDEX support_cases_org ON support_cases(org_id);
+        CREATE TABLE support_messages (
+            seq INTEGER PRIMARY KEY AUTOINCREMENT,
+            case_id TEXT NOT NULL REFERENCES support_cases(id),
+            at TEXT NOT NULL,
+            author TEXT NOT NULL,
+            author_kind TEXT NOT NULL,
+            body TEXT NOT NULL,
+            internal INTEGER NOT NULL DEFAULT 0
+        );
+        CREATE INDEX support_messages_case ON support_messages(case_id);
+        CREATE TABLE support_attachments (
+            id TEXT PRIMARY KEY,
+            case_id TEXT NOT NULL REFERENCES support_cases(id),
+            message_seq INTEGER,
+            filename TEXT NOT NULL,
+            content_type TEXT NOT NULL,
+            size INTEGER NOT NULL,
+            sha256 TEXT NOT NULL,
+            data BLOB,
+            uploaded_by TEXT NOT NULL,
+            at TEXT NOT NULL,
+            purged_at TEXT
+        );
+        CREATE INDEX support_attachments_case ON support_attachments(case_id);
+        CREATE TABLE support_events (
+            seq INTEGER PRIMARY KEY AUTOINCREMENT,
+            case_id TEXT NOT NULL REFERENCES support_cases(id),
+            at TEXT NOT NULL,
+            actor TEXT NOT NULL,
+            event TEXT NOT NULL,
+            detail TEXT NOT NULL
+        );
+        CREATE INDEX support_events_case ON support_events(case_id);",
+    ),
+];
 
 #[derive(Debug, thiserror::Error)]
 pub enum CommercialError {
@@ -83,6 +145,8 @@ pub enum CommercialError {
     Invalid(String),
     #[error("{0}")]
     Conflict(String),
+    #[error("{0}")]
+    Forbidden(String),
     #[error("internal error: {0:#}")]
     Internal(#[from] anyhow::Error),
 }
@@ -93,7 +157,7 @@ impl From<rusqlite::Error> for CommercialError {
     }
 }
 
-type Result<T> = std::result::Result<T, CommercialError>;
+pub(super) type Result<T> = std::result::Result<T, CommercialError>;
 
 /// Who is asking. `admin` is a commercial administrator (users.admin) who
 /// may see and change every organization; everyone else sees only the
@@ -104,19 +168,19 @@ pub struct Caller {
     pub admin: bool,
 }
 
-fn ts(t: DateTime<Utc>) -> String {
+pub(super) fn ts(t: DateTime<Utc>) -> String {
     t.to_rfc3339_opts(SecondsFormat::Secs, true)
 }
 
-fn parse_ts(s: &str) -> anyhow::Result<DateTime<Utc>> {
+pub(super) fn parse_ts(s: &str) -> anyhow::Result<DateTime<Utc>> {
     Ok(DateTime::parse_from_rfc3339(s)?.with_timezone(&Utc))
 }
 
-fn new_id(prefix: &str) -> String {
+pub(super) fn new_id(prefix: &str) -> String {
     format!("{prefix}-{}", uuid::Uuid::new_v4())
 }
 
-fn bounded(label: &str, s: &str, max: usize, required: bool) -> Result<String> {
+pub(super) fn bounded(label: &str, s: &str, max: usize, required: bool) -> Result<String> {
     let s = s.trim();
     if required && s.is_empty() {
         return Err(CommercialError::Invalid(format!("{label} is required")));
@@ -182,7 +246,7 @@ pub struct ImportBundle {
 }
 
 pub struct CommercialStore {
-    conn: Mutex<Connection>,
+    pub(super) conn: Mutex<Connection>,
 }
 
 impl CommercialStore {
@@ -251,7 +315,7 @@ impl CommercialStore {
         Ok(())
     }
 
-    fn lock(&self) -> Result<std::sync::MutexGuard<'_, Connection>> {
+    pub(super) fn lock(&self) -> Result<std::sync::MutexGuard<'_, Connection>> {
         self.conn
             .lock()
             .map_err(|e| CommercialError::Internal(anyhow::anyhow!("{e}")))
@@ -338,7 +402,7 @@ impl CommercialStore {
         Ok(out)
     }
 
-    fn allowed(&self, conn: &Connection, caller: &Caller, org_id: &str) -> Result<bool> {
+    pub(super) fn allowed(&self, conn: &Connection, caller: &Caller, org_id: &str) -> Result<bool> {
         let _ = self;
         if caller.admin {
             return Ok(true);
@@ -981,14 +1045,14 @@ impl CommercialStore {
     }
 }
 
-fn org_exists(conn: &Connection, org_id: &str) -> Result<()> {
+pub(super) fn org_exists(conn: &Connection, org_id: &str) -> Result<()> {
     let found: Option<String> = conn
         .query_row("SELECT id FROM orgs WHERE id = ?1", [org_id], |r| r.get(0))
         .optional()?;
     found.map(|_| ()).ok_or(CommercialError::NotFound)
 }
 
-fn is_member(conn: &Connection, org_id: &str, username: &str) -> rusqlite::Result<bool> {
+pub(super) fn is_member(conn: &Connection, org_id: &str, username: &str) -> rusqlite::Result<bool> {
     let n: i64 = conn.query_row(
         "SELECT COUNT(*) FROM org_members WHERE org_id = ?1 AND username = ?2",
         params![org_id, username],
@@ -997,7 +1061,7 @@ fn is_member(conn: &Connection, org_id: &str, username: &str) -> rusqlite::Resul
     Ok(n > 0)
 }
 
-fn record(
+pub(super) fn record(
     conn: &Connection,
     contract_id: &str,
     actor: &str,
@@ -1011,7 +1075,11 @@ fn record(
     Ok(())
 }
 
-fn load_contract(conn: &Connection, id: &str, now: DateTime<Utc>) -> Result<Option<Contract>> {
+pub(super) fn load_contract(
+    conn: &Connection,
+    id: &str,
+    now: DateTime<Utc>,
+) -> Result<Option<Contract>> {
     let row = conn
         .query_row(
             "SELECT id, org_id, quote_request_id, offering, status, payment_status, source,
@@ -1139,6 +1207,7 @@ mod tests {
             expires_at: Some(Utc::now() + Duration::days(expires_in_days)),
             node_allowance: Some(12),
             managed_permissions: vec![],
+            ..Default::default()
         }
     }
 

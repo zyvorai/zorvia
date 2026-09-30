@@ -1,5 +1,6 @@
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
+use std::collections::BTreeMap;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
@@ -131,15 +132,35 @@ pub struct Entitlement {
     /// records what was purchased; it does not grant cluster access.
     #[serde(default)]
     pub managed_permissions: Vec<String>,
+    /// First-response targets in *coverage minutes*, keyed `sev1`..`sev4`.
+    /// A severity with no entry has no response timer.
+    #[serde(default)]
+    pub response_target_minutes: BTreeMap<String, u32>,
+    /// Non-binding resolution estimates in coverage minutes, same keys.
+    #[serde(default)]
+    pub resolution_estimate_minutes: BTreeMap<String, u32>,
+    /// Severities covered 24x7 instead of `coverage_hours` (e.g. Supported
+    /// Plus: `sev1`, `sev2`).
+    #[serde(default)]
+    pub always_on_severities: Vec<String>,
+    /// Contract holidays as `YYYY-MM-DD` in the entitlement timezone. They
+    /// suspend business-hours coverage only, never 24x7 severities.
+    #[serde(default)]
+    pub holidays: Vec<String>,
 }
+
+pub const SEVERITIES: [&str; 4] = ["sev1", "sev2", "sev3", "sev4"];
 
 impl Entitlement {
     /// Structural checks that apply whenever an entitlement is written.
     pub fn validate(&self) -> Result<(), String> {
         if !self.support_tier.is_empty()
-            && !matches!(self.support_tier.as_str(), "supported" | "managed")
+            && !matches!(
+                self.support_tier.as_str(),
+                "supported" | "supported_plus" | "managed"
+            )
         {
-            return Err("support_tier must be 'supported' or 'managed'".into());
+            return Err("support_tier must be 'supported', 'supported_plus' or 'managed'".into());
         }
         if !self.timezone.is_empty() && !valid_timezone_name(&self.timezone) {
             return Err("timezone must be an IANA name such as 'Europe/Berlin'".into());
@@ -154,6 +175,28 @@ impl Entitlement {
             };
             if s >= e {
                 return Err("coverage_hours.start must be before end".into());
+            }
+        }
+        for map in [
+            &self.response_target_minutes,
+            &self.resolution_estimate_minutes,
+        ] {
+            for (sev, mins) in map {
+                if !SEVERITIES.contains(&sev.as_str()) || *mins == 0 || *mins > 525_600 {
+                    return Err("targets must be keyed sev1..sev4 with 1..525600 minutes".into());
+                }
+            }
+        }
+        if self
+            .always_on_severities
+            .iter()
+            .any(|s| !SEVERITIES.contains(&s.as_str()))
+        {
+            return Err("always_on_severities must be from sev1..sev4".into());
+        }
+        for h in &self.holidays {
+            if chrono::NaiveDate::parse_from_str(h, "%Y-%m-%d").is_err() {
+                return Err("holidays must be YYYY-MM-DD".into());
             }
         }
         for c in &self.covered_clusters {
@@ -204,24 +247,9 @@ fn parse_hhmm(s: &str) -> Option<u32> {
     (h < 24 && m < 60 && s.len() == 5).then_some(h * 60 + m)
 }
 
-/// Lightweight IANA-name shape check. Real timezone arithmetic is needed by
-/// the support timers (phase 2), which will resolve the name properly.
+/// True for any IANA timezone name known to the bundled tz database.
 pub fn valid_timezone_name(s: &str) -> bool {
-    if s == "UTC" {
-        return true;
-    }
-    let mut parts = 0;
-    for seg in s.split('/') {
-        parts += 1;
-        if seg.is_empty()
-            || !seg
-                .chars()
-                .all(|c| c.is_ascii_alphanumeric() || matches!(c, '_' | '+' | '-'))
-        {
-            return false;
-        }
-    }
-    parts >= 2 && s.len() <= 64
+    s.len() <= 64 && s.parse::<chrono_tz::Tz>().is_ok()
 }
 
 /// The reviewable quote produced from a request.
