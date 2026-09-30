@@ -38,9 +38,9 @@ pub mod config;
 #[cfg(feature = "web")]
 pub mod kryton;
 pub mod kube;
-pub mod network;
 #[cfg(feature = "web")]
 pub mod migration_import;
+pub mod network;
 #[cfg(feature = "web")]
 pub mod operations;
 pub mod output;
