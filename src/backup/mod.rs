@@ -355,6 +355,8 @@ pub enum VerificationStatus {
     Skipped,
 }
 
+#[cfg(feature = "web")]
+pub mod op;
 pub mod recovery;
 pub mod schedule;
 pub mod verify;

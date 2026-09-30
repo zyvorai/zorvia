@@ -52,6 +52,7 @@ impl OpContext {
 pub fn handler_for(kind: &str) -> Option<HandlerFn> {
     match kind {
         crate::golden_images::convert::OP_KIND => Some(crate::golden_images::convert::run_op),
+        crate::backup::op::OP_KIND => Some(crate::backup::op::run_op),
         _ => None,
     }
 }
