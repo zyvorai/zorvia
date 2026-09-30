@@ -542,9 +542,14 @@ pub async fn run_restore(
             .open(&want.path)
             .with_context(|| format!("create {} (must not already exist)", want.path))?;
         let mut written = 0u64;
+        // This disk's slice of the 2..98 progress range.
+        let base = 2 + 96 * i as u64 / n;
+        let span = (96 / n).max(1);
         let result = stream_disk(client, disk, cfg.encryption_key.as_ref(), |plain| {
             file.write_all(plain)?;
             written += plain.len() as u64;
+            let pct = base + span * written / disk.size_bytes.max(1);
+            progress(pct.min(98) as u8, &format!("restoring {}", disk.name));
             Ok(())
         })
         .await

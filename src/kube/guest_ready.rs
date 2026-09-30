@@ -50,7 +50,12 @@ pub fn guest_ready_from_status(status: Option<&VirtualMachineInstanceStatus>) ->
         .map(|p| p.eq_ignore_ascii_case("running"))
         .unwrap_or(false);
     let ready = cond_true(status, "Ready");
-    let agent = cond_true(status, "AgentConnected") || status.guest_os_info.is_some();
+    // `guestOSInfo: {}` (present but empty) is what KubeVirt reports for a guest
+    // with no agent, so only count it when it actually carries data.
+    let agent = cond_true(status, "AgentConnected")
+        || status.guest_os_info.as_ref().is_some_and(|g| {
+            g.name.is_some() || g.id.is_some() || g.version.is_some() || g.kernel_release.is_some()
+        });
     let has_ip = status.interfaces.iter().any(|i| {
         i.ip_address
             .as_ref()
@@ -145,5 +150,26 @@ mod tests {
         let r = guest_ready_from_status(Some(&s));
         assert!(!r.cloud_init_ready);
         assert!(r.reason.contains("IP"));
+    }
+
+    #[test]
+    fn an_empty_guest_os_info_is_not_an_agent() {
+        // KubeVirt reports `guestOSInfo: {}` for a guest with no agent; that
+        // used to count as "agent connected".
+        let mut st = status("Running", true, Some("10.0.0.1"), false);
+        st.guest_os_info = Some(GuestOsInfo {
+            name: None,
+            id: None,
+            version: None,
+            kernel_release: None,
+        });
+        assert!(!guest_ready_from_status(Some(&st)).agent_connected);
+        st.guest_os_info = Some(GuestOsInfo {
+            name: Some("Debian GNU/Linux".into()),
+            id: None,
+            version: None,
+            kernel_release: None,
+        });
+        assert!(guest_ready_from_status(Some(&st)).agent_connected);
     }
 }
