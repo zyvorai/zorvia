@@ -3,8 +3,9 @@
 //! struct (JSON-persisted to `$XDG_DATA_HOME/zorvia/backup_schedules.json`,
 //! real next-run math via `crate::utils::schedule`) that had zero callers
 //! anywhere in the codebase until this. `spawn_backup_scheduler_loop`
-//! actually executes due schedules by calling the same `run_backup()` core
-//! the manual `POST /backups` handler uses.
+//! queues one durable backup operation per VM of a due schedule (see
+//! `crate::backup::op`); the operations reconciler runs them and reports
+//! success only once the VirtualMachineSnapshot has actually succeeded.
 
 use super::*;
 use crate::backup::schedule::{BackupSchedule, ScheduleManager, ScheduleType, VMSelector};
@@ -237,25 +238,41 @@ async fn run_due_schedules(namespace: &str) {
             }
         };
 
+        // Queue one durable backup per VM. The idempotency key includes the
+        // due slot, so if Zorvia dies before the schedule advances below,
+        // the next tick re-enqueues the same keys and nothing runs twice.
+        let slot = schedule
+            .next_run
+            .map(|t| t.to_rfc3339())
+            .unwrap_or_else(|| now.to_rfc3339());
+        let mut all_queued = true;
         for vm_name in &vm_names {
-            match super::backup_handlers::run_backup(
+            let key = format!("sched:{}:{slot}:{vm_name}", schedule.name);
+            match crate::backup::op::enqueue(
                 namespace,
                 vm_name,
                 &schedule.backup_type,
                 schedule.retention_days,
                 Some(format!("scheduled backup ({})", schedule.name)),
-            )
-            .await
-            {
-                Ok(_) => log::info!(
-                    "Backup scheduler: created backup for VM '{vm_name}' (schedule '{}')",
+                &key,
+            ) {
+                Ok((op, true)) => log::info!(
+                    "Backup scheduler: queued backup {} for VM '{vm_name}' (schedule '{}')",
+                    op.id,
                     schedule.name
                 ),
-                Err(e) => log::error!(
-                    "Backup scheduler: failed to back up VM '{vm_name}' (schedule '{}'): {e}",
-                    schedule.name
-                ),
+                Ok((_, false)) => {}
+                Err(e) => {
+                    all_queued = false;
+                    log::error!(
+                        "Backup scheduler: failed to queue backup for VM '{vm_name}' (schedule '{}'): {e}",
+                        schedule.name
+                    );
+                }
             }
+        }
+        if !all_queued {
+            continue;
         }
 
         let mut mgr = ScheduleManager::load();
