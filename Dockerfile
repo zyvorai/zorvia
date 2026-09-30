@@ -44,4 +44,4 @@ USER zorvia
 # targeting /api/v1/health on the running server.
 
 ENTRYPOINT ["zorvia"]
-CMD ["api-serve"]
+CMD ["api", "api-serve"]

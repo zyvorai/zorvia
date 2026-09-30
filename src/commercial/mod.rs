@@ -8,8 +8,10 @@
 
 pub mod catalog;
 pub mod diagnostics;
+pub mod managed;
 pub mod model;
 pub mod redact;
+pub mod services;
 pub mod store;
 pub mod support;
 pub mod timers;

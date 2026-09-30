@@ -8,7 +8,7 @@ Wants=network-online.target
 Type=simple
 User=sus
 Group=sus
-ExecStart=/usr/local/bin/zorvia api-serve --port 5151 --host 0.0.0.0 --tls --tls-cert /etc/zorvia/tls/server.crt --tls-key /etc/zorvia/tls/server.key
+ExecStart=/usr/local/bin/zorvia api api-serve --port 5151 --host 0.0.0.0 --tls --tls-cert /etc/zorvia/tls/server.crt --tls-key /etc/zorvia/tls/server.key
 Restart=on-failure
 RestartSec=5
 Environment=KUBECONFIG=/etc/zorvia/kubeconfig

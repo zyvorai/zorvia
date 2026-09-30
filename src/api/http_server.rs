@@ -53,6 +53,10 @@ pub mod web {
     mod support_handlers;
     use support_handlers::*;
 
+    #[path = "services_handlers.rs"]
+    mod services_handlers;
+    use services_handlers::*;
+
     #[path = "ws_proxy_handlers.rs"]
     mod ws_proxy_handlers;
     use ws_proxy_handlers::{ws_console, ws_ssh, ws_vnc};
@@ -1272,6 +1276,88 @@ pub mod web {
             .route(
                 "/v1/support/admin/cases/{id}/assign",
                 post(support_case_assign),
+            )
+            // Service engagements and managed-operations records. Records
+            // only; /admin/ routes are the service desk (users.admin).
+            .route("/v1/services/engagements", get(engagements_list))
+            .route("/v1/services/engagements/{id}", get(engagement_get))
+            .route(
+                "/v1/services/engagements/{id}/milestones/{key}/evidence",
+                post(engagement_evidence_add),
+            )
+            .route(
+                "/v1/services/engagements/{id}/accept",
+                post(engagement_accept),
+            )
+            .route("/v1/services/admin/engagements", post(engagement_create))
+            .route(
+                "/v1/services/admin/engagements/{id}/milestones/{key}",
+                post(engagement_milestone_update),
+            )
+            .route(
+                "/v1/services/admin/engagements/{id}/request-acceptance",
+                post(engagement_request_acceptance),
+            )
+            .route(
+                "/v1/services/admin/engagements/{id}/cancel",
+                post(engagement_cancel),
+            )
+            .route(
+                "/v1/managed/enrollments",
+                get(managed_enrollments_list).post(managed_enroll),
+            )
+            .route("/v1/managed/enrollments/{id}", get(managed_enrollment_get))
+            .route(
+                "/v1/managed/enrollments/{id}/remote-operation",
+                post(managed_remote_operation),
+            )
+            .route(
+                "/v1/managed/enrollments/{id}/withdraw",
+                post(managed_withdraw),
+            )
+            .route(
+                "/v1/managed/enrollments/{id}/evidence",
+                post(managed_evidence_add),
+            )
+            .route(
+                "/v1/managed/enrollments/{id}/tasks/{tid}/approve",
+                post(managed_task_approve),
+            )
+            .route(
+                "/v1/managed/enrollments/{id}/policies/{pid}/authorize",
+                post(managed_policy_authorize),
+            )
+            .route(
+                "/v1/managed/enrollments/{id}/policies/{pid}/revoke",
+                post(managed_policy_revoke),
+            )
+            .route(
+                "/v1/managed/admin/enrollments/{id}/owner",
+                post(managed_owner_set),
+            )
+            .route(
+                "/v1/managed/admin/enrollments/{id}/tasks",
+                post(managed_task_propose),
+            )
+            .route(
+                "/v1/managed/admin/enrollments/{id}/tasks/{tid}/status",
+                post(managed_task_status),
+            )
+            .route(
+                "/v1/managed/admin/enrollments/{id}/incidents",
+                post(managed_incident_open),
+            )
+            .route(
+                "/v1/managed/admin/enrollments/{id}/incidents/{iid}",
+                post(managed_incident_update),
+            )
+            .route(
+                "/v1/managed/admin/enrollments/{id}/reports",
+                post(managed_report_add),
+            )
+            .route(
+                "/v1/managed/admin/enrollments/{id}/policies",
+                post(managed_policy_create),
             )
             .fallback(fabric_not_implemented)
             .layer(TimeoutLayer::with_status_code(

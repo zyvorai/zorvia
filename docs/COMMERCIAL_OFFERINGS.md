@@ -48,6 +48,10 @@ Customers are organizations with named members (usernames). Non-administrators s
 | `POST /api/v1/support/diagnostics` | `cluster.admin`; preview by default, `{"preview": false}` downloads. Never uploads |
 | `POST /api/v1/support/cases/{id}/diagnostics/upload` | `cluster.admin` and case access; needs `{"confirm": true}` |
 | `POST /api/v1/support/admin/cases/{id}/assign` | `users.admin` (support desk) |
+| `GET /api/v1/services/engagements`, `…/{id}`, `POST …/{id}/milestones/{key}/evidence`, `POST …/{id}/accept` | Signed in, own organizations |
+| `/api/v1/services/admin/*` | `users.admin` (service desk): create engagements, update milestones, request acceptance, cancel |
+| `/api/v1/managed/enrollments/*` | Signed in, own organizations; see [MANAGED_OPERATIONS.md](MANAGED_OPERATIONS.md) |
+| `/api/v1/managed/admin/*` | `users.admin` (service desk) |
 | `/api/v1/commercial/admin/*` | `users.admin` only: organizations and members, quote generation, entitlement edits, transitions, payment status, offline import |
 
 An unconfigured integration shows as unavailable in the catalog response (`integrations.*.available = false`).
@@ -71,7 +75,7 @@ An unconfigured integration shows as unavailable in the catalog response (`integ
 |---|---|
 | Catalog, quote requests, contracts, coverage, offline import | **Beta** (records only) |
 | Support cases, timers, diagnostic bundles | **Beta** (single-instance; see below) |
-| Service engagements, managed-operation records | Not implemented |
+| Service engagements, managed-operation records | **Beta** (records only; no cluster access) |
 | Capacity reconciliation, invoice records | Not implemented |
 | Payment provider integration | Not implemented; waits on provider and terms |
 | Notifications | Not implemented; requests are recorded only |
@@ -91,3 +95,9 @@ Entitlements carry the machine-readable terms cases are measured against: `respo
 **Who is "support"?** A caller with `users.admin` acts as the support desk on this instance. The case portal lives in your own Zorvia instance's database, so a remote vendor support team needs a `users.admin` account on it, or the customer relays. Central multi-tenant case handling is not built.
 
 Migration `v2` adds the support tables; rollback is the same restore-from-backup procedure as above.
+
+## Service engagements
+
+Deployment (assessment, install/integration, functional and recovery testing, handover, acceptance), migration (inventory/assessment, network and storage mapping, pilot, approved waves, guest and application validation, handover) and training engagements are tracked as milestones with an owner, due date and **evidence**. A milestone cannot be marked done without evidence. The desk requests acceptance once every other milestone is done; only a member of the customer's organization can accept, which completes the acceptance milestone. This tracks purchased delivery only; it runs nothing, and experimental migration APIs stay experimental.
+
+Migration `v3` adds these tables; rollback is the same restore-from-backup procedure as above.

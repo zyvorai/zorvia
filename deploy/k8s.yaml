@@ -194,6 +194,7 @@ spec:
           imagePullPolicy: Never
           command: ["/usr/local/bin/zorvia"]
           args:
+            - api
             - api-serve
             - --port
             - "5151"
