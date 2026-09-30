@@ -696,14 +696,19 @@ async fn ensure_drill_namespace(client: &kube::Client, ns: &str) -> Result<()> {
     // observed to time out its S3 requests).
     let policies: Api<NetworkPolicy> = Api::namespaced(client.clone(), ns);
     let policy: NetworkPolicy = serde_json::from_value(drill_isolation_policy(ns))?;
-    // Server-side apply so an older, broader policy left by a previous version is corrected.
-    policies
-        .patch(
-            "zorvia-drill-isolation",
-            &PatchParams::apply("zorvia").force(),
-            &Patch::Apply(&policy),
-        )
-        .await?;
+    // Replace rather than patch: an older, broader policy left by a previous version must be
+    // corrected, and Zorvia's RBAC deliberately allows create/delete (not patch) on
+    // NetworkPolicies. Nothing is running in the namespace's guest pods yet, so the
+    // brief gap is harmless.
+    match policies
+        .delete("zorvia-drill-isolation", &DeleteParams::default())
+        .await
+    {
+        Ok(_) => {}
+        Err(kube::Error::Api(ae)) if ae.code == 404 => {}
+        Err(e) => return Err(e.into()),
+    }
+    policies.create(&PostParams::default(), &policy).await?;
     Ok(())
 }
 
