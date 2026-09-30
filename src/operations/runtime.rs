@@ -4,7 +4,7 @@
 
 use super::{OpState, Operation, OperationsDb};
 use crate::kube::KubeClient;
-use std::collections::HashSet;
+use std::collections::HashMap;
 use std::future::Future;
 use std::pin::Pin;
 use std::sync::{Arc, Mutex, OnceLock};
@@ -53,22 +53,53 @@ pub fn handler_for(kind: &str) -> Option<HandlerFn> {
     match kind {
         crate::golden_images::convert::OP_KIND => Some(crate::golden_images::convert::run_op),
         crate::backup::op::OP_KIND => Some(crate::backup::op::run_op),
+        crate::migration_import::OP_KIND => Some(crate::migration_import::runtime::run_import_op),
         crate::backup::restore::RESTORE_KIND => Some(crate::backup::restore::run_restore_op),
         crate::backup::restore::DRILL_KIND => Some(crate::backup::restore::run_drill_op),
         _ => None,
     }
 }
 
-fn in_flight() -> &'static Mutex<HashSet<String>> {
-    static SET: OnceLock<Mutex<HashSet<String>>> = OnceLock::new();
-    SET.get_or_init(|| Mutex::new(HashSet::new()))
+/// Operations this process is currently running: id -> kind.
+fn in_flight() -> &'static Mutex<HashMap<String, String>> {
+    static MAP: OnceLock<Mutex<HashMap<String, String>>> = OnceLock::new();
+    MAP.get_or_init(|| Mutex::new(HashMap::new()))
 }
 
 fn is_in_flight(id: &str) -> bool {
     in_flight()
         .lock()
         .unwrap_or_else(|e| e.into_inner())
-        .contains(id)
+        .contains_key(id)
+}
+
+fn running_of_kind(kind: &str) -> usize {
+    in_flight()
+        .lock()
+        .unwrap_or_else(|e| e.into_inner())
+        .values()
+        .filter(|k| k.as_str() == kind)
+        .count()
+}
+
+/// Cap on simultaneously running operations of a kind, when there is one.
+/// Imports run privileged, disk-heavy Jobs, so a wave must not start them all
+/// at once.
+pub fn max_concurrency(kind: &str) -> Option<usize> {
+    match kind {
+        crate::migration_import::OP_KIND => Some(
+            std::env::var("ZORVIA_IMPORT_CONCURRENCY")
+                .ok()
+                .and_then(|v| v.parse().ok())
+                .filter(|n: &usize| *n >= 1)
+                .unwrap_or(2),
+        ),
+        _ => None,
+    }
+}
+
+fn may_start(kind: &str, running: usize) -> bool {
+    max_concurrency(kind).map_or(true, |cap| running < cap)
 }
 
 /// One reconcile pass. Claims queued operations and re-queues orphans.
@@ -87,20 +118,25 @@ pub async fn tick(client: &KubeClient) {
             continue;
         }
         match op.state {
-            OpState::Queued => match db.start(&op.id) {
-                Ok(true) => {
-                    in_flight()
-                        .lock()
-                        .unwrap_or_else(|e| e.into_inner())
-                        .insert(op.id.clone());
-                    let mut running = op.clone();
-                    running.state = OpState::Running;
-                    running.attempts += 1;
-                    tokio::spawn(run_one(running, db.clone(), client.clone()));
+            OpState::Queued => {
+                if !may_start(&op.kind, running_of_kind(&op.kind)) {
+                    continue; // at its concurrency cap; stays queued
                 }
-                Ok(false) => {}
-                Err(e) => log::error!("operations: cannot claim {}: {e}", op.id),
-            },
+                match db.start(&op.id) {
+                    Ok(true) => {
+                        in_flight()
+                            .lock()
+                            .unwrap_or_else(|e| e.into_inner())
+                            .insert(op.id.clone(), op.kind.clone());
+                        let mut running = op.clone();
+                        running.state = OpState::Running;
+                        running.attempts += 1;
+                        tokio::spawn(run_one(running, db.clone(), client.clone()));
+                    }
+                    Ok(false) => {}
+                    Err(e) => log::error!("operations: cannot claim {}: {e}", op.id),
+                }
+            }
             OpState::Running => {
                 let stale = chrono::DateTime::parse_from_rfc3339(&op.updated)
                     .map(|t| (now - t.with_timezone(&chrono::Utc)).num_seconds())
@@ -178,4 +214,19 @@ async fn run_one(op: Operation, db: Arc<OperationsDb>, client: KubeClient) {
         .lock()
         .unwrap_or_else(|e| e.into_inner())
         .remove(&id);
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn imports_are_capped_other_kinds_are_not() {
+        assert_eq!(max_concurrency("backup"), None);
+        assert!(max_concurrency(crate::migration_import::OP_KIND).unwrap() >= 1);
+        assert!(may_start("backup", 1000));
+        let cap = max_concurrency(crate::migration_import::OP_KIND).unwrap();
+        assert!(may_start(crate::migration_import::OP_KIND, cap - 1));
+        assert!(!may_start(crate::migration_import::OP_KIND, cap));
+    }
 }

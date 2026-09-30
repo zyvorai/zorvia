@@ -88,6 +88,12 @@ pub mod web {
     mod disk_network_handlers;
     use disk_network_handlers::*;
 
+    #[path = "vm_import_handlers.rs"]
+    mod vm_import_handlers;
+    use vm_import_handlers::{
+        create_import_handler, get_wave_handler, list_imports_handler, preflight_import_handler,
+    };
+
     #[path = "backup_offcluster_handlers.rs"]
     mod backup_offcluster_handlers;
     use backup_offcluster_handlers::{
@@ -606,6 +612,13 @@ pub mod web {
                 post(fabric_create_image_from_vm),
             )
             .route("/images/convert/{id}", get(fabric_get_convert_job))
+            // VMware -> KubeVirt imports (h2kvm Jobs)
+            .route(
+                "/vm-imports",
+                get(list_imports_handler).post(create_import_handler),
+            )
+            .route("/vm-imports/preflight", post(preflight_import_handler))
+            .route("/vm-imports/waves/{wave_id}", get(get_wave_handler))
             // Off-cluster backups: catalog, restore, recovery drills
             .route("/backups/offcluster", get(list_offcluster_backups_handler))
             .route(
