@@ -663,6 +663,20 @@ async fn restore_op(ctx: &OpContext) -> std::result::Result<Outcome, Outcome> {
     }))))
 }
 
+/// NetworkPolicy isolating restored guests in the drill namespace: denies all ingress and
+/// egress for virt-launcher pods only, never for the restore Job's pods.
+pub fn drill_isolation_policy(ns: &str) -> Value {
+    json!({
+        "apiVersion": "networking.k8s.io/v1",
+        "kind": "NetworkPolicy",
+        "metadata": {"name": "zorvia-drill-isolation", "namespace": ns},
+        "spec": {
+            "podSelector": {"matchLabels": {"kubevirt.io": "virt-launcher"}},
+            "policyTypes": ["Ingress", "Egress"],
+        },
+    })
+}
+
 async fn ensure_drill_namespace(client: &kube::Client, ns: &str) -> Result<()> {
     let namespaces: Api<Namespace> = Api::all(client.clone());
     if namespaces.get(ns).await.is_err() {
@@ -676,19 +690,25 @@ async fn ensure_drill_namespace(client: &kube::Client, ns: &str) -> Result<()> {
             }
         }
     }
-    // Deny all traffic in and out of the drill namespace: restored guests
-    // must not reach (or impersonate) production.
+    // Isolate the restored *guest*: deny all traffic in and out of virt-launcher pods so it
+    // cannot reach (or impersonate) production. Only those pods -- the restore Job in the
+    // same namespace must still reach the object store (a namespace-wide deny-all was
+    // observed to time out its S3 requests).
     let policies: Api<NetworkPolicy> = Api::namespaced(client.clone(), ns);
-    let policy: NetworkPolicy = serde_json::from_value(json!({
-        "apiVersion": "networking.k8s.io/v1", "kind": "NetworkPolicy",
-        "metadata": {"name": "zorvia-drill-isolation", "namespace": ns},
-        "spec": {"podSelector": {}, "policyTypes": ["Ingress", "Egress"]},
-    }))?;
-    if let Err(e) = policies.create(&PostParams::default(), &policy).await {
-        if !matches!(&e, kube::Error::Api(ae) if ae.code == 409) {
-            return Err(e.into());
-        }
+    let policy: NetworkPolicy = serde_json::from_value(drill_isolation_policy(ns))?;
+    // Replace rather than patch: an older, broader policy left by a previous version must be
+    // corrected, and Zorvia's RBAC deliberately allows create/delete (not patch) on
+    // NetworkPolicies. Nothing is running in the namespace's guest pods yet, so the
+    // brief gap is harmless.
+    match policies
+        .delete("zorvia-drill-isolation", &DeleteParams::default())
+        .await
+    {
+        Ok(_) => {}
+        Err(kube::Error::Api(ae)) if ae.code == 404 => {}
+        Err(e) => return Err(e.into()),
     }
+    policies.create(&PostParams::default(), &policy).await?;
     Ok(())
 }
 
@@ -1075,6 +1095,21 @@ mod tests {
             "[    1.2] Freeing unused kernel image memory\nStarting systemd-udevd\n"
         ));
         assert!(!console_shows_boot(""));
+    }
+
+    #[test]
+    fn drill_isolation_targets_guest_pods_only() {
+        let p = drill_isolation_policy("zorvia-drill");
+        // A namespace-wide selector ({}) would also cut off the restore Job.
+        assert_eq!(
+            p["spec"]["podSelector"]["matchLabels"]["kubevirt.io"],
+            "virt-launcher"
+        );
+        assert_ne!(p["spec"]["podSelector"], json!({}));
+        assert_eq!(p["spec"]["policyTypes"], json!(["Ingress", "Egress"]));
+        // No allow rules: the selected pods get no traffic at all.
+        assert!(p["spec"].get("ingress").is_none() && p["spec"].get("egress").is_none());
+        assert_eq!(p["metadata"]["namespace"], "zorvia-drill");
     }
 
     #[test]
