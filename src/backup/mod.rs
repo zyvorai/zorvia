@@ -356,8 +356,12 @@ pub enum VerificationStatus {
 }
 
 #[cfg(feature = "web")]
+pub mod manifest;
+#[cfg(feature = "web")]
 pub mod op;
 pub mod recovery;
+#[cfg(feature = "web")]
+pub mod s3;
 pub mod schedule;
 pub mod verify;
 
