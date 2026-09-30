@@ -124,6 +124,10 @@ impl GoldenImageBundle {
     }
 }
 
+/// CDI annotation asking for immediate PVC binding on WaitForFirstConsumer
+/// storage classes.
+pub const BIND_IMMEDIATE_ANNOTATION: &str = "cdi.kubevirt.io/storage.bind.immediate.requested";
+
 fn data_volume_manifest(spec: &GoldenImageSpec, versioned_name: &str) -> Value {
     let source = match spec.source_type {
         ImageSourceType::Http => json!({"http": {"url": spec.source.clone()}}),
@@ -149,7 +153,13 @@ fn data_volume_manifest(spec: &GoldenImageSpec, versioned_name: &str) -> Value {
         );
     }
 
-    let metadata = image_metadata(spec, versioned_name, false);
+    let mut metadata = image_metadata(spec, versioned_name, false);
+    // Import now, don't wait for a consumer: on a WaitForFirstConsumer
+    // StorageClass (k3s local-path, most CSI defaults) CDI otherwise leaves
+    // the DataVolume pending until a VM uses it, so an image download or
+    // capture job could never complete on its own. Must be set at creation;
+    // CDI decides binding when it creates the PVC.
+    metadata["annotations"][BIND_IMMEDIATE_ANNOTATION] = Value::String("true".into());
     json!({
         "apiVersion": "cdi.kubevirt.io/v1beta1",
         "kind": "DataVolume",
@@ -312,6 +322,22 @@ mod tests {
             bundle.data_source["spec"]["source"]["pvc"]["name"],
             bundle.versioned_name
         );
+    }
+
+    #[test]
+    fn data_volume_requests_immediate_binding_but_data_source_does_not() {
+        let bundle = GoldenImageBundle::build(spec()).unwrap();
+        assert_eq!(
+            bundle.data_volume["metadata"]["annotations"][BIND_IMMEDIATE_ANNOTATION],
+            "true"
+        );
+        // Existing annotations are kept alongside it.
+        assert!(bundle.data_volume["metadata"]["annotations"]
+            .get("zorvia.io/image-checksum")
+            .is_some());
+        assert!(bundle.data_source["metadata"]["annotations"]
+            .get(BIND_IMMEDIATE_ANNOTATION)
+            .is_none());
     }
 
     #[test]
