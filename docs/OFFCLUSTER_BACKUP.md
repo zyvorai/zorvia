@@ -46,6 +46,13 @@ access; a missing Secret fails the operation immediately with a clear message.
 Keep the encryption key somewhere other than the bucket: without it an
 encrypted backup cannot be restored.
 
+## Back up now
+
+`POST /api/backups/offcluster` with `{"vm_name": "...", "namespace"?, "retention_days"?, "description"?}`
+queues the same durable operation the scheduler uses (snapshot, upload, read-back verify) and returns
+`{"operation_id"}` to poll on `GET /api/operations/{id}`. It answers 409 if no target is configured.
+Scheduled backups use it automatically once a target is set.
+
 ## Restore
 
 `GET /api/backups/offcluster` lists restorable backups.

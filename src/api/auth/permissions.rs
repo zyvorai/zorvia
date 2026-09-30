@@ -315,6 +315,7 @@ mod tests {
     fn offcluster_backup_routes_are_cluster_admin_for_every_method() {
         for (m, p) in [
             ("GET", "/backups/offcluster"),
+            ("POST", "/backups/offcluster"),
             ("POST", "/backups/offcluster/op-1/restore"),
             ("POST", "/backups/offcluster/op-1/drill"),
         ] {
