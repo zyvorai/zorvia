@@ -129,6 +129,18 @@ spec:
             # restart does not discard them.
             - name: XDG_DATA_HOME
               value: /data
+            {{- if .Values.atlas.url }}
+            # Atlas storage integration (docs/ATLAS_INTEGRATION.md).
+            - name: ATLAS_URL
+              value: {{ .Values.atlas.url | quote }}
+            {{- if .Values.atlas.tokenSecret }}
+            - name: ATLAS_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.atlas.tokenSecret | quote }}
+                  key: {{ .Values.atlas.tokenSecretKey | default "token" | quote }}
+            {{- end }}
+            {{- end }}
             - name: ZORVIA_AUDIT_DB
               value: {{ .Values.api.auditDbPath | quote }}
             {{- if .Values.api.auditJsonlPath }}
