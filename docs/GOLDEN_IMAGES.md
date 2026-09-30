@@ -23,13 +23,14 @@ the cluster. The response's `output_path` is a `datavolume:<name>` reference
 
 | Distro | Image |
 |--------|-------|
-| Ubuntu | `quay.io/containerdisks/ubuntu:24.04`, `:22.04`, `:20.04`, `:18.04` |
-| Fedora | `quay.io/containerdisks/fedora:41`, `:40`, `:39` |
-| CentOS Stream | `quay.io/containerdisks/centos-stream:9`, `:8` |
-| Debian | `quay.io/containerdisks/debian:12`, `:11` |
-| AlmaLinux | `quay.io/containerdisks/almalinux:9`, `:8` |
-| Rocky Linux | `quay.io/containerdisks/rockylinux:9`, `:8` |
-| Alpine | `quay.io/containerdisks/alpine:3.19` |
+| Ubuntu | `quay.io/containerdisks/ubuntu:26.04`, `:24.04`, `:22.04` |
+| Fedora | `quay.io/containerdisks/fedora:44`, `:43` |
+| CentOS Stream | `quay.io/containerdisks/centos-stream:10`, `:9` |
+| Debian | `quay.io/containerdisks/debian:13`, `:12` |
+| AlmaLinux | `quay.io/containerdisks/almalinux:10`, `:9` |
+| openSUSE | `quay.io/containerdisks/opensuse-leap:16.0`, `:15.6`, `opensuse-tumbleweed:1.0.0` |
+
+Rocky Linux and Alpine are not offered: `quay.io/containerdisks` has no such repository.
 | VirtIO (Windows) | `quay.io/containerdisks/virtio-win` (CD-ROM helper, not a root OS) |
 
 These match the OS templates in `src/templates/mod.rs` and the SPA image catalog.
@@ -75,7 +76,7 @@ zorvia --namespace vm-images image-bundle ubuntu-golden \
 
 zorvia --namespace vm-images image-bundle fedora-golden \
   --version 41-r1 \
-  --source docker://quay.io/containerdisks/fedora:41 \
+  --source docker://quay.io/containerdisks/fedora:44 \
   --source-type registry \
   --size 40Gi \
   --storage-class fast \
