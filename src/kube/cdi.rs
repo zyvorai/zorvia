@@ -93,6 +93,53 @@ pub fn data_volume_phase_from_object(obj: &serde_json::Value) -> Option<String> 
         .map(|s| s.to_string())
 }
 
+/// Point-in-time view of a DataVolume: phase class, CDI's own transfer
+/// progress (`status.progress`, e.g. "45.3%"), and -- when it failed -- the
+/// most useful condition message.
+#[derive(Debug, Clone, PartialEq)]
+pub struct DataVolumeProgress {
+    pub wait: DataVolumeWait,
+    pub percent: Option<u8>,
+    pub failure_reason: Option<String>,
+}
+
+pub fn data_volume_progress_from_object(obj: &serde_json::Value) -> DataVolumeProgress {
+    let phase = data_volume_phase_from_object(obj);
+    let wait = classify_data_volume_phase(phase.as_deref());
+    let status = obj.get("status");
+    let percent = status
+        .and_then(|s| s.get("progress"))
+        .and_then(|p| p.as_str())
+        .and_then(|p| p.trim().trim_end_matches('%').parse::<f64>().ok())
+        .map(|p| p.clamp(0.0, 100.0) as u8);
+    let failure_reason = if wait == DataVolumeWait::Failed {
+        let conditions = status
+            .and_then(|s| s.get("conditions"))
+            .and_then(|c| c.as_array());
+        let msg = |c: &serde_json::Value| {
+            c.get("message")
+                .and_then(|m| m.as_str())
+                .filter(|m| !m.is_empty())
+                .map(|m| m.to_string())
+        };
+        conditions
+            .and_then(|cs| {
+                cs.iter()
+                    .filter(|c| c.get("status").and_then(|s| s.as_str()) == Some("False"))
+                    .find_map(msg)
+                    .or_else(|| cs.iter().find_map(msg))
+            })
+            .or_else(|| phase.map(|p| format!("DataVolume phase {p}")))
+    } else {
+        None
+    };
+    DataVolumeProgress {
+        wait,
+        percent,
+        failure_reason,
+    }
+}
+
 /// Suggested DataVolume name for a cloned disk.
 pub fn clone_dv_name(target_vm: &str, disk: &str) -> String {
     let raw = format!("{target_vm}-{disk}");
@@ -176,6 +223,27 @@ mod tests {
             data_volume_phase_from_object(&obj).as_deref(),
             Some("Succeeded")
         );
+    }
+
+    #[test]
+    fn progress_parses_percent_and_failure_reason() {
+        let running =
+            serde_json::json!({"status": {"phase": "CloneInProgress", "progress": "45.3%"}});
+        let p = data_volume_progress_from_object(&running);
+        assert_eq!(p.wait, DataVolumeWait::Pending);
+        assert_eq!(p.percent, Some(45));
+        assert!(p.failure_reason.is_none());
+
+        let failed = serde_json::json!({"status": {"phase": "Failed", "conditions": [
+            {"type": "Bound", "status": "True", "message": "ok"},
+            {"type": "Running", "status": "False", "message": "clone pod crashed"}
+        ]}});
+        let p = data_volume_progress_from_object(&failed);
+        assert_eq!(p.wait, DataVolumeWait::Failed);
+        assert_eq!(p.failure_reason.as_deref(), Some("clone pod crashed"));
+
+        let bare = serde_json::json!({});
+        assert_eq!(data_volume_progress_from_object(&bare).percent, None);
     }
 
     #[test]

@@ -931,6 +931,48 @@ impl KubeClient {
         }
     }
 
+    /// Poll a DataVolume until it finishes, reporting CDI's own progress
+    /// through `on_progress` (0-100). Unlike `wait_for_data_volume`, a
+    /// failure returns CDI's condition message, and transient API errors
+    /// are retried until the deadline.
+    pub async fn track_data_volume(
+        &self,
+        namespace: &str,
+        name: &str,
+        timeout_secs: u64,
+        mut on_progress: impl FnMut(u8),
+    ) -> std::result::Result<(), String> {
+        let deadline =
+            std::time::Instant::now() + std::time::Duration::from_secs(timeout_secs.max(1));
+        loop {
+            match self.get_data_volume(namespace, name).await {
+                Ok(obj) => {
+                    let p = cdi::data_volume_progress_from_object(&obj);
+                    match p.wait {
+                        cdi::DataVolumeWait::Ready => return Ok(()),
+                        cdi::DataVolumeWait::Failed => {
+                            return Err(p
+                                .failure_reason
+                                .unwrap_or_else(|| "DataVolume failed".into()))
+                        }
+                        cdi::DataVolumeWait::Pending => {
+                            if let Some(pct) = p.percent {
+                                on_progress(pct);
+                            }
+                        }
+                    }
+                }
+                Err(e) => log::debug!("track DataVolume {name}: {e}"),
+            }
+            if std::time::Instant::now() >= deadline {
+                return Err(format!(
+                    "timed out after {timeout_secs}s waiting for DataVolume '{name}'"
+                ));
+            }
+            tokio::time::sleep(std::time::Duration::from_secs(3)).await;
+        }
+    }
+
     pub async fn get_vmi_subresource_json(
         &self,
         namespace: &str,
