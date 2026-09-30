@@ -12,38 +12,36 @@ Zorvia includes **43 named OS templates** (including aliases) across **15 operat
 
 ## 🐧 Available OS Templates
 
-### Ubuntu (5 templates)
+### Ubuntu (4 templates)
 ```bash
-ubuntu          # Default alias → 22.04
+ubuntu          # Default alias → 26.04 LTS
+ubuntu-26.04    # Latest LTS (2 CPU, 4GB RAM)
 ubuntu-24.04    # Noble Numbat (2 CPU, 4GB RAM)
 ubuntu-22.04    # Jammy Jellyfish (2 CPU, 4GB RAM)
-ubuntu-20.04    # Focal Fossa (2 CPU, 4GB RAM)
-ubuntu-18.04    # Bionic Beaver (2 CPU, 4GB RAM)
 ```
 **Credentials**: `ubuntu` / `ubuntu`
 
-### Fedora (4 templates)
+### Fedora (3 templates)
 ```bash
-fedora          # Latest (41) - Cutting edge
-fedora-41       # Latest stable (2 CPU, 4GB RAM)
-fedora-40       # Previous release (2 CPU, 4GB RAM)
-fedora-39       # Older stable (2 CPU, 4GB RAM)
+fedora          # Latest (44)
+fedora-44       # Latest stable (2 CPU, 4GB RAM)
+fedora-43       # Previous release (2 CPU, 4GB RAM)
 ```
 **Credentials**: `zorvia` / `zorvia`
 
 ### CentOS Stream (3 templates)
 ```bash
-centos              # Latest (Stream 9)
-centos-stream-9     # Current stable (2 CPU, 4GB RAM)
-centos-stream-8     # Previous version (2 CPU, 4GB RAM)
+centos              # Latest (Stream 10)
+centos-stream-10    # Current (2 CPU, 4GB RAM)
+centos-stream-9     # Previous version (2 CPU, 4GB RAM)
 ```
 **Credentials**: `zorvia` / `zorvia`
 
 ### Debian (3 templates)
 ```bash
-debian          # Latest (12 Bookworm)
+debian          # Latest (13 Trixie)
+debian-13       # Trixie (2 CPU, 4GB RAM)
 debian-12       # Bookworm (2 CPU, 4GB RAM)
-debian-11       # Bullseye (2 CPU, 4GB RAM)
 ```
 **Credentials**: `zorvia` / `zorvia`
 
@@ -56,41 +54,29 @@ rhel-8          # RHEL 8 (2 CPU, 4GB RAM, 30GB disk)
 **Note**: Requires valid RHEL subscription
 **Credentials**: `zorvia` / `zorvia`
 
-### AlmaLinux (3 templates) 🆕
+### AlmaLinux (3 templates)
 ```bash
-almalinux       # Latest (9) - RHEL clone
+almalinux       # Latest (10) - RHEL clone
+almalinux-10    # AlmaLinux 10 (2 CPU, 4GB RAM)
 almalinux-9     # AlmaLinux 9 (2 CPU, 4GB RAM)
-almalinux-8     # AlmaLinux 8 (2 CPU, 4GB RAM)
 ```
 **Credentials**: `zorvia` / `zorvia`
 **Why**: Free RHEL alternative, binary compatible
 
-### Rocky Linux (3 templates) 🆕
+### openSUSE (4 templates)
 ```bash
-rocky           # Latest (9) - RHEL clone
-rocky-9         # Rocky Linux 9 (2 CPU, 4GB RAM)
-rocky-8         # Rocky Linux 8 (2 CPU, 4GB RAM)
-```
-**Credentials**: `zorvia` / `zorvia`
-**Why**: Community-driven RHEL alternative
-
-### OpenSUSE (3 templates) 🆕
-```bash
-opensuse                # Latest (Leap)
-opensuse-leap           # Leap - Stable (2 CPU, 4GB RAM)
+opensuse                # Latest (Leap 16.0)
+opensuse-leap-16.0      # Leap 16.0 (2 CPU, 4GB RAM)
+opensuse-leap-15.6      # Leap 15.6 (2 CPU, 4GB RAM)
 opensuse-tumbleweed     # Tumbleweed - Rolling (2 CPU, 4GB RAM)
 ```
 **Credentials**: `zorvia` / `zorvia`
 **Why**: Enterprise-grade with rolling release option
 
-### Alpine Linux (2 templates) 🆕
-```bash
-alpine          # Latest (3.19) - Ultra lightweight!
-alpine-3.19     # Alpine 3.19 (1 CPU, 512MB RAM!)
-```
-**Credentials**: `alpine` / `alpine`
-**Why**: Smallest Linux distro, perfect for containers/microservices
-**Specs**: Only 512MB RAM, 1 CPU, 10GB disk!
+> **Removed**: Rocky Linux and Alpine templates (and AlmaLinux 8, Ubuntu 18.04/20.04,
+> Fedora 39–41, CentOS Stream 8, Debian 11 as end-of-life). `quay.io/containerdisks`
+> publishes no `rockylinux` or `alpine` image, so those VMs could only sit in
+> `ImagePullBackOff`. Every image above was checked to exist on 2026-09-30.
 
 ### Oracle Linux (3 templates) 🆕
 ```bash

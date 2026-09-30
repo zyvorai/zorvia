@@ -20,7 +20,6 @@ Optional env:
 | `STORAGE_CLASS` | (required) | Cluster StorageClass |
 | `NAMESPACE` | `vm-images` | Target namespace |
 | `SIZE` | `40Gi` | PVC size (non-Alpine) |
-| `ALPINE_SIZE` | `10Gi` | Alpine PVC size |
 | `OUT_DIR` | `fixtures/golden-images/out` | Output directory |
 | `ZORVIA` | `zorvia` | CLI binary path |
 

@@ -13,7 +13,6 @@ ZORVIA="${ZORVIA:-zorvia}"
 NAMESPACE="${NAMESPACE:-vm-images}"
 STORAGE_CLASS="${STORAGE_CLASS:-}"
 SIZE="${SIZE:-40Gi}"
-ALPINE_SIZE="${ALPINE_SIZE:-10Gi}"
 OUT_DIR="${OUT_DIR:-${ROOT}/fixtures/golden-images/out}"
 
 if [[ -z "${STORAGE_CLASS}" ]]; then
@@ -42,13 +41,13 @@ bundle() {
 }
 
 # Latest stable / LTS tags per family (see docs/GOLDEN_IMAGES.md).
-bundle ubuntu-golden        24.04-r1  quay.io/containerdisks/ubuntu:24.04
-bundle fedora-golden        41-r1     quay.io/containerdisks/fedora:41
-bundle debian-golden        12-r1     quay.io/containerdisks/debian:12
-bundle almalinux-golden     9-r1      quay.io/containerdisks/almalinux:9
-bundle rockylinux-golden    9-r1      quay.io/containerdisks/rockylinux:9
-bundle centos-stream-golden 9-r1      quay.io/containerdisks/centos-stream:9
-bundle alpine-golden        3.19-r1   quay.io/containerdisks/alpine:3.19 "${ALPINE_SIZE}"
+bundle ubuntu-golden        26.04-r1  quay.io/containerdisks/ubuntu:26.04
+bundle fedora-golden        44-r1     quay.io/containerdisks/fedora:44
+bundle debian-golden        13-r1     quay.io/containerdisks/debian:13
+bundle almalinux-golden     10-r1     quay.io/containerdisks/almalinux:10
+bundle centos-stream-golden 10-r1     quay.io/containerdisks/centos-stream:10
+bundle opensuse-golden      16.0-r1   quay.io/containerdisks/opensuse-leap:16.0
+# No rockylinux/alpine: those repositories do not exist on quay.io/containerdisks.
 
 cat > "${OUT_DIR}/README.md" <<EOF
 # Generated golden image bundles

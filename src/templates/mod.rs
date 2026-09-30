@@ -89,28 +89,26 @@ impl TemplateManager {
     pub fn new() -> Self {
         let mut templates = HashMap::new();
 
-        // Ubuntu variants
-        templates.insert("ubuntu".to_string(), ubuntu_2204_template());
+        // Ubuntu variants (aliases point at the newest LTS)
+        templates.insert("ubuntu".to_string(), ubuntu_2604_template());
+        templates.insert("ubuntu-26.04".to_string(), ubuntu_2604_template());
         templates.insert("ubuntu-24.04".to_string(), ubuntu_2404_template());
         templates.insert("ubuntu-22.04".to_string(), ubuntu_2204_template());
-        templates.insert("ubuntu-20.04".to_string(), ubuntu_2004_template());
-        templates.insert("ubuntu-18.04".to_string(), ubuntu_1804_template());
 
         // Fedora variants
-        templates.insert("fedora".to_string(), fedora_41_template());
-        templates.insert("fedora-41".to_string(), fedora_41_template());
-        templates.insert("fedora-40".to_string(), fedora_40_template());
-        templates.insert("fedora-39".to_string(), fedora_39_template());
+        templates.insert("fedora".to_string(), fedora_44_template());
+        templates.insert("fedora-44".to_string(), fedora_44_template());
+        templates.insert("fedora-43".to_string(), fedora_43_template());
 
-        // CentOS variants
-        templates.insert("centos".to_string(), centos_stream9_template());
+        // CentOS Stream variants
+        templates.insert("centos".to_string(), centos_stream10_template());
+        templates.insert("centos-stream-10".to_string(), centos_stream10_template());
         templates.insert("centos-stream-9".to_string(), centos_stream9_template());
-        templates.insert("centos-stream-8".to_string(), centos_stream8_template());
 
         // Debian variants
-        templates.insert("debian".to_string(), debian_12_template());
+        templates.insert("debian".to_string(), debian_13_template());
+        templates.insert("debian-13".to_string(), debian_13_template());
         templates.insert("debian-12".to_string(), debian_12_template());
-        templates.insert("debian-11".to_string(), debian_11_template());
 
         // RHEL variants
         templates.insert("rhel".to_string(), rhel_9_template());
@@ -118,26 +116,25 @@ impl TemplateManager {
         templates.insert("rhel-8".to_string(), rhel_8_template());
 
         // AlmaLinux
-        templates.insert("almalinux".to_string(), almalinux_9_template());
+        templates.insert("almalinux".to_string(), almalinux_10_template());
+        templates.insert("almalinux-10".to_string(), almalinux_10_template());
         templates.insert("almalinux-9".to_string(), almalinux_9_template());
-        templates.insert("almalinux-8".to_string(), almalinux_8_template());
 
-        // Rocky Linux
-        templates.insert("rocky".to_string(), rocky_9_template());
-        templates.insert("rocky-9".to_string(), rocky_9_template());
-        templates.insert("rocky-8".to_string(), rocky_8_template());
-
-        // OpenSUSE
-        templates.insert("opensuse".to_string(), opensuse_leap_template());
-        templates.insert("opensuse-leap".to_string(), opensuse_leap_template());
+        // openSUSE (Leap releases and rolling Tumbleweed)
+        templates.insert("opensuse".to_string(), opensuse_leap_16_template());
+        templates.insert("opensuse-leap".to_string(), opensuse_leap_16_template());
+        templates.insert(
+            "opensuse-leap-16.0".to_string(),
+            opensuse_leap_16_template(),
+        );
+        templates.insert(
+            "opensuse-leap-15.6".to_string(),
+            opensuse_leap_15_template(),
+        );
         templates.insert(
             "opensuse-tumbleweed".to_string(),
             opensuse_tumbleweed_template(),
         );
-
-        // Alpine Linux
-        templates.insert("alpine".to_string(), alpine_template());
-        templates.insert("alpine-3.19".to_string(), alpine_template());
 
         // Arch Linux
         templates.insert("arch".to_string(), arch_template());
@@ -199,12 +196,8 @@ impl TemplateManager {
                 "RHEL"
             } else if name.starts_with("almalinux") {
                 "AlmaLinux"
-            } else if name.starts_with("rocky") {
-                "Rocky Linux"
             } else if name.starts_with("opensuse") {
                 "OpenSUSE"
-            } else if name.starts_with("alpine") {
-                "Alpine"
             } else if name.starts_with("arch") {
                 "Arch Linux"
             } else if name.starts_with("oracle") {
@@ -246,193 +239,17 @@ impl Default for TemplateManager {
 // Ubuntu Templates
 // ============================================================================
 
-fn ubuntu_2404_template() -> VMConfig {
-    VMConfigBuilder::new("ubuntu-vm")
-        .namespace("default")
-        .cpu(2, 1, 1)
-        .memory("4Gi")
-        .add_container_disk("rootdisk", "quay.io/containerdisks/ubuntu:24.04", 1)
-        .add_blank_disk("datadisk", "20Gi", 2)
-        .add_pod_network("default")
-        .label("os", "ubuntu")
-        .label("os.version", "24.04")
-        .cloud_init(default_ubuntu_cloud_init())
-        .enable_rng()
-        .clock(linux_clock())
-        .build()
-}
-
-fn ubuntu_2204_template() -> VMConfig {
-    VMConfigBuilder::new("ubuntu-vm")
-        .namespace("default")
-        .cpu(2, 1, 1)
-        .memory("4Gi")
-        .add_container_disk("rootdisk", "quay.io/containerdisks/ubuntu:22.04", 1)
-        .add_blank_disk("datadisk", "20Gi", 2)
-        .add_pod_network("default")
-        .label("os", "ubuntu")
-        .label("os.version", "22.04")
-        .cloud_init(default_ubuntu_cloud_init())
-        .enable_rng()
-        .clock(linux_clock())
-        .build()
-}
-
-fn ubuntu_2004_template() -> VMConfig {
-    VMConfigBuilder::new("ubuntu-vm")
-        .namespace("default")
-        .cpu(2, 1, 1)
-        .memory("4Gi")
-        .add_container_disk("rootdisk", "quay.io/containerdisks/ubuntu:20.04", 1)
-        .add_blank_disk("datadisk", "20Gi", 2)
-        .add_pod_network("default")
-        .label("os", "ubuntu")
-        .label("os.version", "20.04")
-        .cloud_init(default_ubuntu_cloud_init())
-        .enable_rng()
-        .clock(linux_clock())
-        .build()
-}
-
-fn ubuntu_1804_template() -> VMConfig {
-    VMConfigBuilder::new("ubuntu-vm")
-        .namespace("default")
-        .cpu(2, 1, 1)
-        .memory("4Gi")
-        .add_container_disk("rootdisk", "quay.io/containerdisks/ubuntu:18.04", 1)
-        .add_blank_disk("datadisk", "20Gi", 2)
-        .add_pod_network("default")
-        .label("os", "ubuntu")
-        .label("os.version", "18.04")
-        .cloud_init(default_ubuntu_cloud_init())
-        .enable_rng()
-        .clock(linux_clock())
-        .build()
-}
-
 // ============================================================================
 // Fedora Templates
 // ============================================================================
-
-fn fedora_41_template() -> VMConfig {
-    VMConfigBuilder::new("fedora-vm")
-        .namespace("default")
-        .cpu(2, 1, 1)
-        .memory("4Gi")
-        .add_container_disk("rootdisk", "quay.io/containerdisks/fedora:41", 1)
-        .add_blank_disk("datadisk", "20Gi", 2)
-        .add_pod_network("default")
-        .label("os", "fedora")
-        .label("os.version", "41")
-        .cloud_init(default_cloud_init())
-        .enable_rng()
-        .clock(linux_clock())
-        .build()
-}
-
-fn fedora_40_template() -> VMConfig {
-    VMConfigBuilder::new("fedora-vm")
-        .namespace("default")
-        .cpu(2, 1, 1)
-        .memory("4Gi")
-        .add_container_disk("rootdisk", "quay.io/containerdisks/fedora:40", 1)
-        .add_blank_disk("datadisk", "20Gi", 2)
-        .add_pod_network("default")
-        .label("os", "fedora")
-        .label("os.version", "40")
-        .cloud_init(default_cloud_init())
-        .enable_rng()
-        .clock(linux_clock())
-        .build()
-}
-
-fn fedora_39_template() -> VMConfig {
-    VMConfigBuilder::new("fedora-vm")
-        .namespace("default")
-        .cpu(2, 1, 1)
-        .memory("4Gi")
-        .add_container_disk("rootdisk", "quay.io/containerdisks/fedora:39", 1)
-        .add_blank_disk("datadisk", "20Gi", 2)
-        .add_pod_network("default")
-        .label("os", "fedora")
-        .label("os.version", "39")
-        .cloud_init(default_cloud_init())
-        .enable_rng()
-        .clock(linux_clock())
-        .build()
-}
 
 // ============================================================================
 // CentOS Templates
 // ============================================================================
 
-fn centos_stream9_template() -> VMConfig {
-    VMConfigBuilder::new("centos-vm")
-        .namespace("default")
-        .cpu(2, 1, 1)
-        .memory("4Gi")
-        .add_container_disk("rootdisk", "quay.io/containerdisks/centos-stream:9", 1)
-        .add_blank_disk("datadisk", "20Gi", 2)
-        .add_pod_network("default")
-        .label("os", "centos")
-        .label("os.version", "stream9")
-        .cloud_init(default_cloud_init())
-        .enable_rng()
-        .clock(linux_clock())
-        .build()
-}
-
-fn centos_stream8_template() -> VMConfig {
-    VMConfigBuilder::new("centos-vm")
-        .namespace("default")
-        .cpu(2, 1, 1)
-        .memory("4Gi")
-        .add_container_disk("rootdisk", "quay.io/containerdisks/centos-stream:8", 1)
-        .add_blank_disk("datadisk", "20Gi", 2)
-        .add_pod_network("default")
-        .label("os", "centos")
-        .label("os.version", "stream8")
-        .cloud_init(default_cloud_init())
-        .enable_rng()
-        .clock(linux_clock())
-        .build()
-}
-
 // ============================================================================
 // Debian Templates
 // ============================================================================
-
-fn debian_12_template() -> VMConfig {
-    VMConfigBuilder::new("debian-vm")
-        .namespace("default")
-        .cpu(2, 1, 1)
-        .memory("4Gi")
-        .add_container_disk("rootdisk", "quay.io/containerdisks/debian:12", 1)
-        .add_blank_disk("datadisk", "20Gi", 2)
-        .add_pod_network("default")
-        .label("os", "debian")
-        .label("os.version", "12")
-        .cloud_init(default_cloud_init())
-        .enable_rng()
-        .clock(linux_clock())
-        .build()
-}
-
-fn debian_11_template() -> VMConfig {
-    VMConfigBuilder::new("debian-vm")
-        .namespace("default")
-        .cpu(2, 1, 1)
-        .memory("4Gi")
-        .add_container_disk("rootdisk", "quay.io/containerdisks/debian:11", 1)
-        .add_blank_disk("datadisk", "20Gi", 2)
-        .add_pod_network("default")
-        .label("os", "debian")
-        .label("os.version", "11")
-        .cloud_init(default_cloud_init())
-        .enable_rng()
-        .clock(linux_clock())
-        .build()
-}
 
 // ============================================================================
 // RHEL Templates
@@ -472,127 +289,17 @@ fn rhel_8_template() -> VMConfig {
 // AlmaLinux Templates
 // ============================================================================
 
-fn almalinux_9_template() -> VMConfig {
-    VMConfigBuilder::new("almalinux-vm")
-        .namespace("default")
-        .cpu(2, 1, 1)
-        .memory("4Gi")
-        .add_container_disk("rootdisk", "quay.io/containerdisks/almalinux:9", 1)
-        .add_blank_disk("datadisk", "20Gi", 2)
-        .add_pod_network("default")
-        .label("os", "almalinux")
-        .label("os.version", "9")
-        .cloud_init(default_cloud_init())
-        .enable_rng()
-        .clock(linux_clock())
-        .build()
-}
-
-fn almalinux_8_template() -> VMConfig {
-    VMConfigBuilder::new("almalinux-vm")
-        .namespace("default")
-        .cpu(2, 1, 1)
-        .memory("4Gi")
-        .add_container_disk("rootdisk", "quay.io/containerdisks/almalinux:8", 1)
-        .add_blank_disk("datadisk", "20Gi", 2)
-        .add_pod_network("default")
-        .label("os", "almalinux")
-        .label("os.version", "8")
-        .cloud_init(default_cloud_init())
-        .enable_rng()
-        .clock(linux_clock())
-        .build()
-}
-
 // ============================================================================
 // Rocky Linux Templates
 // ============================================================================
-
-fn rocky_9_template() -> VMConfig {
-    VMConfigBuilder::new("rocky-vm")
-        .namespace("default")
-        .cpu(2, 1, 1)
-        .memory("4Gi")
-        .add_container_disk("rootdisk", "quay.io/containerdisks/rockylinux:9", 1)
-        .add_blank_disk("datadisk", "20Gi", 2)
-        .add_pod_network("default")
-        .label("os", "rocky")
-        .label("os.version", "9")
-        .cloud_init(default_cloud_init())
-        .enable_rng()
-        .clock(linux_clock())
-        .build()
-}
-
-fn rocky_8_template() -> VMConfig {
-    VMConfigBuilder::new("rocky-vm")
-        .namespace("default")
-        .cpu(2, 1, 1)
-        .memory("4Gi")
-        .add_container_disk("rootdisk", "quay.io/containerdisks/rockylinux:8", 1)
-        .add_blank_disk("datadisk", "20Gi", 2)
-        .add_pod_network("default")
-        .label("os", "rocky")
-        .label("os.version", "8")
-        .cloud_init(default_cloud_init())
-        .enable_rng()
-        .clock(linux_clock())
-        .build()
-}
 
 // ============================================================================
 // OpenSUSE Templates
 // ============================================================================
 
-fn opensuse_leap_template() -> VMConfig {
-    VMConfigBuilder::new("opensuse-vm")
-        .namespace("default")
-        .cpu(2, 1, 1)
-        .memory("4Gi")
-        .add_blank_disk("rootdisk", "20Gi", 1)
-        .add_pod_network("default")
-        .label("os", "opensuse")
-        .label("os.version", "leap")
-        .cloud_init(default_cloud_init())
-        .enable_rng()
-        .clock(linux_clock())
-        .build()
-}
-
-fn opensuse_tumbleweed_template() -> VMConfig {
-    VMConfigBuilder::new("opensuse-vm")
-        .namespace("default")
-        .cpu(2, 1, 1)
-        .memory("4Gi")
-        .add_blank_disk("rootdisk", "20Gi", 1)
-        .add_pod_network("default")
-        .label("os", "opensuse")
-        .label("os.version", "tumbleweed")
-        .cloud_init(default_cloud_init())
-        .enable_rng()
-        .clock(linux_clock())
-        .build()
-}
-
 // ============================================================================
 // Alpine Linux Template
 // ============================================================================
-
-fn alpine_template() -> VMConfig {
-    VMConfigBuilder::new("alpine-vm")
-        .namespace("default")
-        .cpu(1, 1, 1)
-        .memory("512Mi")
-        .add_container_disk("rootdisk", "quay.io/containerdisks/alpine:3.19", 1)
-        .add_blank_disk("datadisk", "10Gi", 2)
-        .add_pod_network("default")
-        .label("os", "alpine")
-        .label("os.version", "3.19")
-        .cloud_init(alpine_cloud_init())
-        .enable_rng()
-        .clock(linux_clock())
-        .build()
-}
 
 // ============================================================================
 // Arch Linux Template
@@ -802,6 +509,177 @@ fn talos_template() -> VMConfig {
 // Cloud-init configurations
 // ============================================================================
 
+// ============================================================================
+// Linux containerdisk templates
+//
+// Every image below must exist on quay.io/containerdisks (checked 2026-09-30).
+// Repositories that do NOT exist there: rockylinux, alpine (CDI fails the
+// import with "unauthorized"). Re-check a tag before adding one.
+// ============================================================================
+
+fn linux_containerdisk_template(
+    vm_name: &str,
+    os: &str,
+    version: &str,
+    image: &str,
+    cloud_init: String,
+) -> VMConfig {
+    VMConfigBuilder::new(vm_name)
+        .namespace("default")
+        .cpu(2, 1, 1)
+        .memory("4Gi")
+        .add_container_disk("rootdisk", format!("quay.io/containerdisks/{image}"), 1)
+        .add_blank_disk("datadisk", "20Gi", 2)
+        .add_pod_network("default")
+        .label("os", os)
+        .label("os.version", version)
+        .cloud_init(cloud_init)
+        .enable_rng()
+        .clock(linux_clock())
+        .build()
+}
+
+fn ubuntu_2604_template() -> VMConfig {
+    linux_containerdisk_template(
+        "ubuntu-vm",
+        "ubuntu",
+        "26.04",
+        "ubuntu:26.04",
+        default_ubuntu_cloud_init(),
+    )
+}
+
+fn ubuntu_2404_template() -> VMConfig {
+    linux_containerdisk_template(
+        "ubuntu-vm",
+        "ubuntu",
+        "24.04",
+        "ubuntu:24.04",
+        default_ubuntu_cloud_init(),
+    )
+}
+
+fn ubuntu_2204_template() -> VMConfig {
+    linux_containerdisk_template(
+        "ubuntu-vm",
+        "ubuntu",
+        "22.04",
+        "ubuntu:22.04",
+        default_ubuntu_cloud_init(),
+    )
+}
+
+fn fedora_44_template() -> VMConfig {
+    linux_containerdisk_template(
+        "fedora-vm",
+        "fedora",
+        "44",
+        "fedora:44",
+        default_cloud_init(),
+    )
+}
+
+fn fedora_43_template() -> VMConfig {
+    linux_containerdisk_template(
+        "fedora-vm",
+        "fedora",
+        "43",
+        "fedora:43",
+        default_cloud_init(),
+    )
+}
+
+fn centos_stream10_template() -> VMConfig {
+    linux_containerdisk_template(
+        "centos-vm",
+        "centos",
+        "stream10",
+        "centos-stream:10",
+        default_cloud_init(),
+    )
+}
+
+fn centos_stream9_template() -> VMConfig {
+    linux_containerdisk_template(
+        "centos-vm",
+        "centos",
+        "stream9",
+        "centos-stream:9",
+        default_cloud_init(),
+    )
+}
+
+fn debian_13_template() -> VMConfig {
+    linux_containerdisk_template(
+        "debian-vm",
+        "debian",
+        "13",
+        "debian:13",
+        default_cloud_init(),
+    )
+}
+
+fn debian_12_template() -> VMConfig {
+    linux_containerdisk_template(
+        "debian-vm",
+        "debian",
+        "12",
+        "debian:12",
+        default_cloud_init(),
+    )
+}
+
+fn almalinux_10_template() -> VMConfig {
+    linux_containerdisk_template(
+        "almalinux-vm",
+        "almalinux",
+        "10",
+        "almalinux:10",
+        default_cloud_init(),
+    )
+}
+
+fn almalinux_9_template() -> VMConfig {
+    linux_containerdisk_template(
+        "almalinux-vm",
+        "almalinux",
+        "9",
+        "almalinux:9",
+        default_cloud_init(),
+    )
+}
+
+fn opensuse_leap_16_template() -> VMConfig {
+    linux_containerdisk_template(
+        "opensuse-vm",
+        "opensuse",
+        "leap-16.0",
+        "opensuse-leap:16.0",
+        default_cloud_init(),
+    )
+}
+
+fn opensuse_leap_15_template() -> VMConfig {
+    linux_containerdisk_template(
+        "opensuse-vm",
+        "opensuse",
+        "leap-15.6",
+        "opensuse-leap:15.6",
+        default_cloud_init(),
+    )
+}
+
+fn opensuse_tumbleweed_template() -> VMConfig {
+    // Rolling release: the repository publishes a single moving "1.0.0" tag.
+    linux_containerdisk_template(
+        "opensuse-vm",
+        "opensuse",
+        "tumbleweed",
+        "opensuse-tumbleweed:1.0.0",
+        default_cloud_init(),
+    )
+}
+
 fn default_cloud_init() -> String {
     r#"#cloud-config
 user: zorvia
@@ -838,23 +716,6 @@ runcmd:
     .to_string()
 }
 
-fn alpine_cloud_init() -> String {
-    r#"#cloud-config
-user: alpine
-# WARNING: Change this default password immediately
-password: alpine
-lock_passwd: false
-chpasswd: { expire: True }
-ssh_pwauth: False
-packages:
-  - qemu-guest-agent
-runcmd:
-  - rc-update add qemu-guest-agent
-  - rc-service qemu-guest-agent start
-"#
-    .to_string()
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -867,8 +728,40 @@ mod tests {
         assert!(manager.exists("ubuntu-22.04"));
         assert!(manager.exists("fedora"));
         assert!(manager.exists("almalinux"));
-        assert!(manager.exists("rocky"));
         assert!(!manager.exists("nonexistent"));
+        // Aliases point at the newest release.
+        assert_eq!(manager.get("ubuntu").unwrap().labels["os.version"], "26.04");
+        assert_eq!(manager.get("fedora").unwrap().labels["os.version"], "44");
+        assert_eq!(manager.get("debian").unwrap().labels["os.version"], "13");
+        assert_eq!(
+            manager.get("centos").unwrap().labels["os.version"],
+            "stream10"
+        );
+        assert_eq!(manager.get("almalinux").unwrap().labels["os.version"], "10");
+        assert_eq!(
+            manager.get("opensuse").unwrap().labels["os.version"],
+            "leap-16.0"
+        );
+        // No public containerdisk exists for these (quay.io/containerdisks
+        // has no rockylinux or alpine repository) and the EOL releases were
+        // retired, so they must not be offered.
+        for gone in [
+            "rocky",
+            "rocky-8",
+            "rocky-9",
+            "alpine",
+            "alpine-3.19",
+            "almalinux-8",
+            "ubuntu-20.04",
+            "ubuntu-18.04",
+            "fedora-41",
+            "fedora-40",
+            "fedora-39",
+            "centos-stream-8",
+            "debian-11",
+        ] {
+            assert!(!manager.exists(gone), "{gone} must not be offered");
+        }
 
         let ubuntu = manager.get("ubuntu").unwrap();
         assert_eq!(ubuntu.cpu.cores, 2);
@@ -883,8 +776,6 @@ mod tests {
         assert!(templates.contains(&"ubuntu".to_string()));
         assert!(templates.contains(&"fedora".to_string()));
         assert!(templates.contains(&"almalinux".to_string()));
-        assert!(templates.contains(&"rocky".to_string()));
-        assert!(templates.contains(&"alpine".to_string()));
 
         // Should have many templates
         assert!(templates.len() > 30);
@@ -898,7 +789,7 @@ mod tests {
         assert!(families.contains_key("Ubuntu"));
         assert!(families.contains_key("Fedora"));
         assert!(families.contains_key("AlmaLinux"));
-        assert!(families.contains_key("Rocky Linux"));
+        assert!(families.contains_key("OpenSUSE"));
 
         // Ubuntu should have multiple versions
         let ubuntu_templates = families.get("Ubuntu").unwrap();

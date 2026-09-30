@@ -23,7 +23,7 @@ authoring.
 ```bash
 zorvia profile profiles
 zorvia profile show web
-zorvia vm create api --template fedora-40 --cpus 4 --memory 8Gi --disk-size 40Gi
+zorvia vm create api --template fedora-44 --cpus 4 --memory 8Gi --disk-size 40Gi
 ```
 
 **Blueprints** — multi-VM stacks (profiles applied inside the blueprint):

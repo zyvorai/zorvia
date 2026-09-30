@@ -29,23 +29,24 @@ pub struct DiskImage {
 
 const GIB: u64 = 1024 * 1024 * 1024;
 
+// Every entry must exist on quay.io/containerdisks (checked 2026-09-30). The
+// rockylinux and alpine repositories do not exist there and CDI fails those
+// imports with "unauthorized". Re-check a tag before adding one.
 const CONTAINERDISKS: &[(&str, &str)] = &[
-    ("Ubuntu 24.04", "ubuntu:24.04"),
-    ("Ubuntu 22.04", "ubuntu:22.04"),
-    ("Ubuntu 20.04", "ubuntu:20.04"),
-    ("Ubuntu 18.04", "ubuntu:18.04"),
-    ("Fedora 41", "fedora:41"),
-    ("Fedora 40", "fedora:40"),
-    ("Fedora 39", "fedora:39"),
+    ("Ubuntu 26.04 LTS", "ubuntu:26.04"),
+    ("Ubuntu 24.04 LTS", "ubuntu:24.04"),
+    ("Ubuntu 22.04 LTS", "ubuntu:22.04"),
+    ("Fedora 44", "fedora:44"),
+    ("Fedora 43", "fedora:43"),
+    ("CentOS Stream 10", "centos-stream:10"),
     ("CentOS Stream 9", "centos-stream:9"),
-    ("CentOS Stream 8", "centos-stream:8"),
+    ("Debian 13", "debian:13"),
     ("Debian 12", "debian:12"),
-    ("Debian 11", "debian:11"),
+    ("AlmaLinux 10", "almalinux:10"),
     ("AlmaLinux 9", "almalinux:9"),
-    ("AlmaLinux 8", "almalinux:8"),
-    ("Rocky Linux 9", "rockylinux:9"),
-    ("Rocky Linux 8", "rockylinux:8"),
-    ("Alpine 3.19", "alpine:3.19"),
+    ("openSUSE Leap 16.0", "opensuse-leap:16.0"),
+    ("openSUSE Leap 15.6", "opensuse-leap:15.6"),
+    ("openSUSE Tumbleweed", "opensuse-tumbleweed:1.0.0"),
 ];
 
 /// Blank disks plus ready quay.io/containerdisks images (major Linux).
@@ -131,14 +132,21 @@ mod tests {
     #[test]
     fn disk_image_catalog_matches_api_shape() {
         let images = disk_image_catalog();
-        assert_eq!(images.len(), 18);
+        // Two blank disks plus one entry per containerdisk.
+        assert_eq!(images.len(), 2 + CONTAINERDISKS.len());
         assert_eq!(images[0].path, "blank:20Gi");
         assert_eq!(images[0].size_bytes, 21_474_836_480);
         assert_eq!(images[1].size_bytes, 42_949_672_960);
-        assert_eq!(images[2].name, "Ubuntu 24.04 (containerdisk)");
-        assert_eq!(images[2].path, "quay.io/containerdisks/ubuntu:24.04");
+        // Newest LTS first.
+        assert_eq!(images[2].name, "Ubuntu 26.04 LTS (containerdisk)");
+        assert_eq!(images[2].path, "quay.io/containerdisks/ubuntu:26.04");
         assert!(images[2..]
             .iter()
             .all(|i| i.format == "containerdisk" && i.size_bytes == 0));
+        // Repositories that do not exist on quay.io/containerdisks (CDI fails
+        // the import with "unauthorized") must never be offered.
+        assert!(!images
+            .iter()
+            .any(|i| i.path.contains("rockylinux") || i.path.contains("/alpine:")));
     }
 }
