@@ -33,7 +33,7 @@ ZeusOS is a separate Zyvor product. It is proprietary (not open source) and is n
 | SSO | Built-in OAuth server | OIDC (`oidc`, Beta) | Same as Zorvia |
 | Drift detection and change-plan gating | No | Yes (`zorvia change drift` / `zorvia change plan`) | Same as Zorvia |
 | Runs on any KubeVirt cluster | No, OpenShift only | Yes | Same as Zorvia |
-| Software cost | Red Hat subscription | $0 (Apache-2.0) | $0 for the software; a paid service contract for support ([proposed pricing](PRICING.md), not yet approved) |
+| Software cost | Red Hat subscription | $0 (Apache-2.0) | $0 for the software; a paid service contract for support ([pricing](PRICING.md)) |
 | Vendor support contract | Yes (Red Hat) | No, community | Yes (production support and SLAs) |
 | Multi-cluster management | Yes (Advanced Cluster Management) | Experimental (`fleet-multicluster`, inventory stub) | Ask sales |
 | VM migration from VMware | Yes (Migration Toolkit for Virtualization) | Zorvia's own importer is Experimental (`transiva-migration`, plan only); use the Zyvor suite, Transiva then h2kvm then GuestKit (separate tools) | Migration Factory (Transiva, h2kvm); ask sales |

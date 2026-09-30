@@ -1,6 +1,6 @@
 # Pricing
 
-> **Proposed launch prices. Not approved.** Every figure on this page is a proposal, subject to commercial approval and validation against delivery cost. Nothing here is an offer, and no billing, payment collection or entitlement enforcement exists in the product. Final terms are in your signed order form.
+> **Approved launch prices.** These are the launch prices for Zorvia services. Final terms are in your signed order form. No billing, payment collection or entitlement enforcement exists in the product yet.
 
 ## The software stays free
 
@@ -10,7 +10,7 @@ An expired or missing contract never stops VMs or disables existing community fu
 
 ## India (INR, excluding taxes)
 
-| Offering | Proposed price | Billing period | Included services |
+| Offering | Price | Billing period | Included services |
 |---|---:|---|---|
 | Community | Free | n/a | Software, documentation, community support |
 | Supported | ₹30,000 per worker node; ₹1.5 lakh annual minimum | Per year | Business-hours Zorvia troubleshooting and upgrade guidance |
@@ -22,9 +22,9 @@ An expired or missing contract never stops VMs or disables existing community fu
 
 ## International (USD, excluding taxes)
 
-These are independently proposed regional prices, **not currency conversions** of the India table.
+These are independently set regional prices, **not currency conversions** of the India table.
 
-| Offering | Proposed starting price | Billing period |
+| Offering | Starting price | Billing period |
 |---|---:|---|
 | Supported | $600 per worker node; $3,000 annual minimum | Per year |
 | Supported Plus | $1,200 per worker node; $8,000 annual minimum | Per year |

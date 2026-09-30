@@ -1,6 +1,6 @@
 # Commercial FAQ
 
-Prices referenced here are **proposed and not yet approved**; see [PRICING.md](PRICING.md).
+Prices referenced here are the launch prices in [PRICING.md](PRICING.md).
 
 **Is Zorvia free for commercial use?**
 Yes. It is Apache-2.0. You may use, modify and run it in production commercially at no charge, subject to the licence terms ([LICENSE](../LICENSE), [NOTICE](../NOTICE)).
@@ -27,7 +27,7 @@ No. Managed pricing includes the contracted support for the same coverage. Do no
 No. Buying a contract grants no access. Remote operation, if you want it, is a separate opt-in with scoped, revocable credentials.
 
 **Do you offer 24×7 support or resolution deadlines?**
-Not by default. Hours and response targets are set in your contract and are approved against staffing capacity before publication. Resolution times are estimates, not commitments.
+Not by default. Hours and response targets are set in your contract and are confirmed against staffing capacity before publication. Resolution times are estimates, not commitments.
 
 **Are experimental features covered?**
 Not unless your contract says so in writing. See [FEATURE_MATURITY.md](FEATURE_MATURITY.md).
@@ -36,7 +36,7 @@ Not unless your contract says so in writing. See [FEATURE_MATURITY.md](FEATURE_M
 Hardware, hosting, third-party subscriptions, travel and applicable taxes, plus anything "separately scoped" in [SUPPORT_SCOPE.md](SUPPORT_SCOPE.md).
 
 **Are international prices converted from India prices?**
-No. They are independently proposed regional prices.
+No. They are independently set regional prices.
 
 **How does this compare with OpenShift Virtualization?**
 See [OPENSHIFT_COMPARISON.md](OPENSHIFT_COMPARISON.md). Comparisons are made on customer-specific quotes, not list-price claims.

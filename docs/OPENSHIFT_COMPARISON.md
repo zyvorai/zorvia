@@ -1,6 +1,6 @@
 # Comparison with OpenShift Virtualization Engine
 
-> **Proposed positioning; Zorvia prices are unapproved** ([PRICING.md](PRICING.md)). This page publishes **no OpenShift prices and no percentage savings**. Cost comparisons are made only against a comparable, customer-specific quote.
+> Zorvia prices are in [PRICING.md](PRICING.md). This page publishes **no OpenShift prices and no percentage savings**. Cost comparisons are made only against a comparable, customer-specific quote.
 
 ## Positioning
 

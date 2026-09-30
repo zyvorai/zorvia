@@ -1,6 +1,6 @@
 # Support scope
 
-> **Proposed scope, subject to commercial approval.** Prices are in [PRICING.md](PRICING.md). Response targets and support hours are **not yet published**: they must be approved against staffing capacity first. Zyvor does not promise resolution deadlines, and does not offer 24×7 coverage by default.
+> Prices are in [PRICING.md](PRICING.md). Response targets and support hours are **not yet published**: they are published only after being confirmed against staffing capacity. Zyvor does not promise resolution deadlines, and does not offer 24×7 coverage by default.
 >
 > **Product status:** contract terms (coverage hours, timezone, authorized contacts, covered clusters) are recorded today ([COMMERCIAL_OFFERINGS.md](COMMERCIAL_OFFERINGS.md)). The support case portal is separate work and is documented at the end of this page.
 
@@ -31,7 +31,7 @@ Experimental features ([FEATURE_MATURITY.md](FEATURE_MATURITY.md)) are outside s
 
 ## Support hours, timezone and channels
 
-To be published once approved against staffing capacity:
+To be published once confirmed against staffing capacity:
 
 | Item | Value |
 |---|---|
@@ -55,7 +55,7 @@ Severity describes impact on Zorvia functionality. Issues in Kubernetes, storage
 
 ## Response targets vs resolution estimates
 
-A **response target** is how soon a person engages after a case is opened. A **resolution estimate** is a non-binding expectation. They are defined separately; only response targets can carry a commitment, and only once approved.
+A **response target** is how soon a person engages after a case is opened. A **resolution estimate** is a non-binding expectation. They are defined separately; only response targets can carry a commitment, and only once published.
 
 ## Support case portal (not yet implemented)
 

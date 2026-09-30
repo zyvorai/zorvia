@@ -171,7 +171,7 @@ Everything in this repository stays Apache-2.0, free for commercial use, and wor
 
 | Topic | Doc |
 |---|---|
-| Proposed pricing (unapproved), billing rules, examples | [docs/PRICING.md](docs/PRICING.md) · [docs/COMMERCIAL_FAQ.md](docs/COMMERCIAL_FAQ.md) |
+| Launch pricing, billing rules, examples | [docs/PRICING.md](docs/PRICING.md) · [docs/COMMERCIAL_FAQ.md](docs/COMMERCIAL_FAQ.md) |
 | Positioning against OpenShift Virtualization Engine | [docs/OPENSHIFT_COMPARISON.md](docs/OPENSHIFT_COMPARISON.md) |
 | Offerings, quote → contract flow, API and maturity | [docs/COMMERCIAL_OFFERINGS.md](docs/COMMERCIAL_OFFERINGS.md) |
 | What support covers, response targets and timers | [docs/SUPPORT_SCOPE.md](docs/SUPPORT_SCOPE.md) |
