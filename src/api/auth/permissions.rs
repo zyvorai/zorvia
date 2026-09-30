@@ -124,6 +124,22 @@ pub fn required_permission(method: &str, path: &str) -> Option<ApiPermission> {
         return Some(ApiPermission::UsersAdmin);
     }
 
+    // Commercial administration (contract changes, org membership, quoting,
+    // offline import) is admin-only for every method. The rest of
+    // /v1/commercial/ is org-scoped inside the handlers, so any authenticated
+    // role may reach it (VmRead is held by all roles) and mutating calls
+    // don't fall through to the cluster.admin default.
+    if path.starts_with("/v1/commercial/admin") {
+        return Some(ApiPermission::UsersAdmin);
+    }
+    if path.starts_with("/v1/commercial/") {
+        return if method == "GET" || method == "HEAD" {
+            None
+        } else {
+            Some(ApiPermission::VmRead)
+        };
+    }
+
     // Cluster-wide pod inventory, logs and exec are admin-only even on GET
     if path.starts_with("/v1/pods") || path.starts_with("/v1/namespaces") {
         return Some(ApiPermission::ClusterAdmin);
@@ -228,6 +244,23 @@ pub fn required_permission(method: &str, path: &str) -> Option<ApiPermission> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn commercial_admin_routes_need_users_admin() {
+        assert_eq!(
+            required_permission("GET", "/v1/commercial/admin/orgs"),
+            Some(ApiPermission::UsersAdmin)
+        );
+        assert_eq!(
+            required_permission("POST", "/v1/commercial/admin/contracts/x/transition"),
+            Some(ApiPermission::UsersAdmin)
+        );
+        assert_eq!(
+            required_permission("POST", "/v1/commercial/quote-requests"),
+            Some(ApiPermission::VmRead)
+        );
+        assert_eq!(required_permission("GET", "/v1/commercial/contracts"), None);
+    }
 
     #[test]
     fn viewer_cannot_write() {

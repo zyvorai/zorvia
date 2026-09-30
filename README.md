@@ -165,6 +165,20 @@ OpenShift Virtualization runs KubeVirt, so your VMs are already `VirtualMachine`
 
 > **Running this for a business?** Commercial support gives you support and SLAs you can put in a contract. [Book a demo](https://zyvor.dev/schedule?utm_source=github&utm_medium=zorvia&utm_campaign=readme_edition) or start a [30-day PoC](https://zyvor.dev/poc?utm_source=github&utm_medium=zorvia&utm_campaign=readme_edition) on a real cluster, then follow the [adoption runbook](docs/adopt-existing-kubevirt-cluster.md).
 
+## Production support and services
+
+Everything in this repository stays Apache-2.0 and works without a subscription. Commercial contracts add support coverage and services (deployment, migration, training, managed operations) around it. A contract records what was purchased. It never stops VMs, disables APIs or blocks access to your data.
+
+| Topic | Doc |
+|---|---|
+| Offerings, quote → contract flow, API and maturity | [docs/COMMERCIAL_OFFERINGS.md](docs/COMMERCIAL_OFFERINGS.md) |
+| What support covers, response targets and timers | [docs/SUPPORT_SCOPE.md](docs/SUPPORT_SCOPE.md) |
+| Managed operations, access and remediation rules | [docs/MANAGED_OPERATIONS.md](docs/MANAGED_OPERATIONS.md) |
+| What a diagnostic bundle contains and excludes | [docs/DIAGNOSTIC_PRIVACY.md](docs/DIAGNOSTIC_PRIVACY.md) |
+| Billing unit and capacity records | [docs/BILLING_UNITS.md](docs/BILLING_UNITS.md) |
+
+Delivery is phased. Catalog, quote requests, contracts and coverage are implemented (Beta). The other areas are documented as design and labelled as not yet available in each doc.
+
 ## Documentation
 
 | Topic | Doc |

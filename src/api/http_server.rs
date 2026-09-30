@@ -45,6 +45,10 @@ pub mod web {
     mod atlas_handlers;
     use atlas_handlers::*;
 
+    #[path = "commercial_handlers.rs"]
+    mod commercial_handlers;
+    use commercial_handlers::*;
+
     #[path = "ws_proxy_handlers.rs"]
     mod ws_proxy_handlers;
     use ws_proxy_handlers::{ws_console, ws_ssh, ws_vnc};
@@ -418,6 +422,7 @@ pub mod web {
                 | "/api/v1/auth/login"
                 | "/api/v1/auth/providers"
                 | "/api/v1/features"
+                | "/api/v1/commercial/catalog"
                 | "/api/v1/instance"
                 | "/api/instance"
         ) || path.starts_with("/api/v1/auth/oidc/")
@@ -1182,6 +1187,59 @@ pub mod web {
                 post(enterprise_gpu_numa_plan),
             )
             .route("/v1/enterprise/fleet", get(enterprise_fleet_inventory))
+            // Commercial: catalog is public; the rest is org-scoped in the
+            // store, and /admin/ routes require users.admin (permissions.rs).
+            .route("/v1/commercial/catalog", get(commercial_catalog_handler))
+            .route(
+                "/v1/commercial/quote-requests",
+                get(commercial_quote_requests_list).post(commercial_quote_request_create),
+            )
+            .route("/v1/commercial/contracts", get(commercial_contracts_list))
+            .route(
+                "/v1/commercial/contracts/{id}",
+                get(commercial_contract_get),
+            )
+            .route(
+                "/v1/commercial/contracts/{id}/history",
+                get(commercial_contract_history),
+            )
+            .route(
+                "/v1/commercial/contracts/{id}/accept",
+                post(commercial_contract_accept),
+            )
+            .route("/v1/commercial/coverage", get(commercial_coverage))
+            .route(
+                "/v1/commercial/admin/orgs",
+                get(commercial_admin_orgs_list).post(commercial_admin_org_create),
+            )
+            .route(
+                "/v1/commercial/admin/orgs/{id}/members",
+                post(commercial_admin_member_add),
+            )
+            .route(
+                "/v1/commercial/admin/orgs/{id}/members/{username}",
+                delete(commercial_admin_member_remove),
+            )
+            .route(
+                "/v1/commercial/admin/quote-requests/{id}/quote",
+                post(commercial_admin_quote_generate),
+            )
+            .route(
+                "/v1/commercial/admin/contracts/import",
+                post(commercial_admin_import),
+            )
+            .route(
+                "/v1/commercial/admin/contracts/{id}/entitlement",
+                put(commercial_admin_entitlement_put),
+            )
+            .route(
+                "/v1/commercial/admin/contracts/{id}/transition",
+                post(commercial_admin_transition),
+            )
+            .route(
+                "/v1/commercial/admin/contracts/{id}/payment-status",
+                post(commercial_admin_payment_status),
+            )
             .fallback(fabric_not_implemented)
             .layer(TimeoutLayer::with_status_code(
                 StatusCode::REQUEST_TIMEOUT,
