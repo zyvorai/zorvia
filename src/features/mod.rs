@@ -158,7 +158,7 @@ pub const FEATURES: &[Feature] = &[
         id: "commercial-contracts",
         name: "Commercial catalog, quote requests, contracts and coverage",
         maturity: Maturity::Beta,
-        notes: "Contracts, coverage, support cases with contract-hours timers, redacted diagnostic bundles (preview/download; upload only on explicit confirm). Single-instance SQLite (ZORVIA_COMMERCIAL_DB); no notifications, payments, remote access or log collection; expiry never affects VMs — docs/COMMERCIAL_OFFERINGS.md",
+        notes: "Contracts, coverage, support cases with contract-hours timers, redacted diagnostic bundles (preview/download; upload only on explicit confirm). Service engagements and managed-operation records (records only; no cluster access, remote operation off by default). Single-instance SQLite (ZORVIA_COMMERCIAL_DB); no notifications, payments, remote access or log collection; expiry never affects VMs — docs/COMMERCIAL_OFFERINGS.md",
     },
     Feature {
         id: "gpu-sriov-numa",

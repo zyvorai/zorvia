@@ -135,6 +135,141 @@ const MIGRATIONS: &[(i64, &str, &str)] = &[
         );
         CREATE INDEX support_events_case ON support_events(case_id);",
     ),
+    (
+        3,
+        "service engagements and managed operations",
+        "CREATE TABLE engagements (
+            id TEXT PRIMARY KEY,
+            org_id TEXT NOT NULL REFERENCES orgs(id),
+            contract_id TEXT,
+            kind TEXT NOT NULL,
+            title TEXT NOT NULL,
+            status TEXT NOT NULL,
+            owner TEXT,
+            created_by TEXT NOT NULL,
+            accepted_by TEXT,
+            accepted_at TEXT,
+            created_at TEXT NOT NULL,
+            updated_at TEXT NOT NULL
+        );
+        CREATE INDEX engagements_org ON engagements(org_id);
+        CREATE TABLE engagement_milestones (
+            engagement_id TEXT NOT NULL REFERENCES engagements(id),
+            key TEXT NOT NULL,
+            position INTEGER NOT NULL,
+            title TEXT NOT NULL,
+            status TEXT NOT NULL DEFAULT 'pending',
+            owner TEXT,
+            due_at TEXT,
+            completed_at TEXT,
+            PRIMARY KEY (engagement_id, key)
+        );
+        CREATE TABLE engagement_evidence (
+            id TEXT PRIMARY KEY,
+            engagement_id TEXT NOT NULL REFERENCES engagements(id),
+            milestone_key TEXT NOT NULL,
+            kind TEXT NOT NULL,
+            title TEXT NOT NULL,
+            reference TEXT,
+            note TEXT,
+            added_by TEXT NOT NULL,
+            at TEXT NOT NULL
+        );
+        CREATE INDEX engagement_evidence_eng ON engagement_evidence(engagement_id);
+        CREATE TABLE managed_enrollments (
+            id TEXT PRIMARY KEY,
+            org_id TEXT NOT NULL REFERENCES orgs(id),
+            contract_id TEXT NOT NULL,
+            cluster_id TEXT NOT NULL,
+            status TEXT NOT NULL,
+            covered_components TEXT NOT NULL,
+            maintenance_windows TEXT NOT NULL,
+            monitoring_signals TEXT NOT NULL,
+            operational_owner TEXT,
+            remote_enabled INTEGER NOT NULL DEFAULT 0,
+            remote_scope TEXT NOT NULL DEFAULT '[]',
+            remote_credential_ref TEXT,
+            remote_enabled_by TEXT,
+            remote_enabled_at TEXT,
+            remote_revoked_by TEXT,
+            remote_revoked_at TEXT,
+            created_by TEXT NOT NULL,
+            created_at TEXT NOT NULL,
+            updated_at TEXT NOT NULL
+        );
+        CREATE INDEX managed_enrollments_org ON managed_enrollments(org_id);
+        CREATE TABLE managed_tasks (
+            id TEXT PRIMARY KEY,
+            enrollment_id TEXT NOT NULL REFERENCES managed_enrollments(id),
+            title TEXT NOT NULL,
+            description TEXT NOT NULL,
+            window_text TEXT NOT NULL,
+            status TEXT NOT NULL,
+            proposed_by TEXT NOT NULL,
+            approved_by TEXT,
+            approved_at TEXT,
+            completed_at TEXT,
+            created_at TEXT NOT NULL,
+            updated_at TEXT NOT NULL
+        );
+        CREATE TABLE managed_evidence (
+            id TEXT PRIMARY KEY,
+            enrollment_id TEXT NOT NULL REFERENCES managed_enrollments(id),
+            kind TEXT NOT NULL,
+            result TEXT NOT NULL,
+            performed_at TEXT NOT NULL,
+            reference TEXT,
+            note TEXT,
+            added_by TEXT NOT NULL,
+            at TEXT NOT NULL
+        );
+        CREATE TABLE managed_incidents (
+            id TEXT PRIMARY KEY,
+            enrollment_id TEXT NOT NULL REFERENCES managed_enrollments(id),
+            title TEXT NOT NULL,
+            severity TEXT NOT NULL,
+            status TEXT NOT NULL,
+            summary TEXT NOT NULL,
+            opened_by TEXT NOT NULL,
+            opened_at TEXT NOT NULL,
+            resolved_at TEXT,
+            updated_at TEXT NOT NULL
+        );
+        CREATE TABLE managed_reports (
+            id TEXT PRIMARY KEY,
+            enrollment_id TEXT NOT NULL REFERENCES managed_enrollments(id),
+            period_start TEXT NOT NULL,
+            period_end TEXT NOT NULL,
+            summary TEXT NOT NULL,
+            reference TEXT,
+            added_by TEXT NOT NULL,
+            at TEXT NOT NULL
+        );
+        CREATE TABLE remediation_policies (
+            id TEXT PRIMARY KEY,
+            enrollment_id TEXT NOT NULL REFERENCES managed_enrollments(id),
+            name TEXT NOT NULL,
+            description TEXT NOT NULL,
+            permissions TEXT NOT NULL,
+            status TEXT NOT NULL,
+            created_by TEXT NOT NULL,
+            authorized_by TEXT,
+            authorized_at TEXT,
+            revoked_by TEXT,
+            revoked_at TEXT,
+            created_at TEXT NOT NULL
+        );
+        CREATE TABLE service_events (
+            seq INTEGER PRIMARY KEY AUTOINCREMENT,
+            subject TEXT NOT NULL,
+            subject_id TEXT NOT NULL,
+            at TEXT NOT NULL,
+            actor TEXT NOT NULL,
+            event TEXT NOT NULL,
+            detail TEXT NOT NULL
+        );
+        CREATE INDEX service_events_subject ON service_events(subject, subject_id);",
+    ),
 ];
 
 #[derive(Debug, thiserror::Error)]

@@ -158,6 +158,20 @@ pub fn required_permission(method: &str, path: &str) -> Option<ApiPermission> {
         };
     }
 
+    // Service engagements and managed-operations records: the service desk
+    // (users.admin) owns /admin/ routes; the rest is org-scoped in the store
+    // and open to any authenticated role.
+    if path.starts_with("/v1/services/admin") || path.starts_with("/v1/managed/admin") {
+        return Some(ApiPermission::UsersAdmin);
+    }
+    if path.starts_with("/v1/services/") || path.starts_with("/v1/managed/") {
+        return if method == "GET" || method == "HEAD" {
+            None
+        } else {
+            Some(ApiPermission::VmRead)
+        };
+    }
+
     // Cluster-wide pod inventory, logs and exec are admin-only even on GET
     if path.starts_with("/v1/pods") || path.starts_with("/v1/namespaces") {
         return Some(ApiPermission::ClusterAdmin);
@@ -299,6 +313,23 @@ mod tests {
             Some(ApiPermission::VmRead)
         );
         assert_eq!(required_permission("GET", "/v1/support/cases"), None);
+    }
+
+    #[test]
+    fn services_and_managed_routes_are_gated() {
+        assert_eq!(
+            required_permission("POST", "/v1/services/admin/engagements"),
+            Some(ApiPermission::UsersAdmin)
+        );
+        assert_eq!(
+            required_permission("POST", "/v1/managed/admin/enrollments/e1/tasks"),
+            Some(ApiPermission::UsersAdmin)
+        );
+        assert_eq!(
+            required_permission("POST", "/v1/managed/enrollments"),
+            Some(ApiPermission::VmRead)
+        );
+        assert_eq!(required_permission("GET", "/v1/services/engagements"), None);
     }
 
     #[test]
