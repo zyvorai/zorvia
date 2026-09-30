@@ -69,7 +69,7 @@ original. The VM is created halted unless `start` is true. Poll
 `POST /api/backups/offcluster/{operation_id}/drill`, or set
 `ZORVIA_DRILL_INTERVAL_HOURS` to drill the latest backup of every VM on a
 schedule. A drill restores into `ZORVIA_DRILL_NAMESPACE` (default
-`zorvia-drill`, created with a deny-all NetworkPolicy), replaces the VM's
+`zorvia-drill`, with a NetworkPolicy that denies all traffic to and from the restored guest's virt-launcher pod; the restore Job in the same namespace is unaffected), replaces the VM's
 networks with a bare pod network, boots it, waits for the guest agent
 (`ZORVIA_DRILL_BOOT_TIMEOUT_SECS`, default 600), then deletes the VM and its
 volumes. The operation result records restore and boot times. A drill proves
