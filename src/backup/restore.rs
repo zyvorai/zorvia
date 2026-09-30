@@ -413,6 +413,28 @@ pub fn latest_per_vm(items: Vec<(RestoreSource, Operation)>) -> Vec<RestoreSourc
     out
 }
 
+/// Does a guest's serial-console log show that userspace booted? Used when the
+/// guest has no agent (most minimal images), so a drill can still prove the
+/// restored disk boots. Recognises a login prompt or systemd reaching its
+/// multi-user target; ANSI colour codes are ignored.
+pub fn console_shows_boot(log: &str) -> bool {
+    let mut clean = String::with_capacity(log.len());
+    let mut chars = log.chars().peekable();
+    while let Some(c) = chars.next() {
+        if c == '\u{1b}' && chars.peek() == Some(&'[') {
+            for n in chars.by_ref() {
+                if n.is_ascii_alphabetic() {
+                    break;
+                }
+            }
+        } else {
+            clean.push(c);
+        }
+    }
+    let lower = clean.to_ascii_lowercase();
+    lower.contains(" login:") || lower.contains("reached target multi-user.target")
+}
+
 // ---------------------------------------------------------------- handlers
 
 pub(crate) fn vm_api(client: &kube::Client, ns: &str) -> Api<DynamicObject> {
@@ -705,6 +727,33 @@ async fn drill_op(ctx: &OpContext) -> std::result::Result<Outcome, Outcome> {
     outcome
 }
 
+/// Read the VM's serial-console log from its virt-launcher pod (KubeVirt's
+/// `guest-console-log` container) and check it for boot evidence.
+async fn serial_console_shows_boot(client: &kube::Client, ns: &str, vm: &str) -> bool {
+    use k8s_openapi::api::core::v1::Pod;
+    use kube::api::{ListParams, LogParams};
+    let pods: Api<Pod> = Api::namespaced(client.clone(), ns);
+    let list = match pods
+        .list(&ListParams::default().labels(&format!("vm.kubevirt.io/name={vm}")))
+        .await
+    {
+        Ok(l) => l.items,
+        Err(_) => return false,
+    };
+    let Some(name) = list.first().and_then(|p| p.metadata.name.clone()) else {
+        return false;
+    };
+    let lp = LogParams {
+        container: Some("guest-console-log".into()),
+        tail_lines: Some(400),
+        ..Default::default()
+    };
+    pods.logs(&name, &lp)
+        .await
+        .map(|l| console_shows_boot(&l))
+        .unwrap_or(false)
+}
+
 async fn drill_boot(
     ctx: &OpContext,
     client: &kube::Client,
@@ -756,24 +805,32 @@ async fn drill_boot(
         if let Ok(report) = ctx.client.guest_ready_report(ns, &p.new_vm_name).await {
             booted |= report.running;
             last_reason = report.reason.clone();
-            if report.running && report.agent_connected {
-                return Ok(Outcome::Succeeded(Some(json!({
-                    "drill": {
-                        "backup_operation": src.op_id,
-                        "vm_name": src.vm_name,
-                        "booted": true,
-                        "guest_agent": true,
-                        "restore_seconds": restore_secs,
-                        "boot_seconds": boot_started.elapsed().as_secs(),
-                    }
-                }))));
+            if report.running && report.ready {
+                // Evidence the guest itself is up: its agent, or a login
+                // prompt / multi-user target on the serial console (most
+                // minimal images have no agent).
+                let agent = report.agent_connected;
+                let console = !agent && serial_console_shows_boot(client, ns, &p.new_vm_name).await;
+                if agent || console {
+                    return Ok(Outcome::Succeeded(Some(json!({
+                        "drill": {
+                            "backup_operation": src.op_id,
+                            "vm_name": src.vm_name,
+                            "booted": true,
+                            "guest_agent": agent,
+                            "evidence": if agent { "guest agent" } else { "serial console" },
+                            "restore_seconds": restore_secs,
+                            "boot_seconds": boot_started.elapsed().as_secs(),
+                        }
+                    }))));
+                }
             }
         }
         if boot_started.elapsed() >= timeout {
             return Ok(Outcome::Failed(format!(
                 "drill failed: {} after {}s ({})",
                 if booted {
-                    "VM started but the guest agent never connected"
+                    "VM started but neither the guest agent nor a console login/boot target appeared"
                 } else {
                     "VM never reached Running"
                 },
@@ -1003,6 +1060,21 @@ mod tests {
         assert_eq!(latest.len(), 1);
         assert_eq!(latest[0].op_id, second.op_id);
         assert!(enqueue_drill_in(&db, &first, "Bad NS", None).is_err());
+    }
+
+    #[test]
+    fn detects_a_booted_guest_from_its_serial_console() {
+        // Real systemd output (ANSI colours included) from a restored Debian guest.
+        let booted = "[\u{1b}[0;32m  OK  \u{1b}[0m] Reached target \u{1b}[0;1;39mmulti-user.target\u{1b}[0m - Multi-User System.\n";
+        assert!(console_shows_boot(booted));
+        assert!(console_shows_boot(
+            "Debian GNU/Linux 12 cap-src ttyS0\n\ncap-src login: "
+        ));
+        // Still booting, or nothing at all.
+        assert!(!console_shows_boot(
+            "[    1.2] Freeing unused kernel image memory\nStarting systemd-udevd\n"
+        ));
+        assert!(!console_shows_boot(""));
     }
 
     #[test]
