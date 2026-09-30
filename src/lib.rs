@@ -40,6 +40,8 @@ pub mod kryton;
 pub mod kube;
 pub mod network;
 #[cfg(feature = "web")]
+pub mod migration_import;
+#[cfg(feature = "web")]
 pub mod operations;
 pub mod output;
 pub mod storage;

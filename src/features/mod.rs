@@ -149,6 +149,12 @@ pub const FEATURES: &[Feature] = &[
         notes: "Phase 5 — plan API at /api/v1/enterprise/transiva/plan",
     },
     Feature {
+        id: "vm-import-h2kvm",
+        name: "VMware → KubeVirt import via h2kvm Jobs",
+        maturity: Maturity::Experimental,
+        notes: "POST /api/vm-imports runs h2kvmctl as a privileged Job (needs ZORVIA_H2KVM_IMAGE); waves, preflight, rollback; not yet exercised against a real vCenter",
+    },
+    Feature {
         id: "golden-image-pipeline",
         name: "Golden-image build/scan/sign/promote",
         maturity: Maturity::Experimental,

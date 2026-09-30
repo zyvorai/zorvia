@@ -415,7 +415,7 @@ pub fn latest_per_vm(items: Vec<(RestoreSource, Operation)>) -> Vec<RestoreSourc
 
 // ---------------------------------------------------------------- handlers
 
-fn vm_api(client: &kube::Client, ns: &str) -> Api<DynamicObject> {
+pub(crate) fn vm_api(client: &kube::Client, ns: &str) -> Api<DynamicObject> {
     let ar = ApiResource::from_gvk(&GroupVersionKind::gvk(
         "kubevirt.io",
         "v1",
