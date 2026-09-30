@@ -272,10 +272,15 @@ _ssh "
             echo 'web UI: placeholder (web/dist missing)'
         fi
         # Podman often tags as localhost/zorvia:local — normalize for imagePullPolicy: Never
-        $SUDO \"\$BUILDER\" build -t zorvia:local /tmp/zorvia-img
-        $SUDO \"\$BUILDER\" save zorvia:local | $SUDO k3s ctr images import - 2>/dev/null \
-          || $SUDO \"\$BUILDER\" save zorvia:local | $SUDO ctr -n k8s.io images import - 2>/dev/null \
-          || true
+        # --network=host: rootful podman on some hosts cannot create a build
+        # network (netavark 'create veth pair: Invalid argument'), which failed
+        # the apt-get step and left the pod in ErrImageNeverPull while this
+        # script still reported success. The build needs no isolated network.
+        $SUDO \"\$BUILDER\" build --network=host -t zorvia:local /tmp/zorvia-img \
+          || { echo 'ERROR: zorvia:local image build failed' >&2; exit 1; }
+        { $SUDO \"\$BUILDER\" save zorvia:local | $SUDO k3s ctr images import - 2>/dev/null; } \
+          || { $SUDO \"\$BUILDER\" save zorvia:local | $SUDO ctr -n k8s.io images import - 2>/dev/null; } \
+          || { echo 'ERROR: could not import zorvia:local into the cluster runtime' >&2; exit 1; }
         $SUDO k3s ctr images tag zorvia:local docker.io/library/zorvia:local 2>/dev/null || true
         $SUDO k3s ctr images tag localhost/zorvia:local zorvia:local 2>/dev/null || true
         $SUDO k3s ctr images tag localhost/zorvia:local docker.io/library/zorvia:local 2>/dev/null || true
