@@ -278,6 +278,10 @@ pub async fn fabric_create_image_from_vm(
             let (st, j) = err_json(400, "NO_PERSISTENT_DISK", &e);
             (st, j).into_response()
         }
+        Err(crate::golden_images::convert::ConvertStartError::Queue(e)) => {
+            let (st, j) = err_json(500, "QUEUE_FAILED", &sanitize_error(&e));
+            (st, j).into_response()
+        }
     }
 }
 

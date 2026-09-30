@@ -100,6 +100,12 @@ pub fn required_permission(method: &str, path: &str) -> Option<ApiPermission> {
     let method = method.to_ascii_uppercase();
     let path = path.trim_end_matches('/');
 
+    // Durable operations expose params/results of any long-running job
+    // (and cancel them), so they are admin-only even on GET.
+    if path == "/operations" || path.starts_with("/operations/") {
+        return Some(ApiPermission::ClusterAdmin);
+    }
+
     // Auth self-service (any authenticated user)
     if path.starts_with("/v1/auth/") {
         return None;
@@ -293,6 +299,17 @@ pub fn required_permission(method: &str, path: &str) -> Option<ApiPermission> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn operations_routes_are_cluster_admin_for_every_method() {
+        for (m, p) in [
+            ("GET", "/operations"),
+            ("GET", "/operations/op-1"),
+            ("POST", "/operations/op-1/cancel"),
+        ] {
+            assert_eq!(required_permission(m, p), Some(ApiPermission::ClusterAdmin));
+        }
+    }
 
     #[test]
     fn commercial_admin_routes_need_users_admin() {
