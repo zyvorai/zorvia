@@ -52,6 +52,9 @@ Customers are organizations with named members (usernames). Non-administrators s
 | `/api/v1/services/admin/*` | `users.admin` (service desk): create engagements, update milestones, request acceptance, cancel |
 | `/api/v1/managed/enrollments/*` | Signed in, own organizations; see [MANAGED_OPERATIONS.md](MANAGED_OPERATIONS.md) |
 | `/api/v1/managed/admin/*` | `users.admin` (service desk) |
+| `GET /api/v1/billing/invoices`, `…/{id}`, `…/{id}/document`; `GET /api/v1/billing/capacity/reconcile` | Signed in, own organizations (drafts hidden) |
+| `POST /api/v1/billing/capacity/observe` | `cluster.admin` and `users.admin`: records the local cluster's node counts |
+| `/api/v1/billing/admin/*` | `users.admin` (service desk): manual observations, invoice create/issue/mark-paid/void |
 | `/api/v1/commercial/admin/*` | `users.admin` only: organizations and members, quote generation, entitlement edits, transitions, payment status, offline import |
 
 An unconfigured integration shows as unavailable in the catalog response (`integrations.*.available = false`).
@@ -76,7 +79,7 @@ An unconfigured integration shows as unavailable in the catalog response (`integ
 | Catalog, quote requests, contracts, coverage, offline import | **Beta** (records only) |
 | Support cases, timers, diagnostic bundles | **Beta** (single-instance; see below) |
 | Service engagements, managed-operation records | **Beta** (records only; no cluster access) |
-| Capacity reconciliation, invoice records | Not implemented |
+| Capacity reconciliation, invoice records | **Beta** (records only; see [BILLING_UNITS.md](BILLING_UNITS.md)) |
 | Payment provider integration | Not implemented; waits on provider and terms |
 | Notifications | Not implemented; requests are recorded only |
 
@@ -101,3 +104,5 @@ Migration `v2` adds the support tables; rollback is the same restore-from-backup
 Deployment (assessment, install/integration, functional and recovery testing, handover, acceptance), migration (inventory/assessment, network and storage mapping, pilot, approved waves, guest and application validation, handover) and training engagements are tracked as milestones with an owner, due date and **evidence**. A milestone cannot be marked done without evidence. The desk requests acceptance once every other milestone is done; only a member of the customer's organization can accept, which completes the acceptance milestone. This tracks purchased delivery only; it runs nothing, and experimental migration APIs stay experimental.
 
 Migration `v3` adds these tables; rollback is the same restore-from-backup procedure as above.
+
+Migration `v4` adds capacity and invoice tables; rollback is the same restore-from-backup procedure as above.
