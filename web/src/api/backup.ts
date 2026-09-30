@@ -128,3 +128,51 @@ export async function disableBackupPolicy(id: string): Promise<void> {
   return apiPostVoid(`${API_BASE}/backups/policies/${id}/disable`)
 }
 
+
+/** A backup that was uploaded off-cluster and can be restored. Mirrors
+ * `restore::catalog_entry` (src/backup/restore.rs); the saved VM spec is
+ * deliberately not returned. `operation_id` identifies the backup operation. */
+export interface OffClusterBackup {
+  operation_id: string
+  vm_name: string
+  namespace: string
+  created: string
+  manifest_key: string
+  encrypted: boolean
+  disks: { name: string; size_bytes: number }[]
+  locked_until: string | null
+  verified: boolean | null
+}
+
+export interface RestoreOffClusterRequest {
+  new_vm_name: string
+  /** Defaults to the backed-up VM's namespace. */
+  namespace?: string
+  storage_class?: string
+  /** Start the VM after restoring (default: leave it halted). */
+  start?: boolean
+}
+
+/** Restores and drills are durable operations: poll `getOperation(operation_id)`. */
+export interface QueuedOperation {
+  operation_id: string
+  state: string
+}
+
+export async function listOffClusterBackups(): Promise<OffClusterBackup[]> {
+  const res = await apiGet<{ backups: OffClusterBackup[] }>(`${API_BASE}/backups/offcluster`)
+  return res.backups
+}
+
+export async function restoreOffClusterBackup(
+  operationId: string,
+  req: RestoreOffClusterRequest,
+): Promise<QueuedOperation> {
+  return apiPost<QueuedOperation>(`${API_BASE}/backups/offcluster/${operationId}/restore`, req)
+}
+
+/** Restore-test a backup in the isolated drill namespace, boot it, check the
+ * guest agent, and tear it down. */
+export async function runBackupDrill(operationId: string): Promise<QueuedOperation> {
+  return apiPost<QueuedOperation>(`${API_BASE}/backups/offcluster/${operationId}/drill`)
+}
