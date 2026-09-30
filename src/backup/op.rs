@@ -127,6 +127,23 @@ async fn run_backup_op(ctx: OpContext) -> Outcome {
         match manager.get_snapshot(&p.snapshot_name).await {
             Ok(info) => match info.status {
                 SnapshotStatus::Succeeded => {
+                    // With an S3 target configured the backup continues
+                    // off-cluster; otherwise it stays a cluster-local
+                    // snapshot (the previous behaviour).
+                    match super::offcluster::OffClusterTarget::from_env() {
+                        Err(e) => return Outcome::Failed(format!("off-cluster target: {e}")),
+                        Ok(Some(target)) => {
+                            return super::offcluster::run(
+                                &ctx,
+                                &target,
+                                &p.namespace,
+                                &p.vm_name,
+                                &p.snapshot_name,
+                            )
+                            .await;
+                        }
+                        Ok(None) => {}
+                    }
                     let warning = info.captured_no_volumes().then(|| {
                         "VM has no PVC/DataVolume-backed disks; only its configuration was captured"
                     });
