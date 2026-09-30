@@ -270,6 +270,61 @@ const MIGRATIONS: &[(i64, &str, &str)] = &[
         );
         CREATE INDEX service_events_subject ON service_events(subject, subject_id);",
     ),
+    (
+        4,
+        "capacity observations and invoice records",
+        "CREATE TABLE capacity_observations (
+            id TEXT PRIMARY KEY,
+            cluster_id TEXT NOT NULL,
+            observed_at TEXT NOT NULL,
+            source TEXT NOT NULL,
+            status TEXT NOT NULL CHECK (status IN ('ok', 'error')),
+            total_nodes INTEGER,
+            control_plane_nodes INTEGER,
+            worker_nodes INTEGER,
+            error TEXT,
+            recorded_by TEXT NOT NULL,
+            recorded_at TEXT NOT NULL,
+            CHECK (status = 'error' OR worker_nodes IS NOT NULL)
+        );
+        CREATE INDEX capacity_observations_cluster ON capacity_observations(cluster_id, observed_at);
+        CREATE TABLE invoices (
+            id TEXT PRIMARY KEY,
+            org_id TEXT NOT NULL REFERENCES orgs(id),
+            contract_id TEXT NOT NULL REFERENCES contracts(id),
+            currency TEXT NOT NULL,
+            period_start TEXT NOT NULL,
+            period_end TEXT NOT NULL,
+            status TEXT NOT NULL,
+            total_minor INTEGER NOT NULL,
+            external_reference TEXT,
+            payment_reference TEXT,
+            note TEXT,
+            created_by TEXT NOT NULL,
+            created_at TEXT NOT NULL,
+            updated_at TEXT NOT NULL,
+            issued_at TEXT,
+            paid_at TEXT,
+            voided_at TEXT,
+            void_reason TEXT
+        );
+        CREATE INDEX invoices_org ON invoices(org_id);
+        CREATE UNIQUE INDEX invoices_external_reference
+            ON invoices(org_id, external_reference) WHERE external_reference IS NOT NULL;
+        CREATE UNIQUE INDEX invoices_payment_reference
+            ON invoices(org_id, payment_reference) WHERE payment_reference IS NOT NULL;
+        CREATE TABLE invoice_lines (
+            id TEXT PRIMARY KEY,
+            invoice_id TEXT NOT NULL REFERENCES invoices(id),
+            position INTEGER NOT NULL,
+            description TEXT NOT NULL,
+            quantity INTEGER NOT NULL,
+            unit_price_minor INTEGER NOT NULL,
+            amount_minor INTEGER NOT NULL,
+            cluster_id TEXT
+        );
+        CREATE INDEX invoice_lines_invoice ON invoice_lines(invoice_id);",
+    ),
 ];
 
 #[derive(Debug, thiserror::Error)]

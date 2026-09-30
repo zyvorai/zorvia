@@ -57,6 +57,10 @@ pub mod web {
     mod services_handlers;
     use services_handlers::*;
 
+    #[path = "billing_handlers.rs"]
+    mod billing_handlers;
+    use billing_handlers::*;
+
     #[path = "ws_proxy_handlers.rs"]
     mod ws_proxy_handlers;
     use ws_proxy_handlers::{ws_console, ws_ssh, ws_vnc};
@@ -1358,6 +1362,41 @@ pub mod web {
             .route(
                 "/v1/managed/admin/enrollments/{id}/policies",
                 post(managed_policy_create),
+            )
+            // Capacity reconciliation and invoice records (no payments).
+            .route("/v1/billing/invoices", get(billing_invoices_list))
+            .route("/v1/billing/invoices/{id}", get(billing_invoice_get))
+            .route(
+                "/v1/billing/invoices/{id}/document",
+                get(billing_invoice_document),
+            )
+            .route(
+                "/v1/billing/capacity/reconcile",
+                get(billing_capacity_reconcile),
+            )
+            .route(
+                "/v1/billing/capacity/observe",
+                post(billing_capacity_observe),
+            )
+            .route(
+                "/v1/billing/admin/capacity/observations",
+                get(billing_admin_observations_list).post(billing_admin_observation_record),
+            )
+            .route(
+                "/v1/billing/admin/invoices",
+                post(billing_admin_invoice_create),
+            )
+            .route(
+                "/v1/billing/admin/invoices/{id}/issue",
+                post(billing_admin_invoice_issue),
+            )
+            .route(
+                "/v1/billing/admin/invoices/{id}/mark-paid",
+                post(billing_admin_invoice_paid),
+            )
+            .route(
+                "/v1/billing/admin/invoices/{id}/void",
+                post(billing_admin_invoice_void),
             )
             .fallback(fabric_not_implemented)
             .layer(TimeoutLayer::with_status_code(

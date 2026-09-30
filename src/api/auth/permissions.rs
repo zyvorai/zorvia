@@ -172,6 +172,23 @@ pub fn required_permission(method: &str, path: &str) -> Option<ApiPermission> {
         };
     }
 
+    // Billing records. The local capacity collector reads cluster state, so
+    // it needs cluster.admin; /admin/ routes are the service desk
+    // (users.admin); the rest is org-scoped in the store.
+    if path.starts_with("/v1/billing/capacity/observe") {
+        return Some(ApiPermission::ClusterAdmin);
+    }
+    if path.starts_with("/v1/billing/admin") {
+        return Some(ApiPermission::UsersAdmin);
+    }
+    if path.starts_with("/v1/billing/") {
+        return if method == "GET" || method == "HEAD" {
+            None
+        } else {
+            Some(ApiPermission::VmRead)
+        };
+    }
+
     // Cluster-wide pod inventory, logs and exec are admin-only even on GET
     if path.starts_with("/v1/pods") || path.starts_with("/v1/namespaces") {
         return Some(ApiPermission::ClusterAdmin);
@@ -330,6 +347,23 @@ mod tests {
             Some(ApiPermission::VmRead)
         );
         assert_eq!(required_permission("GET", "/v1/services/engagements"), None);
+    }
+
+    #[test]
+    fn billing_routes_are_gated() {
+        assert_eq!(
+            required_permission("POST", "/v1/billing/capacity/observe"),
+            Some(ApiPermission::ClusterAdmin)
+        );
+        assert_eq!(
+            required_permission("POST", "/v1/billing/admin/invoices/i1/mark-paid"),
+            Some(ApiPermission::UsersAdmin)
+        );
+        assert_eq!(
+            required_permission("GET", "/v1/billing/admin/capacity/observations"),
+            Some(ApiPermission::UsersAdmin)
+        );
+        assert_eq!(required_permission("GET", "/v1/billing/invoices"), None);
     }
 
     #[test]

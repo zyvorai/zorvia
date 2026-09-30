@@ -6,6 +6,8 @@
 //! tables live in their own SQLite file (`ZORVIA_COMMERCIAL_DB`), separate
 //! from VM operational state and from the auth database.
 
+pub mod billing;
+pub mod capacity;
 pub mod catalog;
 pub mod diagnostics;
 pub mod managed;
