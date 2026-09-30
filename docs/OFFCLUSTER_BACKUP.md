@@ -18,6 +18,28 @@ and re-verified, and only then is the manifest published.
 | `ZORVIA_BACKUP_PART_MB`, `_JOB_DEADLINE_SECS` | Multipart size (default 64) and Job deadline (default 6h) |
 | `ZORVIA_BACKUP_AGENT_IMAGE` | Agent image (`deploy/backup-agent.Dockerfile`) |
 
+### Using an Atlas bucket as the target
+
+If you run [Atlas](https://github.com/zyvorai/atlas), point Zorvia at one of its
+buckets instead of typing the endpoint, bucket and Secret yourself:
+
+```
+ATLAS_URL=http://atlas-gateway.zyvor-system:5110      # already needed for the Atlas integration
+ZORVIA_BACKUP_ATLAS_BUCKET=bkt_9624f5a6596f            # id from GET /api/atlas/v1/buckets
+```
+
+Zorvia reads the bucket record from Atlas (it must be `bound`) and takes the
+S3 `endpoint`, `bucket_name`, `region` and credential `secret_ref` from it. Atlas
+buckets are Rook ObjectBucketClaims, so the Secret uses the `AWS_ACCESS_KEY_ID` /
+`AWS_SECRET_ACCESS_KEY` keys; Zorvia defaults to those names in this mode.
+Prefix, encryption, Object Lock and part size still come from the
+`ZORVIA_BACKUP_*` variables above. Atlas's object storage is Ceph RGW (or any
+S3 endpoint you register with it), so this needs a working RGW behind Atlas.
+
+The Secret lives in the bucket's namespace (the OBC namespace, e.g.
+`rook-ceph`), but the Job runs in the VM's namespace, so copy it there (Zorvia
+does not read Secrets).
+
 The credential **Secret must exist in the namespace of every VM you back up**
 (and in the drill namespace). Zorvia deliberately has no cluster-wide Secret
 access; a missing Secret fails the operation immediately with a clear message.

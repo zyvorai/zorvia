@@ -130,7 +130,7 @@ async fn run_backup_op(ctx: OpContext) -> Outcome {
                     // With an S3 target configured the backup continues
                     // off-cluster; otherwise it stays a cluster-local
                     // snapshot (the previous behaviour).
-                    match super::offcluster::OffClusterTarget::from_env() {
+                    match super::offcluster::OffClusterTarget::resolve().await {
                         Err(e) => return Outcome::Failed(format!("off-cluster target: {e}")),
                         Ok(Some(target)) => {
                             return super::offcluster::run(

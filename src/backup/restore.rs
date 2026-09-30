@@ -585,8 +585,8 @@ fn load_source(ctx: &OpContext, p: &RestoreParams) -> std::result::Result<Restor
     source_from_op(&src_op).map_err(|e| Outcome::Failed(e.to_string()))
 }
 
-fn target_config() -> std::result::Result<OffClusterTarget, Outcome> {
-    match OffClusterTarget::from_env() {
+async fn target_config() -> std::result::Result<OffClusterTarget, Outcome> {
+    match OffClusterTarget::resolve().await {
         Ok(Some(t)) => Ok(t),
         Ok(None) => Err(Outcome::Failed(
             "no off-cluster target is configured (ZORVIA_BACKUP_S3_*)".into(),
@@ -607,7 +607,7 @@ async fn restore_op(ctx: &OpContext) -> std::result::Result<Outcome, Outcome> {
     let p: RestoreParams = serde_json::from_value(ctx.op.params.clone())
         .map_err(|e| Outcome::Failed(format!("invalid operation params: {e}")))?;
     let src = load_source(ctx, &p)?;
-    let target = target_config()?;
+    let target = target_config().await?;
     let client = ctx.client.client();
 
     let restored = restore_disks(ctx, &target, &src, &p, (10, 80)).await?;
@@ -682,7 +682,7 @@ async fn drill_op(ctx: &OpContext) -> std::result::Result<Outcome, Outcome> {
     let p: RestoreParams = serde_json::from_value(ctx.op.params.clone())
         .map_err(|e| Outcome::Failed(format!("invalid operation params: {e}")))?;
     let src = load_source(ctx, &p)?;
-    let target = target_config()?;
+    let target = target_config().await?;
     let client = ctx.client.client();
     let ns = p.namespace.as_str();
 
