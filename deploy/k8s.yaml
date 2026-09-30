@@ -96,6 +96,10 @@ rules:
   - apiGroups: ["snapshot.storage.k8s.io"]
     resources: ["volumesnapshotclasses"]
     verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+  # Read-only: Zorvia sizes a backup's temporary claims from each snapshot's restoreSize.
+  - apiGroups: ["snapshot.storage.k8s.io"]
+    resources: ["volumesnapshots"]
+    verbs: ["get", "list", "watch"]
   # Rook-Ceph: manage an existing CephCluster and pools/filesystems/object stores.
   # Operator bootstrap (CRDs, ClusterRoles, Deployments) lives in the optional
   # deploy/rook-bootstrap-rbac.yaml — never grant those to the core API SA.

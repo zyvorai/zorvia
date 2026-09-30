@@ -216,6 +216,51 @@ fn dns_label(s: &str) -> bool {
         && !s.ends_with('-')
 }
 
+/// Bytes in a Kubernetes quantity string: `11811160064`, `11Gi`, `500M`, `1.5Gi`.
+pub fn quantity_bytes(q: &str) -> Option<u64> {
+    let q = q.trim();
+    let split = q
+        .find(|c: char| !(c.is_ascii_digit() || c == '.'))
+        .unwrap_or(q.len());
+    let (num, suffix) = q.split_at(split);
+    let n: f64 = num.parse().ok()?;
+    let mult: f64 = match suffix {
+        "" => 1.0,
+        "k" => 1e3,
+        "M" => 1e6,
+        "G" => 1e9,
+        "T" => 1e12,
+        "P" => 1e15,
+        "E" => 1e18,
+        "Ki" => 1024.0,
+        "Mi" => 1024.0_f64.powi(2),
+        "Gi" => 1024.0_f64.powi(3),
+        "Ti" => 1024.0_f64.powi(4),
+        "Pi" => 1024.0_f64.powi(5),
+        "Ei" => 1024.0_f64.powi(6),
+        _ => return None,
+    };
+    Some((n * mult).ceil() as u64)
+}
+
+/// Raise a claim's storage request to at least the snapshot's restore size. A
+/// claim smaller than the snapshot it restores from is refused by the CSI
+/// provisioner ("requested volume size ... is smaller than ..."), and storage
+/// backends routinely round a snapshot up (seen live: a 10.6 GiB request from
+/// CDI against an 11 GiB Ceph RBD snapshot).
+pub fn ensure_size_at_least(pvc_spec: &mut Value, restore_size: &str) {
+    let Some(want) = quantity_bytes(restore_size) else {
+        return;
+    };
+    let current = pvc_spec
+        .pointer("/resources/requests/storage")
+        .and_then(|v| v.as_str())
+        .and_then(quantity_bytes);
+    if current.is_none_or(|c| c < want) {
+        pvc_spec["resources"]["requests"]["storage"] = json!(restore_size);
+    }
+}
+
 /// Work out which volumes to restore from a VirtualMachineSnapshotContent.
 /// Volumes KubeVirt did not snapshot (no `volumeSnapshotName`) are skipped;
 /// block-mode volumes are rejected (the agent reads disk *files*).
@@ -428,10 +473,36 @@ pub async fn run(
         Ok(c) => c,
         Err(e) => return Outcome::Retry(format!("cannot read snapshot content: {e}")),
     };
-    let restores = match plan_restores(&content.data, &short) {
+    let mut restores = match plan_restores(&content.data, &short) {
         Ok(r) => r,
         Err(e) => return Outcome::Failed(e.to_string()),
     };
+    // Size each temporary claim to at least its snapshot's restore size.
+    let vs_ar = ApiResource::from_gvk(&GroupVersionKind::gvk(
+        "snapshot.storage.k8s.io",
+        "v1",
+        "VolumeSnapshot",
+    ));
+    let volume_snapshots: Api<DynamicObject> =
+        Api::namespaced_with(client.clone(), namespace, &vs_ar);
+    for r in restores.iter_mut() {
+        match volume_snapshots.get(&r.volume_snapshot).await {
+            Ok(vs) => {
+                let size = vs.data.pointer("/status/restoreSize").and_then(|v| {
+                    v.as_str()
+                        .map(String::from)
+                        .or_else(|| v.as_u64().map(|n| n.to_string()))
+                });
+                if let Some(size) = size {
+                    ensure_size_at_least(&mut r.pvc_spec, &size);
+                }
+            }
+            Err(e) => log::warn!(
+                "backup: cannot read VolumeSnapshot {} to size its claim: {e}",
+                r.volume_snapshot
+            ),
+        }
+    }
     if restores.is_empty() {
         return Outcome::Succeeded(Some(json!({
             "snapshot": snapshot_name,
@@ -805,6 +876,37 @@ mod tests {
             b.as_object_mut().unwrap().remove(field);
             assert!(atlas_overlay(&b).is_err(), "missing {field}");
         }
+    }
+
+    #[test]
+    fn parses_kubernetes_quantities() {
+        assert_eq!(quantity_bytes("11811160064"), Some(11_811_160_064));
+        assert_eq!(quantity_bytes("11Gi"), Some(11 * 1024 * 1024 * 1024));
+        assert_eq!(quantity_bytes("500M"), Some(500_000_000));
+        assert_eq!(quantity_bytes("1.5Gi"), Some(1_610_612_736));
+        assert_eq!(quantity_bytes("1Ki"), Some(1024));
+        assert_eq!(quantity_bytes("12Xi"), None);
+        assert_eq!(quantity_bytes(""), None);
+    }
+
+    #[test]
+    fn claims_are_raised_to_the_snapshot_restore_size_but_never_shrunk() {
+        // The live failure: CDI asked for 11381663335 bytes, Ceph's snapshot is 11Gi.
+        let mut spec = json!({"resources": {"requests": {"storage": "11381663335"}}});
+        ensure_size_at_least(&mut spec, "11811160064");
+        assert_eq!(spec["resources"]["requests"]["storage"], "11811160064");
+        // Already large enough: untouched.
+        let mut bigger = json!({"resources": {"requests": {"storage": "20Gi"}}});
+        ensure_size_at_least(&mut bigger, "11Gi");
+        assert_eq!(bigger["resources"]["requests"]["storage"], "20Gi");
+        // No request recorded: take the restore size.
+        let mut none = json!({});
+        ensure_size_at_least(&mut none, "5Gi");
+        assert_eq!(none["resources"]["requests"]["storage"], "5Gi");
+        // Garbage restore size: leave the spec alone.
+        let mut keep = json!({"resources": {"requests": {"storage": "1Gi"}}});
+        ensure_size_at_least(&mut keep, "lots");
+        assert_eq!(keep["resources"]["requests"]["storage"], "1Gi");
     }
 
     #[test]
