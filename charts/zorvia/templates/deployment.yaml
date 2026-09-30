@@ -122,6 +122,13 @@ spec:
               value: /usr/share/zorvia/web
             - name: ZORVIA_AUTH_DB
               value: /data/auth.db
+            - name: ZORVIA_OPS_DB
+              value: /data/ops.db
+            # JSON stores (backup/power schedules, warm pools, alerts, ...) use
+            # the per-user data dir; keep it on the persistent volume so a pod
+            # restart does not discard them.
+            - name: XDG_DATA_HOME
+              value: /data
             - name: ZORVIA_AUDIT_DB
               value: {{ .Values.api.auditDbPath | quote }}
             {{- if .Values.api.auditJsonlPath }}

@@ -123,6 +123,30 @@ impl OperationsDb {
     }
 }
 
+/// Where the operations database lives. `ZORVIA_OPS_DB` wins; otherwise it sits
+/// next to the auth database (like the audit trail), so a deployment that puts
+/// `ZORVIA_AUTH_DB` on a persistent volume keeps operations across restarts;
+/// otherwise the per-user data directory. (Without this, a container restart
+/// silently discarded every operation.)
+pub fn ops_db_path(get: impl Fn(&str) -> Option<String>) -> String {
+    if let Some(p) = get("ZORVIA_OPS_DB").filter(|p| !p.trim().is_empty()) {
+        return p;
+    }
+    if let Some(auth) = get("ZORVIA_AUTH_DB").filter(|p| !p.trim().is_empty()) {
+        if let Some(dir) = std::path::Path::new(&auth).parent() {
+            if dir != std::path::Path::new("") {
+                return dir.join("ops.db").to_string_lossy().to_string();
+            }
+        }
+    }
+    dirs::data_dir()
+        .unwrap_or_else(|| std::path::PathBuf::from("."))
+        .join("zorvia")
+        .join("ops.db")
+        .to_string_lossy()
+        .to_string()
+}
+
 pub struct OperationsDb {
     conn: Mutex<rusqlite::Connection>,
 }
@@ -201,15 +225,7 @@ impl OperationsDb {
     }
 
     pub fn from_env() -> Result<Self> {
-        let path = std::env::var("ZORVIA_OPS_DB").unwrap_or_else(|_| {
-            dirs::data_dir()
-                .unwrap_or_else(|| std::path::PathBuf::from("."))
-                .join("zorvia")
-                .join("ops.db")
-                .to_string_lossy()
-                .to_string()
-        });
-        Self::open(&path)
+        Self::open(&ops_db_path(|k| std::env::var(k).ok()))
     }
 
     fn lock(&self) -> std::sync::MutexGuard<'_, rusqlite::Connection> {
@@ -584,6 +600,32 @@ mod tests {
         assert_eq!(db.requeue_orphan(&op.id).unwrap(), OpState::Queued);
         db.start(&op.id).unwrap(); // attempt 2 of 2
         assert_eq!(db.requeue_orphan(&op.id).unwrap(), OpState::Failed);
+    }
+
+    #[test]
+    fn ops_db_path_prefers_explicit_then_sits_next_to_the_auth_db() {
+        let env = |pairs: &'static [(&'static str, &'static str)]| {
+            move |k: &str| {
+                pairs
+                    .iter()
+                    .find(|(n, _)| *n == k)
+                    .map(|(_, v)| v.to_string())
+            }
+        };
+        assert_eq!(
+            ops_db_path(env(&[
+                ("ZORVIA_OPS_DB", "/x/o.db"),
+                ("ZORVIA_AUTH_DB", "/data/auth.db")
+            ])),
+            "/x/o.db"
+        );
+        assert_eq!(
+            ops_db_path(env(&[("ZORVIA_AUTH_DB", "/data/auth.db")])),
+            "/data/ops.db"
+        );
+        // A bare file name has no directory to reuse: fall back to the data dir.
+        assert!(ops_db_path(env(&[("ZORVIA_AUTH_DB", "auth.db")])).ends_with("zorvia/ops.db"));
+        assert!(ops_db_path(env(&[])).ends_with("zorvia/ops.db"));
     }
 
     #[test]
