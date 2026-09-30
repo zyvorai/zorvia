@@ -4,6 +4,7 @@
 //! VMs can reference the stable DataSource while image promotion moves the alias
 //! to a new immutable PVC/DataVolume revision.
 
+#[cfg(feature = "web")]
 pub mod convert;
 pub mod jobs;
 
