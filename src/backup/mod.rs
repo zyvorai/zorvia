@@ -362,6 +362,8 @@ pub mod crypto;
 #[cfg(any(feature = "web", feature = "backup-agent"))]
 pub mod manifest;
 #[cfg(feature = "web")]
+pub mod offcluster;
+#[cfg(feature = "web")]
 pub mod op;
 pub mod recovery;
 #[cfg(any(feature = "web", feature = "backup-agent"))]

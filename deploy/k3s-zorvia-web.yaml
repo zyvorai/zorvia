@@ -31,6 +31,10 @@ rules:
   - apiGroups: [""]
     resources: ["namespaces", "persistentvolumeclaims", "pods", "events"]
     verbs: ["get", "list", "watch"]
+  # Off-cluster backup: temporary PVCs restored from volume snapshots.
+  - apiGroups: [""]
+    resources: ["persistentvolumeclaims"]
+    verbs: ["create", "delete"]
   # Pods page (cluster.admin only in the API): streaming logs, interactive shell,
   # and delete (also used for "restart" of controller-owned pods).
   - apiGroups: [""]
