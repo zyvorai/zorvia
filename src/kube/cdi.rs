@@ -56,6 +56,12 @@ pub fn data_volume_clone_manifest(spec: &CdiPvcCloneSpec) -> Result<Value> {
             "labels": {
                 "app.kubernetes.io/managed-by": "zorvia",
                 "zorvia.io/clone-source": spec.source_pvc,
+            },
+            // Clone now, don't wait for a consumer (see
+            // golden_images::BIND_IMMEDIATE_ANNOTATION): otherwise a capture
+            // job never completes on a WaitForFirstConsumer StorageClass.
+            "annotations": {
+                "cdi.kubevirt.io/storage.bind.immediate.requested": "true"
             }
         },
         "spec": {
@@ -181,6 +187,15 @@ mod tests {
         assert_eq!(
             dv["spec"]["storage"]["resources"]["requests"]["storage"],
             "40Gi"
+        );
+    }
+
+    #[test]
+    fn clone_manifest_requests_immediate_binding() {
+        let dv = data_volume_clone_manifest(&spec()).unwrap();
+        assert_eq!(
+            dv["metadata"]["annotations"]["cdi.kubevirt.io/storage.bind.immediate.requested"],
+            "true"
         );
     }
 
