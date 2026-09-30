@@ -121,7 +121,20 @@ impl S3Client {
         if rest.is_empty() || rest.contains('/') {
             bail!("endpoint must be scheme://host[:port] without a path");
         }
-        Ok((rest.to_string(), ep.to_string()))
+        // The signed `host` must be exactly what the HTTP client sends. Clients omit the
+        // port from the Host header when it is the scheme's default (80 / 443), so sign
+        // without it: signing `host:80` while sending `host` fails with 403
+        // SignatureDoesNotMatch (seen live against Ceph RGW at `...svc:80`).
+        let default_port = if ep.starts_with("https://") {
+            "443"
+        } else {
+            "80"
+        };
+        let host = match rest.rsplit_once(':') {
+            Some((h, port)) if port == default_port => h,
+            _ => rest,
+        };
+        Ok((host.to_string(), ep.to_string()))
     }
 
     /// Build and sign a request for `key` (relative to the bucket).
@@ -387,6 +400,26 @@ mod tests {
             .headers
             .iter()
             .any(|(k, v)| k == "x-amz-date" && v == "20260930T010203Z"));
+    }
+
+    #[test]
+    fn default_ports_are_not_part_of_the_signed_host() {
+        let host = |endpoint: &str| {
+            let mut c = client();
+            c.cfg.endpoint = endpoint.into();
+            c.host_and_base().unwrap().0
+        };
+        // Default ports are dropped (the HTTP client omits them from Host).
+        assert_eq!(host("http://rgw.rook-ceph.svc:80"), "rgw.rook-ceph.svc");
+        assert_eq!(host("https://s3.example.com:443"), "s3.example.com");
+        // Non-default ports, and a 443 on plain http / 80 on https, are kept.
+        assert_eq!(host("http://minio.local:9000"), "minio.local:9000");
+        assert_eq!(host("http://minio.local:443"), "minio.local:443");
+        assert_eq!(host("https://s3.example.com:80"), "s3.example.com:80");
+        // No port at all, and an IPv6 literal.
+        assert_eq!(host("http://rgw.local"), "rgw.local");
+        assert_eq!(host("http://[::1]"), "[::1]");
+        assert_eq!(host("http://[::1]:80"), "[::1]");
     }
 
     #[test]
