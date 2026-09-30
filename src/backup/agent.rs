@@ -64,6 +64,9 @@ pub struct AgentResult {
     pub encrypted: bool,
     pub locked_until: Option<String>,
     pub verified: bool,
+    /// The VM spec captured in the manifest, so a restore can be planned
+    /// without reading the object store.
+    pub vm_spec: serde_json::Value,
 }
 
 fn dns_label(s: &str) -> bool {
@@ -269,13 +272,16 @@ async fn upload_disk(
     result
 }
 
-/// Read a stored disk object back and check it against its manifest entry:
-/// every part's SHA-256, the object size, and (decrypting when a key is
-/// given) the whole-disk plaintext SHA-256. Reused by restore and drills.
-pub async fn verify_disk(
+/// Stream a stored disk object, verifying it against its manifest entry as it
+/// arrives, and hand each verified plaintext part to `sink` in order. Checks
+/// the object size, every part's SHA-256 (before decrypting or using it), and
+/// finally the whole-disk plaintext SHA-256. Shared by verification, restore
+/// and recovery drills.
+pub async fn stream_disk(
     client: &S3Client,
     disk: &DiskEntry,
     key: Option<&[u8; crypto::KEY_LEN]>,
+    mut sink: impl FnMut(&[u8]) -> Result<()>,
 ) -> Result<()> {
     use sha2::{Digest, Sha256};
 
@@ -297,7 +303,7 @@ pub async fn verify_disk(
     let mut pending: Vec<u8> = Vec::new();
     let mut idx = 0usize;
 
-    let mut check = |part: &[u8], idx: usize| -> Result<()> {
+    let mut handle = |part: &[u8], idx: usize| -> Result<()> {
         let entry = disk
             .parts
             .get(idx)
@@ -305,11 +311,12 @@ pub async fn verify_disk(
         if part.len() as u64 != entry.size || sha256_hex(part) != entry.sha256 {
             bail!("part {} of {} is corrupted", entry.number, disk.object_key);
         }
-        match key {
-            Some(k) => whole.update(crypto::open(k, part)?),
-            None => whole.update(part),
-        }
-        Ok(())
+        let plain: std::borrow::Cow<[u8]> = match key {
+            Some(k) => std::borrow::Cow::Owned(crypto::open(k, part)?),
+            None => std::borrow::Cow::Borrowed(part),
+        };
+        whole.update(&*plain);
+        sink(&plain)
     };
 
     while let Some(chunk) = resp.chunk().await? {
@@ -317,7 +324,7 @@ pub async fn verify_disk(
         while idx < disk.parts.len() && pending.len() as u64 >= disk.parts[idx].size {
             let size = disk.parts[idx].size as usize;
             let part: Vec<u8> = pending.drain(..size).collect();
-            check(&part, idx)?;
+            handle(&part, idx)?;
             idx += 1;
         }
     }
@@ -336,6 +343,15 @@ pub async fn verify_disk(
         bail!("whole-disk checksum mismatch for {}", disk.name);
     }
     Ok(())
+}
+
+/// Verify a stored disk without keeping its contents.
+pub async fn verify_disk(
+    client: &S3Client,
+    disk: &DiskEntry,
+    key: Option<&[u8; crypto::KEY_LEN]>,
+) -> Result<()> {
+    stream_disk(client, disk, key, |_| Ok(())).await
 }
 
 /// Run the backup. `progress(percent, phase)` is called as work advances.
@@ -417,6 +433,148 @@ pub async fn run(
         encrypted: cfg.encryption_key.is_some(),
         locked_until: cfg.lock.as_ref().map(|l| l.retain_until.to_rfc3339()),
         verified: cfg.verify_readback,
+        vm_spec: manifest.vm_spec.clone(),
+    })
+}
+
+#[derive(Debug, Clone, Deserialize)]
+pub struct RestoreDisk {
+    /// Disk name as recorded in the manifest.
+    pub name: String,
+    /// Where to write it (a freshly provisioned, writable PVC mount).
+    pub path: String,
+}
+
+#[derive(Clone)]
+pub struct RestoreConfig {
+    pub s3: S3Config,
+    pub manifest_key: String,
+    pub disks: Vec<RestoreDisk>,
+    pub encryption_key: Option<[u8; crypto::KEY_LEN]>,
+}
+
+#[derive(Debug, Serialize)]
+pub struct RestoreResult {
+    pub backup_id: String,
+    pub restored: Vec<DiskSummary>,
+}
+
+impl RestoreConfig {
+    pub fn from_env(get: impl Fn(&str) -> Option<String>) -> Result<Self> {
+        let req = |k: &str| {
+            get(k)
+                .filter(|v| !v.trim().is_empty())
+                .ok_or_else(|| anyhow!("{k} is not set"))
+        };
+        let opt = |k: &str| get(k).filter(|v| !v.trim().is_empty());
+        let disks: Vec<RestoreDisk> = serde_json::from_str(&req("RESTORE_DISKS")?)
+            .context("RESTORE_DISKS is not valid JSON")?;
+        if disks.is_empty() {
+            bail!("RESTORE_DISKS lists no disks");
+        }
+        for d in &disks {
+            if !dns_label(&d.name) {
+                bail!("invalid disk name '{}'", d.name);
+            }
+            if !d.path.starts_with("/restore/") || d.path.contains("..") {
+                bail!("restore path '{}' must be under /restore/", d.path);
+            }
+        }
+        let manifest_key = req("RESTORE_MANIFEST_KEY")?;
+        if manifest_key.starts_with('/') || manifest_key.contains("..") {
+            bail!("invalid RESTORE_MANIFEST_KEY");
+        }
+        Ok(Self {
+            s3: S3Config {
+                endpoint: req("BACKUP_S3_ENDPOINT")?,
+                region: opt("BACKUP_S3_REGION").unwrap_or_else(|| "us-east-1".into()),
+                bucket: req("BACKUP_S3_BUCKET")?,
+                credentials: Credentials {
+                    access_key: req("AWS_ACCESS_KEY_ID")?,
+                    secret_key: req("AWS_SECRET_ACCESS_KEY")?,
+                    session_token: opt("AWS_SESSION_TOKEN"),
+                },
+                send_checksums: true,
+            },
+            manifest_key,
+            disks,
+            encryption_key: opt("BACKUP_ENCRYPTION_KEY")
+                .map(|k| crypto::parse_key_hex(&k))
+                .transpose()?,
+        })
+    }
+}
+
+/// Restore the requested disks of a backup onto writable paths. Every part is
+/// verified before it is written and the whole-disk checksum is checked at the
+/// end; on any failure the partially written file is removed. Refuses to
+/// overwrite an existing file.
+pub async fn run_restore(
+    cfg: &RestoreConfig,
+    client: &S3Client,
+    progress: &dyn Fn(u8, &str),
+) -> Result<RestoreResult> {
+    use std::io::Write;
+
+    progress(1, "reading manifest");
+    let manifest = BackupManifest::from_json(&client.get_object(&cfg.manifest_key).await?)
+        .context("backup manifest is invalid")?;
+    if manifest.encryption.is_some() && cfg.encryption_key.is_none() {
+        bail!("this backup is encrypted but no BACKUP_ENCRYPTION_KEY was provided");
+    }
+
+    let n = cfg.disks.len() as u64;
+    let mut restored = Vec::new();
+    for (i, want) in cfg.disks.iter().enumerate() {
+        let disk = manifest
+            .disks
+            .iter()
+            .find(|d| d.name == want.name)
+            .ok_or_else(|| anyhow!("backup has no disk named '{}'", want.name))?;
+        progress(
+            (2 + 96 * i as u64 / n) as u8,
+            &format!("restoring {}", disk.name),
+        );
+
+        let mut file = std::fs::OpenOptions::new()
+            .write(true)
+            .create_new(true)
+            .open(&want.path)
+            .with_context(|| format!("create {} (must not already exist)", want.path))?;
+        let mut written = 0u64;
+        let result = stream_disk(client, disk, cfg.encryption_key.as_ref(), |plain| {
+            file.write_all(plain)?;
+            written += plain.len() as u64;
+            Ok(())
+        })
+        .await
+        .and_then(|_| {
+            file.sync_all()?;
+            if written != disk.size_bytes {
+                bail!(
+                    "wrote {written} bytes for '{}', expected {}",
+                    disk.name,
+                    disk.size_bytes
+                );
+            }
+            Ok(())
+        });
+        drop(file);
+        if let Err(e) = result {
+            let _ = std::fs::remove_file(&want.path);
+            return Err(e.context(format!("restoring disk '{}'", disk.name)));
+        }
+        restored.push(DiskSummary {
+            name: disk.name.clone(),
+            size_bytes: disk.size_bytes,
+            stored_bytes: disk.stored_bytes,
+            sha256: disk.sha256.clone(),
+        });
+    }
+    progress(99, "done");
+    Ok(RestoreResult {
+        backup_id: manifest.backup_id,
+        restored,
     })
 }
 
@@ -496,6 +654,47 @@ mod tests {
             "BACKUP_DISKS",
             r#"[{"name":"root","pvc":"p","path":"/disks/../etc/shadow"}]"#
         )]));
+    }
+
+    fn restore_env(extra: &[(&str, &str)]) -> impl Fn(&str) -> Option<String> {
+        let mut m: HashMap<String, String> = [
+            ("BACKUP_S3_ENDPOINT", "http://minio:9000"),
+            ("BACKUP_S3_BUCKET", "vm-backups"),
+            ("AWS_ACCESS_KEY_ID", "AK"),
+            ("AWS_SECRET_ACCESS_KEY", "SK"),
+            ("RESTORE_MANIFEST_KEY", "web-1/op-1/manifest.json"),
+            (
+                "RESTORE_DISKS",
+                r#"[{"name":"rootdisk","path":"/restore/rootdisk/disk.img"}]"#,
+            ),
+        ]
+        .iter()
+        .map(|(k, v)| (k.to_string(), v.to_string()))
+        .collect();
+        for (k, v) in extra {
+            m.insert(k.to_string(), v.to_string());
+        }
+        move |k| m.get(k).cloned()
+    }
+
+    #[test]
+    fn parses_restore_config_and_rejects_bad_paths() {
+        let cfg = RestoreConfig::from_env(restore_env(&[])).unwrap();
+        assert_eq!(cfg.disks[0].path, "/restore/rootdisk/disk.img");
+        assert!(cfg.encryption_key.is_none());
+        let bad = |extra: &[(&str, &str)]| RestoreConfig::from_env(restore_env(extra)).is_err();
+        assert!(bad(&[("RESTORE_MANIFEST_KEY", "../x")]));
+        assert!(bad(&[("RESTORE_MANIFEST_KEY", "/abs")]));
+        assert!(bad(&[("RESTORE_DISKS", "[]")]));
+        assert!(bad(&[(
+            "RESTORE_DISKS",
+            r#"[{"name":"root","path":"/disks/root/disk.img"}]"#
+        )]));
+        assert!(bad(&[(
+            "RESTORE_DISKS",
+            r#"[{"name":"root","path":"/restore/../etc/x"}]"#
+        )]));
+        assert!(bad(&[("BACKUP_ENCRYPTION_KEY", "short")]));
     }
 
     #[tokio::test]

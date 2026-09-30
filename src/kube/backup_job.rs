@@ -20,6 +20,8 @@ use std::collections::BTreeMap;
 
 /// Where each disk's PVC is mounted; the agent reads `<mount>/disk.img`.
 pub const DISKS_ROOT: &str = "/disks";
+/// Where restore Jobs mount the (writable) target PVCs.
+pub const RESTORE_ROOT: &str = "/restore";
 
 pub fn backup_agent_image() -> String {
     std::env::var("ZORVIA_BACKUP_AGENT_IMAGE")
@@ -86,7 +88,35 @@ fn secret_env(name: &str, secret: &str, key: &str) -> EnvVar {
     }
 }
 
+#[derive(Clone, Copy)]
+enum Mode<'a> {
+    Backup,
+    Restore { manifest_key: &'a str },
+}
+
 pub fn build_backup_job(job_name: &str, namespace: &str, spec: &BackupJobSpec) -> Result<Job> {
+    build_job(job_name, namespace, spec, Mode::Backup)
+}
+
+/// Job that reads a backup back onto freshly provisioned PVCs (`spec.disks`
+/// are the *target* PVCs, mounted writable under `/restore/<name>/`).
+pub fn build_restore_job(
+    job_name: &str,
+    namespace: &str,
+    manifest_key: &str,
+    spec: &BackupJobSpec,
+) -> Result<Job> {
+    if manifest_key.is_empty() || manifest_key.starts_with('/') || manifest_key.contains("..") {
+        bail!("invalid manifest key");
+    }
+    build_job(job_name, namespace, spec, Mode::Restore { manifest_key })
+}
+
+fn build_job(job_name: &str, namespace: &str, spec: &BackupJobSpec, mode: Mode) -> Result<Job> {
+    let (root, read_only) = match mode {
+        Mode::Backup => (DISKS_ROOT, true),
+        Mode::Restore { .. } => (RESTORE_ROOT, false),
+    };
     if spec.disks.is_empty() {
         bail!("backup has no disks");
     }
@@ -104,7 +134,7 @@ pub fn build_backup_job(job_name: &str, namespace: &str, spec: &BackupJobSpec) -
                 serde_json::json!({
                     "name": d.name,
                     "pvc": d.pvc,
-                    "path": format!("{DISKS_ROOT}/{}/disk.img", d.name),
+                    "path": format!("{root}/{}/disk.img", d.name),
                 })
             })
             .collect::<Vec<_>>(),
@@ -124,13 +154,31 @@ pub fn build_backup_job(job_name: &str, namespace: &str, spec: &BackupJobSpec) -
         ("BACKUP_VM", spec.vm_name.as_str()),
         ("BACKUP_NAMESPACE", namespace),
         ("BACKUP_SNAPSHOT", spec.snapshot_name.as_str()),
-        ("BACKUP_DISKS", disks_json.as_str()),
+        (
+            match mode {
+                Mode::Backup => "BACKUP_DISKS",
+                Mode::Restore { .. } => "RESTORE_DISKS",
+            },
+            disks_json.as_str(),
+        ),
     ] {
         env.push(EnvVar {
             name: k.to_string(),
             value: Some(v.to_string()),
             ..Default::default()
         });
+    }
+    if let Mode::Restore { manifest_key } = mode {
+        for (k, v) in [
+            ("BACKUP_MODE", "restore"),
+            ("RESTORE_MANIFEST_KEY", manifest_key),
+        ] {
+            env.push(EnvVar {
+                name: k.to_string(),
+                value: Some(v.to_string()),
+                ..Default::default()
+            });
+        }
     }
     env.push(secret_env(
         "AWS_ACCESS_KEY_ID",
@@ -153,7 +201,11 @@ pub fn build_backup_job(job_name: &str, namespace: &str, spec: &BackupJobSpec) -
     let mut labels = BTreeMap::new();
     labels.insert(
         "app.kubernetes.io/name".to_string(),
-        "zorvia-backup".to_string(),
+        match mode {
+            Mode::Backup => "zorvia-backup",
+            Mode::Restore { .. } => "zorvia-restore",
+        }
+        .to_string(),
     );
     labels.insert(
         "app.kubernetes.io/managed-by".to_string(),
@@ -178,7 +230,12 @@ pub fn build_backup_job(job_name: &str, namespace: &str, spec: &BackupJobSpec) -
         spec: Some(JobSpec {
             // The agent aborts its multipart upload on failure and refuses to
             // overwrite an existing backup, so a retry starts clean.
-            backoff_limit: Some(2),
+            // A restore refuses to overwrite files, so a pod-level retry
+            // could never succeed; the operation layer decides on retries.
+            backoff_limit: Some(match mode {
+                Mode::Backup => 2,
+                Mode::Restore { .. } => 0,
+            }),
             ttl_seconds_after_finished: Some(3600),
             active_deadline_seconds: Some(spec.active_deadline_secs),
             template: PodTemplateSpec {
@@ -218,8 +275,8 @@ pub fn build_backup_job(job_name: &str, namespace: &str, spec: &BackupJobSpec) -
                                 .iter()
                                 .map(|d| VolumeMount {
                                     name: format!("disk-{}", d.name),
-                                    mount_path: format!("{DISKS_ROOT}/{}", d.name),
-                                    read_only: Some(true),
+                                    mount_path: format!("{root}/{}", d.name),
+                                    read_only: Some(read_only),
                                     ..Default::default()
                                 })
                                 .collect(),
@@ -233,7 +290,7 @@ pub fn build_backup_job(job_name: &str, namespace: &str, spec: &BackupJobSpec) -
                                 name: format!("disk-{}", d.name),
                                 persistent_volume_claim: Some(PersistentVolumeClaimVolumeSource {
                                     claim_name: d.pvc.clone(),
-                                    read_only: Some(true),
+                                    read_only: Some(read_only),
                                 }),
                                 ..Default::default()
                             })
@@ -355,6 +412,53 @@ mod tests {
         let job = build_backup_job("bk-1", "default", &s).unwrap();
         let env = pod(&job).containers[0].env.as_ref().unwrap();
         assert!(!env.iter().any(|e| e.name == "BACKUP_ENCRYPTION_KEY"));
+    }
+
+    #[test]
+    fn restore_job_mounts_targets_writable_and_selects_restore_mode() {
+        let job =
+            build_restore_job("rs-1", "default", "web-1/op-1/manifest.json", &spec()).unwrap();
+        let c = &pod(&job).containers[0];
+        let mounts = c.volume_mounts.as_ref().unwrap();
+        assert_eq!(mounts[0].mount_path, "/restore/root");
+        assert!(mounts.iter().all(|m| m.read_only == Some(false)));
+        let vols = pod(&job).volumes.as_ref().unwrap();
+        assert_eq!(
+            vols[0].persistent_volume_claim.as_ref().unwrap().read_only,
+            Some(false)
+        );
+        let env = c.env.as_ref().unwrap();
+        let val = |n: &str| {
+            env.iter()
+                .find(|e| e.name == n)
+                .and_then(|e| e.value.clone())
+        };
+        assert_eq!(val("BACKUP_MODE").as_deref(), Some("restore"));
+        assert_eq!(
+            val("RESTORE_MANIFEST_KEY").as_deref(),
+            Some("web-1/op-1/manifest.json")
+        );
+        assert!(val("RESTORE_DISKS")
+            .unwrap()
+            .contains("/restore/root/disk.img"));
+        assert!(val("BACKUP_DISKS").is_none());
+        assert_eq!(job.spec.as_ref().unwrap().backoff_limit, Some(0));
+        // Still no privileges, and credentials still come from the Secret.
+        let sc = c.security_context.as_ref().unwrap();
+        assert_eq!(sc.privileged, Some(false));
+        assert!(env
+            .iter()
+            .find(|e| e.name == "AWS_SECRET_ACCESS_KEY")
+            .unwrap()
+            .value
+            .is_none());
+    }
+
+    #[test]
+    fn restore_job_rejects_bad_manifest_keys() {
+        for k in ["", "/abs", "a/../b"] {
+            assert!(build_restore_job("rs-1", "default", k, &spec()).is_err());
+        }
     }
 
     #[test]
