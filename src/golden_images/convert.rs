@@ -1,16 +1,20 @@
 //! Golden-image capture: clone a VM's persistent disk into a standalone CDI
-//! DataVolume, tracked as a job. The job stays `Running` (with CDI's own
-//! progress) until the DataVolume reports Succeeded; a CDI failure marks it
-//! `Failed` with CDI's reason. Job state is in-memory only, so a restart of
-//! Zorvia loses tracking (durable operations are a follow-up).
+//! DataVolume. Each capture is a durable operation (`operations` module):
+//! the job stays `Running` with CDI's own progress until the DataVolume
+//! reports Succeeded, a CDI failure marks it `Failed` with CDI's reason, and
+//! a restart of Zorvia resumes tracking the existing DataVolume.
 
-use crate::kube::cdi::{data_volume_clone_manifest, CdiPvcCloneSpec};
+use crate::kube::cdi::{
+    data_volume_clone_manifest, data_volume_progress_from_object, CdiPvcCloneSpec, DataVolumeWait,
+};
 use crate::kube::KubeClient;
-use chrono::Utc;
+use crate::operations::runtime::{HandlerFuture, OpContext, Outcome};
+use crate::operations::{NewOperation, OpState, Operation, OperationsDb};
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
-use std::sync::atomic::{AtomicU64, Ordering};
-use std::sync::{Mutex, OnceLock};
+use std::time::Duration;
+
+/// Operation `kind` for golden-image capture.
+pub const OP_KIND: &str = "golden-image-convert";
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
@@ -38,6 +42,7 @@ pub struct ConvertJob {
 pub enum ConvertStartError {
     VmNotFound(String),
     NoPersistentDisk(String),
+    Queue(String),
 }
 
 impl std::fmt::Display for ConvertStartError {
@@ -45,41 +50,73 @@ impl std::fmt::Display for ConvertStartError {
         match self {
             Self::VmNotFound(e) => write!(f, "{e}"),
             Self::NoPersistentDisk(e) => write!(f, "{e}"),
+            Self::Queue(e) => write!(f, "{e}"),
         }
     }
 }
 
-pub struct ConvertRegistry {
-    inner: Mutex<HashMap<String, ConvertJob>>,
+#[derive(Debug, Serialize, Deserialize)]
+struct ConvertParams {
+    namespace: String,
+    source_pvc: String,
+    size: String,
+    target_name: String,
+}
+
+/// View over the durable operations store, keeping the `ConvertJob` shape
+/// the API and frontend already use.
+pub struct ConvertRegistry;
+
+fn job_from_op(op: &Operation) -> ConvertJob {
+    let output_path = op
+        .result
+        .as_ref()
+        .and_then(|r| r.get("output_path"))
+        .and_then(|p| p.as_str())
+        .map(String::from);
+    match op.state {
+        OpState::Queued | OpState::Running => ConvertJob {
+            id: op.id.clone(),
+            status: ConvertStatus::Running,
+            progress: op.progress,
+            error: None,
+            output_path: None,
+        },
+        OpState::Succeeded => ConvertJob {
+            id: op.id.clone(),
+            status: ConvertStatus::Completed,
+            progress: 100,
+            error: None,
+            output_path,
+        },
+        OpState::Failed | OpState::Cancelled => ConvertJob {
+            id: op.id.clone(),
+            status: ConvertStatus::Failed,
+            progress: op.progress,
+            error: Some(op.error.clone().unwrap_or_else(|| "cancelled".into())),
+            output_path: None,
+        },
+    }
 }
 
 impl ConvertRegistry {
     pub fn global() -> &'static Self {
-        static REG: OnceLock<ConvertRegistry> = OnceLock::new();
-        REG.get_or_init(|| ConvertRegistry {
-            inner: Mutex::new(HashMap::new()),
-        })
+        static REG: ConvertRegistry = ConvertRegistry;
+        &REG
     }
 
     pub fn get(&self, id: &str) -> Option<ConvertJob> {
-        self.inner
-            .lock()
-            .unwrap_or_else(|e| e.into_inner())
-            .get(id)
-            .cloned()
+        match OperationsDb::global().get(id) {
+            Ok(Some(op)) if op.kind == OP_KIND => Some(job_from_op(&op)),
+            _ => None,
+        }
     }
 
-    fn upsert(&self, job: ConvertJob) {
-        self.inner
-            .lock()
-            .unwrap_or_else(|e| e.into_inner())
-            .insert(job.id.clone(), job);
-    }
-
-    /// Clone `vm_name`'s persistent disk (PVC- or DataVolume-backed) into a
-    /// standalone CDI DataVolume named after `image_name`. Ephemeral
+    /// Validate `vm_name`'s persistent disk (PVC- or DataVolume-backed) and
+    /// queue a durable operation that clones it into a standalone
+    /// DataVolume named after `image_name`. Ephemeral
     /// `emptyDisk`/`containerDisk`-only VMs have no persistent bytes to
-    /// capture and are rejected before any job is created.
+    /// capture and are rejected before any operation is created.
     pub async fn start(
         &self,
         vm_name: &str,
@@ -140,94 +177,115 @@ impl ConvertRegistry {
             };
 
         let target_name = slug_image_name(image_name);
-        let mut job = ConvertJob {
-            id: new_job_id(),
-            status: ConvertStatus::Running,
-            progress: 0,
-            error: None,
-            output_path: None,
-        };
-        self.upsert(job.clone());
+        let db = OperationsDb::global();
 
-        let clone_spec = CdiPvcCloneSpec {
-            source_namespace: namespace.to_string(),
-            source_pvc,
-            target_namespace: namespace.to_string(),
-            target_name: target_name.clone(),
-            size,
-            storage_class: None,
-        };
-
-        match data_volume_clone_manifest(&clone_spec) {
-            Ok(manifest) => match client.apply_data_volume(namespace, &manifest).await {
-                Ok(_) => {
-                    // Applied is not done: stay Running until CDI reports
-                    // the clone finished (see `track`).
-                    job.progress = 1;
-                    // "datavolume:" tells fabric_create_vm's image parser to
-                    // attach this disk via add_data_volume_disk, same
-                    // convention DownloadRegistry uses for its output_path.
-                    job.output_path = Some(format!("datavolume:{target_name}"));
-                    self.upsert(job.clone());
-                    let (client, ns, id) = (client.clone(), namespace.to_string(), job.id.clone());
-                    tokio::spawn(async move {
-                        Self::global().track(&client, &ns, &target_name, &id).await;
-                    });
-                    return Ok(job);
-                }
-                Err(e) => {
-                    job.status = ConvertStatus::Failed;
-                    job.error = Some(e.to_string());
-                }
-            },
-            Err(e) => {
-                job.status = ConvertStatus::Failed;
-                job.error = Some(e.to_string());
-            }
+        // One capture per target DataVolume at a time: a repeated request
+        // while one is queued/running returns that job instead of racing it.
+        let dup = db.list_active().unwrap_or_default().into_iter().find(|o| {
+            o.kind == OP_KIND
+                && o.namespace == namespace
+                && o.params.get("target_name").and_then(|t| t.as_str())
+                    == Some(target_name.as_str())
+        });
+        if let Some(op) = dup {
+            return Ok(job_from_op(&op));
         }
-        self.upsert(job.clone());
-        Ok(job)
-    }
 
-    /// Follow the clone DataVolume and update the job as CDI progresses;
-    /// `Completed` is only set once CDI reports the clone finished.
-    async fn track(&self, client: &KubeClient, namespace: &str, dv: &str, id: &str) {
-        let timeout = std::env::var("ZORVIA_IMAGE_JOB_TIMEOUT_SECS")
-            .ok()
-            .and_then(|s| s.parse().ok())
-            .unwrap_or(3600);
-        let result = client
-            .track_data_volume(namespace, dv, timeout, |pct| {
-                if let Some(mut job) = self.get(id) {
-                    // Never report 100 until the DataVolume has succeeded.
-                    job.progress = pct.clamp(1, 99);
-                    self.upsert(job);
-                }
-            })
-            .await;
-        if let Some(mut job) = self.get(id) {
-            match result {
-                Ok(()) => {
-                    job.status = ConvertStatus::Completed;
-                    job.progress = 100;
-                }
-                Err(e) => {
-                    job.status = ConvertStatus::Failed;
-                    job.error = Some(e);
-                }
-            }
-            self.upsert(job);
+        let mut new = NewOperation::new(OP_KIND, vm_name, namespace);
+        new.params = serde_json::to_value(ConvertParams {
+            namespace: namespace.to_string(),
+            source_pvc,
+            size,
+            target_name,
+        })
+        .unwrap_or_default();
+        match db.create(new) {
+            Ok((op, _)) => Ok(job_from_op(&op)),
+            Err(e) => Err(ConvertStartError::Queue(format!(
+                "could not queue capture: {e}"
+            ))),
         }
     }
 }
 
-fn new_job_id() -> String {
-    static SEQ: AtomicU64 = AtomicU64::new(1);
-    format!(
-        "cv-{}-{}",
-        Utc::now().timestamp_millis(),
-        SEQ.fetch_add(1, Ordering::Relaxed)
-    )
+/// Handler run by the operations reconciler. Safe to re-run: if the clone
+/// DataVolume already exists (previous attempt, or Zorvia restarted), it
+/// resumes tracking it instead of creating it again.
+pub fn run_op(ctx: OpContext) -> HandlerFuture {
+    Box::pin(run_convert(ctx))
+}
+
+async fn run_convert(ctx: OpContext) -> Outcome {
+    let params: ConvertParams = match serde_json::from_value(ctx.op.params.clone()) {
+        Ok(p) => p,
+        Err(e) => return Outcome::Failed(format!("invalid operation params: {e}")),
+    };
+    let ns = params.namespace.as_str();
+    let dv = params.target_name.as_str();
+
+    ctx.progress("creating-datavolume", 1);
+    let spec = CdiPvcCloneSpec {
+        source_namespace: params.namespace.clone(),
+        source_pvc: params.source_pvc.clone(),
+        target_namespace: params.namespace.clone(),
+        target_name: params.target_name.clone(),
+        size: params.size.clone(),
+        storage_class: None,
+    };
+    let manifest = match data_volume_clone_manifest(&spec) {
+        Ok(m) => m,
+        Err(e) => return Outcome::Failed(e.to_string()),
+    };
+    if let Err(e) = ctx.client.apply_data_volume(ns, &manifest).await {
+        // Already there (resumed attempt) is fine; anything else retries.
+        if ctx.client.get_data_volume(ns, dv).await.is_err() {
+            return Outcome::Retry(format!("failed to create DataVolume: {e}"));
+        }
+    }
+
+    let timeout = Duration::from_secs(
+        std::env::var("ZORVIA_IMAGE_JOB_TIMEOUT_SECS")
+            .ok()
+            .and_then(|s| s.parse().ok())
+            .unwrap_or(3600),
+    );
+    let started = std::time::Instant::now();
+    loop {
+        if ctx.cancelled() {
+            return Outcome::Cancelled;
+        }
+        match ctx.client.get_data_volume(ns, dv).await {
+            Ok(obj) => {
+                let p = data_volume_progress_from_object(&obj);
+                match p.wait {
+                    // "datavolume:" tells fabric_create_vm's image parser to
+                    // attach this disk via add_data_volume_disk.
+                    DataVolumeWait::Ready => {
+                        return Outcome::Succeeded(Some(
+                            serde_json::json!({"output_path": format!("datavolume:{dv}")}),
+                        ))
+                    }
+                    DataVolumeWait::Failed => {
+                        return Outcome::Failed(
+                            p.failure_reason
+                                .unwrap_or_else(|| "DataVolume failed".into()),
+                        )
+                    }
+                    DataVolumeWait::Pending => {
+                        ctx.progress("cloning", p.percent.unwrap_or(1).clamp(1, 99));
+                    }
+                }
+            }
+            Err(e) => log::debug!("golden-image {}: DataVolume {dv}: {e}", ctx.op.id),
+        }
+        if started.elapsed() >= timeout {
+            return Outcome::Failed(format!(
+                "timed out after {}s waiting for DataVolume '{dv}'",
+                timeout.as_secs()
+            ));
+        }
+        tokio::time::sleep(Duration::from_secs(3)).await;
+    }
 }
 
 /// DNS-label-safe DataVolume name derived from the user-supplied image name.
@@ -267,12 +325,43 @@ mod tests {
         assert_eq!(slug_image_name("___"), "golden-image");
     }
 
+    fn op(state: OpState) -> Operation {
+        let db = OperationsDb::open(":memory:").unwrap();
+        let (mut op, _) = db
+            .create(NewOperation::new(OP_KIND, "vm", "default"))
+            .unwrap();
+        op.state = state;
+        op
+    }
+
     #[test]
-    fn job_ids_are_unique_and_prefixed() {
-        let a = new_job_id();
-        let b = new_job_id();
-        assert_ne!(a, b);
-        assert!(a.starts_with("cv-"));
+    fn maps_operation_states_to_job_status() {
+        assert_eq!(
+            job_from_op(&op(OpState::Queued)).status,
+            ConvertStatus::Running
+        );
+        assert_eq!(
+            job_from_op(&op(OpState::Running)).status,
+            ConvertStatus::Running
+        );
+
+        let mut done = op(OpState::Succeeded);
+        done.result = Some(serde_json::json!({"output_path": "datavolume:img"}));
+        let j = job_from_op(&done);
+        assert_eq!(j.status, ConvertStatus::Completed);
+        assert_eq!(j.progress, 100);
+        assert_eq!(j.output_path.as_deref(), Some("datavolume:img"));
+
+        let mut failed = op(OpState::Failed);
+        failed.error = Some("clone pod crashed".into());
+        let j = job_from_op(&failed);
+        assert_eq!(j.status, ConvertStatus::Failed);
+        assert_eq!(j.error.as_deref(), Some("clone pod crashed"));
+
+        assert_eq!(
+            job_from_op(&op(OpState::Cancelled)).error.as_deref(),
+            Some("cancelled")
+        );
     }
 
     #[test]

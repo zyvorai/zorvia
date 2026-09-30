@@ -80,6 +80,13 @@ pub mod web {
     mod disk_network_handlers;
     use disk_network_handlers::*;
 
+    #[path = "operations_handlers.rs"]
+    mod operations_handlers;
+    use operations_handlers::{
+        cancel_operation_handler, get_operation_handler, list_operations_handler,
+        spawn_operations_reconciler,
+    };
+
     #[path = "rescue_handlers.rs"]
     mod rescue_handlers;
     use rescue_handlers::{delete_rescue_job_handler, get_rescue_job_handler, rescue_vm_handler};
@@ -585,6 +592,10 @@ pub mod web {
                 post(fabric_create_image_from_vm),
             )
             .route("/images/convert/{id}", get(fabric_get_convert_job))
+            // Durable operations
+            .route("/operations", get(list_operations_handler))
+            .route("/operations/{id}", get(get_operation_handler))
+            .route("/operations/{id}/cancel", post(cancel_operation_handler))
             // Fabric-compat VM API (unwrapped JSON)
             .route("/vms", get(fabric_list_vms).post(fabric_create_vm))
             .route("/vms/{name}", get(fabric_get_vm).delete(fabric_delete_vm))
@@ -1323,6 +1334,7 @@ pub mod web {
             WebState::new(namespace, rate_limit_per_minute).await?,
         ));
         spawn_leader_election();
+        spawn_operations_reconciler(state.clone());
         spawn_backup_scheduler_loop(state.clone());
         spawn_power_schedule_loop(state.clone());
         spawn_alert_evaluation_loop(state.clone());

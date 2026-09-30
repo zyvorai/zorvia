@@ -16,6 +16,8 @@ use rusqlite::{params, OptionalExtension};
 use serde::{Deserialize, Serialize};
 use std::sync::Mutex;
 
+pub mod runtime;
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
 pub enum OpState {
@@ -104,6 +106,20 @@ impl NewOperation {
             idempotency_key: None,
             owner: None,
         }
+    }
+}
+
+impl OperationsDb {
+    /// Process-wide store. Falls back to an in-memory DB (with a warning)
+    /// if the file cannot be opened, so the server still starts.
+    pub fn global() -> &'static std::sync::Arc<OperationsDb> {
+        static DB: std::sync::OnceLock<std::sync::Arc<OperationsDb>> = std::sync::OnceLock::new();
+        DB.get_or_init(|| {
+            std::sync::Arc::new(Self::from_env().unwrap_or_else(|e| {
+                log::warn!("operations DB unavailable ({e}); using in-memory store");
+                Self::open(":memory:").expect("in-memory sqlite")
+            }))
+        })
     }
 }
 
@@ -378,6 +394,41 @@ impl OperationsDb {
         Ok(())
     }
 
+    /// Heartbeat from the process running an operation, so other replicas
+    /// can tell it apart from one orphaned by a dead leader.
+    pub fn touch(&self, id: &str) -> Result<()> {
+        self.lock().execute(
+            "UPDATE operations SET updated=?2 WHERE id=?1 AND state='running'",
+            params![id, now()],
+        )?;
+        Ok(())
+    }
+
+    /// running -> queued for an operation whose owner stopped heartbeating.
+    /// Does not touch `attempts` (the interrupted attempt already counted);
+    /// fails it instead if that was its last attempt.
+    pub fn requeue_orphan(&self, id: &str) -> Result<OpState> {
+        let conn = self.lock();
+        let ts = now();
+        conn.execute(
+            "UPDATE operations SET state='failed', updated=?2, completed=?2, \
+             error='owner stopped responding; retry limit reached' \
+             WHERE id=?1 AND state='running' AND attempts >= max_attempts",
+            params![id, ts],
+        )?;
+        conn.execute(
+            "UPDATE operations SET state='queued', updated=?2 \
+             WHERE id=?1 AND state='running'",
+            params![id, ts],
+        )?;
+        let state: String = conn.query_row(
+            "SELECT state FROM operations WHERE id=?1",
+            params![id],
+            |r| r.get(0),
+        )?;
+        Ok(OpState::parse(&state))
+    }
+
     /// Startup recovery: anything left `running` by a previous process is
     /// re-queued (its attempt already counted), or failed if it has used all
     /// its attempts or was being cancelled. Returns how many were touched.
@@ -522,6 +573,17 @@ mod tests {
         assert_eq!(db.get(&b.id).unwrap().unwrap().state, OpState::Failed);
         assert_eq!(db.get(&c.id).unwrap().unwrap().state, OpState::Cancelled);
         assert_eq!(db.list_active().unwrap().len(), 1);
+    }
+
+    #[test]
+    fn orphan_requeue_respects_attempt_limit() {
+        let db = db();
+        let (op, _) = db.create(new_op(None)).unwrap();
+        db.start(&op.id).unwrap(); // attempt 1 of 2
+        db.touch(&op.id).unwrap();
+        assert_eq!(db.requeue_orphan(&op.id).unwrap(), OpState::Queued);
+        db.start(&op.id).unwrap(); // attempt 2 of 2
+        assert_eq!(db.requeue_orphan(&op.id).unwrap(), OpState::Failed);
     }
 
     #[test]
