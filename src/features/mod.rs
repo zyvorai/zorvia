@@ -132,9 +132,9 @@ pub const FEATURES: &[Feature] = &[
     },
     Feature {
         id: "s3-immutable-backup",
-        name: "S3 immutable backups",
+        name: "Off-cluster S3 backups (encrypted, Object Lock), restore, recovery drills",
         maturity: Maturity::Experimental,
-        notes: "Phase 5 — plan API at /api/v1/enterprise/s3-backup/plan",
+        notes: "Agent Job uploads checksummed, AES-GCM, Object-Lock copies with read-back verification; restore + drills (docs/OFFCLUSTER_BACKUP.md). Agent verified against a real S3 server; snapshot→Job flow not yet run on a snapshot-capable CSI. Plan API at /api/v1/enterprise/s3-backup/plan",
     },
     Feature {
         id: "cross-cluster-dr",
@@ -146,7 +146,7 @@ pub const FEATURES: &[Feature] = &[
         id: "transiva-migration",
         name: "VMware → KubeVirt via Transiva",
         maturity: Maturity::Experimental,
-        notes: "Phase 5 — plan API at /api/v1/enterprise/transiva/plan",
+        notes: "Plan API only; superseded by vm-import-h2kvm (drives h2kvm directly, no Transiva). Plan API at /api/v1/enterprise/transiva/plan",
     },
     Feature {
         id: "vm-import-h2kvm",

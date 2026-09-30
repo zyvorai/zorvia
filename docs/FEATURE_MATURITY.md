@@ -28,9 +28,9 @@ Levels used by Zorvia (also exposed at `GET /api/v1/features` when the API is ru
 | `ai-troubleshoot` | AI troubleshooting | Model only | Rules demo, not ML RCA |
 | `dr-replication` | DR replication pairs | Model only | In-memory; needs experimental |
 | `incremental-backup` | Incremental backup fields | Model only | Executions still full snapshots |
-| `s3-immutable-backup` | S3 immutable backups | Experimental | Plan API only |
+| `s3-immutable-backup` | Off-cluster S3 backups, restore, recovery drills | Experimental | Agent verified against a real S3 server (checksums, encryption, Object Lock, restore, guards); snapshot→Job flow not yet run on a snapshot-capable CSI; see docs/OFFCLUSTER_BACKUP.md |
 | `cross-cluster-dr` | Cross-cluster DR | Experimental | Plan API only |
-| `transiva-migration` | Transiva migration | Experimental | Plan API only |
+| `transiva-migration` | Transiva migration | Experimental | Plan API only; superseded by `vm-import-h2kvm` |
 | `vm-import-h2kvm` | VMware → KubeVirt import via h2kvm Jobs | Experimental | `POST /api/vm-imports`: preflight, waves, progress, rollback; needs `ZORVIA_H2KVM_IMAGE`; not yet exercised against a real vCenter |
 | `golden-image-pipeline` | Golden-image pipeline | Experimental | Plan + `POST …/golden-pipeline/run` (CDI apply); scan/sign deferred |
 | `gpu-sriov-numa` | GPU/SR-IOV/NUMA | Experimental | Plan API only |

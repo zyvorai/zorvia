@@ -21,6 +21,8 @@ export interface Operation {
   error?: string
   attempts: number
   max_attempts: number
+  /** Restarts/lost owners survived; these do not count against max_attempts. */
+  interruptions: number
   idempotency_key?: string
   owner?: string
   cancel_requested: boolean

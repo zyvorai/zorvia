@@ -4,7 +4,9 @@
 //! in-memory registries and lose all state on restart. `OperationsDb` persists
 //! each operation (state, phase, progress, params, result) in SQLite so a
 //! reconciler can resume it after a restart, honour cancellation, and stop
-//! retrying after `max_attempts`.
+//! retrying after `max_attempts`. A restart of the process is not a failed
+//! attempt: interrupted work is re-queued with its attempt refunded, bounded by
+//! `MAX_INTERRUPTIONS` so an operation that keeps killing the process still ends.
 //!
 //! State machine:
 //! `queued -> running -> succeeded | failed | cancelled`, with
@@ -70,6 +72,9 @@ pub struct Operation {
     pub error: Option<String>,
     pub attempts: u32,
     pub max_attempts: u32,
+    /// Times this operation was interrupted by a restart or lost owner (these
+    /// do not count against `max_attempts`).
+    pub interruptions: u32,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub idempotency_key: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -151,9 +156,13 @@ pub struct OperationsDb {
     conn: Mutex<rusqlite::Connection>,
 }
 
+/// How many times one operation may be interrupted (process restart or lost
+/// owner) before it is failed instead of re-queued.
+pub const MAX_INTERRUPTIONS: u32 = 10;
+
 const COLS: &str = "id, kind, resource, namespace, state, phase, progress, params, result, \
                     error, attempts, max_attempts, idempotency_key, owner, cancel_requested, \
-                    created, updated, completed";
+                    created, updated, completed, interruptions";
 
 fn now() -> String {
     Utc::now().to_rfc3339()
@@ -181,6 +190,7 @@ fn row_to_op(r: &rusqlite::Row<'_>) -> rusqlite::Result<Operation> {
         created: r.get(15)?,
         updated: r.get(16)?,
         completed: r.get(17)?,
+        interruptions: r.get::<_, i64>(18)?.max(0) as u32,
     })
 }
 
@@ -213,12 +223,18 @@ impl OperationsDb {
                 cancel_requested INTEGER NOT NULL DEFAULT 0,
                 created TEXT NOT NULL,
                 updated TEXT NOT NULL,
-                completed TEXT
+                completed TEXT,
+                interruptions INTEGER NOT NULL DEFAULT 0
             );
             CREATE UNIQUE INDEX IF NOT EXISTS idx_operations_idem
                 ON operations(idempotency_key) WHERE idempotency_key IS NOT NULL;
             CREATE INDEX IF NOT EXISTS idx_operations_state ON operations(state);",
         )?;
+        // Added after the table above shipped: existing databases need the
+        // column; a duplicate-column error on new ones is expected and ignored.
+        let _ = conn.execute_batch(
+            "ALTER TABLE operations ADD COLUMN interruptions INTEGER NOT NULL DEFAULT 0;",
+        );
         Ok(Self {
             conn: Mutex::new(conn),
         })
@@ -421,19 +437,20 @@ impl OperationsDb {
     }
 
     /// running -> queued for an operation whose owner stopped heartbeating.
-    /// Does not touch `attempts` (the interrupted attempt already counted);
-    /// fails it instead if that was its last attempt.
+    /// The interrupted attempt is refunded (a lost owner is not a failed
+    /// attempt); after `MAX_INTERRUPTIONS` the operation is failed instead.
     pub fn requeue_orphan(&self, id: &str) -> Result<OpState> {
         let conn = self.lock();
         let ts = now();
         conn.execute(
             "UPDATE operations SET state='failed', updated=?2, completed=?2, \
-             error='owner stopped responding; retry limit reached' \
-             WHERE id=?1 AND state='running' AND attempts >= max_attempts",
-            params![id, ts],
+             error='owner stopped responding too many times' \
+             WHERE id=?1 AND state='running' AND interruptions >= ?3",
+            params![id, ts, MAX_INTERRUPTIONS],
         )?;
         conn.execute(
-            "UPDATE operations SET state='queued', updated=?2 \
+            "UPDATE operations SET state='queued', updated=?2, \
+             attempts=MAX(attempts-1,0), interruptions=interruptions+1 \
              WHERE id=?1 AND state='running'",
             params![id, ts],
         )?;
@@ -446,8 +463,9 @@ impl OperationsDb {
     }
 
     /// Startup recovery: anything left `running` by a previous process is
-    /// re-queued (its attempt already counted), or failed if it has used all
-    /// its attempts or was being cancelled. Returns how many were touched.
+    /// re-queued with its attempt refunded (a restart is not a failure), unless
+    /// it was being cancelled or has been interrupted `MAX_INTERRUPTIONS`
+    /// times already. Returns how many were touched.
     pub fn recover_interrupted(&self) -> Result<usize> {
         let conn = self.lock();
         let ts = now();
@@ -458,12 +476,14 @@ impl OperationsDb {
         )?;
         let failed = conn.execute(
             "UPDATE operations SET state='failed', updated=?1, completed=?1, \
-             error='interrupted by restart; retry limit reached' \
-             WHERE state='running' AND attempts >= max_attempts",
-            params![ts],
+             error='interrupted by restart too many times' \
+             WHERE state='running' AND interruptions >= ?2",
+            params![ts, MAX_INTERRUPTIONS],
         )?;
         let requeued = conn.execute(
-            "UPDATE operations SET state='queued', updated=?1 WHERE state='running'",
+            "UPDATE operations SET state='queued', updated=?1, \
+             attempts=MAX(attempts-1,0), interruptions=interruptions+1 \
+             WHERE state='running'",
             params![ts],
         )?;
         Ok(cancelled + failed + requeued)
@@ -572,33 +592,67 @@ mod tests {
     }
 
     #[test]
-    fn recover_requeues_running_and_fails_exhausted() {
+    fn a_restart_requeues_running_work_without_using_an_attempt() {
         let db = db();
         let (a, _) = db.create(new_op(None)).unwrap();
         db.start(&a.id).unwrap(); // attempts 1 of 2
         let (b, _) = db.create(new_op(None)).unwrap();
         db.start(&b.id).unwrap();
         db.fail(&b.id, "x", true).unwrap();
-        db.start(&b.id).unwrap(); // attempts 2 of 2
+        db.start(&b.id).unwrap(); // attempts 2 of 2: its own failures used the budget
         let (c, _) = db.create(new_op(None)).unwrap();
         db.start(&c.id).unwrap();
         db.request_cancel(&c.id).unwrap();
 
         assert_eq!(db.recover_interrupted().unwrap(), 3);
-        assert_eq!(db.get(&a.id).unwrap().unwrap().state, OpState::Queued);
-        assert_eq!(db.get(&b.id).unwrap().unwrap().state, OpState::Failed);
+        let a = db.get(&a.id).unwrap().unwrap();
+        assert_eq!(
+            (a.state, a.attempts, a.interruptions),
+            (OpState::Queued, 0, 1)
+        );
+        // b was on its last attempt, but the restart is not its failure: it
+        // is re-queued with the attempt refunded.
+        let b = db.get(&b.id).unwrap().unwrap();
+        assert_eq!(
+            (b.state, b.attempts, b.interruptions),
+            (OpState::Queued, 1, 1)
+        );
         assert_eq!(db.get(&c.id).unwrap().unwrap().state, OpState::Cancelled);
-        assert_eq!(db.list_active().unwrap().len(), 1);
+        assert_eq!(db.list_active().unwrap().len(), 2);
     }
 
     #[test]
-    fn orphan_requeue_respects_attempt_limit() {
+    fn many_restarts_never_exhaust_the_retry_budget_but_are_bounded() {
+        let db = db();
+        let (op, _) = db.create(new_op(None)).unwrap(); // max_attempts 2
+        for i in 0..MAX_INTERRUPTIONS {
+            assert!(db.start(&op.id).unwrap());
+            db.recover_interrupted().unwrap();
+            let o = db.get(&op.id).unwrap().unwrap();
+            assert_eq!(o.state, OpState::Queued, "restart {i} must re-queue");
+            assert_eq!(o.attempts, 0, "restart {i} must not consume an attempt");
+        }
+        // One more interruption than the bound: the operation ends.
+        assert!(db.start(&op.id).unwrap());
+        db.recover_interrupted().unwrap();
+        let o = db.get(&op.id).unwrap().unwrap();
+        assert_eq!(o.state, OpState::Failed);
+        assert!(o.error.unwrap().contains("too many times"));
+    }
+
+    #[test]
+    fn orphan_requeue_refunds_the_attempt_and_is_bounded() {
         let db = db();
         let (op, _) = db.create(new_op(None)).unwrap();
-        db.start(&op.id).unwrap(); // attempt 1 of 2
+        db.start(&op.id).unwrap();
         db.touch(&op.id).unwrap();
         assert_eq!(db.requeue_orphan(&op.id).unwrap(), OpState::Queued);
-        db.start(&op.id).unwrap(); // attempt 2 of 2
+        assert_eq!(db.get(&op.id).unwrap().unwrap().attempts, 0);
+        for _ in 1..MAX_INTERRUPTIONS {
+            db.start(&op.id).unwrap();
+            assert_eq!(db.requeue_orphan(&op.id).unwrap(), OpState::Queued);
+        }
+        db.start(&op.id).unwrap();
         assert_eq!(db.requeue_orphan(&op.id).unwrap(), OpState::Failed);
     }
 
