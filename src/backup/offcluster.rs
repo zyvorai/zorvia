@@ -101,6 +101,28 @@ impl OffClusterTarget {
         Self::from_lookup(|k| std::env::var(k).ok())
     }
 
+    /// The configured target. With `ZORVIA_BACKUP_ATLAS_BUCKET` set, the
+    /// endpoint, bucket, region and credential Secret come from that Atlas
+    /// bucket (`ATLAS_URL` must be set); everything else (prefix, encryption,
+    /// Object Lock, part size) still comes from `ZORVIA_BACKUP_*`.
+    pub async fn resolve() -> Result<Option<Self>> {
+        let Some(id) = std::env::var(ATLAS_BUCKET_ENV)
+            .ok()
+            .filter(|v| !v.trim().is_empty())
+        else {
+            return Self::from_env();
+        };
+        let client = crate::atlas::Client::from_env()?.ok_or_else(|| {
+            anyhow!("{ATLAS_BUCKET_ENV} is set but ATLAS_URL is not, so Atlas cannot be reached")
+        })?;
+        let bucket = client
+            .get_bucket(id.trim())
+            .await
+            .map_err(|e| anyhow!("cannot read Atlas bucket '{}': {e}", id.trim()))?;
+        let overlay = atlas_overlay(&bucket)?;
+        Self::from_lookup(|k| overlay.get(k).cloned().or_else(|| std::env::var(k).ok()))
+    }
+
     /// Non-secret `BACKUP_*` env for the agent Job.
     pub fn agent_env(&self) -> Vec<(String, String)> {
         let mut e = vec![
@@ -122,6 +144,58 @@ impl OffClusterTarget {
         }
         e
     }
+}
+
+/// Environment variable naming the Atlas bucket to use as the backup target.
+pub const ATLAS_BUCKET_ENV: &str = "ZORVIA_BACKUP_ATLAS_BUCKET";
+
+/// Turn an Atlas bucket record into the `ZORVIA_BACKUP_*` settings it implies.
+/// Atlas buckets are Rook ObjectBucketClaims, whose credential Secret uses the
+/// `AWS_ACCESS_KEY_ID` / `AWS_SECRET_ACCESS_KEY` keys; explicit
+/// `ZORVIA_BACKUP_S3_*_KEY` settings still win (they are not overridden here).
+pub fn atlas_overlay(bucket: &Value) -> Result<std::collections::HashMap<String, String>> {
+    let text = |k: &str| {
+        bucket
+            .get(k)
+            .and_then(|v| v.as_str())
+            .filter(|v| !v.trim().is_empty())
+    };
+    let id = text("id").unwrap_or("?");
+    if text("state") != Some("bound") {
+        bail!(
+            "Atlas bucket {id} is not bound (state: {}); wait for provisioning to finish",
+            text("state").unwrap_or("unknown")
+        );
+    }
+    let endpoint = text("endpoint").ok_or_else(|| anyhow!("Atlas bucket {id} has no endpoint"))?;
+    let name =
+        text("bucket_name").ok_or_else(|| anyhow!("Atlas bucket {id} has no bucket_name"))?;
+    let secret = text("secret_ref")
+        .ok_or_else(|| anyhow!("Atlas bucket {id} has no secret_ref (credentials Secret)"))?;
+
+    let mut m = std::collections::HashMap::new();
+    m.insert(
+        "ZORVIA_BACKUP_S3_ENDPOINT".to_string(),
+        endpoint.to_string(),
+    );
+    m.insert("ZORVIA_BACKUP_S3_BUCKET".to_string(), name.to_string());
+    m.insert("ZORVIA_BACKUP_S3_SECRET".to_string(), secret.to_string());
+    if let Some(r) = text("region") {
+        m.insert("ZORVIA_BACKUP_S3_REGION".to_string(), r.to_string());
+    }
+    if std::env::var("ZORVIA_BACKUP_S3_ACCESS_KEY_KEY").is_err() {
+        m.insert(
+            "ZORVIA_BACKUP_S3_ACCESS_KEY_KEY".to_string(),
+            "AWS_ACCESS_KEY_ID".to_string(),
+        );
+    }
+    if std::env::var("ZORVIA_BACKUP_S3_SECRET_KEY_KEY").is_err() {
+        m.insert(
+            "ZORVIA_BACKUP_S3_SECRET_KEY_KEY".to_string(),
+            "AWS_SECRET_ACCESS_KEY".to_string(),
+        );
+    }
+    Ok(m)
 }
 
 /// One volume of the snapshot to copy off-cluster.
@@ -696,6 +770,41 @@ mod tests {
         assert!(msg.contains("backup-s3") && msg.contains("Secret"));
         let ok: Pod = serde_json::from_value(json!({"metadata": {}})).unwrap();
         assert!(pod_config_error(&ok).is_none());
+    }
+
+    fn atlas_bucket() -> Value {
+        json!({"id": "bkt_1", "name": "vm-backups", "bucket_name": "vm-backups-63f4",
+               "endpoint": "http://rook-ceph-rgw-store.rook-ceph:80", "region": "us-east-1",
+               "secret_ref": "vm-backups", "namespace": "rook-ceph", "state": "bound"})
+    }
+
+    #[test]
+    fn atlas_bucket_becomes_a_backup_target() {
+        let overlay = atlas_overlay(&atlas_bucket()).unwrap();
+        let get = |k: &str| overlay.get(k).cloned();
+        let t = OffClusterTarget::from_lookup(get).unwrap().unwrap();
+        assert_eq!(t.endpoint, "http://rook-ceph-rgw-store.rook-ceph:80");
+        assert_eq!(t.bucket, "vm-backups-63f4");
+        assert_eq!(t.secret_name, "vm-backups");
+        assert_eq!(t.region, "us-east-1");
+        // Rook OBC credential Secrets use the AWS_* key names.
+        assert_eq!(t.access_key_key, "AWS_ACCESS_KEY_ID");
+        assert_eq!(t.secret_key_key, "AWS_SECRET_ACCESS_KEY");
+    }
+
+    #[test]
+    fn atlas_bucket_must_be_bound_and_complete() {
+        let mut b = atlas_bucket();
+        b["state"] = json!("provisioning");
+        assert!(atlas_overlay(&b)
+            .unwrap_err()
+            .to_string()
+            .contains("not bound"));
+        for field in ["endpoint", "bucket_name", "secret_ref"] {
+            let mut b = atlas_bucket();
+            b.as_object_mut().unwrap().remove(field);
+            assert!(atlas_overlay(&b).is_err(), "missing {field}");
+        }
     }
 
     #[test]
