@@ -11,4 +11,4 @@ RUN chmod 755 /usr/local/bin/zorvia
 ENV ZORVIA_WEB_DIR=/usr/share/zorvia/web
 USER zorvia
 ENTRYPOINT ["/usr/local/bin/zorvia"]
-CMD ["api-serve"]
+CMD ["api", "api-serve"]
