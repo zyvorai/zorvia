@@ -97,7 +97,8 @@ pub mod web {
     #[path = "backup_offcluster_handlers.rs"]
     mod backup_offcluster_handlers;
     use backup_offcluster_handlers::{
-        drill_offcluster_handler, list_offcluster_backups_handler, restore_offcluster_handler,
+        create_offcluster_backup_handler, drill_offcluster_handler,
+        list_offcluster_backups_handler, restore_offcluster_handler,
     };
 
     #[path = "operations_handlers.rs"]
@@ -620,7 +621,10 @@ pub mod web {
             .route("/vm-imports/preflight", post(preflight_import_handler))
             .route("/vm-imports/waves/{wave_id}", get(get_wave_handler))
             // Off-cluster backups: catalog, restore, recovery drills
-            .route("/backups/offcluster", get(list_offcluster_backups_handler))
+            .route(
+                "/backups/offcluster",
+                get(list_offcluster_backups_handler).post(create_offcluster_backup_handler),
+            )
             .route(
                 "/backups/offcluster/{op_id}/restore",
                 post(restore_offcluster_handler),

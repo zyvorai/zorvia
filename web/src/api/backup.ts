@@ -164,6 +164,21 @@ export async function listOffClusterBackups(): Promise<OffClusterBackup[]> {
   return res.backups
 }
 
+export interface CreateOffClusterBackupRequest {
+  vm_name: string
+  /** Defaults to the namespace Zorvia manages. */
+  namespace?: string
+  retention_days?: number
+  description?: string
+}
+
+/** Back a VM up to the configured S3 target now (durable operation: poll `getOperation`). */
+export async function createOffClusterBackup(
+  req: CreateOffClusterBackupRequest,
+): Promise<QueuedOperation> {
+  return apiPost<QueuedOperation>(`${API_BASE}/backups/offcluster`, req)
+}
+
 export async function restoreOffClusterBackup(
   operationId: string,
   req: RestoreOffClusterRequest,
