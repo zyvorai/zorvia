@@ -29,6 +29,10 @@ rules:
   - apiGroups: ["snapshot.kubevirt.io"]
     resources: ["virtualmachinesnapshots", "virtualmachinesnapshotcontents", "virtualmachinerestores"]
     verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+  # Read-only: Zorvia sizes a backup's temporary claims from each snapshot's restoreSize.
+  - apiGroups: ["snapshot.storage.k8s.io"]
+    resources: ["volumesnapshots"]
+    verbs: ["get", "list", "watch"]
   - apiGroups: ["cdi.kubevirt.io"]
     resources: ["datavolumes", "datasources"]
     verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
@@ -131,6 +135,10 @@ rules:
   - apiGroups: ["snapshot.kubevirt.io"]
     resources: ["virtualmachinesnapshots", "virtualmachinesnapshotcontents", "virtualmachinerestores"]
     verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+  # Read-only: Zorvia sizes a backup's temporary claims from each snapshot's restoreSize.
+  - apiGroups: ["snapshot.storage.k8s.io"]
+    resources: ["volumesnapshots"]
+    verbs: ["get", "list", "watch"]
   - apiGroups: ["cdi.kubevirt.io"]
     resources: ["datavolumes", "datasources"]
     verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
