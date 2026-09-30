@@ -20,10 +20,23 @@ pub struct DiskEntry {
     pub name: String,
     pub pvc: String,
     pub object_key: String,
+    /// Size of the disk image itself (plaintext).
     pub size_bytes: u64,
-    /// SHA-256 of the whole disk image (hex).
+    /// Bytes stored in the object store: equals `size_bytes` unless the
+    /// backup is encrypted (each part then carries nonce + tag overhead).
+    pub stored_bytes: u64,
+    /// SHA-256 of the whole plaintext disk image (hex).
     pub sha256: String,
+    /// Parts as stored: `size` and `sha256` describe the stored bytes
+    /// (ciphertext when encrypted).
     pub parts: Vec<PartEntry>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct EncryptionInfo {
+    pub algorithm: String,
+    /// Operator-chosen label for the key (never the key itself).
+    pub key_id: String,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -39,6 +52,8 @@ pub struct BackupManifest {
     /// The VirtualMachine spec at snapshot time, for recreating the VM.
     pub vm_spec: serde_json::Value,
     pub disks: Vec<DiskEntry>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub encryption: Option<EncryptionInfo>,
 }
 
 /// Object key layout: `<prefix>/<vm>/<backup-id>/…`.
@@ -99,11 +114,17 @@ impl BackupManifest {
                 }
                 total += p.size;
             }
-            if total != d.size_bytes {
+            if total != d.stored_bytes {
                 anyhow::bail!(
-                    "disk '{}' parts sum to {total} bytes but size_bytes is {}",
+                    "disk '{}' parts sum to {total} bytes but stored_bytes is {}",
                     d.name,
-                    d.size_bytes
+                    d.stored_bytes
+                );
+            }
+            if self.encryption.is_none() && d.stored_bytes != d.size_bytes {
+                anyhow::bail!(
+                    "disk '{}' is unencrypted but stored != plaintext size",
+                    d.name
                 );
             }
         }
@@ -121,6 +142,7 @@ pub struct DiskDigest {
     whole: Sha256,
     parts: Vec<PartEntry>,
     total: u64,
+    stored: u64,
 }
 
 impl Default for DiskDigest {
@@ -135,20 +157,24 @@ impl DiskDigest {
             whole: Sha256::new(),
             parts: Vec::new(),
             total: 0,
+            stored: 0,
         }
     }
 
-    /// Record the next part (in order) and return its hex digest.
-    pub fn add_part(&mut self, data: &[u8]) -> String {
-        self.whole.update(data);
-        let digest: String = Sha256::digest(data)
+    /// Record the next part (in order). `plain` feeds the whole-disk
+    /// digest; `stored` (the same bytes, or their ciphertext) is what the
+    /// part entry describes. Returns the stored part's hex digest.
+    pub fn add_part(&mut self, plain: &[u8], stored: &[u8]) -> String {
+        self.whole.update(plain);
+        let digest: String = Sha256::digest(stored)
             .iter()
             .map(|b| format!("{b:02x}"))
             .collect();
-        self.total += data.len() as u64;
+        self.total += plain.len() as u64;
+        self.stored += stored.len() as u64;
         self.parts.push(PartEntry {
             number: self.parts.len() as u32 + 1,
-            size: data.len() as u64,
+            size: stored.len() as u64,
             sha256: digest.clone(),
         });
         digest
@@ -166,6 +192,7 @@ impl DiskDigest {
             pvc: pvc.to_string(),
             object_key: object_key.to_string(),
             size_bytes: self.total,
+            stored_bytes: self.stored,
             sha256,
             parts: self.parts,
         }
@@ -187,13 +214,14 @@ mod tests {
             snapshot_name: "backup-web-1-abc".into(),
             vm_spec: serde_json::json!({"spec": {}}),
             disks: vec![disk],
+            encryption: None,
         }
     }
 
     fn sample_disk() -> DiskEntry {
         let mut d = DiskDigest::new();
-        d.add_part(b"hello ");
-        d.add_part(b"world");
+        d.add_part(b"hello ", b"hello ");
+        d.add_part(b"world", b"world");
         d.finish("root", "web-1-root", "web-1/bk-1/disks/root.raw")
     }
 
@@ -220,7 +248,7 @@ mod tests {
     #[test]
     fn rejects_inconsistent_manifests() {
         let mut bad_size = sample_disk();
-        bad_size.size_bytes += 1;
+        bad_size.stored_bytes += 1;
         assert!(manifest(bad_size).validate().is_err());
 
         let mut bad_number = sample_disk();
@@ -238,6 +266,25 @@ mod tests {
         let mut wrong_version = manifest(sample_disk());
         wrong_version.version = 99;
         assert!(BackupManifest::from_json(&wrong_version.to_json().unwrap()).is_err());
+    }
+
+    #[test]
+    fn encrypted_disks_may_store_more_than_they_hold() {
+        let mut d = DiskDigest::new();
+        d.add_part(b"plain", b"plain+28bytes-of-overhead....");
+        let disk = d.finish("root", "pvc", "k");
+        assert_eq!(disk.size_bytes, 5);
+        assert_eq!(disk.stored_bytes, 29);
+        let mut m = manifest(disk);
+        assert!(
+            m.validate().is_err(),
+            "unencrypted must have stored == size"
+        );
+        m.encryption = Some(EncryptionInfo {
+            algorithm: "AES-256-GCM".into(),
+            key_id: "k1".into(),
+        });
+        assert!(m.validate().is_ok());
     }
 
     #[test]

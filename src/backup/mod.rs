@@ -355,12 +355,16 @@ pub enum VerificationStatus {
     Skipped,
 }
 
-#[cfg(feature = "web")]
+#[cfg(any(feature = "web", feature = "backup-agent"))]
+pub mod agent;
+#[cfg(any(feature = "web", feature = "backup-agent"))]
+pub mod crypto;
+#[cfg(any(feature = "web", feature = "backup-agent"))]
 pub mod manifest;
 #[cfg(feature = "web")]
 pub mod op;
 pub mod recovery;
-#[cfg(feature = "web")]
+#[cfg(any(feature = "web", feature = "backup-agent"))]
 pub mod s3;
 pub mod schedule;
 pub mod verify;

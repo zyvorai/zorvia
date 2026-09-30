@@ -25,6 +25,13 @@ name = "rescue-agent"
 path = "src/bin/rescue_agent.rs"
 required-features = ["rescue-agent"]
 
+# Runs inside a Kubernetes Job pod to stream VM disks to S3-compatible
+# storage (checksummed, optionally encrypted, Object Lock aware).
+[[bin]]
+name = "backup-agent"
+path = "src/bin/backup_agent.rs"
+required-features = ["backup-agent"]
+
 [lib]
 name = "zorvia"
 path = "src/lib.rs"
@@ -68,6 +75,7 @@ jsonwebtoken = { version = "11.1", optional = true, default-features = false, fe
 bcrypt = { version = "0.19", optional = true }
 rusqlite = { version = "0.40", features = ["bundled"], optional = true }
 uuid = { version = "1", features = ["v4"], optional = true }
+aes-gcm = { version = "0.11", optional = true }
 chrono-tz = { version = "0.10", optional = true }
 totp-rs = { version = "6.0", features = ["gen_secret", "otpauth"], optional = true }
 base64 = { version = "0.23", optional = true }
@@ -102,7 +110,7 @@ web = [
   "dep:jsonwebtoken", "dep:bcrypt", "dep:rusqlite", "dep:uuid",
   "dep:totp-rs", "dep:base64", "dep:sha2", "dep:subtle", "dep:urlencoding",
   "dep:futures-util", "dep:tokio-tungstenite", "dep:native-tls", "dep:openssl",
-  "dep:reqwest", "dep:pty-process", "dep:chrono-tz",
+  "dep:reqwest", "dep:pty-process", "dep:chrono-tz", "dep:aes-gcm",
 ]
 # PAM host auth (Linux): enable with --features pam and system libpam-dev
 pam = []
@@ -110,6 +118,9 @@ pam = []
 # enabled for the main server build -- only the rescue-agent container image
 # build passes this.
 rescue-agent = ["dep:guestkit"]
+# Builds the `backup-agent` binary (off-cluster backup Job entrypoint). Not
+# part of the server build; only the backup-agent image build enables it.
+backup-agent = ["dep:reqwest", "dep:sha2", "dep:base64", "dep:aes-gcm"]
 
 [dev-dependencies]
 tempfile = "3.27"

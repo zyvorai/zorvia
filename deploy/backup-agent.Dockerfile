@@ -1,0 +1,27 @@
+# Off-cluster backup Job entrypoint image. The agent only reads disk images
+# from read-only PVC mounts and talks HTTPS to the object store, so it needs no
+# privileges and no extra packages beyond CA certificates.
+FROM rust:1.98-slim-bookworm@sha256:dacc9e51f252243eb59d2fb4cb4ad8b0d3f607b6a82c398cf8a321e59ff778a7 AS builder
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    build-essential \
+    pkg-config \
+    && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /build
+COPY Cargo.toml Cargo.lock ./
+COPY src/ src/
+RUN cargo build --release --locked --no-default-features --features backup-agent --bin backup-agent \
+    && strip target/release/backup-agent
+
+FROM debian:bookworm-slim@sha256:f3034a6ec3c1205360777c4aae76234998866ad18806ae62b63a3f84ccad782b
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    ca-certificates \
+    && rm -rf /var/lib/apt/lists/*
+
+COPY --from=builder /build/target/release/backup-agent /usr/local/bin/backup-agent
+
+# UID 107 owns CDI-provisioned disk images (qemu); the Job also sets it.
+USER 107
+ENTRYPOINT ["backup-agent"]
