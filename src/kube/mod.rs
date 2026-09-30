@@ -1,3 +1,4 @@
+pub mod backup_job;
 pub mod catalog;
 pub mod cdi;
 pub mod converter;
@@ -6,7 +7,6 @@ pub mod guest_metrics;
 pub mod guest_ready;
 pub mod lifecycle;
 pub mod prom;
-pub mod backup_job;
 pub mod rescue;
 pub mod ssh;
 pub mod status;
