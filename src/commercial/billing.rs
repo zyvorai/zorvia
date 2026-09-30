@@ -524,6 +524,7 @@ impl CommercialStore {
             contract_id: contract.id,
             reference_time: reference,
             stale_after_days: stale_days,
+            clusters,
             over_allowance: billable.zip(allowance).map(|(b, a)| b > a),
             billable_worker_nodes: billable,
             complete,
