@@ -294,7 +294,7 @@ fn is_conflict(e: &kube::Error) -> bool {
     matches!(e, kube::Error::Api(ae) if ae.code == 409)
 }
 
-async fn cleanup(
+pub(crate) async fn cleanup(
     client: &kube::Client,
     namespace: &str,
     job_name: &str,
@@ -386,15 +386,34 @@ pub async fn run(
     }
 
     // 3. Start the agent Job (a Job left by a previous attempt is reused).
-    let vm_spec = match ctx.client.get_vm(namespace, vm_name).await {
+    // The raw object, not Zorvia's typed VirtualMachine model: that model
+    // covers only part of the spec and would silently drop fields
+    // (dataVolumeTemplates, firmware, ...) that a restore needs.
+    let vm_ar = ApiResource::from_gvk(&GroupVersionKind::gvk(
+        "kubevirt.io",
+        "v1",
+        "VirtualMachine",
+    ));
+    let vms: Api<DynamicObject> = Api::namespaced_with(client.clone(), namespace, &vm_ar);
+    let vm_spec = match vms.get(vm_name).await {
         Ok(vm) => {
-            let mut v = serde_json::to_value(&vm).unwrap_or(Value::Null);
-            if let Some(o) = v.as_object_mut() {
-                o.remove("status");
+            let mut v = json!({
+                "apiVersion": "kubevirt.io/v1",
+                "kind": "VirtualMachine",
+                "metadata": {
+                    "name": vm.metadata.name,
+                    "labels": vm.metadata.labels,
+                },
+            });
+            if let Some(spec) = vm.data.get("spec") {
+                v["spec"] = spec.clone();
             }
             v
         }
-        Err(_) => Value::Null,
+        Err(e) => {
+            cleanup(&client, namespace, &job_name, &restores).await;
+            return Outcome::Retry(format!("cannot read VM {vm_name}: {e}"));
+        }
     };
     let mut env = target.agent_env();
     env.push(("BACKUP_VM_SPEC".into(), vm_spec.to_string()));
@@ -436,12 +455,55 @@ pub async fn run(
     }
 
     // 4. Follow it.
+    let followed = follow_job(
+        ctx,
+        &client,
+        namespace,
+        &job_name,
+        target.active_deadline_secs,
+        10,
+        89,
+    )
+    .await;
+    cleanup(&client, namespace, &job_name, &restores).await;
+    match followed {
+        Followed::Done(r) => Outcome::Succeeded(Some(json!({
+            "snapshot": snapshot_name,
+            "vm_name": vm_name,
+            "offcluster": r,
+        }))),
+        Followed::Failed(e) => Outcome::Failed(e),
+        Followed::Cancelled => Outcome::Cancelled,
+    }
+}
+
+/// How a followed agent Job ended.
+pub(crate) enum Followed {
+    /// The agent's final result line (its `success` is true).
+    Done(Value),
+    Failed(String),
+    Cancelled,
+}
+
+/// Poll an agent Job until it ends: maps the agent's progress lines onto
+/// `base..base+span` percent of the operation, stops early if the pod cannot
+/// start (missing credential Secret) or the operation is cancelled.
+pub(crate) async fn follow_job(
+    ctx: &OpContext,
+    client: &kube::Client,
+    namespace: &str,
+    job_name: &str,
+    deadline_secs: i64,
+    base: u32,
+    span: u32,
+) -> Followed {
+    let jobs: Api<Job> = Api::namespaced(client.clone(), namespace);
     let pods: Api<Pod> = Api::namespaced(client.clone(), namespace);
     let started = std::time::Instant::now();
-    let give_up = Duration::from_secs(target.active_deadline_secs.max(60) as u64 + 300);
-    let outcome = loop {
+    let give_up = Duration::from_secs(deadline_secs.max(60) as u64 + 300);
+    loop {
         if ctx.cancelled() {
-            break Outcome::Cancelled;
+            return Followed::Cancelled;
         }
         let pod_list = pods
             .list(&ListParams::default().labels(&format!("job-name={job_name}")))
@@ -449,7 +511,7 @@ pub async fn run(
             .map(|l| l.items)
             .unwrap_or_default();
         if let Some(msg) = pod_list.iter().find_map(pod_config_error) {
-            break Outcome::Failed(msg);
+            return Followed::Failed(msg);
         }
         let mut logs = String::new();
         if let Some(name) = pod_list.first().and_then(|p| p.metadata.name.clone()) {
@@ -458,42 +520,30 @@ pub async fn run(
                 ..Default::default()
             };
             logs = pods.logs(&name, &lp).await.unwrap_or_default();
-            let out = parse_agent_logs(&logs);
-            if let Some((pct, phase)) = out.progress {
-                ctx.progress(&phase, (10 + pct as u32 * 89 / 100).min(99) as u8);
+            if let Some((pct, phase)) = parse_agent_logs(&logs).progress {
+                ctx.progress(&phase, (base + pct as u32 * span / 100).min(99) as u8);
             }
         }
-        match jobs.get(&job_name).await.map(|j| job_state(&j)) {
+        match jobs.get(job_name).await.map(|j| job_state(&j)) {
             Ok(JobState::Succeeded) => {
-                break match parse_agent_logs(&logs).result {
-                    Some(r) if r.get("success") == Some(&json!(true)) => {
-                        Outcome::Succeeded(Some(json!({
-                            "snapshot": snapshot_name,
-                            "vm_name": vm_name,
-                            "offcluster": r,
-                        })))
-                    }
-                    _ => Outcome::Failed(
-                        "backup Job finished but reported no successful result".into(),
-                    ),
+                return match parse_agent_logs(&logs).result {
+                    Some(r) if r.get("success") == Some(&json!(true)) => Followed::Done(r),
+                    _ => Followed::Failed("Job finished but reported no successful result".into()),
                 };
             }
             Ok(JobState::Failed(why)) => {
                 let detail = parse_agent_logs(&logs)
                     .result
                     .and_then(|r| r.get("error").and_then(|e| e.as_str()).map(String::from));
-                break Outcome::Failed(detail.unwrap_or(why));
+                return Followed::Failed(detail.unwrap_or(why));
             }
             Ok(JobState::Running) | Err(_) => {}
         }
         if started.elapsed() >= give_up {
-            break Outcome::Failed("timed out waiting for the backup Job".into());
+            return Followed::Failed("timed out waiting for the Job".into());
         }
         tokio::time::sleep(Duration::from_secs(5)).await;
-    };
-
-    cleanup(&client, namespace, &job_name, &restores).await;
-    outcome
+    }
 }
 
 /// Where the agent expects each disk (re-exported for docs/tests).

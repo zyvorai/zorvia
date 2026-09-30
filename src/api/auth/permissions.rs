@@ -106,6 +106,12 @@ pub fn required_permission(method: &str, path: &str) -> Option<ApiPermission> {
         return Some(ApiPermission::ClusterAdmin);
     }
 
+    // Off-cluster backup catalog, restore and drills: object keys and the
+    // saved VM specs are sensitive, and restore creates VMs and volumes.
+    if path == "/backups/offcluster" || path.starts_with("/backups/offcluster/") {
+        return Some(ApiPermission::ClusterAdmin);
+    }
+
     // Auth self-service (any authenticated user)
     if path.starts_with("/v1/auth/") {
         return None;
@@ -299,6 +305,17 @@ pub fn required_permission(method: &str, path: &str) -> Option<ApiPermission> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn offcluster_backup_routes_are_cluster_admin_for_every_method() {
+        for (m, p) in [
+            ("GET", "/backups/offcluster"),
+            ("POST", "/backups/offcluster/op-1/restore"),
+            ("POST", "/backups/offcluster/op-1/drill"),
+        ] {
+            assert_eq!(required_permission(m, p), Some(ApiPermission::ClusterAdmin));
+        }
+    }
 
     #[test]
     fn operations_routes_are_cluster_admin_for_every_method() {

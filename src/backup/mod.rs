@@ -366,6 +366,10 @@ pub mod offcluster;
 #[cfg(feature = "web")]
 pub mod op;
 pub mod recovery;
+#[cfg(feature = "web")]
+pub mod restore;
+#[cfg(feature = "web")]
+pub mod retention;
 #[cfg(any(feature = "web", feature = "backup-agent"))]
 pub mod s3;
 pub mod schedule;

@@ -88,6 +88,12 @@ pub mod web {
     mod disk_network_handlers;
     use disk_network_handlers::*;
 
+    #[path = "backup_offcluster_handlers.rs"]
+    mod backup_offcluster_handlers;
+    use backup_offcluster_handlers::{
+        drill_offcluster_handler, list_offcluster_backups_handler, restore_offcluster_handler,
+    };
+
     #[path = "operations_handlers.rs"]
     mod operations_handlers;
     use operations_handlers::{
@@ -600,6 +606,16 @@ pub mod web {
                 post(fabric_create_image_from_vm),
             )
             .route("/images/convert/{id}", get(fabric_get_convert_job))
+            // Off-cluster backups: catalog, restore, recovery drills
+            .route("/backups/offcluster", get(list_offcluster_backups_handler))
+            .route(
+                "/backups/offcluster/{op_id}/restore",
+                post(restore_offcluster_handler),
+            )
+            .route(
+                "/backups/offcluster/{op_id}/drill",
+                post(drill_offcluster_handler),
+            )
             // Durable operations
             .route("/operations", get(list_operations_handler))
             .route("/operations/{id}", get(get_operation_handler))
