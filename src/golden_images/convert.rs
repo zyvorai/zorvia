@@ -1,9 +1,8 @@
 //! Golden-image capture: clone a VM's persistent disk into a standalone CDI
-//! DataVolume, tracked as an async-shaped job (same synchronous
-//! apply-then-report convention as `jobs::DownloadRegistry` -- no real
-//! Kubernetes Job/Pod orchestration exists in this codebase, so completion
-//! is reported as soon as the clone DataVolume is applied, not once CDI's
-//! own import/clone actually finishes).
+//! DataVolume, tracked as a job. The job stays `Running` (with CDI's own
+//! progress) until the DataVolume reports Succeeded; a CDI failure marks it
+//! `Failed` with CDI's reason. Job state is in-memory only, so a restart of
+//! Zorvia loses tracking (durable operations are a follow-up).
 
 use crate::kube::cdi::{data_volume_clone_manifest, CdiPvcCloneSpec};
 use crate::kube::KubeClient;
@@ -162,12 +161,19 @@ impl ConvertRegistry {
         match data_volume_clone_manifest(&clone_spec) {
             Ok(manifest) => match client.apply_data_volume(namespace, &manifest).await {
                 Ok(_) => {
-                    job.status = ConvertStatus::Completed;
-                    job.progress = 100;
+                    // Applied is not done: stay Running until CDI reports
+                    // the clone finished (see `track`).
+                    job.progress = 1;
                     // "datavolume:" tells fabric_create_vm's image parser to
                     // attach this disk via add_data_volume_disk, same
                     // convention DownloadRegistry uses for its output_path.
                     job.output_path = Some(format!("datavolume:{target_name}"));
+                    self.upsert(job.clone());
+                    let (client, ns, id) = (client.clone(), namespace.to_string(), job.id.clone());
+                    tokio::spawn(async move {
+                        Self::global().track(&client, &ns, &target_name, &id).await;
+                    });
+                    return Ok(job);
                 }
                 Err(e) => {
                     job.status = ConvertStatus::Failed;
@@ -181,6 +187,37 @@ impl ConvertRegistry {
         }
         self.upsert(job.clone());
         Ok(job)
+    }
+
+    /// Follow the clone DataVolume and update the job as CDI progresses;
+    /// `Completed` is only set once CDI reports the clone finished.
+    async fn track(&self, client: &KubeClient, namespace: &str, dv: &str, id: &str) {
+        let timeout = std::env::var("ZORVIA_IMAGE_JOB_TIMEOUT_SECS")
+            .ok()
+            .and_then(|s| s.parse().ok())
+            .unwrap_or(3600);
+        let result = client
+            .track_data_volume(namespace, dv, timeout, |pct| {
+                if let Some(mut job) = self.get(id) {
+                    // Never report 100 until the DataVolume has succeeded.
+                    job.progress = pct.clamp(1, 99);
+                    self.upsert(job);
+                }
+            })
+            .await;
+        if let Some(mut job) = self.get(id) {
+            match result {
+                Ok(()) => {
+                    job.status = ConvertStatus::Completed;
+                    job.progress = 100;
+                }
+                Err(e) => {
+                    job.status = ConvertStatus::Failed;
+                    job.error = Some(e);
+                }
+            }
+            self.upsert(job);
+        }
     }
 }
 

@@ -112,12 +112,20 @@ impl DownloadRegistry {
                     .await
                 {
                     Ok(_) => {
-                        job.state = DownloadState::Completed;
                         // "datavolume:" tells fabric_create_vm's image parser
                         // to attach this disk via add_data_volume_disk rather
                         // than treating it as an OCI containerdisk reference.
                         job.output_path = Some(format!("datavolume:{}", bundle.versioned_name));
                         job.data_volume = Some(bundle.data_volume);
+                        // Applied is not imported: stay Building until CDI
+                        // reports the DataVolume finished (see `track`).
+                        self.upsert(job.clone());
+                        let (client, ns) = (client.clone(), namespace.to_string());
+                        let (dv, id) = (bundle.versioned_name.clone(), id.clone());
+                        tokio::spawn(async move {
+                            Self::global().track(&client, &ns, &dv, &id).await;
+                        });
+                        return Ok(job);
                     }
                     Err(e) => {
                         job.state = DownloadState::Failed;
@@ -137,6 +145,30 @@ impl DownloadRegistry {
         job.completed = Some(Utc::now().to_rfc3339());
         self.upsert(job.clone());
         Ok(job)
+    }
+}
+
+impl DownloadRegistry {
+    /// Follow the import DataVolume; `Completed` only once CDI says so.
+    async fn track(&self, client: &crate::kube::KubeClient, namespace: &str, dv: &str, id: &str) {
+        let timeout = std::env::var("ZORVIA_IMAGE_JOB_TIMEOUT_SECS")
+            .ok()
+            .and_then(|s| s.parse().ok())
+            .unwrap_or(3600);
+        let result = client
+            .track_data_volume(namespace, dv, timeout, |_| {})
+            .await;
+        if let Some(mut job) = self.get(id) {
+            match result {
+                Ok(()) => job.state = DownloadState::Completed,
+                Err(e) => {
+                    job.state = DownloadState::Failed;
+                    job.error = Some(e);
+                }
+            }
+            job.completed = Some(Utc::now().to_rfc3339());
+            self.upsert(job);
+        }
     }
 }
 
