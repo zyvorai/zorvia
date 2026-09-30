@@ -18,6 +18,11 @@ Start here: root [README.md](../README.md) (hero, gallery, quick start) · live 
 | [roadmap.md](roadmap.md) | Feature maturity and what is not shipped yet |
 | [leave-openshift.md](leave-openshift.md) | Zorvia vs OpenShift Virtualization vs Zorvia with commercial support, honestly |
 | [adopt-existing-kubevirt-cluster.md](adopt-existing-kubevirt-cluster.md) | Point Zorvia at an existing KubeVirt cluster, read-only first |
+| [PRICING.md](PRICING.md) | Proposed (unapproved) pricing, billing rules and examples |
+| [SUPPORT_SCOPE.md](SUPPORT_SCOPE.md) | What paid support covers and excludes |
+| [COMMERCIAL_FAQ.md](COMMERCIAL_FAQ.md) | Licensing, contracts and expiry questions |
+| [OPENSHIFT_COMPARISON.md](OPENSHIFT_COMPARISON.md) | How to compare against OpenShift Virtualization Engine |
+| [COMMERCIAL_OFFERINGS.md](COMMERCIAL_OFFERINGS.md) | Offerings, quote → contract flow and API |
 
 ## Core
 
