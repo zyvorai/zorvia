@@ -108,6 +108,12 @@ api:
   leaderElectionLease: zorvia-schedulers
   jwtTtlMinutes: "60"
 
+# Atlas storage control plane (docs/ATLAS_INTEGRATION.md). Empty url = integration off.
+atlas:
+  url: ""              # e.g. http://atlas-gateway.zyvor-system.svc:5110
+  tokenSecret: ""      # Secret holding an Atlas service-account JWT (operator or admin role)
+  tokenSecretKey: token
+
 kryton:
   existingSecret: ""
   # Keys: url, token, project (optional)

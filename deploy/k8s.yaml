@@ -255,6 +255,17 @@ spec:
             # restart does not discard them.
             - name: XDG_DATA_HOME
               value: /data
+            # Atlas storage integration (docs/ATLAS_INTEGRATION.md). Set ATLAS_URL to enable
+            # (empty = off); the service-account token comes from an optional Secret with key
+            # `token` (kubectl -n zorvia-system create secret generic zorvia-atlas --from-literal=token=...).
+            - name: ATLAS_URL
+              value: ""
+            - name: ATLAS_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: zorvia-atlas
+                  key: token
+                  optional: true
             - name: ZORVIA_LEADER_ELECTION
               value: "1"
             - name: ZORVIA_LEADER_LEASE

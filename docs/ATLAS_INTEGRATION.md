@@ -38,6 +38,25 @@ Set these on the Zorvia API process:
 | `ATLAS_TIMEOUT_SECS` | no | Upstream HTTP timeout, default 30 |
 | `ATLAS_TLS_INSECURE` | no | `true` only for explicitly trusted labs using self-signed TLS |
 
+### Connecting a cluster
+
+The deployment manifests and Helm chart already carry the wiring; you only supply the URL and a token.
+
+1. Mint a service-account token from Atlas (admin credential required; shown here with Atlas's
+   bootstrap admin token, which never has to leave the cluster):
+   ```bash
+   curl -X POST http://<atlas>:5110/api/atlas/v1/auth/tokens \
+     -H "Authorization: Bearer $ATLAS_ADMIN_TOKEN" -H 'content-type: application/json' \
+     -d '{"subject":"zorvia","role":"operator","ttl_secs":7776000}'   # 90 days is the maximum
+   ```
+   Use `admin` instead of `operator` only if Zorvia should be allowed to delete volumes.
+2. Store it: `kubectl -n zorvia-system create secret generic zorvia-atlas --from-literal=token=<jwt>`.
+3. Enable it: raw manifests read `ATLAS_URL` (empty = off) and the optional `zorvia-atlas` Secret;
+   with Helm set `atlas.url` and `atlas.tokenSecret`. Tokens expire, so re-mint before `ttl_secs` runs out.
+
+Atlas buckets can also be the target for off-cluster VM backups: set `ZORVIA_BACKUP_ATLAS_BUCKET`
+(see `docs/OFFCLUSTER_BACKUP.md`).
+
 If `ATLAS_URL` is absent, Zorvia starts normally and the integration reports `enabled=false`. `GET /health` and `GET /version` on the Atlas gateway are unauthenticated; every other route (everything under `/api/atlas/v1/...`) requires the bearer token.
 
 ## Zorvia endpoints
