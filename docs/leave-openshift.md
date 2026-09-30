@@ -33,7 +33,7 @@ ZeusOS is a separate Zyvor product. It is proprietary (not open source) and is n
 | SSO | Built-in OAuth server | OIDC (`oidc`, Beta) | Same as Zorvia |
 | Drift detection and change-plan gating | No | Yes (`zorvia change drift` / `zorvia change plan`) | Same as Zorvia |
 | Runs on any KubeVirt cluster | No, OpenShift only | Yes | Same as Zorvia |
-| Licence cost | Red Hat subscription | $0 | Commercial licence |
+| Software cost | Red Hat subscription | $0 (Apache-2.0) | $0 for the software; a paid service contract for support ([proposed pricing](PRICING.md), not yet approved) |
 | Vendor support contract | Yes (Red Hat) | No, community | Yes (production support and SLAs) |
 | Multi-cluster management | Yes (Advanced Cluster Management) | Experimental (`fleet-multicluster`, inventory stub) | Ask sales |
 | VM migration from VMware | Yes (Migration Toolkit for Virtualization) | Zorvia's own importer is Experimental (`transiva-migration`, plan only); use the Zyvor suite, Transiva then h2kvm then GuestKit (separate tools) | Migration Factory (Transiva, h2kvm); ask sales |
@@ -72,6 +72,14 @@ Your `VirtualMachine`, `DataVolume` and `PersistentVolumeClaim` objects stay as 
 ## Cost
 
 Red Hat does not publish a list price for OpenShift Virtualization. It states that OpenShift Virtualization Engine is licensed per bare-metal node ([Red Hat](https://www.redhat.com/en/technologies/cloud-computing/openshift/virtualization-engine)). Put your own quote against the licence line above. A calculator that takes your figure, and assumes none, is planned.
+
+## Scope of this comparison and who is responsible for what
+
+This page compares control planes over the same KubeVirt objects. It is not a like-for-like price or support comparison; use a customer-specific quote for that ([OPENSHIFT_COMPARISON.md](OPENSHIFT_COMPARISON.md)).
+
+- Zorvia runs on **KubeVirt infrastructure you operate**. Unless a Managed contract says otherwise, you own Kubernetes, KubeVirt, storage, networking, hardware and guest operations. Commercial support gives diagnostic guidance for those, not ownership ([SUPPORT_SCOPE.md](SUPPORT_SCOPE.md)).
+- OpenShift bundles a supported platform stack; Zorvia does not replace that stack, and does not claim equivalent certification or support coverage.
+- Commercial support is a paid service contract around the Apache-2.0 software, not a software licence. Nothing in the product enforces it.
 
 ## Talk to us
 

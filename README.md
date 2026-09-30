@@ -167,10 +167,12 @@ OpenShift Virtualization runs KubeVirt, so your VMs are already `VirtualMachine`
 
 ## Production support and services
 
-Everything in this repository stays Apache-2.0 and works without a subscription. Commercial contracts add support coverage and services (deployment, migration, training, managed operations) around it. A contract records what was purchased. It never stops VMs, disables APIs or blocks access to your data.
+Everything in this repository stays Apache-2.0, free for commercial use, and works without a subscription. Paid service contracts add support coverage and services (deployment, migration, training, managed operations) around it. They are not a software licence. A contract records what was purchased. It never stops VMs, disables APIs or blocks access to your data.
 
 | Topic | Doc |
 |---|---|
+| Proposed pricing (unapproved), billing rules, examples | [docs/PRICING.md](docs/PRICING.md) · [docs/COMMERCIAL_FAQ.md](docs/COMMERCIAL_FAQ.md) |
+| Positioning against OpenShift Virtualization Engine | [docs/OPENSHIFT_COMPARISON.md](docs/OPENSHIFT_COMPARISON.md) |
 | Offerings, quote → contract flow, API and maturity | [docs/COMMERCIAL_OFFERINGS.md](docs/COMMERCIAL_OFFERINGS.md) |
 | What support covers, response targets and timers | [docs/SUPPORT_SCOPE.md](docs/SUPPORT_SCOPE.md) |
 | Managed operations, access and remediation rules | [docs/MANAGED_OPERATIONS.md](docs/MANAGED_OPERATIONS.md) |
