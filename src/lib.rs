@@ -39,6 +39,8 @@ pub mod config;
 pub mod kryton;
 pub mod kube;
 pub mod network;
+#[cfg(feature = "web")]
+pub mod operations;
 pub mod output;
 pub mod storage;
 pub mod templates;
