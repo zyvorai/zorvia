@@ -16,10 +16,10 @@ use serde_json::json;
 
 type Auth = Option<axum::Extension<crate::api::auth::AuthIdentity>>;
 
-fn caller_of(auth: &Auth) -> Result<Caller, Response> {
+fn caller_of(auth: &Auth) -> Result<Caller, Box<Response>> {
     let Some(axum::Extension(id)) = auth else {
         let (st, j) = err_json(401, "UNAUTHORIZED", "Authentication required");
-        return Err((st, j).into_response());
+        return Err(Box::new((st, j).into_response()));
     };
     Ok(Caller {
         username: id.username.clone().unwrap_or_else(|| "api-token".into()),
@@ -27,7 +27,7 @@ fn caller_of(auth: &Auth) -> Result<Caller, Response> {
     })
 }
 
-fn store() -> Result<std::sync::Arc<crate::commercial::CommercialStore>, Response> {
+fn store() -> Result<std::sync::Arc<crate::commercial::CommercialStore>, Box<Response>> {
     crate::commercial::store().map_err(|e| {
         log::error!("{e}");
         let (st, j) = err_json(
@@ -35,7 +35,7 @@ fn store() -> Result<std::sync::Arc<crate::commercial::CommercialStore>, Respons
             "COMMERCIAL_UNAVAILABLE",
             "Commercial records are unavailable on this server",
         );
-        (st, j).into_response()
+        Box::new((st, j).into_response())
     })
 }
 
@@ -60,13 +60,13 @@ fn with<T: Serialize>(
 ) -> Response {
     let caller = match caller_of(auth) {
         Ok(c) => c,
-        Err(r) => return r,
+        Err(r) => return *r,
     };
     let store = match store() {
         Ok(s) => s,
-        Err(r) => return r,
+        Err(r) => return *r,
     };
-    match f(&*store, &caller) {
+    match f(&store, &caller) {
         Ok(v) => (status, Json(v)).into_response(),
         Err(e) => fail(e),
     }
