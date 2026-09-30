@@ -1766,17 +1766,16 @@ mod tests {
             assert!(!remote_management_enabled());
         }
     }
-}
 
-#[cfg(test)]
-impl CommercialStore {
-    fn get_enrollment_with_gate(
-        &self,
-        caller: &Caller,
-        id: &str,
-        gate: bool,
-    ) -> Result<Enrollment> {
-        let conn = self.lock()?;
-        self.visible_enrollment(&conn, caller, id, gate)
+    impl CommercialStore {
+        pub(super) fn get_enrollment_with_gate(
+            &self,
+            caller: &Caller,
+            id: &str,
+            gate: bool,
+        ) -> Result<Enrollment> {
+            let conn = self.lock()?;
+            self.visible_enrollment(&conn, caller, id, gate)
+        }
     }
 }
