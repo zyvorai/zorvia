@@ -292,9 +292,12 @@ fn test_network_types_conversion() {
 #[test]
 fn test_all_templates_valid() {
     let template_names = TEMPLATES.list();
+    // The catalog only offers images that exist on quay.io/containerdisks (the
+    // refresh removed EOL releases and the rockylinux/alpine templates, which
+    // have no published image), so this is a sanity floor, not a target.
     assert!(
-        template_names.len() >= 40,
-        "Expected at least 40 templates, got {}",
+        template_names.len() >= 30,
+        "Expected at least 30 templates, got {}",
         template_names.len()
     );
 
@@ -351,6 +354,23 @@ fn test_template_families() {
 }
 
 // ========== PROFILE TESTS ==========
+
+#[test]
+fn test_profile_recommended_os_are_real_templates() {
+    // Guards against removing a template while a built-in profile still
+    // recommends it (the catalog refresh once dropped alpine/rocky this way).
+    let manager = PROFILES.read().expect("profiles lock");
+    for profile in manager.list() {
+        for os in &profile.recommended_os {
+            assert!(
+                TEMPLATES.exists(os),
+                "profile '{}' recommends template '{}' which doesn't exist",
+                profile.name,
+                os
+            );
+        }
+    }
+}
 
 #[test]
 fn test_builtin_profiles_exist() {
@@ -1439,17 +1459,17 @@ fn test_bridge_network_kubevirt_conversion() {
 fn test_template_catalog_production_surface() {
     let names = TEMPLATES.list();
     assert!(
-        names.len() >= 40,
+        names.len() >= 30,
         "expected the advertised template catalog, got {}",
         names.len()
     );
     for required in [
         "ubuntu-22.04",
         "ubuntu-24.04",
-        "fedora-41",
+        "fedora-44",
         "debian-12",
         "almalinux-9",
-        "rocky-9",
+        "almalinux-10",
         "windows-11",
         "talos",
     ] {

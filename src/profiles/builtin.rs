@@ -26,7 +26,7 @@ pub fn builtin_profiles() -> HashMap<String, Profile> {
             ],
             recommended_os: vec![
                 "ubuntu".to_string(),
-                "alpine".to_string(),
+                "fedora".to_string(),
                 "debian".to_string(),
             ],
         },
@@ -51,7 +51,7 @@ pub fn builtin_profiles() -> HashMap<String, Profile> {
             recommended_os: vec![
                 "ubuntu".to_string(),
                 "almalinux".to_string(),
-                "rocky".to_string(),
+                "centos".to_string(),
             ],
         },
     );
@@ -75,7 +75,7 @@ pub fn builtin_profiles() -> HashMap<String, Profile> {
             recommended_os: vec![
                 "ubuntu-22.04".to_string(),
                 "almalinux".to_string(),
-                "rocky".to_string(),
+                "centos".to_string(),
                 "debian".to_string(),
             ],
         },
@@ -101,7 +101,7 @@ pub fn builtin_profiles() -> HashMap<String, Profile> {
             recommended_os: vec![
                 "ubuntu-24.04".to_string(),
                 "almalinux".to_string(),
-                "rocky".to_string(),
+                "centos".to_string(),
             ],
         },
     );
@@ -125,7 +125,7 @@ pub fn builtin_profiles() -> HashMap<String, Profile> {
             ],
             recommended_os: vec![
                 "flatcar".to_string(),
-                "alpine".to_string(),
+                "debian".to_string(),
                 "ubuntu".to_string(),
             ],
         },
@@ -177,7 +177,7 @@ pub fn builtin_profiles() -> HashMap<String, Profile> {
             ],
             recommended_os: vec![
                 "ubuntu".to_string(),
-                "alpine".to_string(),
+                "almalinux".to_string(),
                 "debian".to_string(),
             ],
         },
@@ -200,7 +200,7 @@ pub fn builtin_profiles() -> HashMap<String, Profile> {
                 "Monitoring agent".to_string(),
                 "Log collector".to_string(),
             ],
-            recommended_os: vec!["alpine".to_string()],
+            recommended_os: vec!["debian".to_string()],
         },
     );
 
