@@ -10,6 +10,7 @@ Zorvia is Apache-2.0 and every existing capability works without a subscription.
 |---|---|---|
 | Community | Software, documentation, community issues | Free |
 | Supported | Technical assistance, upgrade guidance, agreed response times | Annual contract |
+| Supported Plus | Supported plus 24x7 response for Severity 1 and 2, priority handling, quarterly health reviews, planned upgrade assistance | Annual contract |
 | Managed | Supported plus agreed monitoring, maintenance, upgrades, recovery testing | Monthly or annual contract |
 | Deployment | Installation, integrations, configuration, acceptance testing | One-time project |
 | Migration | Assessment, execution, guest validation, handover | Scoped project |
@@ -40,6 +41,13 @@ Customers are organizations with named members (usernames). Non-administrators s
 | `GET /api/v1/commercial/contracts`, `/{id}`, `/{id}/history` | Signed in, own organizations |
 | `POST /api/v1/commercial/contracts/{id}/accept` | Member of the contract's organization |
 | `GET /api/v1/commercial/coverage[?cluster=]` | Signed in, own organizations |
+| `GET/POST /api/v1/support/cases`, `GET /api/v1/support/cases/{id}` | Signed in, own organizations |
+| `POST /api/v1/support/cases/{id}/messages` (text plus base64 attachments) | Signed in, own organizations; `internal` notes support desk only |
+| `POST /api/v1/support/cases/{id}/status`, `/escalate` | Signed in, own organizations (customers may only close or reopen a resolved case) |
+| `GET /api/v1/support/cases/{id}/attachments/{aid}` | Signed in, own organizations; always an opaque download |
+| `POST /api/v1/support/diagnostics` | `cluster.admin`; preview by default, `{"preview": false}` downloads. Never uploads |
+| `POST /api/v1/support/cases/{id}/diagnostics/upload` | `cluster.admin` and case access; needs `{"confirm": true}` |
+| `POST /api/v1/support/admin/cases/{id}/assign` | `users.admin` (support desk) |
 | `/api/v1/commercial/admin/*` | `users.admin` only: organizations and members, quote generation, entitlement edits, transitions, payment status, offline import |
 
 An unconfigured integration shows as unavailable in the catalog response (`integrations.*.available = false`).
@@ -62,10 +70,24 @@ An unconfigured integration shows as unavailable in the catalog response (`integ
 | Area | Status |
 |---|---|
 | Catalog, quote requests, contracts, coverage, offline import | **Beta** (records only) |
-| Support cases and diagnostic exports | Not implemented |
+| Support cases, timers, diagnostic bundles | **Beta** (single-instance; see below) |
 | Service engagements, managed-operation records | Not implemented |
 | Capacity reconciliation, invoice records | Not implemented |
 | Payment provider integration | Not implemented; waits on provider and terms |
 | Notifications | Not implemented; requests are recorded only |
 
 Existing experimental migration APIs remain experimental (see [FEATURE_MATURITY.md](FEATURE_MATURITY.md)).
+
+## Support cases and timers
+
+Entitlements carry the machine-readable terms cases are measured against: `response_target_minutes` and `resolution_estimate_minutes` (keyed `sev1`..`sev4`, in *coverage minutes*), `always_on_severities` (24x7 severities such as `sev1`, `sev2` for Supported Plus), `holidays` (`YYYY-MM-DD`), `coverage_hours` and an IANA `timezone` (validated against the bundled tz database).
+
+- A case snapshots the contract's coverage when it is created. Later contract edits do not move an open case's targets. A cluster with no active coverage still gets a case, recorded without response commitments.
+- The **first-response clock** counts only covered time, skips holidays, is DST-correct, and stops at the first customer-visible reply from the support desk. Internal notes and customer-initiated uploads do not stop it.
+- The **resolution estimate** is never a commitment. It pauses while a case is `waiting_on_customer` and resumes from the covered time that remained. A case cannot enter `waiting_on_customer` before the desk has responded.
+- States: `open → triaged → investigating ⇄ waiting_on_customer → resolved → closed`. Customers can close a resolved case or reopen it; the desk can reopen a closed one. Owner assignment and every escalation are recorded in the case timeline.
+- Attachments: base64 in the message, at most 5 per message and `ZORVIA_SUPPORT_ATTACHMENT_MAX_BYTES` each (default 5 MiB, capped at 6 MiB). Filenames are sanitized, downloads are always `application/octet-stream` with `nosniff`. Bytes older than `ZORVIA_SUPPORT_ATTACHMENT_RETENTION_DAYS` (default 90) are purged; their metadata stays.
+
+**Who is "support"?** A caller with `users.admin` acts as the support desk on this instance. The case portal lives in your own Zorvia instance's database, so a remote vendor support team needs a `users.admin` account on it, or the customer relays. Central multi-tenant case handling is not built.
+
+Migration `v2` adds the support tables; rollback is the same restore-from-backup procedure as above.

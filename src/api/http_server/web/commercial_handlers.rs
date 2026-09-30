@@ -14,9 +14,9 @@ use axum::extract::Json as AxumJson;
 use axum::response::Response;
 use serde_json::json;
 
-type Auth = Option<axum::Extension<crate::api::auth::AuthIdentity>>;
+pub(super) type Auth = Option<axum::Extension<crate::api::auth::AuthIdentity>>;
 
-fn caller_of(auth: &Auth) -> Result<Caller, Box<Response>> {
+pub(super) fn caller_of(auth: &Auth) -> Result<Caller, Box<Response>> {
     let Some(axum::Extension(id)) = auth else {
         let (st, j) = err_json(401, "UNAUTHORIZED", "Authentication required");
         return Err(Box::new((st, j).into_response()));
@@ -27,7 +27,7 @@ fn caller_of(auth: &Auth) -> Result<Caller, Box<Response>> {
     })
 }
 
-fn store() -> Result<std::sync::Arc<crate::commercial::CommercialStore>, Box<Response>> {
+pub(super) fn store() -> Result<std::sync::Arc<crate::commercial::CommercialStore>, Box<Response>> {
     crate::commercial::store().map_err(|e| {
         log::error!("{e}");
         let (st, j) = err_json(
@@ -39,11 +39,12 @@ fn store() -> Result<std::sync::Arc<crate::commercial::CommercialStore>, Box<Res
     })
 }
 
-fn fail(e: CommercialError) -> Response {
+pub(super) fn fail(e: CommercialError) -> Response {
     let (st, j) = match e {
         CommercialError::NotFound => err_json(404, "NOT_FOUND", "Not found"),
         CommercialError::Invalid(m) => err_json(400, "INVALID_REQUEST", &m),
         CommercialError::Conflict(m) => err_json(409, "CONFLICT", &m),
+        CommercialError::Forbidden(m) => err_json(403, "FORBIDDEN", &m),
         CommercialError::Internal(e) => {
             log::error!("commercial store error: {e:#}");
             err_json(500, "INTERNAL", "Internal error")
@@ -53,7 +54,7 @@ fn fail(e: CommercialError) -> Response {
 }
 
 /// Run `f` with the store and caller; map every failure to a response.
-fn with<T: Serialize>(
+pub(super) fn with<T: Serialize>(
     auth: &Auth,
     status: StatusCode,
     f: impl FnOnce(&crate::commercial::CommercialStore, &Caller) -> Result<T, CommercialError>,

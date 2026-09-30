@@ -76,6 +76,43 @@ pub static OFFERINGS: &[Offering] = &[
         maturity: "Beta",
     },
     Offering {
+        id: "supported_plus",
+        name: "Supported Plus",
+        summary: "Supported plus 24x7 response for Severity 1 and 2, priority handling, quarterly health reviews and planned upgrade assistance.",
+        billing_model: "Annual contract",
+        requestable: true,
+        grants_coverage: true,
+        included_scope: &[
+            "Everything in Supported",
+            "24x7 response for Severity 1 and 2",
+            "Priority handling",
+            "Quarterly health reviews",
+            "Planned Zorvia upgrade assistance",
+        ],
+        prerequisites: &[
+            "A supported Kubernetes and KubeVirt version",
+            "Named authorized support contacts, including an out-of-hours contact",
+        ],
+        support_hours: "24x7 for Severity 1 and 2; business hours for Severity 3 and 4",
+        customer_responsibilities: &[
+            "Operate the covered clusters",
+            "Provide diagnostics when requested",
+            "Keep authorized contacts reachable out of hours",
+        ],
+        zyvor_responsibilities: &[
+            "Respond within the agreed targets",
+            "Run quarterly health reviews",
+            "Assist with planned Zorvia upgrades",
+        ],
+        exclusions: &[
+            "Remote access to customer clusters",
+            "Third-party software not shipped by Zyvor",
+            "Resolution deadlines",
+        ],
+        required_integrations: &[],
+        maturity: "Beta",
+    },
+    Offering {
         id: "managed",
         name: "Managed",
         summary: "Supported plus agreed monitoring, maintenance, upgrades and recovery testing.",

@@ -49,6 +49,10 @@ pub mod web {
     mod commercial_handlers;
     use commercial_handlers::*;
 
+    #[path = "support_handlers.rs"]
+    mod support_handlers;
+    use support_handlers::*;
+
     #[path = "ws_proxy_handlers.rs"]
     mod ws_proxy_handlers;
     use ws_proxy_handlers::{ws_console, ws_ssh, ws_vnc};
@@ -1239,6 +1243,35 @@ pub mod web {
             .route(
                 "/v1/commercial/admin/contracts/{id}/payment-status",
                 post(commercial_admin_payment_status),
+            )
+            // Support cases and diagnostics (org-scoped in the store; see
+            // permissions.rs for the cluster.admin / users.admin gates).
+            .route(
+                "/v1/support/cases",
+                get(support_cases_list).post(support_case_create),
+            )
+            .route("/v1/support/cases/{id}", get(support_case_get))
+            .route(
+                "/v1/support/cases/{id}/messages",
+                post(support_case_message),
+            )
+            .route("/v1/support/cases/{id}/status", post(support_case_status))
+            .route(
+                "/v1/support/cases/{id}/escalate",
+                post(support_case_escalate),
+            )
+            .route(
+                "/v1/support/cases/{id}/attachments/{aid}",
+                get(support_attachment_download),
+            )
+            .route(
+                "/v1/support/cases/{id}/diagnostics/upload",
+                post(support_diagnostics_upload),
+            )
+            .route("/v1/support/diagnostics", post(support_diagnostics))
+            .route(
+                "/v1/support/admin/cases/{id}/assign",
+                post(support_case_assign),
             )
             .fallback(fabric_not_implemented)
             .layer(TimeoutLayer::with_status_code(
