@@ -1,0 +1,30 @@
+//! Commercial workflows: service catalog, quote requests, contracts and
+//! coverage. Records purchased services and support entitlements only.
+//!
+//! Nothing here gates VM functionality: an expired or missing contract
+//! changes *commercial service eligibility* and nothing else. Commercial
+//! tables live in their own SQLite file (`ZORVIA_COMMERCIAL_DB`), separate
+//! from VM operational state and from the auth database.
+
+pub mod catalog;
+pub mod model;
+pub mod store;
+
+pub use model::*;
+pub use store::CommercialStore;
+
+use std::sync::{Arc, OnceLock};
+
+static STORE: OnceLock<Result<Arc<CommercialStore>, String>> = OnceLock::new();
+
+/// Process-wide store, opened on first use. An open failure is remembered
+/// and surfaced as "unavailable" rather than taking the server down.
+pub fn store() -> Result<Arc<CommercialStore>, String> {
+    STORE
+        .get_or_init(|| {
+            CommercialStore::from_env()
+                .map(Arc::new)
+                .map_err(|e| format!("commercial store unavailable: {e:#}"))
+        })
+        .clone()
+}

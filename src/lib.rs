@@ -32,6 +32,8 @@
 #[cfg(feature = "web")]
 pub mod atlas;
 pub mod cli;
+#[cfg(feature = "web")]
+pub mod commercial;
 pub mod config;
 #[cfg(feature = "web")]
 pub mod kryton;

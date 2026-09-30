@@ -155,6 +155,12 @@ pub const FEATURES: &[Feature] = &[
         notes: "Plan + POST /api/v1/enterprise/golden-pipeline/run applies CDI DV/DS; scan/sign deferred",
     },
     Feature {
+        id: "commercial-contracts",
+        name: "Commercial catalog, quote requests, contracts and coverage",
+        maturity: Maturity::Beta,
+        notes: "Records only, single-instance SQLite (ZORVIA_COMMERCIAL_DB); no notifications, payments or remote access; expiry never affects VMs — docs/COMMERCIAL_OFFERINGS.md",
+    },
+    Feature {
         id: "gpu-sriov-numa",
         name: "GPU/SR-IOV/NUMA placement",
         maturity: Maturity::Experimental,
