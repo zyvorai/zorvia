@@ -14,7 +14,7 @@ An expired or missing contract never stops VMs or disables existing community fu
 |---|---:|---|---|
 | Community | Free | n/a | Software, documentation, community support |
 | Supported | ₹30,000 per worker node; ₹1.5 lakh annual minimum | Per year | Business-hours Zorvia troubleshooting and upgrade guidance |
-| Supported Plus | ₹60,000 per worker node; ₹4 lakh annual minimum | Per year | Supported, plus priority handling, quarterly health reviews, planned Zorvia upgrade assistance |
+| Supported Plus | ₹60,000 per worker node; ₹4 lakh annual minimum | Per year | Supported, plus 24×7 response for Severity 1 and 2, priority handling, quarterly health reviews, planned Zorvia upgrade assistance |
 | Managed | From ₹50,000 per cluster | Per month | Support, monitoring, maintenance and operational tasks defined in the contract |
 | Deployment | ₹1–3 lakh per project | One-time | Installation, agreed integrations, validation, handover |
 | Migration | From ₹2 lakh per project | Per project | Assessment, pilot, migration waves, validation |

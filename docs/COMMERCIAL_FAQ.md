@@ -27,7 +27,7 @@ No. Managed pricing includes the contracted support for the same coverage. Do no
 No. Buying a contract grants no access. Remote operation, if you want it, is a separate opt-in with scoped, revocable credentials.
 
 **Do you offer 24×7 support or resolution deadlines?**
-Not by default. Hours and response targets are set in your contract and are confirmed against staffing capacity before publication. Resolution times are estimates, not commitments.
+24×7 response applies to Severity 1 and 2 on Supported Plus and, by default, Managed. Supported is business hours. Hours, timezone, holidays and response targets are written in your contract ([SUPPORT_SCOPE.md](SUPPORT_SCOPE.md)). Targets are for first response. Resolution times are estimates, not commitments.
 
 **Are experimental features covered?**
 Not unless your contract says so in writing. See [FEATURE_MATURITY.md](FEATURE_MATURITY.md).
