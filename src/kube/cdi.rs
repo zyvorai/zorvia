@@ -227,7 +227,8 @@ mod tests {
 
     #[test]
     fn progress_parses_percent_and_failure_reason() {
-        let running = serde_json::json!({"status": {"phase": "CloneInProgress", "progress": "45.3%"}});
+        let running =
+            serde_json::json!({"status": {"phase": "CloneInProgress", "progress": "45.3%"}});
         let p = data_volume_progress_from_object(&running);
         assert_eq!(p.wait, DataVolumeWait::Pending);
         assert_eq!(p.percent, Some(45));
