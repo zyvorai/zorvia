@@ -11,6 +11,8 @@
 #
 # Env: ZORVIA_LAB_HOST/PORT, ZORVIA_E2E_USER (admin) + ZORVIA_E2E_PASSWORD or
 #      ZORVIA_E2E_TOKEN; E2E_IMAGE (containerdisk), E2E_VM (name prefix);
+#      E2E_BACKUP=1 adds off-cluster backup -> restore -> drill (the ZORVIA_BACKUP_* target
+#      must be configured on the deployment);
 #      KUBECTL (e.g. "ssh root@host KUBECONFIG=/etc/rancher/k3s/k3s.yaml kubectl")
 #      E2E_STORAGE_CLASS (a snapshot-capable CSI class) enables the data-snapshot scenario;
 #      KUBECTL enables the node check (E2E_NAMESPACE = the API's default namespace) and the API-restart scenario.
@@ -49,6 +51,13 @@ cleanup() {
   api DELETE "/vms/$VM" >/dev/null 2>&1
   if [ -n "$KUBECTL" ]; then
     api DELETE "/vms/$VM-pvc" >/dev/null 2>&1
+    api DELETE "/vms/$VM-restored" >/dev/null 2>&1
+    rm -f "${TMPDIR:-/tmp}/e2e-backup-op-$VM"
+    if [ -s "${TMPDIR:-/tmp}/e2e-restored-pvcs-$VM" ]; then   # restored PVCs outlive their VM
+      sleep 15
+      while read -r pvc; do $KUBECTL -n "$NS" delete pvc "$pvc" --ignore-not-found --wait=false >/dev/null 2>&1; done < "${TMPDIR:-/tmp}/e2e-restored-pvcs-$VM"
+      rm -f "${TMPDIR:-/tmp}/e2e-restored-pvcs-$VM"
+    fi
     $KUBECTL -n "$NS" delete vmsnapshot "$VM-pvc-d1" --ignore-not-found >/dev/null 2>&1
     $KUBECTL -n "$NS" delete dv "$VM-pvc-data" --ignore-not-found >/dev/null 2>&1
   fi
@@ -133,6 +142,55 @@ DV
   echo "data snapshot ready: $vs VolumeSnapshot(s) on $E2E_STORAGE_CLASS"
 }
 
+# Off-cluster backup -> restore -> recovery drill of the PVC-backed guest.
+# Needs the ZORVIA_BACKUP_* target configured on the deployment (E2E_BACKUP=1)
+# and runs after s_data_snapshot, which leaves "$VM-pvc" running.
+op_wait() { # operation-id seconds -> prints final operation JSON, exit 0 only if succeeded
+  local id=$1 deadline=$((SECONDS+$2)) j st
+  while [ $SECONDS -lt $deadline ]; do
+    j=$(api GET "/operations/$id" | body); st=$(echo "$j" | jq -r '.state // empty')
+    case "$st" in succeeded) echo "$j"; return 0 ;; failed|cancelled) echo "$j"; return 1 ;; esac
+    sleep 10
+  done
+  echo "$j"; return 1
+}
+
+s_offcluster_backup() {
+  [ "${E2E_BACKUP:-}" = 1 ] || { echo "set E2E_BACKUP=1 (needs a configured S3/Atlas target)"; return 77; }
+  local pvm="$VM-pvc" r id j
+  [ "$(api GET "/vms/$pvm" | code)" = 200 ] || { echo "needs the data-snapshot guest"; return 77; }
+  r=$(api POST /backups/offcluster "{\"vm_name\":\"$pvm\"}")
+  [ "$(echo "$r" | code)" -lt 300 ] || { echo "enqueue: $(echo "$r" | body | head -c 200)"; return 1; }
+  id=$(echo "$r" | body | jq -r .operation_id); echo "$id" > "${TMPDIR:-/tmp}/e2e-backup-op-$VM"
+  j=$(op_wait "$id" 1800) || { echo "backup failed: $(echo "$j" | jq -r '.error // .phase' | head -c 300)"; return 1; }
+  echo "$j" | jq -e '.result.offcluster | .encrypted == true and .verified == true' >/dev/null || { echo "backup not encrypted+verified: $(echo "$j" | jq -c '.result.offcluster | {encrypted, verified}')"; return 1; }
+  echo "$id: $(echo "$j" | jq -r '.result.offcluster | "encrypted, read-back verified, \(.disks | length) disk(s), \([.disks[].size_bytes] | add) bytes"')"
+}
+
+s_offcluster_restore() {
+  [ "${E2E_BACKUP:-}" = 1 ] || { echo "set E2E_BACKUP=1"; return 77; }
+  local f="${TMPDIR:-/tmp}/e2e-backup-op-$VM" id r j
+  [ -s "$f" ] || { echo "no backup from the previous scenario"; return 77; }
+  id=$(cat "$f")
+  r=$(api POST "/backups/offcluster/$id/restore" "{\"new_vm_name\":\"$VM-restored\",\"storage_class\":\"${E2E_STORAGE_CLASS:-}\",\"start\":false}")
+  [ "$(echo "$r" | code)" -lt 300 ] || { echo "restore: $(echo "$r" | body | head -c 200)"; return 1; }
+  j=$(op_wait "$(echo "$r" | body | jq -r .operation_id)" 1800) || { echo "restore failed: $(echo "$j" | jq -r '.error // .phase' | head -c 300)"; return 1; }
+  echo "$j" | jq -r '.result.volumes[]?' > "${TMPDIR:-/tmp}/e2e-restored-pvcs-$VM"   # for cleanup
+  [ "$(api GET "/vms/$VM-restored" | code)" = 200 ] || { echo "restored VM not found"; return 1; }
+  echo "restored into $VM-restored from backup $id"
+}
+
+s_recovery_drill() {
+  [ "${E2E_BACKUP:-}" = 1 ] || { echo "set E2E_BACKUP=1"; return 77; }
+  local f="${TMPDIR:-/tmp}/e2e-backup-op-$VM" id r j
+  [ -s "$f" ] || { echo "no backup from the previous scenario"; return 77; }
+  id=$(cat "$f")
+  r=$(api POST "/backups/offcluster/$id/drill"); [ "$(echo "$r" | code)" -lt 300 ] || { echo "drill: $(echo "$r" | body | head -c 200)"; return 1; }
+  j=$(op_wait "$(echo "$r" | body | jq -r .operation_id)" 2400) || { echo "drill failed: $(echo "$j" | jq -r '.error // .phase' | head -c 300)"; return 1; }
+  echo "$j" | jq -e '.result.drill.booted == true' >/dev/null || { echo "drill did not boot the restored guest"; return 1; }
+  echo "$(echo "$j" | jq -r '.result.drill | "booted (\(.evidence)), restore \(.restore_seconds)s, boot \(.boot_seconds)s, guest_agent=\(.guest_agent)"')"
+}
+
 s_live_migration() {
   local nodes
   if [ -n "$KUBECTL" ]; then
@@ -168,6 +226,9 @@ echo "| scenario | result | time | detail |"; echo "|---|---|---|---|"
 run "create + boot + guest ready ($IMAGE)" s_create_boot
 run "snapshot create/delete" s_snapshot_revert
 run "data snapshot on CSI storage (${E2E_STORAGE_CLASS:-unset})" s_data_snapshot
+run "off-cluster backup, encrypted + read-back verified" s_offcluster_backup
+run "restore from off-cluster backup" s_offcluster_restore
+run "recovery drill (restore + boot proof + teardown)" s_recovery_drill
 run "live migration under load" s_live_migration
 run "API restart, guest untouched" s_api_restart
 echo; echo "VM: $VM  host: $HOST  $(date -u +%FT%TZ)"
