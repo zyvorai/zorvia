@@ -29,6 +29,9 @@ pub struct JwtConfig {
     expiration_minutes: i64,
 }
 
+/// Shortest accepted `ZORVIA_JWT_SECRET` outside lab mode.
+pub const MIN_JWT_SECRET_LEN: usize = 32;
+
 impl JwtConfig {
     pub fn new(secret: impl Into<String>) -> Self {
         Self {
@@ -47,11 +50,24 @@ impl JwtConfig {
     }
 
     pub fn from_env() -> Self {
-        let secret = std::env::var("ZORVIA_JWT_SECRET").unwrap_or_else(|_| {
-            let fallback = uuid::Uuid::new_v4().to_string();
-            log::warn!("ZORVIA_JWT_SECRET unset; using ephemeral secret (tokens reset on restart)");
-            fallback
-        });
+        let secret = match std::env::var("ZORVIA_JWT_SECRET") {
+            // An empty or short HMAC key is brute-forceable offline from any
+            // issued token, so refuse it (lab mode keeps short lab secrets).
+            Ok(s) if s.len() >= MIN_JWT_SECRET_LEN || super::lab_mode() => s,
+            other => {
+                let fallback = uuid::Uuid::new_v4().to_string();
+                match other {
+                    Ok(_) => log::error!(
+                        "ZORVIA_JWT_SECRET is shorter than {MIN_JWT_SECRET_LEN} bytes; \
+                         ignoring it and using an ephemeral secret (tokens reset on restart)"
+                    ),
+                    Err(_) => log::warn!(
+                        "ZORVIA_JWT_SECRET unset; using ephemeral secret (tokens reset on restart)"
+                    ),
+                }
+                fallback
+            }
+        };
         let minutes = std::env::var("ZORVIA_JWT_TTL_MINUTES")
             .ok()
             .and_then(|s| s.parse().ok())

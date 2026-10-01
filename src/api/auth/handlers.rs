@@ -182,10 +182,98 @@ fn err(status: StatusCode, msg: &str) -> (StatusCode, Json<serde_json::Value>) {
     )
 }
 
+/// Failed-login throttle: after `MAX_FAILURES` 401s for one username inside
+/// `LOCKOUT`, further attempts get 429 until the window ends. This also caps
+/// TOTP guessing, because a wrong code is a 401. In-memory and per process,
+/// keyed by lower-cased username (unknown names are tracked too, so the
+/// response does not reveal whether an account exists).
+mod login_throttle {
+    use std::collections::HashMap;
+    use std::sync::Mutex;
+    use std::time::{Duration, Instant};
+
+    pub const MAX_FAILURES: u32 = 8;
+    pub const LOCKOUT: Duration = Duration::from_secs(15 * 60);
+    const MAX_TRACKED: usize = 10_000;
+
+    static FAILS: Mutex<Option<HashMap<String, (u32, Instant)>>> = Mutex::new(None);
+
+    pub fn blocked(user: &str) -> bool {
+        let mut g = FAILS.lock().unwrap_or_else(|e| e.into_inner());
+        let m = g.get_or_insert_with(HashMap::new);
+        match m.get(&user.to_lowercase()) {
+            Some((n, at)) if at.elapsed() < LOCKOUT => *n >= MAX_FAILURES,
+            Some(_) => {
+                m.remove(&user.to_lowercase());
+                false
+            }
+            None => false,
+        }
+    }
+
+    pub fn record_failure(user: &str) {
+        let mut g = FAILS.lock().unwrap_or_else(|e| e.into_inner());
+        let m = g.get_or_insert_with(HashMap::new);
+        if m.len() >= MAX_TRACKED {
+            m.retain(|_, (_, at)| at.elapsed() < LOCKOUT);
+        }
+        let e = m.entry(user.to_lowercase()).or_insert((0, Instant::now()));
+        if e.1.elapsed() >= LOCKOUT {
+            *e = (0, Instant::now());
+        }
+        e.0 += 1;
+        // Every further failure extends the lockout.
+        e.1 = Instant::now();
+    }
+
+    pub fn clear(user: &str) {
+        let mut g = FAILS.lock().unwrap_or_else(|e| e.into_inner());
+        if let Some(m) = g.as_mut() {
+            m.remove(&user.to_lowercase());
+        }
+    }
+
+    #[cfg(test)]
+    mod tests {
+        use super::*;
+
+        #[test]
+        fn locks_after_repeated_failures_and_clears() {
+            let u = "throttle-test-user";
+            assert!(!blocked(u));
+            for _ in 0..MAX_FAILURES {
+                record_failure(u);
+            }
+            assert!(blocked(u));
+            assert!(blocked("THROTTLE-TEST-USER"));
+            clear(u);
+            assert!(!blocked(u));
+        }
+    }
+}
+
 pub async fn login_handler(
     State(auth): State<SharedAuth>,
     Json(req): Json<LoginRequest>,
-) -> impl IntoResponse {
+) -> axum::response::Response {
+    let username = req.username.clone();
+    if login_throttle::blocked(&username) {
+        return err(
+            StatusCode::TOO_MANY_REQUESTS,
+            "Too many failed sign-in attempts. Try again later.",
+        )
+        .into_response();
+    }
+    let resp = login_inner(auth, req).await;
+    match resp.status() {
+        StatusCode::UNAUTHORIZED => login_throttle::record_failure(&username),
+        s if s.is_success() => login_throttle::clear(&username),
+        _ => {}
+    }
+    resp
+}
+
+async fn login_inner(auth: SharedAuth, req: LoginRequest) -> axum::response::Response {
     if !validate_username(&req.username) {
         return err(StatusCode::BAD_REQUEST, "Invalid username format").into_response();
     }
@@ -502,13 +590,46 @@ pub struct TotpDisableRequest {
     pub totp_code: String,
 }
 
+/// Body for `POST /v1/auth/totp/setup`. Only needed when 2FA is already on.
+#[derive(Debug, Default, Deserialize)]
+pub struct TotpSetupRequest {
+    pub password: Option<String>,
+    pub totp_code: Option<String>,
+}
+
 pub async fn totp_setup_handler(
     State(auth): State<SharedAuth>,
     headers: HeaderMap,
+    body: axum::body::Bytes,
 ) -> impl IntoResponse {
     let Some(claims) = bearer_token(&headers).and_then(|t| auth.validate_bearer(&t)) else {
         return err(StatusCode::UNAUTHORIZED, "Unauthorized").into_response();
     };
+    // Re-enrolling replaces the secret. While 2FA is on, a bearer token alone
+    // must not be able to do that, or a stolen session could swap in its own
+    // authenticator and then drop the second factor.
+    let mut was_enabled = false;
+    if let Ok(Some(user)) = auth.db.get_by_id(&claims.sub) {
+        if user.totp_enabled {
+            was_enabled = true;
+            let req: TotpSetupRequest = serde_json::from_slice(&body).unwrap_or_default();
+            let password_ok = req
+                .password
+                .as_deref()
+                .is_some_and(|p| user.verify_password(p).unwrap_or(false));
+            let code_ok = req
+                .totp_code
+                .as_deref()
+                .is_some_and(|c| verify_totp(user.totp_secret.as_deref(), c));
+            if !(password_ok && code_ok) {
+                return err(
+                    StatusCode::FORBIDDEN,
+                    "2FA is already enabled: supply password and a current totp_code to re-enrol",
+                )
+                .into_response();
+            }
+        }
+    }
     let secret = Secret::generate();
     let encoded = secret.to_base32();
     let Ok(totp) = Builder::new()
@@ -523,7 +644,12 @@ pub async fn totp_setup_handler(
     else {
         return err(StatusCode::INTERNAL_SERVER_ERROR, "TOTP error").into_response();
     };
+    // Re-enrolment (only reachable after proving both factors) revokes the
+    // other sessions; a fresh enrolment keeps the current one.
     let _ = auth.db.set_totp(&claims.sub, &encoded, false);
+    if was_enabled {
+        let _ = auth.db.bump_token_version(&claims.sub);
+    }
     let otpauth_url = match totp.to_url() {
         Ok(u) => u,
         Err(_) => {
@@ -545,7 +671,7 @@ pub async fn totp_verify_handler(
     let Some(claims) = bearer_token(&headers).and_then(|t| auth.validate_bearer(&t)) else {
         return err(StatusCode::UNAUTHORIZED, "Unauthorized").into_response();
     };
-    let Ok(Some(user)) = auth.db.get_by_username(&claims.username) else {
+    let Ok(Some(user)) = auth.db.get_by_id(&claims.sub) else {
         return err(StatusCode::NOT_FOUND, "User not found").into_response();
     };
     let secret = user.totp_secret.as_deref().unwrap_or("");
@@ -896,4 +1022,65 @@ pub async fn delete_api_token_handler(
         Ok(false) => err(StatusCode::NOT_FOUND, "Token not found").into_response(),
         Err(_) => err(StatusCode::INTERNAL_SERVER_ERROR, "Failed to delete token").into_response(),
     }
+}
+
+#[derive(Debug, Deserialize)]
+pub struct ChangePasswordRequest {
+    pub old_password: String,
+    pub new_password: String,
+}
+
+/// `POST /v1/auth/password`: change your own password. Bumps `token_version`,
+/// which revokes every session including this one; log in again afterwards.
+pub async fn change_password_handler(
+    State(auth): State<SharedAuth>,
+    headers: HeaderMap,
+    Json(body): Json<ChangePasswordRequest>,
+) -> impl IntoResponse {
+    let Some(claims) = bearer_token(&headers).and_then(|t| auth.validate_bearer(&t)) else {
+        return err(StatusCode::UNAUTHORIZED, "Unauthorized").into_response();
+    };
+    let Ok(Some(user)) = auth.db.get_by_id(&claims.sub) else {
+        return err(
+            StatusCode::BAD_REQUEST,
+            "This identity has no local password",
+        )
+        .into_response();
+    };
+    if !user.verify_password(&body.old_password).unwrap_or(false) {
+        return err(StatusCode::UNAUTHORIZED, "Invalid password").into_response();
+    }
+    if body.new_password.len() < 8 || body.new_password.len() > 72 {
+        return err(
+            StatusCode::BAD_REQUEST,
+            "Password must be 8 to 72 characters",
+        )
+        .into_response();
+    }
+    if auth
+        .db
+        .update_password(&user.id, &body.new_password)
+        .is_err()
+    {
+        return err(
+            StatusCode::INTERNAL_SERVER_ERROR,
+            "Failed to update password",
+        )
+        .into_response();
+    }
+    Json(serde_json::json!({ "success": true, "sessions_revoked": true })).into_response()
+}
+
+/// `POST /v1/auth/logout`: revoke every session of the caller (token_version
+/// bump). Stateless PAM sessions have no row to bump and simply expire.
+pub async fn logout_handler(
+    State(auth): State<SharedAuth>,
+    headers: HeaderMap,
+) -> impl IntoResponse {
+    let Some(claims) = bearer_token(&headers).and_then(|t| auth.validate_bearer(&t)) else {
+        return err(StatusCode::UNAUTHORIZED, "Unauthorized").into_response();
+    };
+    let revoked =
+        !claims.sub.starts_with("pam:") && auth.db.bump_token_version(&claims.sub).is_ok();
+    Json(serde_json::json!({ "success": true, "sessions_revoked": revoked })).into_response()
 }

@@ -598,6 +598,8 @@ pub mod web {
             .route("/v1/auth/totp/setup", post(auth_totp_setup))
             .route("/v1/auth/totp/verify", post(auth_totp_verify))
             .route("/v1/auth/totp/disable", post(auth_totp_disable))
+            .route("/v1/auth/password", post(auth_change_password))
+            .route("/v1/auth/logout", post(auth_logout))
             .route("/v1/auth/oidc/callback", get(auth_oidc_callback))
             .route("/v1/auth/oidc/{id}", get(auth_oidc_login))
             .merge(admin_only)
@@ -1575,9 +1577,28 @@ pub mod web {
     async fn auth_totp_setup(
         State(state): State<SharedState>,
         headers: HeaderMap,
+        body: axum::body::Bytes,
     ) -> impl IntoResponse {
         let auth = auth_shared(&state).await;
-        crate::api::auth::totp_setup_handler(axum::extract::State(auth), headers).await
+        crate::api::auth::totp_setup_handler(axum::extract::State(auth), headers, body).await
+    }
+
+    async fn auth_change_password(
+        State(state): State<SharedState>,
+        headers: HeaderMap,
+        Json(body): Json<crate::api::auth::ChangePasswordRequest>,
+    ) -> impl IntoResponse {
+        let auth = auth_shared(&state).await;
+        crate::api::auth::change_password_handler(axum::extract::State(auth), headers, Json(body))
+            .await
+    }
+
+    async fn auth_logout(
+        State(state): State<SharedState>,
+        headers: HeaderMap,
+    ) -> impl IntoResponse {
+        let auth = auth_shared(&state).await;
+        crate::api::auth::logout_handler(axum::extract::State(auth), headers).await
     }
 
     async fn auth_totp_verify(

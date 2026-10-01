@@ -219,8 +219,30 @@ pub fn required_permission(method: &str, path: &str) -> Option<ApiPermission> {
         return Some(ApiPermission::ClusterAdmin);
     }
 
+    // Reads that expose who-did-what, webhook secrets or guest/launcher logs
+    // are not for read-only roles, so they are matched before the GET shortcut.
+    if path == "/audit/logs"
+        || path == "/audit/stats"
+        || path.starts_with("/audit/")
+        || path == "/v1/atlas/audit"
+        || path == "/v1/atlas/audit.csv"
+        || path == "/webhooks"
+        || path.starts_with("/webhooks/")
+    {
+        return Some(ApiPermission::ClusterAdmin);
+    }
+    if path.starts_with("/vms/") && path.ends_with("/logs") {
+        return Some(ApiPermission::VmPower);
+    }
+
     if method == "GET" || method == "HEAD" {
         return None;
+    }
+
+    // Deleting a backup or snapshot destroys recovery points: same tier as
+    // deleting the VM itself.
+    if method == "DELETE" && (path.starts_with("/backups/") || path.contains("/snapshots")) {
+        return Some(ApiPermission::VmDelete);
     }
 
     // Power actions
@@ -279,9 +301,6 @@ pub fn required_permission(method: &str, path: &str) -> Option<ApiPermission> {
 
     // Snapshot delete / revert
     if path.contains("/snapshots") {
-        if method == "DELETE" || path.ends_with("/revert") {
-            return Some(ApiPermission::VmCreate);
-        }
         return Some(ApiPermission::VmCreate);
     }
 
@@ -310,6 +329,30 @@ pub fn required_permission(method: &str, path: &str) -> Option<ApiPermission> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn sensitive_reads_and_recovery_point_deletes_are_gated() {
+        use ApiPermission::*;
+        for p in [
+            "/audit/logs",
+            "/audit/stats",
+            "/webhooks",
+            "/v1/atlas/audit.csv",
+        ] {
+            assert_eq!(required_permission("GET", p), Some(ClusterAdmin), "{p}");
+        }
+        assert_eq!(required_permission("GET", "/vms/a/logs"), Some(VmPower));
+        assert_eq!(required_permission("DELETE", "/backups/b1"), Some(VmDelete));
+        assert_eq!(
+            required_permission("DELETE", "/vms/a/snapshots/s1"),
+            Some(VmDelete)
+        );
+        assert_eq!(
+            required_permission("POST", "/backups/restore"),
+            Some(VmCreate)
+        );
+        assert_eq!(required_permission("GET", "/vms"), None);
+    }
 
     #[test]
     fn offcluster_backup_routes_are_cluster_admin_for_every_method() {
@@ -452,7 +495,11 @@ mod tests {
             required_permission("GET", "/audit/export"),
             Some(ApiPermission::ClusterAdmin)
         );
-        assert_eq!(required_permission("GET", "/audit/logs"), None);
+        // Audit reads name users and actions: not for read-only roles either.
+        assert_eq!(
+            required_permission("GET", "/audit/logs"),
+            Some(ApiPermission::ClusterAdmin)
+        );
     }
 
     #[test]

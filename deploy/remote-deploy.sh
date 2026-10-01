@@ -300,7 +300,7 @@ _ssh "
         # pointing at an old host after redeploying elsewhere).
         sed -i "s/__ZORVIA_EXPOSE_HOST__/$HOST/g" deploy/k8s.yaml
         # Auth Secret is no longer in k8s.yaml — create random lab creds if missing.
-        # Deployment sets ZORVIA_LAB_MODE=1 (shared API key still lab-only).
+        # Lab mode is off: the random credentials below are unique per deploy.
         $SUDO env KUBECONFIG=/etc/rancher/k3s/k3s.yaml kubectl create namespace zorvia-system --dry-run=client -o yaml | $SUDO env KUBECONFIG=/etc/rancher/k3s/k3s.yaml kubectl apply -f -
         if ! $SUDO env KUBECONFIG=/etc/rancher/k3s/k3s.yaml kubectl -n zorvia-system get secret zorvia-auth >/dev/null 2>&1; then
             # Generate unique lab credentials (never commit fixed defaults).
@@ -311,7 +311,7 @@ _ssh "
               --from-literal=admin-password=\"\$_lab_pw\" \
               --from-literal=jwt-secret=\"\$_lab_jwt\"
             echo \"auth secret: created random lab credentials (admin password: \$_lab_pw)\"
-            echo 'auth secret: store the password; ZORVIA_LAB_MODE=1 is set on the Deployment'
+            echo 'auth secret: store the password'
         else
             echo 'auth secret: already present'
         fi
