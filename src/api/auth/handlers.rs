@@ -137,11 +137,15 @@ impl AuthState {
             ));
         }
         let claims = self.validate_bearer(credential)?;
-        Some(AuthIdentity::from_jwt(
-            claims.sub,
-            claims.username,
-            claims.role,
-        ))
+        let mut id = AuthIdentity::from_jwt(claims.sub.clone(), claims.username, claims.role);
+        if !claims.sub.starts_with("pam:") && !matches!(id.role, Role::Admin) {
+            // Fail closed: if the allow-list cannot be read, confine to nothing.
+            id.namespaces = match self.db.get_namespaces(&claims.sub) {
+                Ok(n) => n,
+                Err(_) => Some(Vec::new()),
+            };
+        }
+        Some(id)
     }
 }
 
@@ -1151,5 +1155,70 @@ mod oidc_cookie_tests {
         );
         assert_eq!(cookie_value(&h, OIDC_STATE_COOKIE), Some("abc"));
         assert_eq!(cookie_value(&h, "missing"), None);
+    }
+}
+
+#[derive(Debug, Deserialize)]
+pub struct SetNamespacesRequest {
+    /// `null` removes the restriction.
+    pub namespaces: Option<Vec<String>>,
+}
+
+fn valid_ns_name(s: &str) -> bool {
+    !s.is_empty()
+        && s.len() <= 63
+        && s.chars()
+            .all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || c == '-')
+        && !s.starts_with('-')
+        && !s.ends_with('-')
+}
+
+/// `PUT /v1/users/{id}/namespaces` (users.admin). Admin accounts are never
+/// restricted, so setting a list on one is refused rather than silently ignored.
+pub async fn set_namespaces_handler(
+    State(auth): State<SharedAuth>,
+    Path(id): Path<String>,
+    Json(body): Json<SetNamespacesRequest>,
+) -> impl IntoResponse {
+    let Ok(Some(user)) = auth.db.get_by_id(&id) else {
+        return err(StatusCode::NOT_FOUND, "User not found").into_response();
+    };
+    if let Some(list) = &body.namespaces {
+        if matches!(user.role, Role::Admin) {
+            return err(
+                StatusCode::BAD_REQUEST,
+                "Admin accounts cannot be namespace-restricted",
+            )
+            .into_response();
+        }
+        if list.len() > 64 || list.iter().any(|n| !valid_ns_name(n)) {
+            return err(StatusCode::BAD_REQUEST, "Invalid namespace list").into_response();
+        }
+    }
+    if auth
+        .db
+        .set_namespaces(&id, body.namespaces.as_deref())
+        .is_err()
+    {
+        return err(
+            StatusCode::INTERNAL_SERVER_ERROR,
+            "Failed to save namespaces",
+        )
+        .into_response();
+    }
+    Json(serde_json::json!({ "id": id, "namespaces": body.namespaces })).into_response()
+}
+
+pub async fn get_namespaces_handler(
+    State(auth): State<SharedAuth>,
+    Path(id): Path<String>,
+) -> impl IntoResponse {
+    match auth.db.get_namespaces(&id) {
+        Ok(n) => Json(serde_json::json!({ "id": id, "namespaces": n })).into_response(),
+        Err(_) => err(
+            StatusCode::INTERNAL_SERVER_ERROR,
+            "Failed to read namespaces",
+        )
+        .into_response(),
     }
 }

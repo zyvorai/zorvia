@@ -19,6 +19,8 @@ pub struct AuthIdentity {
     pub user_id: Option<String>,
     pub username: Option<String>,
     pub token_id: Option<String>,
+    /// `Some` confines the identity to these namespaces (see `tenancy`).
+    pub namespaces: Option<Vec<String>>,
 }
 
 impl AuthIdentity {
@@ -31,6 +33,7 @@ impl AuthIdentity {
             user_id: Some(user_id),
             username: Some(username),
             token_id: None,
+            namespaces: None,
         }
     }
 
@@ -43,6 +46,7 @@ impl AuthIdentity {
             user_id: None,
             username: Some(name),
             token_id: Some(token_id),
+            namespaces: None,
         }
     }
 
@@ -57,6 +61,7 @@ impl AuthIdentity {
             user_id: None,
             username: Some("lab-api-key".into()),
             token_id: None,
+            namespaces: None,
         }
     }
 

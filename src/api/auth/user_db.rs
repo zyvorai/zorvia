@@ -83,9 +83,35 @@ impl UserDb {
         let _ = conn.execute_batch(
             "ALTER TABLE users ADD COLUMN token_version INTEGER NOT NULL DEFAULT 0;",
         );
+        // NULL = unrestricted; otherwise a JSON array of allowed namespaces.
+        let _ = conn.execute_batch("ALTER TABLE users ADD COLUMN namespaces TEXT;");
         Ok(Self {
             conn: Mutex::new(conn),
         })
+    }
+
+    /// `None` = unrestricted.
+    pub fn get_namespaces(&self, user_id: &str) -> Result<Option<Vec<String>>> {
+        let conn = self.conn.lock().map_err(|e| anyhow::anyhow!("{e}"))?;
+        let raw: Option<String> = conn
+            .query_row(
+                "SELECT namespaces FROM users WHERE id = ?1",
+                params![user_id],
+                |r| r.get(0),
+            )
+            .unwrap_or(None);
+        // A value that fails to parse must restrict, not unrestrict.
+        Ok(raw.map(|s| serde_json::from_str(&s).unwrap_or_default()))
+    }
+
+    pub fn set_namespaces(&self, user_id: &str, namespaces: Option<&[String]>) -> Result<()> {
+        let raw = namespaces.map(|n| serde_json::to_string(n)).transpose()?;
+        let conn = self.conn.lock().map_err(|e| anyhow::anyhow!("{e}"))?;
+        conn.execute(
+            "UPDATE users SET namespaces = ?1 WHERE id = ?2",
+            params![raw, user_id],
+        )?;
+        Ok(())
     }
 
     pub fn from_env() -> Result<Self> {

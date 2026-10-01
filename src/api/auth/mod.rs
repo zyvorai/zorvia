@@ -7,6 +7,7 @@ mod jwt;
 mod lab_guards;
 mod oidc;
 pub mod permissions;
+pub mod tenancy;
 mod user_db;
 
 pub use handlers::{
