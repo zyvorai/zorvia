@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added (guest agent)
+
+- `guest_agent` on `POST /api/vms` (`zyvor` | `qemu` | `none`, default `ZORVIA_GUEST_AGENT`) installs
+  GuestKit's Zyvor guest agent (checksum-verified, pinned release, mirrorable) or qemu-guest-agent through
+  cloud-init; Create VM page selector. See [docs/GUEST_AGENT.md](docs/GUEST_AGENT.md).
+
 ### Added (backup key check)
 
 - `POST /api/backups/offcluster/{id}/verify-key`: proves the configured encryption key still

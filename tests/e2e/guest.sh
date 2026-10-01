@@ -11,6 +11,7 @@
 #
 # Env: ZORVIA_LAB_HOST/PORT, ZORVIA_E2E_USER (admin) + ZORVIA_E2E_PASSWORD or
 #      ZORVIA_E2E_TOKEN; E2E_IMAGE (containerdisk), E2E_VM (name prefix);
+#      E2E_GUEST_AGENT=zyvor|qemu|none (default zyvor) installs and requires a connected guest agent;
 #      E2E_BACKUP=1 adds off-cluster backup -> restore -> drill (the ZORVIA_BACKUP_* target
 #      must be configured on the deployment);
 #      KUBECTL (e.g. "ssh root@host KUBECONFIG=/etc/rancher/k3s/k3s.yaml kubectl")
@@ -23,7 +24,8 @@ BASE="https://${HOST}:${ZORVIA_LAB_PORT:-30152}"
 IMAGE="${E2E_IMAGE:-quay.io/containerdisks/ubuntu:24.04}"
 VM="${E2E_VM:-zorvia-e2e}-$RANDOM"
 KUBECTL="${KUBECTL:-}"
-NS="${E2E_NAMESPACE:-default}"   # the namespace the API deploys VMs into
+NS="${E2E_NAMESPACE:-default}"
+AGENT="${E2E_GUEST_AGENT:-zyvor}"   # zyvor | qemu | none: installed through the create API (cloud-init)   # the namespace the API deploys VMs into
 FAILS=0
 
 TOKEN="${ZORVIA_E2E_TOKEN:-}"
@@ -73,7 +75,9 @@ wait_for() { # seconds cmd...
 vm_running() { api GET "/vms/$VM" | body | jq -e '.state == "running"' >/dev/null 2>&1; }
 
 s_create_boot() {
-  local r; r=$(api POST /vms "{\"name\":\"$VM\",\"image\":\"$IMAGE\",\"cpus\":2,\"memory\":2048,\"disk\":10,
+  local r ga=""
+  [ "$AGENT" = none ] || ga="\"guest_agent\":\"$AGENT\","
+  r=$(api POST /vms "{\"name\":\"$VM\",$ga\"image\":\"$IMAGE\",\"cpus\":2,\"memory\":2048,\"disk\":10,
     \"cloud_init\":{\"user_data\":\"#cloud-config\nruncmd:\n  - [sh, -c, 'while :; do :; done &']\n  - [sh, -c, 'dd if=/dev/zero of=/var/tmp/load bs=1M count=512 conv=fsync; sync']\"}}")
   # The API answers within 30 s; 408 only means the guest was not ready yet.
   case "$(echo "$r" | code)" in 2??|408) ;; *) echo "create: $(echo "$r" | body | head -c 200)"; return 1 ;; esac
@@ -82,7 +86,14 @@ s_create_boot() {
   # qemu guest agent itself is connected is reported separately, so show both.
   agent_up() { [ "$(api POST "/vms/$VM/wait-ready" | code)" = 200 ]; }
   wait_for 900 agent_up || { echo "guest never became ready"; return 1; }
-  echo "guest ready (IP + Ready=True), agent_connected=$(api POST "/vms/$VM/wait-ready" | body | jq -r .agent_connected)"
+  if [ "$AGENT" != none ]; then
+    # cloud-init installs the agent after first boot (download + install), so give it time.
+    connected() { [ "$(api POST "/vms/$VM/wait-ready" | body | jq -r .agent_connected)" = true ]; }
+    wait_for 900 connected || { echo "guest ready but the $AGENT guest agent never connected"; return 1; }
+    echo "guest ready (IP + Ready=True), $AGENT guest agent connected"
+  else
+    echo "guest ready (IP + Ready=True), no guest agent requested"
+  fi
 }
 
 s_snapshot_revert() {
@@ -127,7 +138,9 @@ spec:
         storage: 1Gi
 DV
   $KUBECTL -n "$NS" wait "dv/$dv" --for=condition=Ready --timeout=300s >/dev/null 2>&1 || { echo "DataVolume never Ready"; return 1; }
-  r=$(api POST /vms "{\"name\":\"$pvm\",\"image\":\"$IMAGE\",\"cpus\":2,\"memory\":2048,\"disks\":[
+  local ga=""
+  [ "$AGENT" = none ] || ga="\"guest_agent\":\"$AGENT\","
+  r=$(api POST /vms "{\"name\":\"$pvm\",$ga\"image\":\"$IMAGE\",\"cpus\":2,\"memory\":2048,\"disks\":[
     {\"name\":\"root\",\"size\":\"10Gi\",\"boot_order\":1,\"source\":{\"type\":\"containerDisk\",\"image\":\"$IMAGE\"}},
     {\"name\":\"data\",\"size\":\"1Gi\",\"boot_order\":2,\"source\":{\"type\":\"dataVolume\",\"name\":\"$dv\"}}]}")
   case "$(echo "$r" | code)" in 2??|408) ;; *) echo "create: $(echo "$r" | body | head -c 200)"; return 1 ;; esac
@@ -223,7 +236,7 @@ s_api_restart() {
 }
 
 echo "| scenario | result | time | detail |"; echo "|---|---|---|---|"
-run "create + boot + guest ready ($IMAGE)" s_create_boot
+run "create + boot + guest ready + $AGENT agent ($IMAGE)" s_create_boot
 run "snapshot create/delete" s_snapshot_revert
 run "data snapshot on CSI storage (${E2E_STORAGE_CLASS:-unset})" s_data_snapshot
 run "off-cluster backup, encrypted + read-back verified" s_offcluster_backup

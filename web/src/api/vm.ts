@@ -47,6 +47,8 @@ export interface CreateVMRequest {
     ssh_authorized_keys?: string[]
     password?: string
   }
+  /** Install an in-guest agent through cloud-init (server default: none). */
+  guest_agent?: 'zyvor' | 'qemu' | 'none'
   expose_ssh?: boolean
   expose_vnc?: boolean
   expose_rdp?: boolean
