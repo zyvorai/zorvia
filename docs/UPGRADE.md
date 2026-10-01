@@ -14,12 +14,12 @@
 4. **Shared `ZORVIA_API_KEY` ignored** unless `ZORVIA_LAB_MODE=1`. Prefer `POST /api/v1/api-tokens`.
 5. **Viewer role** can no longer call mutating APIs (server-side RBAC).
 6. **Rook bootstrap** privileges removed from the core ServiceAccount. Apply `deploy/rook-bootstrap-rbac.yaml` or Helm `rbac.rookBootstrap=true` only if needed.
+7. **TOTP disable** now requires password + TOTP code; sessions are revoked via `token_version`.
 8. **Console, VNC and SSH sockets are permissioned.** `/ws/console` and `/ws/vnc` need `vm.power`, `/ws/ssh` needs `cluster.admin`. Viewers lose access.
 9. **Audit logs, webhooks, VM logs are no longer readable by Viewers** (`cluster.admin`; VM logs `vm.power`). Deleting backups and snapshots needs `vm.delete`.
 10. **`ZORVIA_JWT_SECRET` must be 32+ bytes.** A shorter secret is ignored (ephemeral secret, sessions reset on restart).
 11. **Failed-login lockout** (8 attempts / 15 min per username) and TOTP re-enrolment now requires password + current code.
 12. **OIDC** sign-in needs cookies enabled on the console origin, and the token now arrives as `/sign-in#oidc_token=…`.
-7. **TOTP disable** now requires password + TOTP code; sessions are revoked via `token_version`.
 
 ### Compatible
 
