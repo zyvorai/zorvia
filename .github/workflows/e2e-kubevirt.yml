@@ -48,3 +48,22 @@ jobs:
       - name: Tear down
         if: always()
         run: kind delete cluster --name zorvia-e2e || true
+
+  # Boots a real guest and drives it through the API. Needs a KVM-capable
+  # cluster with Zorvia deployed, so it runs only on demand on a self-hosted
+  # runner labelled `zorvia-lab` (secrets: ZORVIA_LAB_HOST, ZORVIA_E2E_PASSWORD).
+  guest-lab:
+    name: real-guest E2E (lab)
+    if: github.event_name == 'workflow_dispatch'
+    runs-on: [self-hosted, zorvia-lab]
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Run guest scenarios
+        env:
+          ZORVIA_LAB_HOST: ${{ secrets.ZORVIA_LAB_HOST }}
+          ZORVIA_E2E_PASSWORD: ${{ secrets.ZORVIA_E2E_PASSWORD }}
+        run: tests/e2e/guest.sh | tee guest-e2e.md
+      - name: Publish results
+        if: always()
+        run: cat guest-e2e.md >> "$GITHUB_STEP_SUMMARY"
