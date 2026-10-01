@@ -287,11 +287,14 @@ async fn login_inner(auth: SharedAuth, req: LoginRequest) -> axum::response::Res
     }
 
     if let Ok(Some(user)) = auth.db.get_by_username(&req.username) {
-        if !user.enabled {
-            return err(StatusCode::FORBIDDEN, "This account has been disabled").into_response();
-        }
         match user.verify_password(&req.password) {
             Ok(true) => {
+                // Only someone who knows the password learns the account is
+                // disabled; a wrong password is a plain 401 either way.
+                if !user.enabled {
+                    return err(StatusCode::FORBIDDEN, "This account has been disabled")
+                        .into_response();
+                }
                 if user.totp_enabled {
                     let Some(code) = req.totp_code.as_deref() else {
                         return (
@@ -309,7 +312,7 @@ async fn login_inner(auth: SharedAuth, req: LoginRequest) -> axum::response::Res
                         )
                             .into_response();
                     };
-                    if !verify_totp(user.totp_secret.as_deref(), code) {
+                    if !check_and_consume_totp(&auth, &user, code) {
                         return err(StatusCode::UNAUTHORIZED, "Invalid 2FA code").into_response();
                     }
                 }
@@ -341,6 +344,10 @@ async fn login_inner(auth: SharedAuth, req: LoginRequest) -> axum::response::Res
         }
     }
 
+    // Unknown local user: spend the same bcrypt time a real check would, so
+    // response timing does not reveal which usernames exist.
+    burn_password_check(&req.password);
+
     let username = req.username.clone();
     let password = req.password.clone();
     let pam_ok = tokio::task::spawn_blocking(move || authenticate_pam(&username, &password))
@@ -368,12 +375,33 @@ async fn login_inner(auth: SharedAuth, req: LoginRequest) -> axum::response::Res
     err(StatusCode::UNAUTHORIZED, "Invalid credentials").into_response()
 }
 
+/// bcrypt of a throwaway value, computed once, to equalise timing for unknown users.
+fn burn_password_check(password: &str) {
+    static DUMMY: std::sync::OnceLock<String> = std::sync::OnceLock::new();
+    let hash = DUMMY.get_or_init(|| {
+        bcrypt::hash("zorvia-timing-equaliser", bcrypt::DEFAULT_COST).unwrap_or_default()
+    });
+    let _ = bcrypt::verify(password, hash);
+}
+
 fn verify_totp(secret: Option<&str>, code: &str) -> bool {
-    let Some(secret) = secret else {
-        return false;
-    };
+    verify_totp_step(secret, code).is_some()
+}
+
+/// A valid code for `user` that has not been accepted before (RFC 6238 §5.2).
+/// The accepted time step is stored, so replaying the same code, even inside its
+/// ~90 s window, fails.
+fn check_and_consume_totp(auth: &AuthState, user: &super::user_db::User, code: &str) -> bool {
+    match verify_totp_step(user.totp_secret.as_deref(), code) {
+        Some(step) => auth.db.consume_totp_step(&user.id, step).unwrap_or(false),
+        None => false,
+    }
+}
+
+fn verify_totp_step(secret: Option<&str>, code: &str) -> Option<u64> {
+    let secret = secret?;
     let Ok(secret) = Secret::try_from_base32(secret) else {
-        return false;
+        return None;
     };
     let Ok(totp) = Builder::new()
         .with_algorithm(Algorithm::SHA1)
@@ -384,9 +412,9 @@ fn verify_totp(secret: Option<&str>, code: &str) -> bool {
         .with_account_name("")
         .build()
     else {
-        return false;
+        return None;
     };
-    totp.check_current(code).is_some()
+    totp.check_current(code)
 }
 
 pub async fn me_handler(State(auth): State<SharedAuth>, headers: HeaderMap) -> impl IntoResponse {
@@ -631,7 +659,7 @@ pub async fn totp_setup_handler(
             let code_ok = req
                 .totp_code
                 .as_deref()
-                .is_some_and(|c| verify_totp(user.totp_secret.as_deref(), c));
+                .is_some_and(|c| check_and_consume_totp(&auth, &user, c));
             if !(password_ok && code_ok) {
                 return err(
                     StatusCode::FORBIDDEN,
@@ -728,7 +756,7 @@ pub async fn totp_disable_handler(
     if !user.totp_enabled {
         return err(StatusCode::BAD_REQUEST, "TOTP is not enabled").into_response();
     }
-    if !verify_totp(user.totp_secret.as_deref(), &body.totp_code) {
+    if !check_and_consume_totp(&auth, &user, &body.totp_code) {
         return err(StatusCode::UNAUTHORIZED, "Invalid 2FA code").into_response();
     }
     if auth.db.disable_totp(&claims.sub).is_err() {
@@ -1053,6 +1081,15 @@ pub async fn create_api_token_handler(
     let Some(role) = parse_role(&body.role) else {
         return err(StatusCode::BAD_REQUEST, "Invalid role").into_response();
     };
+    if let Some(exp) = body.expires_at.as_deref() {
+        if chrono::DateTime::parse_from_rfc3339(exp).is_err() {
+            return err(
+                StatusCode::BAD_REQUEST,
+                "expires_at must be an RFC 3339 timestamp (e.g. 2027-01-31T00:00:00Z)",
+            )
+            .into_response();
+        }
+    }
     let created_by = bearer_token(&headers)
         .and_then(|t| auth.validate_bearer(&t))
         .map(|c| c.username);
@@ -1170,6 +1207,58 @@ pub async fn logout_handler(
         None => auth.db.bump_token_version(&claims.sub).is_ok(),
     };
     Json(serde_json::json!({ "success": true, "sessions_revoked": revoked })).into_response()
+}
+
+#[cfg(test)]
+mod audit_low_tests {
+    use super::*;
+
+    #[test]
+    fn a_totp_step_is_accepted_once_and_only_forward() {
+        let db = UserDb::open(":memory:").unwrap();
+        let u = db.create_user("dave", "Password-123", Role::User).unwrap();
+        assert!(db.consume_totp_step(&u.id, 100).unwrap());
+        assert!(
+            !db.consume_totp_step(&u.id, 100).unwrap(),
+            "replay of the same step"
+        );
+        assert!(!db.consume_totp_step(&u.id, 99).unwrap(), "older step");
+        assert!(db.consume_totp_step(&u.id, 101).unwrap());
+    }
+
+    #[test]
+    fn unparseable_or_past_api_token_expiry_fails_closed() {
+        let db = UserDb::open(":memory:").unwrap();
+        let (_, good) = db
+            .create_api_token(
+                "ok",
+                Role::Viewer,
+                vec![],
+                Some("2999-01-01T00:00:00Z"),
+                None,
+            )
+            .unwrap();
+        assert!(db.lookup_api_token(&good).unwrap().is_some());
+        let (_, past) = db
+            .create_api_token(
+                "old",
+                Role::Viewer,
+                vec![],
+                Some("2001-01-01T00:00:00Z"),
+                None,
+            )
+            .unwrap();
+        assert!(db.lookup_api_token(&past).unwrap().is_none());
+        // A malformed value can only get in through direct DB edits; it must not mean "forever".
+        let (_, junk) = db
+            .create_api_token("junk", Role::Viewer, vec![], Some("next tuesday"), None)
+            .unwrap();
+        assert!(db.lookup_api_token(&junk).unwrap().is_none());
+        let (_, none) = db
+            .create_api_token("forever", Role::Viewer, vec![], None, None)
+            .unwrap();
+        assert!(db.lookup_api_token(&none).unwrap().is_some());
+    }
 }
 
 #[cfg(test)]

@@ -87,6 +87,8 @@ impl UserDb {
         let _ = conn.execute_batch(
             "CREATE TABLE IF NOT EXISTS pam_revocations (username TEXT PRIMARY KEY, not_before INTEGER NOT NULL);",
         );
+        // Last accepted TOTP time step, so a code cannot be replayed.
+        let _ = conn.execute_batch("ALTER TABLE users ADD COLUMN totp_last_step INTEGER;");
         // Replacement TOTP secret awaiting its first valid code (re-enrolment).
         let _ = conn.execute_batch("ALTER TABLE users ADD COLUMN totp_pending TEXT;");
         // NULL = unrestricted; otherwise a JSON array of allowed namespaces.
@@ -324,6 +326,17 @@ impl UserDb {
         Ok(())
     }
 
+    /// Accept `step` only if it is newer than the last one accepted for this user.
+    pub fn consume_totp_step(&self, user_id: &str, step: u64) -> Result<bool> {
+        let conn = self.conn.lock().map_err(|e| anyhow::anyhow!("{e}"))?;
+        let n = conn.execute(
+            "UPDATE users SET totp_last_step = ?1
+             WHERE id = ?2 AND (totp_last_step IS NULL OR totp_last_step < ?1)",
+            params![step as i64, user_id],
+        )?;
+        Ok(n == 1)
+    }
+
     pub fn set_totp_pending(&self, user_id: &str, secret: Option<&str>) -> Result<()> {
         let conn = self.conn.lock().map_err(|e| anyhow::anyhow!("{e}"))?;
         conn.execute(
@@ -436,10 +449,10 @@ impl UserDb {
             return Ok(None);
         }
         if let Some(ref exp) = rec.expires_at {
-            if let Ok(dt) = chrono::DateTime::parse_from_rfc3339(exp) {
-                if dt < chrono::Utc::now() {
-                    return Ok(None);
-                }
+            // An expiry that cannot be read is treated as expired, never as "no expiry".
+            match chrono::DateTime::parse_from_rfc3339(exp) {
+                Ok(dt) if dt >= chrono::Utc::now() => {}
+                _ => return Ok(None),
             }
         }
         Ok(Some(rec))

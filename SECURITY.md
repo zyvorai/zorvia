@@ -101,10 +101,12 @@ When deploying Zorvia:
   state cookie (login CSRF), the session token is returned in the URL fragment, and an
   ID token without a `kid` is only accepted when the IdP publishes a single RSA key.
 
-- Not yet addressed: TOTP secrets are stored in plaintext and a code can be replayed
-  within its ~90 s window; the bootstrap admin password is logged when none is
-  supplied; usernames can be enumerated by error/timing differences; API tokens with
-  an unparseable `expires_at` never expire; API tokens and PAM sessions are not
+- A TOTP code is accepted once (the accepted time step is stored per user); a disabled
+  account is only revealed to someone who knows its password, and unknown users cost the
+  same bcrypt time as real ones; an API token whose `expires_at` cannot be read is treated
+  as expired, and creation rejects a malformed value.
+- Not yet addressed: TOTP secrets are stored in plaintext; the bootstrap admin password
+  is logged when none is supplied; API tokens and PAM sessions are not
   namespace-restricted.
 - JWT access tokens default to a **60-minute** TTL (`ZORVIA_JWT_TTL_MINUTES`);
   local-user disable/role/password/TOTP changes bump `token_version` and revoke
