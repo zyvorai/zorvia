@@ -54,6 +54,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Security
 
+- TOTP replay protection, no disabled-account/username enumeration by response or timing, and
+  fail-closed API-token expiry (PR `fix/audit-low`).
+
 Findings from an identity and tenancy audit (all server-side; PRs #138-#141):
 
 - **VM sockets are permissioned.** `/ws/console` and `/ws/vnc` require `vm.power`,
