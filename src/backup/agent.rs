@@ -363,6 +363,131 @@ pub async fn stream_disk(
     Ok(())
 }
 
+/// Check one stored part against the manifest and, when `key` is given, prove
+/// that the key decrypts it. Returns the plaintext length. This is what makes a
+/// key check cheap: a single part per disk, not a whole-disk restore.
+pub fn check_first_part(
+    disk: &DiskEntry,
+    part: &[u8],
+    key: Option<&[u8; crypto::KEY_LEN]>,
+) -> Result<usize> {
+    let entry = disk
+        .parts
+        .first()
+        .ok_or_else(|| anyhow!("disk '{}' lists no parts", disk.name))?;
+    if part.len() as u64 != entry.size || sha256_hex(part) != entry.sha256 {
+        bail!("first part of disk '{}' is corrupted", disk.name);
+    }
+    match key {
+        Some(k) => Ok(crypto::open(k, part)
+            .with_context(|| format!("disk '{}'", disk.name))?
+            .len()),
+        None => Ok(part.len()),
+    }
+}
+
+#[derive(Clone)]
+pub struct VerifyKeyConfig {
+    pub s3: S3Config,
+    pub manifest_key: String,
+    pub encryption_key: Option<[u8; crypto::KEY_LEN]>,
+}
+
+#[derive(Debug, Serialize)]
+pub struct VerifyKeyResult {
+    pub manifest_key: String,
+    pub encrypted: bool,
+    /// Always true on success: every disk's first part matched the manifest and,
+    /// for an encrypted backup, decrypted with the supplied key.
+    pub key_ok: bool,
+    pub disks_checked: usize,
+    pub bytes_read: u64,
+}
+
+impl VerifyKeyConfig {
+    pub fn from_env(get: impl Fn(&str) -> Option<String>) -> Result<Self> {
+        let req = |k: &str| {
+            get(k)
+                .filter(|v| !v.trim().is_empty())
+                .ok_or_else(|| anyhow!("{k} is not set"))
+        };
+        let opt = |k: &str| get(k).filter(|v| !v.trim().is_empty());
+        let manifest_key = req("RESTORE_MANIFEST_KEY")?;
+        if manifest_key.starts_with('/') || manifest_key.contains("..") {
+            bail!("invalid RESTORE_MANIFEST_KEY");
+        }
+        Ok(Self {
+            s3: S3Config {
+                endpoint: req("BACKUP_S3_ENDPOINT")?,
+                region: opt("BACKUP_S3_REGION").unwrap_or_else(|| "us-east-1".into()),
+                bucket: req("BACKUP_S3_BUCKET")?,
+                credentials: Credentials {
+                    access_key: req("AWS_ACCESS_KEY_ID")?,
+                    secret_key: req("AWS_SECRET_ACCESS_KEY")?,
+                    session_token: opt("AWS_SESSION_TOKEN"),
+                },
+                send_checksums: true,
+            },
+            manifest_key,
+            encryption_key: opt("BACKUP_ENCRYPTION_KEY")
+                .map(|k| crypto::parse_key_hex(&k))
+                .transpose()?,
+        })
+    }
+}
+
+/// Prove the encryption key still opens a backup without restoring it: read the
+/// manifest, then the first part of each disk object (the response is dropped as
+/// soon as that part has arrived) and check it against the manifest and the key.
+/// A wrong key fails here, long before anyone needs the data.
+pub async fn run_verify_key(
+    cfg: &VerifyKeyConfig,
+    client: &S3Client,
+    progress: &dyn Fn(u8, &str),
+) -> Result<VerifyKeyResult> {
+    progress(1, "reading manifest");
+    let manifest = BackupManifest::from_json(&client.get_object(&cfg.manifest_key).await?)
+        .context("backup manifest is invalid")?;
+    let encrypted = manifest.encryption.is_some();
+    if encrypted && cfg.encryption_key.is_none() {
+        bail!("this backup is encrypted but no BACKUP_ENCRYPTION_KEY was provided");
+    }
+    if manifest.disks.is_empty() {
+        bail!("the backup lists no disks");
+    }
+    let n = manifest.disks.len() as u64;
+    let mut bytes_read = 0u64;
+    for (i, disk) in manifest.disks.iter().enumerate() {
+        progress(
+            (5 + 90 * i as u64 / n) as u8,
+            &format!("checking disk {}", disk.name),
+        );
+        let first = disk
+            .parts
+            .first()
+            .ok_or_else(|| anyhow!("disk '{}' lists no parts", disk.name))?;
+        let mut resp = client.get_object_response(&disk.object_key).await?;
+        let mut buf: Vec<u8> = Vec::with_capacity(first.size as usize);
+        while (buf.len() as u64) < first.size {
+            match resp.chunk().await? {
+                Some(c) => buf.extend_from_slice(&c),
+                None => bail!("object {} ended before its first part", disk.object_key),
+            }
+        }
+        buf.truncate(first.size as usize);
+        drop(resp);
+        check_first_part(disk, &buf, cfg.encryption_key.as_ref())?;
+        bytes_read += first.size;
+    }
+    Ok(VerifyKeyResult {
+        manifest_key: cfg.manifest_key.clone(),
+        encrypted,
+        key_ok: true,
+        disks_checked: manifest.disks.len(),
+        bytes_read,
+    })
+}
+
 /// Verify a stored disk without keeping its contents.
 pub async fn verify_disk(
     client: &S3Client,
@@ -605,6 +730,68 @@ pub async fn run_restore(
 mod tests {
     use super::*;
     use std::collections::HashMap;
+
+    fn disk_with_first_part(stored: &[u8]) -> DiskEntry {
+        DiskEntry {
+            name: "root".into(),
+            pvc: "p".into(),
+            object_key: "vm/op/root".into(),
+            size_bytes: 0,
+            stored_bytes: stored.len() as u64,
+            sha256: String::new(),
+            parts: vec![super::super::manifest::PartEntry {
+                number: 1,
+                size: stored.len() as u64,
+                sha256: sha256_hex(stored),
+            }],
+        }
+    }
+
+    #[test]
+    fn first_part_check_proves_the_key_and_catches_corruption() {
+        let key = [7u8; crypto::KEY_LEN];
+        let stored = crypto::seal(&key, b"first part of a disk").unwrap();
+        let disk = disk_with_first_part(&stored);
+        assert_eq!(check_first_part(&disk, &stored, Some(&key)).unwrap(), 20);
+        // The manifest hash matches, but the wrong key cannot open it.
+        let wrong = [8u8; crypto::KEY_LEN];
+        let e = check_first_part(&disk, &stored, Some(&wrong)).unwrap_err();
+        assert!(format!("{e:#}").contains("wrong key or corrupted"), "{e:#}");
+        // A flipped byte is caught by the manifest checksum before decryption.
+        let mut bad = stored.clone();
+        bad[20] ^= 1;
+        let e = check_first_part(&disk, &bad, Some(&key)).unwrap_err();
+        assert!(format!("{e:#}").contains("corrupted"));
+        // Unencrypted backups still get the integrity check.
+        let plain = b"plain part".to_vec();
+        let d = disk_with_first_part(&plain);
+        assert_eq!(check_first_part(&d, &plain, None).unwrap(), plain.len());
+    }
+
+    #[test]
+    fn verify_key_config_needs_a_safe_manifest_key() {
+        let base = |extra: &[(&str, &str)]| {
+            let mut m: HashMap<String, String> = [
+                ("BACKUP_S3_ENDPOINT", "http://s3"),
+                ("BACKUP_S3_BUCKET", "b"),
+                ("AWS_ACCESS_KEY_ID", "AK"),
+                ("AWS_SECRET_ACCESS_KEY", "SK"),
+                ("RESTORE_MANIFEST_KEY", "vm/op/manifest.json"),
+            ]
+            .iter()
+            .map(|(k, v)| (k.to_string(), v.to_string()))
+            .collect();
+            for (k, v) in extra {
+                m.insert(k.to_string(), v.to_string());
+            }
+            VerifyKeyConfig::from_env(move |k| m.get(k).cloned())
+        };
+        assert!(base(&[]).is_ok());
+        assert!(base(&[("RESTORE_MANIFEST_KEY", "/etc/passwd")]).is_err());
+        assert!(base(&[("RESTORE_MANIFEST_KEY", "a/../b")]).is_err());
+        assert!(base(&[("BACKUP_ENCRYPTION_KEY", "short")]).is_err());
+        assert!(base(&[("BACKUP_ENCRYPTION_KEY", &"ab".repeat(32))]).is_ok());
+    }
 
     fn env(extra: &[(&str, &str)]) -> impl Fn(&str) -> Option<String> {
         let mut m: HashMap<String, String> = [

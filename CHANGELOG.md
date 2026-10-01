@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added (backup key check)
+
+- `POST /api/backups/offcluster/{id}/verify-key`: proves the configured encryption key still
+  decrypts a stored backup (first part of each disk) without a restore. See
+  [docs/OFFCLUSTER_BACKUP.md](docs/OFFCLUSTER_BACKUP.md).
+
 ### Added (maintenance)
 
 - `GET /api/v1/maintenance/plan?node=` (cluster.admin): read-only pre-drain plan per VM (live-migrate

@@ -98,7 +98,7 @@ pub mod web {
     mod backup_offcluster_handlers;
     use backup_offcluster_handlers::{
         create_offcluster_backup_handler, drill_offcluster_handler,
-        list_offcluster_backups_handler, restore_offcluster_handler,
+        list_offcluster_backups_handler, restore_offcluster_handler, verify_key_offcluster_handler,
     };
 
     #[path = "operations_handlers.rs"]
@@ -663,6 +663,10 @@ pub mod web {
             .route(
                 "/backups/offcluster/{op_id}/drill",
                 post(drill_offcluster_handler),
+            )
+            .route(
+                "/backups/offcluster/{op_id}/verify-key",
+                post(verify_key_offcluster_handler),
             )
             // Durable operations
             .route("/operations", get(list_operations_handler))

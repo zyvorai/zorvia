@@ -374,6 +374,8 @@ pub mod retention;
 pub mod s3;
 pub mod schedule;
 pub mod verify;
+#[cfg(feature = "web")]
+pub mod verify_key;
 
 #[cfg(test)]
 mod tests {
