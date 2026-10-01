@@ -134,7 +134,7 @@ pub const FEATURES: &[Feature] = &[
         id: "s3-immutable-backup",
         name: "Off-cluster S3 backups (encrypted, Object Lock), restore, recovery drills",
         maturity: Maturity::Experimental,
-        notes: "Agent Job uploads checksummed, AES-GCM, Object-Lock copies with read-back verification; restore + drills (docs/OFFCLUSTER_BACKUP.md). Agent verified against a real S3 server; snapshot→Job flow not yet run on a snapshot-capable CSI. Plan API at /api/v1/enterprise/s3-backup/plan",
+        notes: "Agent Job uploads checksummed, AES-GCM, Object-Lock copies with read-back verification; restore + drills (docs/OFFCLUSTER_BACKUP.md). Verified live end to end on one stack (KubeVirt 1.9 / CDI 1.66 / Rook-Ceph RBD, Filesystem and Block volumes, Atlas-provisioned RGW bucket): snapshot→temp PVC→agent Job→encrypted upload→read-back, restore (sha256 identical) and a recovery drill with serial-console boot proof; earlier against SeaweedFS with Object Lock. Not yet: Object Lock on RGW, other CSI drivers, guest-agent or application-level drill checks (docs/SUPPORT_MATRIX.md). Plan API at /api/v1/enterprise/s3-backup/plan",
     },
     Feature {
         id: "cross-cluster-dr",
