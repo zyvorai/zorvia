@@ -47,10 +47,10 @@ Useful env on the API pod:
 |----------|---------|
 | `ZORVIA_EXPOSE_HOST` / `HOST` | Public host shown for NodePort SSH/VNC hints |
 | `ZORVIA_WEB_DIR` | SPA static root (default `/usr/share/zorvia/web`) |
-| `ZORVIA_JWT_SECRET` | JWT signing secret |
+| `ZORVIA_JWT_SECRET` | JWT signing secret, 32+ bytes outside lab mode |
 | `ZORVIA_ADMIN_USER` / `ZORVIA_ADMIN_PASSWORD` | Bootstrap admin |
 | `ZORVIA_AUTH_DB` | Path to the sqlite user database (default `/data/auth.db` in the deploy manifest, backed by a PVC) |
-| `ZORVIA_LAB_MODE` | `1` to allow lab defaults / shared API key |
+| `ZORVIA_LAB_MODE` | `1` to allow lab defaults / shared API key. Off in the shipped manifests; throwaway labs only |
 | `ZORVIA_OIDC_*` | Opt-in SSO — see [OIDC.md](OIDC.md) |
 | `ZORVIA_EXPERIMENTAL` / `ZORVIA_FEATURE_*` | Phase 5 plan APIs — see [PHASE5_ENTERPRISE.md](PHASE5_ENTERPRISE.md) |
 
@@ -287,7 +287,7 @@ The Rook-bootstrap grants above are intentionally broad — installing an operat
 
 ## Limitations
 
-- The VM sockets (`/ws/console`, `/ws/vnc`, `/ws/ssh`) authenticate the `?token=` but do not yet check a per-role permission (any signed-in role can connect); `/ws/pods/*` does require `cluster.admin`.
+- The VM sockets authenticate the `?token=` and check a permission: `/ws/console` and `/ws/vnc` need `vm.power`, `/ws/ssh` and `/ws/pods/*` need `cluster.admin`. VM names are validated, a browser `Origin` that does not match the `Host` is refused, and each session is audited. Namespace-restricted users need the server's default namespace in their list ([TENANCY.md](TENANCY.md)). The token is still in the query string, so keep access logs private.
 - Blank-disk VMs have no guest OS — console may connect with little/no serial output; use a containerdisk image for real SSH/VNC guest tests.
 - Linux create-time `expose_vnc` now creates a NodePort on guest 5900 (same as Windows).
 - Clone prefers a CDI DataVolume from the source PVC (`clone_mode=cdi`); falls back to an empty PVC if CDI is missing.

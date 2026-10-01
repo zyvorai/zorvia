@@ -32,6 +32,10 @@ Start here: root [README.md](../README.md) (hero, gallery, quick start) · live 
 | [WEB_CONSOLE.md](WEB_CONSOLE.md) | SPA, Fabric HTTP API, console/VNC/SSH/pod WebSockets, Disk Images, hotplug, migration, Rook, RBAC, audit export |
 | [PODS.md](PODS.md) | Pods page: all-namespace inventory, Terminal.app logs + exec, WebSocket protocol, RBAC, audit |
 | [RESCUE.md](RESCUE.md) | Rescue mode: offline hostname/SSH-key/enable-SSH via a Job-mounted disk, GuestKit, RBAC, audit |
+| [TENANCY.md](TENANCY.md) | Per-user namespace allow-lists |
+| [OFFCLUSTER_BACKUP.md](OFFCLUSTER_BACKUP.md) | Encrypted, verified S3 backups, restore, recovery drills, retention (Atlas bucket target) |
+| [VM_IMPORT.md](VM_IMPORT.md) | VMware import with h2kvm: waves, preflight, rollback |
+| [ATLAS_INTEGRATION.md](ATLAS_INTEGRATION.md) | Atlas storage control plane integration |
 | [OIDC.md](OIDC.md) | Opt-in OIDC SSO (PKCE + token exchange + JWKS) |
 | [OIDC_LAB.md](OIDC_LAB.md) | Lab IdP bake-off (Dex/Keycloak) |
 | [FEATURE_MATURITY.md](FEATURE_MATURITY.md) | GA / Beta / Experimental / Model-only (`GET /api/v1/features`) |

@@ -61,7 +61,8 @@ Please include the following information:
 
 When deploying Zorvia:
 
-1. **Do not use lab defaults in production** — omit `ZORVIA_LAB_MODE`, set unique
+1. **Do not use lab defaults in production** — `ZORVIA_LAB_MODE` is no longer set by the
+   shipped manifests (leave it off), set unique
    `ZORVIA_JWT_SECRET` and `ZORVIA_ADMIN_PASSWORD`, and create auth Secrets via
    `./scripts/create-auth-secret.sh` (never commit Secret manifests).
 2. Prefer **scoped API tokens** (`POST /api/v1/api-tokens`) over a shared
@@ -77,6 +78,34 @@ When deploying Zorvia:
 
 ## Known Security Considerations
 
+- **Roles and sockets.** `/ws/console` and `/ws/vnc` require `vm.power`, `/ws/ssh`
+  and `/ws/pods/*` require `cluster.admin`. A Viewer cannot open any of them. VM
+  names are validated, cross-origin WebSocket handshakes are refused, and every
+  console/VNC/SSH session is written to the audit trail.
+- **Sensitive reads are not for Viewers.** Audit logs and stats, webhooks, the Atlas
+  audit export and VM/launcher logs need `cluster.admin` (VM logs: `vm.power`).
+  Deleting a backup or snapshot needs `vm.delete`.
+- **Namespace restriction.** An admin can confine a user to a namespace allow-list
+  (`PUT /api/v1/users/{id}/namespaces`); see [docs/TENANCY.md](docs/TENANCY.md).
+- **MFA.** While 2FA is on, re-enrolling (`POST /v1/auth/totp/setup`) needs the
+  password and a current code, and revokes sessions.
+- **Sessions.** `POST /v1/auth/logout` revokes every session of the caller (PAM
+  sessions via a per-user not-before time); `POST /v1/auth/password` changes your own
+  password and revokes sessions.
+- **Brute force.** 8 failed sign-ins for a username lock it for 15 minutes (in-memory,
+  per process). A wrong TOTP code counts as a failure. This also means someone who
+  knows a username can lock that account out for 15 minutes.
+- **JWT secret.** `ZORVIA_JWT_SECRET` must be at least 32 bytes outside lab mode; a
+  shorter value is ignored and an ephemeral secret is used (tokens reset on restart).
+- **OIDC.** The flow is bound to the starting browser by an HttpOnly `SameSite=Lax`
+  state cookie (login CSRF), the session token is returned in the URL fragment, and an
+  ID token without a `kid` is only accepted when the IdP publishes a single RSA key.
+
+- Not yet addressed: TOTP secrets are stored in plaintext and a code can be replayed
+  within its ~90 s window; the bootstrap admin password is logged when none is
+  supplied; usernames can be enumerated by error/timing differences; API tokens with
+  an unparseable `expires_at` never expire; API tokens and PAM sessions are not
+  namespace-restricted.
 - JWT access tokens default to a **60-minute** TTL (`ZORVIA_JWT_TTL_MINUTES`);
   local-user disable/role/password/TOTP changes bump `token_version` and revoke
   outstanding sessions.

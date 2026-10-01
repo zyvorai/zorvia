@@ -33,7 +33,7 @@ CLI, interactive TUI and a signed-in web console — one API, live cluster objec
 | **1 · Create** | Templates · profiles · blueprints | 43 OS templates, workload profiles, multi-VM stacks — no hand-written VM CRDs |
 | **2 · Day-2** | Hotplug · migrate · snapshot | CPU/memory/disk/NIC hotplug, live migration, snapshots, disk resize |
 | **3 · Access** | Console · VNC · SSH | Authenticated WebSockets into the guest from the signed-in console |
-| **4 · Guard** | RBAC · quotas · NetworkPolicy | Server-side roles, `ResourceQuota`, `NetworkPolicy` — not client-only checks |
+| **4 · Guard** | RBAC · namespaces · quotas · NetworkPolicy | Server-side roles, per-user [namespace allow-lists](docs/TENANCY.md), `ResourceQuota`, `NetworkPolicy` — not client-only checks |
 | **5 · Audit** | Trail · JSONL export | Persistent audit DB + `GET /api/audit/export` for SIEM shippers |
 
 ## What is in the box
@@ -192,6 +192,9 @@ Delivery is phased. Catalog, quote requests, contracts and coverage are implemen
 | Profiles, blueprints, templates | [docs/profiles-blueprints-templates.md](docs/profiles-blueprints-templates.md) · [docs/OS_TEMPLATES.md](docs/OS_TEMPLATES.md) |
 | Day-2 commands and the operator toolkit | [docs/day-2-ops.md](docs/day-2-ops.md) · [docs/operator-toolkit.md](docs/operator-toolkit.md) |
 | Security, cost, tenancy, DR, HA, automation | [docs/platform-surface.md](docs/platform-surface.md) |
+| Per-user namespace restriction | [docs/TENANCY.md](docs/TENANCY.md) |
+| Verified off-cluster backup, restore, recovery drills | [docs/OFFCLUSTER_BACKUP.md](docs/OFFCLUSTER_BACKUP.md) |
+| VMware import (h2kvm) and Atlas storage | [docs/VM_IMPORT.md](docs/VM_IMPORT.md) · [docs/ATLAS_INTEGRATION.md](docs/ATLAS_INTEGRATION.md) |
 | Config file and the Rust library | [docs/config-and-library.md](docs/config-and-library.md) |
 | Leaving OpenShift: comparison and adoption | [docs/leave-openshift.md](docs/leave-openshift.md) · [docs/adopt-existing-kubevirt-cluster.md](docs/adopt-existing-kubevirt-cluster.md) |
 | Feature maturity and roadmap | [docs/roadmap.md](docs/roadmap.md) · [docs/FEATURE_MATURITY.md](docs/FEATURE_MATURITY.md) |
@@ -204,7 +207,7 @@ Delivery is phased. Catalog, quote requests, contracts and coverage are implemen
 
 ## Project security
 
-No `unsafe` on the product path. CORS off unless configured. TLS verification enforced. Profile/blueprint storage blocks path traversal. API errors are sanitized; auth inputs bounded. Report privately via [GitHub Security Advisories](https://github.com/zyvorai/zorvia/security/advisories) or `info@zyvor.dev` — [SECURITY.md](SECURITY.md).
+No `unsafe` on the product path. CORS off unless configured. TLS verification enforced. Console, VNC and SSH sockets are permission-checked, origin-checked and audited; users can be confined to namespaces; sign-in is throttled, MFA re-enrolment needs proof, and sessions can be revoked (`POST /api/v1/auth/logout`). Lab mode is off by default. Profile/blueprint storage blocks path traversal. API errors are sanitized; auth inputs bounded. Report privately via [GitHub Security Advisories](https://github.com/zyvorai/zorvia/security/advisories) or `info@zyvor.dev` — [SECURITY.md](SECURITY.md).
 
 ## Get involved
 
