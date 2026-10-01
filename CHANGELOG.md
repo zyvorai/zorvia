@@ -24,6 +24,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Small Clippy cleanups for the current stable toolchain, without changing
   tenancy, WebSocket permissions or backup HTTP response behavior.
 
+### Added (live fleet inventory)
+
+- Experimental live fleet inventory and administrator console at `/app/fleet`:
+  explicit remote kubeconfig/context/namespace enrollment, paginated read-only
+  nodes/VM collection, bounded probes, shared refresh cache, partial totals,
+  unknown counts, stale-response warnings, and inventory search. Fleet reads
+  require `cluster.admin`; credentials and remote errors are never exposed.
+  See `docs/FLEET.md` for enrollment, minimal RBAC, and live-validation limits.
+
 ### Security
 
 Findings from an identity and tenancy audit (all server-side; PRs #138-#141):

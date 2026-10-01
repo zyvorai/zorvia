@@ -6,8 +6,9 @@ Tracked in [FEATURE_MATURITY.md](FEATURE_MATURITY.md). All Phase 5 endpoints req
 2. The per-capability `ZORVIA_FEATURE_*=1` flag
 3. An authenticated caller with **`cluster.admin`** (admin JWT or scoped token)
 
-Responses are **dry-run plans** (JSON intent). They do not upload to S3, call
-vCenter/Transiva, or mutate remote clusters yet.
+Plan endpoints return **dry-run plans** (JSON intent). Fleet inventory performs
+live read-only Kubernetes queries; the golden-image run endpoint applies CDI
+resources. Fleet does not mutate remote clusters.
 
 | Capability | Env flag | API |
 |------------|----------|-----|
@@ -104,8 +105,9 @@ curl -sk -X POST https://HOST:30152/api/v1/enterprise/s3-backup/plan \
 }
 ```
 
-**Fleet inventory** — `GET /api/v1/enterprise/fleet` (no body); returns an empty
-cluster list until multi-kubeconfig discovery is configured.
+**Fleet inventory** — `GET /api/v1/enterprise/fleet` (no body) collects live local
+and explicitly enrolled remote nodes and VMs. Requires `cluster.admin`.
+See [FLEET.md](FLEET.md) for registry, credentials, read-only RBAC and limits.
 
 ## Enabling on a lab Deployment
 

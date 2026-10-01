@@ -269,6 +269,7 @@ pub mod web {
     pub struct WebState {
         pub namespace: String,
         pub kube_client: KubeClient,
+        pub fleet: Arc<crate::multi_cluster::fleet::FleetService>,
         /// Present only when ZORVIA_LAB_MODE=1 and ZORVIA_API_KEY is set.
         pub lab_api_key: Option<String>,
         pub auth: crate::api::auth::SharedAuth,
@@ -286,6 +287,13 @@ pub mod web {
                 log::warn!("ZORVIA_LAB_MODE=1: lab credentials and shared API key are permitted");
             }
             let kube_client = KubeClient::new().await?;
+            let fleet = Arc::new(
+                crate::multi_cluster::fleet::FleetService::from_env(
+                    kube_client.client(),
+                    namespace.clone(),
+                )
+                .await?,
+            );
             let kryton = crate::kryton::Client::from_env()?;
             if let Some(ref client) = kryton {
                 log::info!(
@@ -305,6 +313,7 @@ pub mod web {
             Ok(Self {
                 namespace,
                 kube_client,
+                fleet,
                 lab_api_key,
                 auth,
                 kryton,
@@ -3002,11 +3011,16 @@ pub mod web {
         }
     }
 
-    async fn enterprise_fleet_inventory() -> impl IntoResponse {
-        match crate::enterprise::FleetInventory::try_snapshot() {
-            Ok(inv) => Json(serde_json::json!({ "success": true, "data": inv })).into_response(),
-            Err(e) => enterprise_err(e).into_response(),
+    async fn enterprise_fleet_inventory(State(state): State<SharedState>) -> impl IntoResponse {
+        if !crate::features::enterprise_flag("ZORVIA_FEATURE_FLEET") {
+            return enterprise_err(
+                "Enterprise feature disabled. Set ZORVIA_EXPERIMENTAL=1 and ZORVIA_FEATURE_FLEET=1"
+                    .into(),
+            )
+            .into_response();
         }
+        let fleet = state.read().await.fleet.clone();
+        Json(serde_json::json!({ "success": true, "data": fleet.snapshot().await })).into_response()
     }
 
     // ── Types ──────────────────────────────────────────────────────

@@ -176,7 +176,7 @@ pub const FEATURES: &[Feature] = &[
         id: "fleet-multicluster",
         name: "Multi-cluster fleet inventory",
         maturity: Maturity::Experimental,
-        notes: "Phase 5 — GET /api/v1/enterprise/fleet",
+        notes: "Live read-only inventory with explicit enrollment; GET /api/v1/enterprise/fleet; live multi-cluster validation pending",
     },
 ];
 
