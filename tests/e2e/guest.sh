@@ -57,10 +57,12 @@ vm_running() { api GET "/vms/$VM" | body | jq -e '(.. | strings? | select(. == "
 s_create_boot() {
   local r; r=$(api POST /vms "{\"name\":\"$VM\",\"image\":\"$IMAGE\",\"cpus\":2,\"memory\":2048,\"disk\":10,
     \"cloud_init\":{\"user_data\":\"#cloud-config\nruncmd:\n  - [sh, -c, 'while :; do :; done &']\n  - [sh, -c, 'dd if=/dev/zero of=/var/tmp/load bs=1M count=512 conv=fsync; sync']\"}}")
-  [ "$(echo "$r" | code)" -lt 300 ] || { echo "create: $(echo "$r" | body | head -c 200)"; return 1; }
+  # The API answers within 30 s; 408 only means the guest was not ready yet.
+  case "$(echo "$r" | code)" in 2??|408) ;; *) echo "create: $(echo "$r" | body | head -c 200)"; return 1 ;; esac
   wait_for 900 vm_running || { echo "never Running"; return 1; }
-  r=$(api POST "/vms/$VM/wait-ready"); [ "$(echo "$r" | code)" = 200 ] || { echo "guest not ready: $(echo "$r" | body | head -c 200)"; return 1; }
-  echo "agent up, $(echo "$r" | body | jq -r '.reason // "ready"')"
+  agent_up() { [ "$(api POST "/vms/$VM/wait-ready" | code)" = 200 ]; }
+  wait_for 900 agent_up || { echo "guest agent never came up"; return 1; }
+  echo "agent up"
 }
 
 s_snapshot_revert() {
@@ -86,7 +88,7 @@ s_live_migration() {
   moved() { after=$($KUBECTL -n "$NS" get vmi "$VM" -o jsonpath='{.status.nodeName}' 2>/dev/null); [ -n "$after" ] && [ "$after" != "$before" ]; }
   wait_for 600 moved || { echo "still on $before"; return 1; }
   # guest must still answer after the move (the load loop keeps it busy)
-  r=$(api POST "/vms/$VM/wait-ready"); [ "$(echo "$r" | code)" = 200 ] || { echo "agent lost after migration"; return 1; }
+  agent_up || wait_for 300 agent_up || { echo "agent lost after migration"; return 1; }
   echo "$before -> $after under load"
 }
 

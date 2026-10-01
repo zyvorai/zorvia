@@ -1336,11 +1336,35 @@ fn dv_wait_secs() -> u64 {
         .unwrap_or(90)
 }
 
+/// The router drops any `/api` request after 30 s (`TimeoutLayer`) and cancels
+/// the handler mid-flight, so a longer in-request wait would answer 408 and skip
+/// the steps after it (port forwards, labels). Keep the wait inside that budget;
+/// callers poll `POST /vms/{name}/wait-ready` (408 = not ready yet, retry).
+const MAX_IN_REQUEST_WAIT_SECS: u64 = 25;
+
 fn guest_wait_secs() -> u64 {
-    std::env::var("ZORVIA_GUEST_WAIT_SECS")
-        .ok()
-        .and_then(|s| s.parse().ok())
-        .unwrap_or(120)
+    bounded_wait(
+        std::env::var("ZORVIA_GUEST_WAIT_SECS")
+            .ok()
+            .and_then(|s| s.parse().ok())
+            .unwrap_or(MAX_IN_REQUEST_WAIT_SECS),
+    )
+}
+
+fn bounded_wait(requested: u64) -> u64 {
+    requested.min(MAX_IN_REQUEST_WAIT_SECS)
+}
+
+#[cfg(test)]
+mod wait_budget_tests {
+    use super::*;
+
+    #[test]
+    fn in_request_wait_never_exceeds_the_router_timeout() {
+        assert_eq!(bounded_wait(120), 25);
+        assert_eq!(bounded_wait(10), 10);
+        assert!(MAX_IN_REQUEST_WAIT_SECS < 30);
+    }
 }
 
 pub async fn fabric_wait_guest_ready(
