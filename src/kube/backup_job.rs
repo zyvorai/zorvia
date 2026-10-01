@@ -99,7 +99,27 @@ fn secret_env(name: &str, secret: &str, key: &str) -> EnvVar {
 #[derive(Clone, Copy)]
 enum Mode<'a> {
     Backup,
-    Restore { manifest_key: &'a str },
+    Restore {
+        manifest_key: &'a str,
+    },
+    /// Reads one part per disk from the object store; mounts no volumes.
+    VerifyKey {
+        manifest_key: &'a str,
+    },
+}
+
+/// Job that proves an encryption key still opens a stored backup (see
+/// `agent::run_verify_key`). It needs no PVCs, so `spec.disks` is ignored.
+pub fn build_verify_key_job(
+    job_name: &str,
+    namespace: &str,
+    manifest_key: &str,
+    spec: &BackupJobSpec,
+) -> Result<Job> {
+    if manifest_key.is_empty() || manifest_key.starts_with('/') || manifest_key.contains("..") {
+        bail!("invalid manifest key");
+    }
+    build_job(job_name, namespace, spec, Mode::VerifyKey { manifest_key })
 }
 
 pub fn build_backup_job(job_name: &str, namespace: &str, spec: &BackupJobSpec) -> Result<Job> {
@@ -123,20 +143,24 @@ pub fn build_restore_job(
 fn build_job(job_name: &str, namespace: &str, spec: &BackupJobSpec, mode: Mode) -> Result<Job> {
     let (root, read_only) = match mode {
         Mode::Backup => (DISKS_ROOT, true),
-        Mode::Restore { .. } => (RESTORE_ROOT, false),
+        Mode::Restore { .. } | Mode::VerifyKey { .. } => (RESTORE_ROOT, false),
     };
-    if spec.disks.is_empty() {
+    // A key check reads from the object store only: no volumes at all.
+    let disks: &[BackupDisk] = match mode {
+        Mode::VerifyKey { .. } => &[],
+        _ => &spec.disks,
+    };
+    if disks.is_empty() && !matches!(mode, Mode::VerifyKey { .. }) {
         bail!("backup has no disks");
     }
-    for d in &spec.disks {
+    for d in disks {
         if !dns_label(&d.name) {
             bail!("invalid disk name '{}'", d.name);
         }
     }
 
     let disks_json = serde_json::to_string(
-        &spec
-            .disks
+        &disks
             .iter()
             .map(|d| {
                 serde_json::json!({
@@ -169,7 +193,7 @@ fn build_job(job_name: &str, namespace: &str, spec: &BackupJobSpec, mode: Mode) 
         (
             match mode {
                 Mode::Backup => "BACKUP_DISKS",
-                Mode::Restore { .. } => "RESTORE_DISKS",
+                Mode::Restore { .. } | Mode::VerifyKey { .. } => "RESTORE_DISKS",
             },
             disks_json.as_str(),
         ),
@@ -180,9 +204,14 @@ fn build_job(job_name: &str, namespace: &str, spec: &BackupJobSpec, mode: Mode) 
             ..Default::default()
         });
     }
-    if let Mode::Restore { manifest_key } = mode {
+    if let Mode::Restore { manifest_key } | Mode::VerifyKey { manifest_key } = mode {
+        let backup_mode = if matches!(mode, Mode::VerifyKey { .. }) {
+            "verify-key"
+        } else {
+            "restore"
+        };
         for (k, v) in [
-            ("BACKUP_MODE", "restore"),
+            ("BACKUP_MODE", backup_mode),
             ("RESTORE_MANIFEST_KEY", manifest_key),
         ] {
             env.push(EnvVar {
@@ -213,7 +242,7 @@ fn build_job(job_name: &str, namespace: &str, spec: &BackupJobSpec, mode: Mode) 
     // A raw block device is node-owned (root:disk, 0660), unreadable by the
     // unprivileged CDI UID. Only for Block sources the agent runs as root, still
     // unprivileged with every capability dropped; filesystem-only jobs keep UID 107.
-    let uses_block = matches!(mode, Mode::Backup) && spec.disks.iter().any(|d| d.block);
+    let uses_block = matches!(mode, Mode::Backup) && disks.iter().any(|d| d.block);
 
     let mut labels = BTreeMap::new();
     labels.insert(
@@ -221,6 +250,7 @@ fn build_job(job_name: &str, namespace: &str, spec: &BackupJobSpec, mode: Mode) 
         match mode {
             Mode::Backup => "zorvia-backup",
             Mode::Restore { .. } => "zorvia-restore",
+            Mode::VerifyKey { .. } => "zorvia-verify-key",
         }
         .to_string(),
     );
@@ -251,7 +281,7 @@ fn build_job(job_name: &str, namespace: &str, spec: &BackupJobSpec, mode: Mode) 
             // could never succeed; the operation layer decides on retries.
             backoff_limit: Some(match mode {
                 Mode::Backup => 2,
-                Mode::Restore { .. } => 0,
+                Mode::Restore { .. } | Mode::VerifyKey { .. } => 0,
             }),
             ttl_seconds_after_finished: Some(3600),
             active_deadline_seconds: Some(spec.active_deadline_secs),
@@ -300,7 +330,7 @@ fn build_job(job_name: &str, namespace: &str, spec: &BackupJobSpec, mode: Mode) 
                             (!devs.is_empty()).then_some(devs)
                         },
                         volume_mounts: Some(
-                            spec.disks
+                            disks
                                 .iter()
                                 .filter(|d| !(d.block && matches!(mode, Mode::Backup)))
                                 .map(|d| VolumeMount {
@@ -314,7 +344,7 @@ fn build_job(job_name: &str, namespace: &str, spec: &BackupJobSpec, mode: Mode) 
                         ..Default::default()
                     }],
                     volumes: Some(
-                        spec.disks
+                        disks
                             .iter()
                             .map(|d| Volume {
                                 name: format!("disk-{}", d.name),
@@ -537,6 +567,41 @@ mod tests {
         let psc = pod.security_context.as_ref().unwrap();
         assert_eq!(psc.run_as_user, Some(107));
         assert_eq!(psc.run_as_non_root, Some(true));
+    }
+
+    #[test]
+    fn verify_key_job_mounts_nothing_and_runs_in_verify_mode() {
+        let mut s = spec();
+        s.disks.clear();
+        let job = build_verify_key_job("vk-1", "default", "web-1/op-1/manifest.json", &s).unwrap();
+        let pod = job.spec.as_ref().unwrap().template.spec.as_ref().unwrap();
+        let c = &pod.containers[0];
+        assert!(pod.volumes.as_ref().is_none_or(|v| v.is_empty()));
+        assert!(c.volume_mounts.as_ref().is_none_or(|v| v.is_empty()));
+        assert!(c.volume_devices.is_none());
+        let env = c.env.as_ref().unwrap();
+        let val = |n: &str| {
+            env.iter()
+                .find(|e| e.name == n)
+                .and_then(|e| e.value.clone())
+        };
+        assert_eq!(val("BACKUP_MODE").as_deref(), Some("verify-key"));
+        assert_eq!(
+            val("RESTORE_MANIFEST_KEY").as_deref(),
+            Some("web-1/op-1/manifest.json")
+        );
+        // Credentials and the key still come from the Secret, never as values.
+        for n in ["AWS_SECRET_ACCESS_KEY", "AWS_ACCESS_KEY_ID"] {
+            assert!(env.iter().find(|e| e.name == n).unwrap().value.is_none());
+        }
+        // Unprivileged CDI UID, no Block-source root escalation.
+        let psc = pod.security_context.as_ref().unwrap();
+        assert_eq!(psc.run_as_user, Some(107));
+        assert_eq!(psc.run_as_non_root, Some(true));
+        assert_eq!(job.spec.as_ref().unwrap().backoff_limit, Some(0));
+        for k in ["", "/abs", "a/../b"] {
+            assert!(build_verify_key_job("vk-1", "default", k, &s).is_err());
+        }
     }
 
     #[test]

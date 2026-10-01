@@ -375,6 +375,7 @@ mod tests {
             ("POST", "/backups/offcluster"),
             ("POST", "/backups/offcluster/op-1/restore"),
             ("POST", "/backups/offcluster/op-1/drill"),
+            ("POST", "/backups/offcluster/op-1/verify-key"),
         ] {
             assert_eq!(required_permission(m, p), Some(ApiPermission::ClusterAdmin));
         }

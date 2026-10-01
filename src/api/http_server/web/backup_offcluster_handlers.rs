@@ -171,3 +171,21 @@ pub async fn drill_offcluster_handler(Path(op_id): Path<String>) -> impl IntoRes
         }
     }
 }
+
+/// `POST /backups/offcluster/{op_id}/verify-key`: prove the configured encryption key
+/// still opens this backup (first part of each disk), without restoring it.
+pub async fn verify_key_offcluster_handler(Path(op_id): Path<String>) -> impl IntoResponse {
+    match crate::backup::verify_key::enqueue_in(OperationsDb::global(), &op_id) {
+        Ok(op) => (
+            StatusCode::ACCEPTED,
+            Json(json!({ "operation_id": op.id, "state": op.state })),
+        )
+            .into_response(),
+        Err(e) => {
+            let msg = e.to_string();
+            let code = if msg.contains("not found") { 404 } else { 400 };
+            let (st, j) = err_json(code, "INVALID", &msg);
+            (st, j).into_response()
+        }
+    }
+}

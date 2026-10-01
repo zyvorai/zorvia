@@ -70,6 +70,17 @@ uuid/serial and MAC addresses are dropped so it cannot collide with the
 original. The VM is created halted unless `start` is true. Poll
 `GET /api/operations/{id}`.
 
+## Checking that the encryption key still works
+
+`POST /api/backups/offcluster/{operation_id}/verify-key` (cluster.admin) queues a `backup-verify-key`
+operation. It runs the agent in `verify-key` mode in the VM's namespace: it reads the manifest and the
+**first part of each disk**, checks it against the manifest checksum and proves the configured key
+decrypts it, then stops. No volumes, no VM, and only about one part (default 64 MiB) per disk is read.
+A wrong or rotated key fails with `decryption failed (wrong key or corrupted part)`.
+
+It proves the key opens the backup, not that the whole disk restores or boots; schedule recovery drills
+for that. For an unencrypted backup it still checks the first part's checksum.
+
 ## Recovery drills
 
 `POST /api/backups/offcluster/{operation_id}/drill`, or set

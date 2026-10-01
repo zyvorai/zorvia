@@ -56,6 +56,7 @@ pub fn handler_for(kind: &str) -> Option<HandlerFn> {
         crate::migration_import::OP_KIND => Some(crate::migration_import::runtime::run_import_op),
         crate::backup::restore::RESTORE_KIND => Some(crate::backup::restore::run_restore_op),
         crate::backup::restore::DRILL_KIND => Some(crate::backup::restore::run_drill_op),
+        crate::backup::verify_key::KIND => Some(crate::backup::verify_key::run_op),
         _ => None,
     }
 }

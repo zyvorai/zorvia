@@ -446,7 +446,7 @@ pub(crate) fn vm_api(client: &kube::Client, ns: &str) -> Api<DynamicObject> {
     Api::namespaced_with(client.clone(), ns, &ar)
 }
 
-fn short_id(op_id: &str) -> String {
+pub(super) fn short_id(op_id: &str) -> String {
     op_id.trim_start_matches("op-").chars().take(10).collect()
 }
 
@@ -600,7 +600,10 @@ async fn cleanup_restored(client: &kube::Client, ns: &str, r: &Restored) {
     cleanup_targets(client, ns, &r.job_name, &r.pvcs).await;
 }
 
-fn load_source(ctx: &OpContext, p: &RestoreParams) -> std::result::Result<RestoreSource, Outcome> {
+pub(super) fn load_source(
+    ctx: &OpContext,
+    p: &RestoreParams,
+) -> std::result::Result<RestoreSource, Outcome> {
     let src_op = match ctx.db.get(&p.source_op) {
         Ok(Some(o)) => o,
         Ok(None) => return Err(Outcome::Failed(format!("backup {} not found", p.source_op))),
@@ -609,7 +612,7 @@ fn load_source(ctx: &OpContext, p: &RestoreParams) -> std::result::Result<Restor
     source_from_op(&src_op).map_err(|e| Outcome::Failed(e.to_string()))
 }
 
-async fn target_config() -> std::result::Result<OffClusterTarget, Outcome> {
+pub(super) async fn target_config() -> std::result::Result<OffClusterTarget, Outcome> {
     match OffClusterTarget::resolve().await {
         Ok(Some(t)) => Ok(t),
         Ok(None) => Err(Outcome::Failed(
