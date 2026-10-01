@@ -128,7 +128,7 @@
 
   const $ = (id) => document.getElementById(id);
   const params = new URLSearchParams(location.search);
-  const oidcToken = params.get('oidc_token');
+  const oidcToken = new URLSearchParams(location.hash.slice(1)).get('oidc_token');
   if (oidcToken) {
     localStorage.setItem(TOKEN_KEY, oidcToken);
     history.replaceState({}, '', '/sign-in');
