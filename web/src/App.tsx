@@ -28,6 +28,7 @@ const Snapshots = lazy(() => import('./pages/Snapshots'))
 const FavoriteVMs = lazy(() => import('./pages/FavoriteVMs'))
 const KrytonWindows = lazy(() => import('./pages/KrytonWindows'))
 const Migrations = lazy(() => import('./pages/Migrations'))
+const VMwareImports = lazy(() => import('./pages/VMwareImports'))
 const RookStorage = lazy(() => import('./pages/RookStorage'))
 const Quotas = lazy(() => import('./pages/Quotas'))
 const VMCompare = lazy(() => import('./pages/VMCompare'))
@@ -113,6 +114,7 @@ function ConsoleRoutes() {
             <Route path="favorites" element={<FavoriteVMs />} />
             <Route path="snapshots" element={<Snapshots />} />
             <Route path="migrations" element={<Migrations />} />
+            <Route path="vmware-imports" element={<AdminRoute><VMwareImports /></AdminRoute>} />
             <Route path="migrations/readiness" element={<MigrationReadiness />} />
             <Route path="events" element={<EventStream />} />
             <Route path="health-check" element={<VMHealthCheck />} />

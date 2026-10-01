@@ -131,7 +131,7 @@ impl UserDb {
     }
 
     pub fn set_namespaces(&self, user_id: &str, namespaces: Option<&[String]>) -> Result<()> {
-        let raw = namespaces.map(|n| serde_json::to_string(n)).transpose()?;
+        let raw = namespaces.map(serde_json::to_string).transpose()?;
         let conn = self.conn.lock().map_err(|e| anyhow::anyhow!("{e}"))?;
         conn.execute(
             "UPDATE users SET namespaces = ?1 WHERE id = ?2",

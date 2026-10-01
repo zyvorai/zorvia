@@ -704,7 +704,7 @@ mod tests {
 
     #[tokio::test]
     async fn read_full_fills_buffer_across_short_reads() {
-        let data = vec![7u8; 10];
+        let data = [7u8; 10];
         let mut r = &data[..];
         let mut buf = [0u8; 4];
         assert_eq!(read_full(&mut r, &mut buf).await.unwrap(), 4);

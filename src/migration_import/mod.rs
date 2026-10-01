@@ -7,9 +7,11 @@
 //! --deploy-k8s` does the whole pipeline (export from vCenter, GuestKit
 //! offline repair, convert, upload via CDI, create the VirtualMachine); Zorvia
 //! supplies parameters, credentials (from a Secret), scratch space, follows the
-//! stage markers h2kvm logs, verifies the VM exists, and rolls back on failure.
+//! stage markers h2kvm logs, verifies the VM exists, applies target networking,
+//! and optionally starts it. Failed imports preserve disks for inspection.
 
 pub mod job;
+pub mod networks;
 pub mod runtime;
 
 use crate::operations::{NewOperation, Operation, OperationsDb};
@@ -18,6 +20,33 @@ use serde::{Deserialize, Serialize};
 
 pub const OP_KIND: &str = "vm-import";
 pub const MAX_WAVE: usize = 50;
+
+/// Fail closed when checking names. Only an explicit Kubernetes 404 proves
+/// absence; permissions and connectivity failures must never permit an import.
+pub async fn ensure_target_available(
+    client: &kube::Client,
+    namespace: &str,
+    target: &str,
+) -> Result<()> {
+    use kube::api::Api;
+    use kube::core::{ApiResource, DynamicObject, GroupVersionKind};
+    for (group, version, kind, name) in [
+        ("kubevirt.io", "v1", "VirtualMachine", target.to_string()),
+        ("", "v1", "PersistentVolumeClaim", pvc_name(target)),
+        ("cdi.kubevirt.io", "v1beta1", "DataVolume", pvc_name(target)),
+    ] {
+        let ar = ApiResource::from_gvk(&GroupVersionKind::gvk(group, version, kind));
+        let api: Api<DynamicObject> = Api::namespaced_with(client.clone(), namespace, &ar);
+        match api.get(&name).await {
+            Ok(_) => bail!("{kind} '{name}' already exists in '{namespace}'"),
+            Err(kube::Error::Api(e)) if e.code == 404 => {}
+            Err(e) => {
+                bail!("cannot establish whether {kind} '{name}' exists in '{namespace}': {e}")
+            }
+        }
+    }
+    Ok(())
+}
 
 /// Where the source VMs live. The password never appears here: it is read by
 /// the Job from `secret_name` in the target namespace.
@@ -58,6 +87,16 @@ pub struct ImportVm {
     /// Start the VM once deployed (cutover). Default: leave it stopped.
     #[serde(default)]
     pub start: bool,
+    /// Explicit target NIC layout, applied before cutover. Empty keeps the
+    /// importer's default networking. Attachments are in the target namespace.
+    #[serde(default)]
+    pub networks: Vec<networks::ImportNetwork>,
+    /// Require a connected guest agent in addition to a Running VMI.
+    #[serde(default)]
+    pub require_guest_agent: bool,
+    /// Override the boot verification timeout (30..=3600 seconds).
+    #[serde(default)]
+    pub boot_timeout_secs: Option<u64>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
@@ -112,6 +151,9 @@ fn safe_arg(what: &str, s: &str) -> Result<()> {
     if s.chars().any(|c| c.is_control()) {
         bail!("{what} contains control characters");
     }
+    if s.contains("$(") {
+        bail!("{what} must not contain Kubernetes environment expansion");
+    }
     Ok(())
 }
 
@@ -123,6 +165,9 @@ fn quantity(what: &str, s: &str) -> Result<()> {
             .collect();
         let suffix = &s[digits.len()..];
         !digits.is_empty()
+            && !digits.starts_with('.')
+            && !digits.ends_with('.')
+            && digits.bytes().any(|b| matches!(b, b'1'..=b'9'))
             && digits.matches('.').count() <= 1
             && matches!(
                 suffix,
@@ -136,11 +181,24 @@ fn quantity(what: &str, s: &str) -> Result<()> {
 }
 
 fn hostname(s: &str) -> bool {
+    let address = s
+        .strip_prefix('[')
+        .and_then(|s| s.strip_suffix(']'))
+        .unwrap_or(s);
+    if address.parse::<std::net::IpAddr>().is_ok() {
+        return true;
+    }
     !s.is_empty()
         && s.len() <= 253
-        && !s.starts_with(['-', '.'])
-        && s.bytes()
-            .all(|b| b.is_ascii_alphanumeric() || matches!(b, b'.' | b'-' | b':' | b'[' | b']'))
+        && s.split('.').all(|label| {
+            !label.is_empty()
+                && label.len() <= 63
+                && !label.starts_with('-')
+                && !label.ends_with('-')
+                && label
+                    .bytes()
+                    .all(|b| b.is_ascii_alphanumeric() || b == b'-')
+        })
 }
 
 /// DNS-label form of a vCenter VM name ("Web Prod_01" -> "web-prod-01").
@@ -181,6 +239,9 @@ impl ImportRequest {
         if !hostname(&self.source.vcenter) {
             p.push("source.vcenter is not a valid host name or address".into());
         }
+        if self.source.port == Some(0) {
+            p.push("source.port must be 1-65535".into());
+        }
         if !dns_label(&self.namespace) {
             p.push("namespace must be a DNS label".into());
         }
@@ -203,6 +264,9 @@ impl ImportRequest {
         }
         if let Some(s) = &self.scratch_size {
             note(&mut p, quantity("scratch_size", s));
+        }
+        if let Some(sc) = &self.scratch_storage_class {
+            note(&mut p, safe_arg("scratch_storage_class", sc));
         }
         if self.vms.is_empty() {
             p.push("vms is empty".into());
@@ -238,6 +302,20 @@ impl ImportRequest {
                 if c == 0 || c > 256 {
                     p.push(format!("{at}.cpu must be 1-256"));
                 }
+            }
+            p.extend(
+                networks::problems(&vm.networks)
+                    .into_iter()
+                    .map(|e| format!("{at}: {e}")),
+            );
+            if vm.require_guest_agent && !vm.start {
+                p.push(format!("{at}.require_guest_agent requires start=true"));
+            }
+            if vm
+                .boot_timeout_secs
+                .is_some_and(|t| !(30..=3600).contains(&t))
+            {
+                p.push(format!("{at}.boot_timeout_secs must be 30-3600"));
             }
         }
         p
@@ -301,9 +379,8 @@ pub fn h2kvm_args(p: &ImportOpParams) -> Vec<String> {
     if let Some(mem) = &p.vm.memory {
         a.extend(["--k8s-memory".into(), mem.clone()]);
     }
-    if p.vm.start {
-        a.push("--k8s-auto-start".into());
-    }
+    // Cutover is owned by Zorvia after networking and cancellation checks.
+    // Never let the importer start a guest before target NICs are applied.
     a
 }
 
@@ -438,6 +515,77 @@ pub fn wave_summary(db: &OperationsDb, wave_id: &str) -> Result<serde_json::Valu
 }
 
 #[cfg(test)]
+pub(crate) mod test_api {
+    use axum::{
+        body::{to_bytes, Body},
+        extract::{Request, State},
+        http::StatusCode,
+        response::IntoResponse,
+        Json, Router,
+    };
+    use serde_json::{json, Value};
+    use std::{
+        collections::VecDeque,
+        sync::{Arc, Mutex},
+    };
+
+    pub struct MockApi {
+        pub client: kube::Client,
+        pub requests: Arc<Mutex<Vec<(String, String, Value)>>>,
+        task: tokio::task::JoinHandle<()>,
+    }
+    impl Drop for MockApi {
+        fn drop(&mut self) {
+            self.task.abort();
+        }
+    }
+
+    pub fn missing() -> (StatusCode, Value) {
+        (
+            StatusCode::NOT_FOUND,
+            json!({"apiVersion":"v1","kind":"Status","status":"Failure","reason":"NotFound","message":"missing","code":404}),
+        )
+    }
+
+    pub async fn mock(replies: Vec<(StatusCode, Value)>) -> MockApi {
+        type Replies = Arc<Mutex<VecDeque<(StatusCode, Value)>>>;
+        type Requests = Arc<Mutex<Vec<(String, String, Value)>>>;
+        async fn handle(
+            State((replies, requests)): State<(Replies, Requests)>,
+            req: Request<Body>,
+        ) -> impl IntoResponse {
+            let method = req.method().to_string();
+            let path = req.uri().path().to_string();
+            let body = to_bytes(req.into_body(), 1024 * 1024).await.unwrap();
+            let value = serde_json::from_slice(&body).unwrap_or(Value::Null);
+            requests.lock().unwrap().push((method, path, value));
+            let (status, value) = replies.lock().unwrap().pop_front().unwrap_or((
+                StatusCode::INTERNAL_SERVER_ERROR,
+                json!({"message":"unexpected request","code":500}),
+            ));
+            (status, Json(value))
+        }
+        let requests = Arc::new(Mutex::new(Vec::new()));
+        let app = Router::new().fallback(handle).with_state((
+            Arc::new(Mutex::new(VecDeque::from(replies))),
+            requests.clone(),
+        ));
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let uri = format!("http://{}", listener.local_addr().unwrap())
+            .parse()
+            .unwrap();
+        let task = tokio::spawn(async move {
+            axum::serve(listener, app).await.unwrap();
+        });
+        MockApi {
+            client: kube::Client::try_from(kube::Config::new(uri)).unwrap(),
+            requests,
+            task,
+        }
+    }
+}
+
+#[cfg(test)]
 mod tests {
     use super::*;
 
@@ -461,6 +609,9 @@ mod tests {
                 cpu: Some(4),
                 memory: Some("8Gi".into()),
                 start: true,
+                networks: Vec::new(),
+                require_guest_agent: false,
+                boot_timeout_secs: None,
             }],
             scratch_size: None,
             scratch_storage_class: None,
@@ -514,6 +665,110 @@ mod tests {
         assert!(r.problems().iter().any(|p| p.contains("used twice")));
     }
 
+    #[test]
+    fn rejects_zero_malformed_quantities_and_env_expansion() {
+        for value in ["0", "0Gi", ".Gi", "1.Gi", ".1Gi", "00.00Gi"] {
+            let mut r = req();
+            r.vms[0].memory = Some(value.into());
+            assert!(r.validate().is_err(), "{value}");
+        }
+        for value in ["1", "0.5Gi", "16Gi"] {
+            let mut r = req();
+            r.vms[0].memory = Some(value.into());
+            assert!(r.validate().is_ok(), "{value}");
+        }
+        let mut r = req();
+        r.vms[0].source_vm = "$(VC_PASSWORD)".into();
+        assert!(r.validate().is_err());
+        let mut r = req();
+        r.source.port = Some(0);
+        assert!(r.validate().is_err());
+        let mut r = req();
+        r.scratch_storage_class = Some("--bad".into());
+        assert!(r.validate().is_err());
+    }
+
+    #[test]
+    fn validates_boot_policy_and_preserves_legacy_json() {
+        let mut r = req();
+        r.vms[0].require_guest_agent = true;
+        r.vms[0].start = false;
+        assert!(r.validate().is_err());
+        r.vms[0].start = true;
+        r.vms[0].boot_timeout_secs = Some(29);
+        assert!(r.validate().is_err());
+        r.vms[0].boot_timeout_secs = Some(3600);
+        assert!(r.validate().is_ok());
+        let mut value = serde_json::to_value(req()).unwrap();
+        let vm = value["vms"][0].as_object_mut().unwrap();
+        for field in ["networks", "require_guest_agent", "boot_timeout_secs"] {
+            vm.remove(field);
+        }
+        let r: ImportRequest = serde_json::from_value(value).unwrap();
+        assert!(r.vms[0].networks.is_empty());
+        assert!(!r.vms[0].require_guest_agent);
+        assert!(r.validate().is_ok());
+    }
+
+    #[test]
+    fn validates_vcenter_hosts_and_addresses() {
+        for host in [
+            "vc.example.com",
+            "192.0.2.1",
+            "2001:db8::1",
+            "[2001:db8::1]",
+        ] {
+            assert!(hostname(host), "{host}");
+        }
+        for host in [
+            "vc..example.com",
+            "vc:443",
+            "[invalid]",
+            "https://vc.example.com",
+            "vc-.example.com",
+        ] {
+            assert!(!hostname(host), "{host}");
+        }
+    }
+
+    #[tokio::test]
+    async fn preflight_absence_requires_three_explicit_not_found_responses() {
+        let api = test_api::mock(vec![
+            test_api::missing(),
+            test_api::missing(),
+            test_api::missing(),
+        ])
+        .await;
+        assert!(ensure_target_available(&api.client, "vms", "web-01")
+            .await
+            .is_ok());
+        let requests = api.requests.lock().unwrap();
+        assert_eq!(requests.len(), 3);
+        assert!(requests[1]
+            .1
+            .ends_with("/persistentvolumeclaims/web-01-root"));
+        assert!(requests[2].1.ends_with("/datavolumes/web-01-root"));
+    }
+
+    #[tokio::test]
+    async fn preflight_denied_read_or_existing_disk_blocks_import() {
+        use axum::http::StatusCode;
+        let denied = test_api::mock(vec![(StatusCode::FORBIDDEN, serde_json::json!({"kind":"Status","apiVersion":"v1","reason":"Forbidden","message":"denied","code":403}))]).await;
+        assert!(ensure_target_available(&denied.client, "vms", "web-01")
+            .await
+            .unwrap_err()
+            .to_string()
+            .contains("cannot establish"));
+        assert_eq!(denied.requests.lock().unwrap().len(), 1);
+        let occupied = test_api::mock(vec![test_api::missing(), (StatusCode::OK, serde_json::json!({"apiVersion":"v1","kind":"PersistentVolumeClaim","metadata":{"name":"web-01-root"}}))]).await;
+        assert!(ensure_target_available(&occupied.client, "vms", "web-01")
+            .await
+            .unwrap_err()
+            .to_string()
+            .contains("already exists"));
+        assert_eq!(occupied.requests.lock().unwrap().len(), 2);
+    }
+
     fn op_params() -> ImportOpParams {
         let r = req();
         ImportOpParams {
@@ -540,7 +795,7 @@ mod tests {
         assert!(joined.contains("--dc-name DC1"));
         assert!(joined.contains("--k8s-storage-class longhorn --k8s-pvc-size 60Gi"));
         assert!(joined.contains("--k8s-cpu 4 --k8s-memory 8Gi"));
-        assert!(a.contains(&"--k8s-auto-start".to_string()));
+        assert!(!a.contains(&"--k8s-auto-start".to_string()));
         assert!(!a.contains(&"--vc-insecure".to_string()));
         // The VM name is a single argv element, never split on spaces.
         assert!(a.iter().any(|x| x == "Web Prod_01"));

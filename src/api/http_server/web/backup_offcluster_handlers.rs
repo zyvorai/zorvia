@@ -103,17 +103,17 @@ pub struct RestoreBody {
     pub start: bool,
 }
 
-fn load_source(op_id: &str) -> Result<restore::RestoreSource, axum::response::Response> {
+fn load_source(op_id: &str) -> Result<restore::RestoreSource, Box<axum::response::Response>> {
     match OperationsDb::global().get(op_id) {
         Ok(Some(op)) => restore::source_from_op(&op).map_err(|e| {
             let (st, j) = err_json(409, "NOT_RESTORABLE", &e.to_string());
-            (st, j).into_response()
+            Box::new((st, j).into_response())
         }),
         Ok(None) => {
             let (st, j) = err_json(404, "NOT_FOUND", "backup not found");
-            Err((st, j).into_response())
+            Err(Box::new((st, j).into_response()))
         }
-        Err(e) => Err(unavailable(e)),
+        Err(e) => Err(Box::new(unavailable(e))),
     }
 }
 
@@ -123,7 +123,7 @@ pub async fn restore_offcluster_handler(
 ) -> impl IntoResponse {
     let src = match load_source(&op_id) {
         Ok(s) => s,
-        Err(r) => return r,
+        Err(r) => return *r,
     };
     let namespace = body
         .namespace
@@ -152,7 +152,7 @@ pub async fn restore_offcluster_handler(
 pub async fn drill_offcluster_handler(Path(op_id): Path<String>) -> impl IntoResponse {
     let src = match load_source(&op_id) {
         Ok(s) => s,
-        Err(r) => return r,
+        Err(r) => return *r,
     };
     match restore::enqueue_drill_in(
         OperationsDb::global(),
