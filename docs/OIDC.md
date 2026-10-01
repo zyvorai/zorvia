@@ -14,6 +14,10 @@ The flow is:
 3. `GET /api/v1/auth/oidc/callback` — one-time state lookup, **token exchange**
    with `code_verifier`, fetch JWKS, verify `id_token` (`iss`, `aud`, `nonce`, `exp`)
 4. JIT provision a local SQLite user `oidc:<sub>` (unusable password; IdP-only login)
+   The callback also requires the HttpOnly `zorvia_oidc_state` cookie set in step 1
+   to equal the `state` (login CSRF protection), so sign-in must finish in the browser
+   that started it. An ID token with no `kid` is accepted only when the IdP's JWKS has
+   a single RSA key.
 5. Mint a normal Zorvia JWT via `JwtConfig::generate` (honors `token_version` / disable)
 
 Admin RBAC and session revocation apply to OIDC users the same as password users.

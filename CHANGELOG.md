@@ -7,6 +7,37 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Security
+
+Findings from an identity and tenancy audit (all server-side; PRs #138-#141):
+
+- **VM sockets are permissioned.** `/ws/console` and `/ws/vnc` require `vm.power`,
+  `/ws/ssh` requires `cluster.admin` (a Viewer could previously open all three).
+  VM names are validated, cross-origin WebSocket handshakes are refused, and
+  sessions are audited.
+- **MFA.** Re-enrolling TOTP while 2FA is on needs the password and a current code and
+  revokes sessions. New `POST /api/v1/auth/password` and `POST /api/v1/auth/logout`.
+- **Hardening.** Failed-login lockout (8 / 15 min per username); `ZORVIA_JWT_SECRET`
+  must be 32+ bytes; lab mode removed from the shipped manifests.
+- **Least privilege reads.** Audit logs/stats, webhooks, the Atlas audit export and VM
+  logs are no longer readable by Viewers; deleting backups/snapshots needs `vm.delete`.
+- **Tenancy.** Per-user namespace allow-lists (`PUT /api/v1/users/{id}/namespaces`),
+  enforced on every request, failing closed — see [docs/TENANCY.md](docs/TENANCY.md).
+- **OIDC.** State bound to the browser by cookie (login CSRF), session token returned
+  in the URL fragment, and strict `kid` handling.
+- **PAM sessions** can be revoked via logout.
+
+### Added (durable operations, backup, import)
+
+- **Durable operations** (SQLite, leader-elected reconciler, retries that survive
+  restarts) with admin `GET /api/operations` and cancel.
+- **Verified off-cluster backup** to S3 (including an Atlas-provisioned bucket):
+  per-part AES-256-GCM, read-back verification, Object Lock, restore, recovery drills,
+  retention — [docs/OFFCLUSTER_BACKUP.md](docs/OFFCLUSTER_BACKUP.md).
+- **VMware import** through h2kvm Jobs with waves, preflight and rollback —
+  [docs/VM_IMPORT.md](docs/VM_IMPORT.md).
+- Refreshed image catalog (only images that exist on `quay.io/containerdisks`).
+
 ### Added
 
 - **`zorvia adopt`** — read-only report on the VMs Zorvia can see and which
