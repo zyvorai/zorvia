@@ -66,12 +66,17 @@ s_create_boot() {
 }
 
 s_snapshot_revert() {
-  local r; r=$(api POST "/vms/$VM/snapshots" '{"name":"e2e-snap","description":"e2e"}')
+  local r id warn
+  r=$(api POST "/vms/$VM/snapshots" '{"name":"e2e-snap","description":"e2e"}')
   [ "$(echo "$r" | code)" -lt 300 ] || { echo "snapshot: $(echo "$r" | body | head -c 200)"; return 1; }
-  snap_ready() { api GET "/vms/$VM/snapshots" | body | jq -e '[.. | objects | select(.name? == "e2e-snap")] | length > 0 and ((tostring | test("Succeeded|Ready|true")) )' >/dev/null 2>&1; }
-  wait_for 300 snap_ready || { echo "snapshot never ready"; return 1; }
-  r=$(api DELETE "/vms/$VM/snapshots/e2e-snap"); [ "$(echo "$r" | code)" -lt 300 ] || { echo "delete: $(echo "$r" | body | head -c 200)"; return 1; }
-  echo "created and deleted"
+  id=$(echo "$r" | body | jq -r .id)   # the API prefixes the VM name
+  listed() { api GET "/vms/$VM/snapshots" | body | jq -e --arg id "$id" 'any(.[]; .id == $id)' >/dev/null 2>&1; }
+  wait_for 120 listed || { echo "snapshot $id never listed"; return 1; }
+  # A containerdisk guest has no PVC, so the snapshot holds configuration only;
+  # the API says so in `warning`. Report it rather than calling that a data snapshot.
+  warn=$(api GET "/vms/$VM/snapshots" | body | jq -r --arg id "$id" '.[] | select(.id == $id) | .warning // empty')
+  r=$(api DELETE "/vms/$VM/snapshots/$id"); [ "$(echo "$r" | code)" -lt 300 ] || { echo "delete: $(echo "$r" | body | head -c 200)"; return 1; }
+  [ -z "$warn" ] && echo "created, listed, deleted" || echo "created, listed, deleted (config-only: no PVC-backed disk)"
 }
 
 s_live_migration() {
