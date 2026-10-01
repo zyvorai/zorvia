@@ -55,6 +55,10 @@ queues the same durable operation the scheduler uses (snapshot, upload, read-bac
 `{"operation_id"}` to poll on `GET /api/operations/{id}`. It answers 409 if no target is configured.
 Scheduled backups use it automatically once a target is set.
 
+### Block-mode volumes
+
+Source volumes with `volumeMode: Block` (the default on some RBD classes) are supported for backup. The temp PVC stays Block and is attached to the agent Job as a raw device; the agent measures it by seeking to the end and streams it. Because the device node is `root:disk 0660`, Jobs with a Block source run the agent as root (still `privileged: false`, no privilege escalation, every capability dropped); filesystem-only Jobs keep the unprivileged CDI UID. A restore always writes the content back as a `disk.img` file on a Filesystem PVC. Verified on Ceph RBD: the SHA-256 of the restored file equals that of the source device. Restoring *into* Block volumes is not supported.
+
 ## Restore
 
 `GET /api/backups/offcluster` lists restorable backups.
