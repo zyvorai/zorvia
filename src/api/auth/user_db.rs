@@ -83,11 +83,37 @@ impl UserDb {
         let _ = conn.execute_batch(
             "ALTER TABLE users ADD COLUMN token_version INTEGER NOT NULL DEFAULT 0;",
         );
+        // PAM sessions have no users row; logout records a not-before time here.
+        let _ = conn.execute_batch(
+            "CREATE TABLE IF NOT EXISTS pam_revocations (username TEXT PRIMARY KEY, not_before INTEGER NOT NULL);",
+        );
         // NULL = unrestricted; otherwise a JSON array of allowed namespaces.
         let _ = conn.execute_batch("ALTER TABLE users ADD COLUMN namespaces TEXT;");
         Ok(Self {
             conn: Mutex::new(conn),
         })
+    }
+
+    /// Reject PAM sessions for `username` issued before `now`.
+    pub fn revoke_pam_sessions(&self, username: &str, now: u32) -> Result<()> {
+        let conn = self.conn.lock().map_err(|e| anyhow::anyhow!("{e}"))?;
+        conn.execute(
+            "INSERT INTO pam_revocations (username, not_before) VALUES (?1, ?2)
+             ON CONFLICT(username) DO UPDATE SET not_before = excluded.not_before",
+            params![username, now],
+        )?;
+        Ok(())
+    }
+
+    pub fn pam_not_before(&self, username: &str) -> Result<u32> {
+        let conn = self.conn.lock().map_err(|e| anyhow::anyhow!("{e}"))?;
+        Ok(conn
+            .query_row(
+                "SELECT not_before FROM pam_revocations WHERE username = ?1",
+                params![username],
+                |r| r.get::<_, u32>(0),
+            )
+            .unwrap_or(0))
     }
 
     /// `None` = unrestricted.

@@ -99,7 +99,11 @@ impl AuthState {
     pub fn validate_bearer(&self, token: &str) -> Option<Claims> {
         let claims = self.jwt.validate(token).ok()?;
         // Non-local identities (PAM) have no DB row / token_version.
-        if claims.sub.starts_with("pam:") {
+        // Their `tv` is the issue time, so logout can revoke by timestamp.
+        if let Some(name) = claims.sub.strip_prefix("pam:") {
+            if claims.tv < self.db.pam_not_before(name).unwrap_or(u32::MAX) {
+                return None;
+            }
             return Some(claims);
         }
         let user = self.db.get_by_id(&claims.sub).ok().flatten()?;
@@ -346,7 +350,10 @@ async fn login_inner(auth: SharedAuth, req: LoginRequest) -> axum::response::Res
 
     if pam_ok {
         let uid = format!("pam:{}", req.username);
-        return match auth.jwt.generate(&uid, &req.username, Role::User, 0) {
+        return match auth
+            .jwt
+            .generate(&uid, &req.username, Role::User, pam_now())
+        {
             Ok(token) => Json(LoginResponse {
                 token,
                 user_id: uid,
@@ -1125,8 +1132,16 @@ pub async fn change_password_handler(
     Json(serde_json::json!({ "success": true, "sessions_revoked": true })).into_response()
 }
 
+/// Issue time in seconds, used as the `tv` of stateless PAM sessions.
+fn pam_now() -> u32 {
+    std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|d| d.as_secs() as u32)
+        .unwrap_or(0)
+}
+
 /// `POST /v1/auth/logout`: revoke every session of the caller (token_version
-/// bump). Stateless PAM sessions have no row to bump and simply expire.
+/// bump). PAM sessions are revoked by a per-user not-before time.
 pub async fn logout_handler(
     State(auth): State<SharedAuth>,
     headers: HeaderMap,
@@ -1134,9 +1149,29 @@ pub async fn logout_handler(
     let Some(claims) = bearer_token(&headers).and_then(|t| auth.validate_bearer(&t)) else {
         return err(StatusCode::UNAUTHORIZED, "Unauthorized").into_response();
     };
-    let revoked =
-        !claims.sub.starts_with("pam:") && auth.db.bump_token_version(&claims.sub).is_ok();
+    let revoked = match claims.sub.strip_prefix("pam:") {
+        // Sessions issued up to and including this second are revoked.
+        Some(name) => auth
+            .db
+            .revoke_pam_sessions(name, pam_now().saturating_add(1))
+            .is_ok(),
+        None => auth.db.bump_token_version(&claims.sub).is_ok(),
+    };
     Json(serde_json::json!({ "success": true, "sessions_revoked": revoked })).into_response()
+}
+
+#[cfg(test)]
+mod pam_revocation_tests {
+    use super::*;
+
+    #[test]
+    fn pam_logout_revokes_earlier_sessions_only() {
+        let db = UserDb::open(":memory:").unwrap();
+        assert_eq!(db.pam_not_before("bob").unwrap(), 0);
+        db.revoke_pam_sessions("bob", 1000).unwrap();
+        assert_eq!(db.pam_not_before("bob").unwrap(), 1000);
+        assert_eq!(db.pam_not_before("alice").unwrap(), 0);
+    }
 }
 
 #[cfg(test)]
