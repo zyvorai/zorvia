@@ -1355,18 +1355,6 @@ fn bounded_wait(requested: u64) -> u64 {
     requested.min(MAX_IN_REQUEST_WAIT_SECS)
 }
 
-#[cfg(test)]
-mod wait_budget_tests {
-    use super::*;
-
-    #[test]
-    fn in_request_wait_never_exceeds_the_router_timeout() {
-        assert_eq!(bounded_wait(120), 25);
-        assert_eq!(bounded_wait(10), 10);
-        assert!(MAX_IN_REQUEST_WAIT_SECS < 30);
-    }
-}
-
 pub async fn fabric_wait_guest_ready(
     State(state): State<SharedState>,
     Path(name): Path<String>,
@@ -1517,6 +1505,21 @@ pub async fn fabric_resume_vm(
                 crate::kube::lifecycle::classify_lifecycle_error("resume", &raw);
             let (st, j) = err_json(code, kind, &msg);
             (st, j).into_response()
+        }
+    }
+}
+
+#[cfg(test)]
+mod wait_budget_tests {
+    use super::*;
+
+    #[test]
+    fn in_request_wait_never_exceeds_the_router_timeout() {
+        assert_eq!(bounded_wait(120), 25);
+        assert_eq!(bounded_wait(10), 10);
+        // Both sides are constants, so check the budget at compile time.
+        const {
+            assert!(MAX_IN_REQUEST_WAIT_SECS < 30);
         }
     }
 }
