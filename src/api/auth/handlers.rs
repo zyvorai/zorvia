@@ -800,7 +800,43 @@ pub async fn oidc_login_handler(
         &nonce,
         &challenge,
     );
-    Json(serde_json::json!({ "url": url })).into_response()
+    // Bind the flow to this browser: the callback must present the same state
+    // in a cookie, so a victim cannot be lured into finishing a flow an
+    // attacker started (login CSRF). Lax so it rides the top-level redirect
+    // back from the IdP.
+    let mut resp = Json(serde_json::json!({ "url": url })).into_response();
+    if let Ok(v) = axum::http::HeaderValue::from_str(&oidc_state_cookie(
+        &state,
+        OIDC_PENDING_TTL_SECS,
+        &cfg.redirect_uri,
+    )) {
+        resp.headers_mut().insert(axum::http::header::SET_COOKIE, v);
+    }
+    resp
+}
+
+const OIDC_STATE_COOKIE: &str = "zorvia_oidc_state";
+
+fn oidc_state_cookie(value: &str, max_age: u64, redirect_uri: &str) -> String {
+    let secure = if redirect_uri.starts_with("https://") {
+        "; Secure"
+    } else {
+        ""
+    };
+    format!(
+        "{OIDC_STATE_COOKIE}={value}; Path=/api/v1/auth/oidc; Max-Age={max_age}; HttpOnly; SameSite=Lax{secure}"
+    )
+}
+
+fn cookie_value<'a>(headers: &'a HeaderMap, name: &str) -> Option<&'a str> {
+    headers
+        .get_all(axum::http::header::COOKIE)
+        .iter()
+        .filter_map(|v| v.to_str().ok())
+        .flat_map(|v| v.split(';'))
+        .filter_map(|kv| kv.trim().split_once('='))
+        .find(|(k, _)| *k == name)
+        .map(|(_, v)| v)
 }
 
 #[derive(Debug, Deserialize)]
@@ -812,6 +848,7 @@ pub struct OidcCallbackQuery {
 
 pub async fn oidc_callback_handler(
     State(auth): State<SharedAuth>,
+    headers: HeaderMap,
     Query(q): Query<OidcCallbackQuery>,
 ) -> impl IntoResponse {
     let Some(cfg) = auth.oidc.as_ref() else {
@@ -827,6 +864,13 @@ pub async fn oidc_callback_handler(
     let (Some(code), Some(state)) = (q.code.as_deref(), q.state.as_deref()) else {
         return err(StatusCode::BAD_REQUEST, "Missing code or state").into_response();
     };
+    if cookie_value(&headers, OIDC_STATE_COOKIE) != Some(state) {
+        return err(
+            StatusCode::BAD_REQUEST,
+            "OIDC sign-in was not started in this browser",
+        )
+        .into_response();
+    }
 
     let pending = {
         let mut map = match auth.oidc_pending.lock() {
@@ -913,8 +957,14 @@ pub async fn oidc_callback_handler(
         }
     };
 
-    let redirect = format!("/sign-in?oidc_token={}", urlencoding::encode(&token));
-    Redirect::temporary(&redirect).into_response()
+    // Fragment, not query: it is never sent to a server, logged, or put in a
+    // Referer header.
+    let redirect = format!("/sign-in#oidc_token={}", urlencoding::encode(&token));
+    let mut resp = Redirect::temporary(&redirect).into_response();
+    if let Ok(v) = axum::http::HeaderValue::from_str(&oidc_state_cookie("", 0, &cfg.redirect_uri)) {
+        resp.headers_mut().insert(axum::http::header::SET_COOKIE, v);
+    }
+    resp
 }
 
 // ── API tokens ───────────────────────────────────────────────────
@@ -1083,4 +1133,23 @@ pub async fn logout_handler(
     let revoked =
         !claims.sub.starts_with("pam:") && auth.db.bump_token_version(&claims.sub).is_ok();
     Json(serde_json::json!({ "success": true, "sessions_revoked": revoked })).into_response()
+}
+
+#[cfg(test)]
+mod oidc_cookie_tests {
+    use super::*;
+
+    #[test]
+    fn cookie_is_read_back_and_scoped() {
+        let c = oidc_state_cookie("abc", 600, "https://z.example/cb");
+        assert!(c.contains("HttpOnly") && c.contains("SameSite=Lax") && c.contains("Secure"));
+        assert!(!oidc_state_cookie("abc", 600, "http://lab/cb").contains("Secure"));
+        let mut h = HeaderMap::new();
+        h.insert(
+            axum::http::header::COOKIE,
+            "a=1; zorvia_oidc_state=abc; b=2".parse().unwrap(),
+        );
+        assert_eq!(cookie_value(&h, OIDC_STATE_COOKIE), Some("abc"));
+        assert_eq!(cookie_value(&h, "missing"), None);
+    }
 }

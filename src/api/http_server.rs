@@ -1667,10 +1667,11 @@ pub mod web {
 
     async fn auth_oidc_callback(
         State(state): State<SharedState>,
+        headers: HeaderMap,
         Query(q): Query<crate::api::auth::handlers::OidcCallbackQuery>,
     ) -> impl IntoResponse {
         let auth = auth_shared(&state).await;
-        crate::api::auth::oidc_callback_handler(axum::extract::State(auth), Query(q)).await
+        crate::api::auth::oidc_callback_handler(axum::extract::State(auth), headers, Query(q)).await
     }
 
     // ── Admin-only user management ──────────────────────────────────────

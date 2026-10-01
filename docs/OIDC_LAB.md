@@ -51,7 +51,7 @@ curl -sk https://HOST:30152/api/v1/auth/providers | jq .
 # [{"id":"default","name":"OIDC",...}]
 
 # 3. Browser: open /sign-in → OIDC button → IdP login
-# 4. Land on /sign-in?oidc_token=… → SPA stores JWT
+# 4. Land on /sign-in#oidc_token=… → SPA stores JWT
 # 5. curl -sk -H "Authorization: Bearer $TOKEN" https://HOST:30152/api/v1/auth/me
 
 # 6. Disable user / bump role via admin → old JWT fails (token_version)

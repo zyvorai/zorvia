@@ -62,7 +62,7 @@ curl -sk https://HOST:30152/api/v1/features | jq '.features[] | select(.id=="oid
 ```
 
 After enable, the sign-in page shows an OIDC button from `/api/v1/auth/providers`.
-Successful callback redirects to `/sign-in?oidc_token=…` (SPA stores the JWT).
+Successful callback redirects to `/sign-in#oidc_token=…` (SPA stores the JWT).
 
 ## Limitations
 

@@ -294,16 +294,19 @@ pub async fn verify_id_token(
         .json()
         .await?;
 
-    let jwk = jwks
+    let rsa: Vec<_> = jwks
         .keys
         .iter()
-        .find(|k| {
-            k.kty == "RSA"
-                && k.n.is_some()
-                && k.e.is_some()
-                && (kid.as_ref().is_none() || k.kid.as_ref() == kid.as_ref())
-        })
-        .ok_or_else(|| anyhow::anyhow!("no matching RSA JWK for id_token"))?;
+        .filter(|k| k.kty == "RSA" && k.n.is_some() && k.e.is_some())
+        .collect();
+    // Without a `kid` we may only guess when the IdP publishes a single key;
+    // otherwise any key in the set could be tried against the signature.
+    let jwk = match kid.as_ref() {
+        Some(kid) => rsa.iter().find(|k| k.kid.as_ref() == Some(kid)),
+        None if rsa.len() == 1 => rsa.first(),
+        None => None,
+    }
+    .ok_or_else(|| anyhow::anyhow!("no matching RSA JWK for id_token"))?;
 
     let n = jwk.n.as_deref().unwrap();
     let e = jwk.e.as_deref().unwrap();
