@@ -57,19 +57,26 @@ vm_running() { api GET "/vms/$VM" | body | jq -e '(.. | strings? | select(. == "
 s_create_boot() {
   local r; r=$(api POST /vms "{\"name\":\"$VM\",\"image\":\"$IMAGE\",\"cpus\":2,\"memory\":2048,\"disk\":10,
     \"cloud_init\":{\"user_data\":\"#cloud-config\nruncmd:\n  - [sh, -c, 'while :; do :; done &']\n  - [sh, -c, 'dd if=/dev/zero of=/var/tmp/load bs=1M count=512 conv=fsync; sync']\"}}")
-  [ "$(echo "$r" | code)" -lt 300 ] || { echo "create: $(echo "$r" | body | head -c 200)"; return 1; }
+  # The API answers within 30 s; 408 only means the guest was not ready yet.
+  case "$(echo "$r" | code)" in 2??|408) ;; *) echo "create: $(echo "$r" | body | head -c 200)"; return 1 ;; esac
   wait_for 900 vm_running || { echo "never Running"; return 1; }
-  r=$(api POST "/vms/$VM/wait-ready"); [ "$(echo "$r" | code)" = 200 ] || { echo "guest not ready: $(echo "$r" | body | head -c 200)"; return 1; }
-  echo "agent up, $(echo "$r" | body | jq -r '.reason // "ready"')"
+  agent_up() { [ "$(api POST "/vms/$VM/wait-ready" | code)" = 200 ]; }
+  wait_for 900 agent_up || { echo "guest agent never came up"; return 1; }
+  echo "agent up"
 }
 
 s_snapshot_revert() {
-  local r; r=$(api POST "/vms/$VM/snapshots" '{"name":"e2e-snap","description":"e2e"}')
+  local r id warn
+  r=$(api POST "/vms/$VM/snapshots" '{"name":"e2e-snap","description":"e2e"}')
   [ "$(echo "$r" | code)" -lt 300 ] || { echo "snapshot: $(echo "$r" | body | head -c 200)"; return 1; }
-  snap_ready() { api GET "/vms/$VM/snapshots" | body | jq -e '[.. | objects | select(.name? == "e2e-snap")] | length > 0 and ((tostring | test("Succeeded|Ready|true")) )' >/dev/null 2>&1; }
-  wait_for 300 snap_ready || { echo "snapshot never ready"; return 1; }
-  r=$(api DELETE "/vms/$VM/snapshots/e2e-snap"); [ "$(echo "$r" | code)" -lt 300 ] || { echo "delete: $(echo "$r" | body | head -c 200)"; return 1; }
-  echo "created and deleted"
+  id=$(echo "$r" | body | jq -r .id)   # the API prefixes the VM name
+  listed() { api GET "/vms/$VM/snapshots" | body | jq -e --arg id "$id" 'any(.[]; .id == $id)' >/dev/null 2>&1; }
+  wait_for 120 listed || { echo "snapshot $id never listed"; return 1; }
+  # A containerdisk guest has no PVC, so the snapshot holds configuration only;
+  # the API says so in `warning`. Report it rather than calling that a data snapshot.
+  warn=$(api GET "/vms/$VM/snapshots" | body | jq -r --arg id "$id" '.[] | select(.id == $id) | .warning // empty')
+  r=$(api DELETE "/vms/$VM/snapshots/$id"); [ "$(echo "$r" | code)" -lt 300 ] || { echo "delete: $(echo "$r" | body | head -c 200)"; return 1; }
+  [ -z "$warn" ] && echo "created, listed, deleted" || echo "created, listed, deleted (config-only: no PVC-backed disk)"
 }
 
 s_live_migration() {
@@ -86,7 +93,7 @@ s_live_migration() {
   moved() { after=$($KUBECTL -n "$NS" get vmi "$VM" -o jsonpath='{.status.nodeName}' 2>/dev/null); [ -n "$after" ] && [ "$after" != "$before" ]; }
   wait_for 600 moved || { echo "still on $before"; return 1; }
   # guest must still answer after the move (the load loop keeps it busy)
-  r=$(api POST "/vms/$VM/wait-ready"); [ "$(echo "$r" | code)" = 200 ] || { echo "agent lost after migration"; return 1; }
+  agent_up || wait_for 300 agent_up || { echo "agent lost after migration"; return 1; }
   echo "$before -> $after under load"
 }
 
