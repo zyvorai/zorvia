@@ -35,6 +35,8 @@ pub struct ApiTokenRecord {
     pub created: String,
     pub last_used: Option<String>,
     pub revoked: bool,
+    /// `Some` confines the token to these namespaces (see `tenancy`); `None` is unrestricted.
+    pub namespaces: Option<Vec<String>>,
 }
 
 pub struct UserDb {
@@ -83,6 +85,8 @@ impl UserDb {
         let _ = conn.execute_batch(
             "ALTER TABLE users ADD COLUMN token_version INTEGER NOT NULL DEFAULT 0;",
         );
+        // API tokens: NULL = unrestricted, else a JSON array of allowed namespaces.
+        let _ = conn.execute_batch("ALTER TABLE api_tokens ADD COLUMN namespaces TEXT;");
         // PAM sessions have no users row; logout records a not-before time here.
         let _ = conn.execute_batch(
             "CREATE TABLE IF NOT EXISTS pam_revocations (username TEXT PRIMARY KEY, not_before INTEGER NOT NULL);",
@@ -432,6 +436,7 @@ impl UserDb {
                 created,
                 last_used: None,
                 revoked: false,
+                namespaces: None,
             },
             plaintext,
         ))
@@ -441,7 +446,7 @@ impl UserDb {
         let hash = Self::hash_api_token(plaintext);
         let conn = self.conn.lock().map_err(|e| anyhow::anyhow!("{e}"))?;
         let mut stmt = conn.prepare(
-            "SELECT id, name, role, scopes, expires_at, created_by, created, last_used, revoked
+            "SELECT id, name, role, scopes, expires_at, created_by, created, last_used, revoked, namespaces
              FROM api_tokens WHERE token_hash = ?1",
         )?;
         let mut rows = stmt.query(params![hash])?;
@@ -462,6 +467,16 @@ impl UserDb {
         Ok(Some(rec))
     }
 
+    pub fn set_api_token_namespaces(&self, id: &str, namespaces: Option<&[String]>) -> Result<()> {
+        let raw = namespaces.map(serde_json::to_string).transpose()?;
+        let conn = self.conn.lock().map_err(|e| anyhow::anyhow!("{e}"))?;
+        conn.execute(
+            "UPDATE api_tokens SET namespaces = ?1 WHERE id = ?2",
+            params![raw, id],
+        )?;
+        Ok(())
+    }
+
     pub fn touch_api_token(&self, id: &str) -> Result<()> {
         let conn = self.conn.lock().map_err(|e| anyhow::anyhow!("{e}"))?;
         conn.execute(
@@ -474,7 +489,7 @@ impl UserDb {
     pub fn list_api_tokens(&self) -> Result<Vec<ApiTokenRecord>> {
         let conn = self.conn.lock().map_err(|e| anyhow::anyhow!("{e}"))?;
         let mut stmt = conn.prepare(
-            "SELECT id, name, role, scopes, expires_at, created_by, created, last_used, revoked
+            "SELECT id, name, role, scopes, expires_at, created_by, created, last_used, revoked, namespaces
              FROM api_tokens ORDER BY created ASC",
         )?;
         let rows = stmt.query_map([], row_to_api_token)?;
@@ -548,6 +563,10 @@ fn row_to_api_token(row: &rusqlite::Row) -> rusqlite::Result<ApiTokenRecord> {
         created: row.get(6)?,
         last_used: row.get(7)?,
         revoked: revoked != 0,
+        // An unreadable list must restrict, never unrestrict.
+        namespaces: row
+            .get::<_, Option<String>>(9)?
+            .map(|s| serde_json::from_str(&s).unwrap_or_default()),
     })
 }
 
