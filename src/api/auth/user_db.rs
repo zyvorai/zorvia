@@ -87,6 +87,8 @@ impl UserDb {
         let _ = conn.execute_batch(
             "CREATE TABLE IF NOT EXISTS pam_revocations (username TEXT PRIMARY KEY, not_before INTEGER NOT NULL);",
         );
+        // Replacement TOTP secret awaiting its first valid code (re-enrolment).
+        let _ = conn.execute_batch("ALTER TABLE users ADD COLUMN totp_pending TEXT;");
         // NULL = unrestricted; otherwise a JSON array of allowed namespaces.
         let _ = conn.execute_batch("ALTER TABLE users ADD COLUMN namespaces TEXT;");
         Ok(Self {
@@ -322,10 +324,40 @@ impl UserDb {
         Ok(())
     }
 
+    pub fn set_totp_pending(&self, user_id: &str, secret: Option<&str>) -> Result<()> {
+        let conn = self.conn.lock().map_err(|e| anyhow::anyhow!("{e}"))?;
+        conn.execute(
+            "UPDATE users SET totp_pending = ?1 WHERE id = ?2",
+            params![secret, user_id],
+        )?;
+        Ok(())
+    }
+
+    pub fn get_totp_pending(&self, user_id: &str) -> Result<Option<String>> {
+        let conn = self.conn.lock().map_err(|e| anyhow::anyhow!("{e}"))?;
+        Ok(conn
+            .query_row(
+                "SELECT totp_pending FROM users WHERE id = ?1",
+                params![user_id],
+                |r| r.get(0),
+            )
+            .unwrap_or(None))
+    }
+
+    /// Swap the pending secret in, keep 2FA on, and revoke existing sessions.
+    pub fn commit_totp_pending(&self, user_id: &str, secret: &str) -> Result<()> {
+        let conn = self.conn.lock().map_err(|e| anyhow::anyhow!("{e}"))?;
+        conn.execute(
+            "UPDATE users SET totp_secret = ?1, totp_enabled = 1, totp_pending = NULL, token_version = token_version + 1 WHERE id = ?2",
+            params![secret, user_id],
+        )?;
+        Ok(())
+    }
+
     pub fn disable_totp(&self, user_id: &str) -> Result<()> {
         let conn = self.conn.lock().map_err(|e| anyhow::anyhow!("{e}"))?;
         conn.execute(
-            "UPDATE users SET totp_secret = NULL, totp_enabled = 0, token_version = token_version + 1 WHERE id = ?1",
+            "UPDATE users SET totp_secret = NULL, totp_pending = NULL, totp_enabled = 0, token_version = token_version + 1 WHERE id = ?1",
             params![user_id],
         )?;
         Ok(())

@@ -655,11 +655,13 @@ pub async fn totp_setup_handler(
     else {
         return err(StatusCode::INTERNAL_SERVER_ERROR, "TOTP error").into_response();
     };
-    // Re-enrolment (only reachable after proving both factors) revokes the
-    // other sessions; a fresh enrolment keeps the current one.
-    let _ = auth.db.set_totp(&claims.sub, &encoded, false);
+    // While 2FA is on, the new secret waits as "pending" and the current one
+    // keeps protecting the account until the new one produces a valid code.
+    // Otherwise (2FA not yet on) enrolment just stores the secret as before.
     if was_enabled {
-        let _ = auth.db.bump_token_version(&claims.sub);
+        let _ = auth.db.set_totp_pending(&claims.sub, Some(&encoded));
+    } else {
+        let _ = auth.db.set_totp(&claims.sub, &encoded, false);
     }
     let otpauth_url = match totp.to_url() {
         Ok(u) => u,
@@ -685,6 +687,16 @@ pub async fn totp_verify_handler(
     let Ok(Some(user)) = auth.db.get_by_id(&claims.sub) else {
         return err(StatusCode::NOT_FOUND, "User not found").into_response();
     };
+    if let Ok(Some(pending)) = auth.db.get_totp_pending(&user.id) {
+        if !verify_totp(Some(&pending), &body.code) {
+            return err(StatusCode::UNAUTHORIZED, "Invalid 2FA code").into_response();
+        }
+        let _ = auth.db.commit_totp_pending(&user.id, &pending);
+        return Json(serde_json::json!({
+            "success": true, "totp_enabled": true, "sessions_revoked": true
+        }))
+        .into_response();
+    }
     let secret = user.totp_secret.as_deref().unwrap_or("");
     if !verify_totp(Some(secret), &body.code) {
         return err(StatusCode::UNAUTHORIZED, "Invalid 2FA code").into_response();
@@ -1158,6 +1170,32 @@ pub async fn logout_handler(
         None => auth.db.bump_token_version(&claims.sub).is_ok(),
     };
     Json(serde_json::json!({ "success": true, "sessions_revoked": revoked })).into_response()
+}
+
+#[cfg(test)]
+mod totp_pending_tests {
+    use super::*;
+
+    #[test]
+    fn pending_secret_leaves_current_one_active_until_committed() {
+        let db = UserDb::open(":memory:").unwrap();
+        let u = db.create_user("carol", "Password-123", Role::User).unwrap();
+        db.set_totp(&u.id, "OLDSECRET", true).unwrap();
+        db.set_totp_pending(&u.id, Some("NEWSECRET")).unwrap();
+        let mid = db.get_by_id(&u.id).unwrap().unwrap();
+        assert!(
+            mid.totp_enabled,
+            "2FA stays on while a replacement is pending"
+        );
+        assert_eq!(mid.totp_secret.as_deref(), Some("OLDSECRET"));
+        let tv = mid.token_version;
+        db.commit_totp_pending(&u.id, "NEWSECRET").unwrap();
+        let after = db.get_by_id(&u.id).unwrap().unwrap();
+        assert!(after.totp_enabled);
+        assert_eq!(after.totp_secret.as_deref(), Some("NEWSECRET"));
+        assert_eq!(after.token_version, tv + 1, "commit revokes sessions");
+        assert_eq!(db.get_totp_pending(&u.id).unwrap(), None);
+    }
 }
 
 #[cfg(test)]
