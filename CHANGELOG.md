@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added (validation)
+
+- `tests/e2e/guest.sh`: real-guest E2E (boot, snapshot, data snapshot on CSI storage,
+  off-cluster backup/restore/recovery drill, live migration when two nodes exist, API
+  restart) and [docs/SUPPORT_MATRIX.md](docs/SUPPORT_MATRIX.md) with the first measured
+  results and an explicit list of what is not validated.
+- Chart refuses `replicaCount > 1` on a ReadWriteOnce volume; [docs/HA.md](docs/HA.md).
+
 ### Added (migration cutover guards)
 
 - Admin VMware Imports console: readiness checks, explicit target networking,

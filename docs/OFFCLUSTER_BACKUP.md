@@ -46,6 +46,8 @@ access; a missing Secret fails the operation immediately with a clear message.
 Keep the encryption key somewhere other than the bucket: without it an
 encrypted backup cannot be restored.
 
+Verified end to end (encrypted backup, read-back, restore, recovery drill) on KubeVirt v1.9.0 / CDI v1.66.0 with Rook-Ceph RBD and an Atlas-provisioned RGW bucket; see [SUPPORT_MATRIX.md](SUPPORT_MATRIX.md) for versions and timings. Block-mode volumes are not supported (create DataVolumes with `volumeMode: Filesystem`; on RBD CDI otherwise defaults to Block).
+
 ## Back up now
 
 `POST /api/backups/offcluster` with `{"vm_name": "...", "namespace"?, "retention_days"?, "description"?}`

@@ -6,6 +6,8 @@ The tier structure (business-hours and 24×7 tiers, severity-based response targ
 
 > **Product status:** contract terms (tier, coverage hours, timezone, holidays, per-severity response targets, authorized contacts, covered clusters) are recorded on the contract. The support case portal that measures them is being built ([COMMERCIAL_OFFERINGS.md](COMMERCIAL_OFFERINGS.md)).
 
+Which Kubernetes, KubeVirt, CDI and storage combinations have actually been run is recorded, with dates and measured results, in [SUPPORT_MATRIX.md](SUPPORT_MATRIX.md). A combination not listed there has not been validated.
+
 ## Tiers
 
 | | Community | Supported | Supported Plus | Managed |

@@ -30,6 +30,8 @@ has no `ReadWriteMany`. Even on RWX, active/active is not a tested topology; lea
 A PostgreSQL backend for users, audit and operations would allow true active/active. It is
 not part of the current release.
 
+Measured so far: an API pod restart (`kubectl rollout restart`) takes about 40 to 50 s to a healthy API on the reference lab, with sessions and VMs unaffected ([SUPPORT_MATRIX.md](SUPPORT_MATRIX.md)). That is a planned restart, not node loss; no node-loss time has been recorded.
+
 ## Node-loss test (lab)
 
 Cordon-less failure test: power off or `kubectl drain --force --delete-emptydir-data` the
