@@ -22,5 +22,4 @@ Set `E2E_STORAGE_CLASS` (with `KUBECTL`) to add a scenario that boots a guest wi
 PVC-backed data disk and checks the snapshot captures it (no config-only warning, a
 `VolumeSnapshot` ready). The blank DataVolume is created with `volumeMode: Filesystem`: on the
 Ceph RBD class CDI defaults to Block mode and its importer crashes with
-`cannot open /dev/cdi-block-volume: Permission denied`, and the off-cluster backup agent rejects
-Block volumes anyway.
+`cannot open /dev/cdi-block-volume: Permission denied`, (the backup agent itself handles Block sources, so this only concerns CDI imports).

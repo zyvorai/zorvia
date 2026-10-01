@@ -12,7 +12,7 @@ use k8s_openapi::api::batch::v1::{Job, JobSpec};
 use k8s_openapi::api::core::v1::{
     Container, EnvVar, EnvVarSource, PersistentVolumeClaimVolumeSource, PodSecurityContext,
     PodSpec, PodTemplateSpec, ResourceRequirements, SecretKeySelector, SecurityContext, Volume,
-    VolumeMount,
+    VolumeDevice, VolumeMount,
 };
 use k8s_openapi::apimachinery::pkg::api::resource::Quantity;
 use k8s_openapi::apimachinery::pkg::apis::meta::v1::ObjectMeta;
@@ -40,6 +40,14 @@ fn agent_uid() -> i64 {
 pub struct BackupDisk {
     pub name: String,
     pub pvc: String,
+    /// The PVC is `volumeMode: Block`: attach it as a raw device
+    /// (`/dev/zorvia-disk-<name>`) instead of mounting a filesystem. Backup only.
+    pub block: bool,
+}
+
+/// Device node a Block-mode source PVC is attached at.
+fn block_device_path(name: &str) -> String {
+    format!("/dev/zorvia-disk-{name}")
 }
 
 /// Names of the Secret keys holding credentials.
@@ -134,7 +142,11 @@ fn build_job(job_name: &str, namespace: &str, spec: &BackupJobSpec, mode: Mode) 
                 serde_json::json!({
                     "name": d.name,
                     "pvc": d.pvc,
-                    "path": format!("{root}/{}/disk.img", d.name),
+                    "path": if d.block && matches!(mode, Mode::Backup) {
+                        block_device_path(&d.name)
+                    } else {
+                        format!("{root}/{}/disk.img", d.name)
+                    },
                 })
             })
             .collect::<Vec<_>>(),
@@ -198,6 +210,11 @@ fn build_job(job_name: &str, namespace: &str, spec: &BackupJobSpec, mode: Mode) 
         ));
     }
 
+    // A raw block device is node-owned (root:disk, 0660), unreadable by the
+    // unprivileged CDI UID. Only for Block sources the agent runs as root, still
+    // unprivileged with every capability dropped; filesystem-only jobs keep UID 107.
+    let uses_block = matches!(mode, Mode::Backup) && spec.disks.iter().any(|d| d.block);
+
     let mut labels = BTreeMap::new();
     labels.insert(
         "app.kubernetes.io/name".to_string(),
@@ -246,8 +263,8 @@ fn build_job(job_name: &str, namespace: &str, spec: &BackupJobSpec, mode: Mode) 
                 spec: Some(PodSpec {
                     restart_policy: Some("Never".to_string()),
                     security_context: Some(PodSecurityContext {
-                        run_as_user: Some(agent_uid()),
-                        run_as_non_root: Some(true),
+                        run_as_user: Some(if uses_block { 0 } else { agent_uid() }),
+                        run_as_non_root: Some(!uses_block),
                         fs_group: Some(agent_uid()),
                         ..Default::default()
                     }),
@@ -270,9 +287,22 @@ fn build_job(job_name: &str, namespace: &str, spec: &BackupJobSpec, mode: Mode) 
                             }),
                             ..Default::default()
                         }),
+                        volume_devices: {
+                            let devs: Vec<VolumeDevice> = spec
+                                .disks
+                                .iter()
+                                .filter(|d| d.block && matches!(mode, Mode::Backup))
+                                .map(|d| VolumeDevice {
+                                    name: format!("disk-{}", d.name),
+                                    device_path: block_device_path(&d.name),
+                                })
+                                .collect();
+                            (!devs.is_empty()).then_some(devs)
+                        },
                         volume_mounts: Some(
                             spec.disks
                                 .iter()
+                                .filter(|d| !(d.block && matches!(mode, Mode::Backup)))
                                 .map(|d| VolumeMount {
                                     name: format!("disk-{}", d.name),
                                     mount_path: format!("{root}/{}", d.name),
@@ -318,10 +348,12 @@ mod tests {
                 BackupDisk {
                     name: "root".into(),
                     pvc: "bk-1-root".into(),
+                    block: false,
                 },
                 BackupDisk {
                     name: "data".into(),
                     pvc: "bk-1-data".into(),
+                    block: false,
                 },
             ],
             env: vec![("BACKUP_S3_BUCKET".into(), "vm-backups".into())],
@@ -459,6 +491,52 @@ mod tests {
         for k in ["", "/abs", "a/../b"] {
             assert!(build_restore_job("rs-1", "default", k, &spec()).is_err());
         }
+    }
+
+    #[test]
+    fn block_source_is_a_device_not_a_mount_and_runs_as_root_unprivileged() {
+        let mut s = spec();
+        s.disks[1].block = true; // "data" is Block, "root" stays Filesystem
+        let job = build_backup_job("bk-1", "default", &s).unwrap();
+        let pod = job.spec.as_ref().unwrap().template.spec.as_ref().unwrap();
+        let c = &pod.containers[0];
+        let devs = c.volume_devices.as_ref().unwrap();
+        assert_eq!(devs.len(), 1);
+        assert_eq!(devs[0].device_path, "/dev/zorvia-disk-data");
+        assert_eq!(devs[0].name, "disk-data");
+        let mounts = c.volume_mounts.as_ref().unwrap();
+        assert!(mounts.iter().all(|m| m.name != "disk-data"));
+        assert!(mounts.iter().any(|m| m.name == "disk-root"));
+        let env = c.env.as_ref().unwrap();
+        let disks = env
+            .iter()
+            .find(|e| e.name == "BACKUP_DISKS")
+            .unwrap()
+            .value
+            .clone()
+            .unwrap();
+        assert!(disks.contains("/dev/zorvia-disk-data"));
+        assert!(disks.contains("/disks/root/disk.img"));
+        let psc = pod.security_context.as_ref().unwrap();
+        assert_eq!(psc.run_as_user, Some(0));
+        assert_eq!(psc.run_as_non_root, Some(false));
+        let sc = c.security_context.as_ref().unwrap();
+        assert_eq!(sc.privileged, Some(false));
+        assert_eq!(sc.allow_privilege_escalation, Some(false));
+        assert_eq!(
+            sc.capabilities.as_ref().unwrap().drop.as_ref().unwrap(),
+            &vec!["ALL".to_string()]
+        );
+    }
+
+    #[test]
+    fn filesystem_only_jobs_keep_the_unprivileged_cdi_uid() {
+        let job = build_backup_job("bk-1", "default", &spec()).unwrap();
+        let pod = job.spec.as_ref().unwrap().template.spec.as_ref().unwrap();
+        assert!(pod.containers[0].volume_devices.is_none());
+        let psc = pod.security_context.as_ref().unwrap();
+        assert_eq!(psc.run_as_user, Some(107));
+        assert_eq!(psc.run_as_non_root, Some(true));
     }
 
     #[test]

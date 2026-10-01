@@ -46,7 +46,7 @@ access; a missing Secret fails the operation immediately with a clear message.
 Keep the encryption key somewhere other than the bucket: without it an
 encrypted backup cannot be restored.
 
-Verified end to end (encrypted backup, read-back, restore, recovery drill) on KubeVirt v1.9.0 / CDI v1.66.0 with Rook-Ceph RBD and an Atlas-provisioned RGW bucket; see [SUPPORT_MATRIX.md](SUPPORT_MATRIX.md) for versions and timings. Block-mode volumes are not supported (create DataVolumes with `volumeMode: Filesystem`; on RBD CDI otherwise defaults to Block).
+Verified end to end (encrypted backup, read-back, restore, recovery drill) on KubeVirt v1.9.0 / CDI v1.66.0 with Rook-Ceph RBD and an Atlas-provisioned RGW bucket; see [SUPPORT_MATRIX.md](SUPPORT_MATRIX.md) for versions and timings. Block-mode source volumes are supported for backup (see below).
 
 ## Back up now
 
@@ -54,6 +54,10 @@ Verified end to end (encrypted backup, read-back, restore, recovery drill) on Ku
 queues the same durable operation the scheduler uses (snapshot, upload, read-back verify) and returns
 `{"operation_id"}` to poll on `GET /api/operations/{id}`. It answers 409 if no target is configured.
 Scheduled backups use it automatically once a target is set.
+
+### Block-mode volumes
+
+Source volumes with `volumeMode: Block` (the default on some RBD classes) are supported for backup. The temp PVC stays Block and is attached to the agent Job as a raw device; the agent measures it by seeking to the end and streams it. Because the device node is `root:disk 0660`, Jobs with a Block source run the agent as root (still `privileged: false`, no privilege escalation, every capability dropped); filesystem-only Jobs keep the unprivileged CDI UID. A restore always writes the content back as a `disk.img` file on a Filesystem PVC. Verified on Ceph RBD: the SHA-256 of the restored file equals that of the source device. Restoring *into* Block volumes is not supported.
 
 ## Restore
 

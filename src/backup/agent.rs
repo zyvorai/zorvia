@@ -97,8 +97,16 @@ impl AgentConfig {
             if !dns_label(&d.name) {
                 bail!("invalid disk name '{}'", d.name);
             }
-            if !d.path.starts_with("/disks/") || d.path.contains("..") {
-                bail!("disk path '{}' must be under /disks/", d.path);
+            // A Block-mode source is a raw device at exactly this node (see
+            // `kube::backup_job::block_device_path`); anything else must be a
+            // disk image under /disks/.
+            let is_device = d.path == format!("/dev/zorvia-disk-{}", d.name);
+            if !is_device && (!d.path.starts_with("/disks/") || d.path.contains("..")) {
+                bail!(
+                    "disk path '{}' must be under /disks/ or be /dev/zorvia-disk-{}",
+                    d.path,
+                    d.name
+                );
             }
         }
 
@@ -209,6 +217,16 @@ async fn upload_part_with_retry(
     )))
 }
 
+/// Length of a disk image. A raw block device reports a metadata length of 0,
+/// so measure by seeking to the end (also correct for a regular file), then
+/// rewind for reading.
+async fn disk_len(file: &mut tokio::fs::File) -> Result<u64> {
+    use tokio::io::AsyncSeekExt;
+    let end = file.seek(std::io::SeekFrom::End(0)).await?;
+    file.seek(std::io::SeekFrom::Start(0)).await?;
+    Ok(end)
+}
+
 async fn upload_disk(
     cfg: &AgentConfig,
     client: &S3Client,
@@ -221,7 +239,7 @@ async fn upload_disk(
     let mut file = tokio::fs::File::open(&disk.path)
         .await
         .with_context(|| format!("open disk image {}", disk.path))?;
-    let total = file.metadata().await?.len();
+    let total = disk_len(&mut file).await?;
     if total == 0 {
         bail!("disk image {} is empty", disk.path);
     }
@@ -659,6 +677,25 @@ mod tests {
             "BACKUP_DISKS",
             r#"[{"name":"root","pvc":"p","path":"/disks/../etc/shadow"}]"#
         )]));
+        // A device node is accepted only at the exact path for that disk name.
+        assert!(bad(&[(
+            "BACKUP_DISKS",
+            r#"[{"name":"data","pvc":"p","path":"/dev/sda"}]"#
+        )]));
+        assert!(bad(&[(
+            "BACKUP_DISKS",
+            r#"[{"name":"data","pvc":"p","path":"/dev/zorvia-disk-other"}]"#
+        )]));
+    }
+
+    #[test]
+    fn accepts_the_block_device_path_for_its_own_disk() {
+        let cfg = AgentConfig::from_env(env(&[(
+            "BACKUP_DISKS",
+            r#"[{"name":"data","pvc":"p","path":"/dev/zorvia-disk-data"}]"#,
+        )]))
+        .unwrap();
+        assert_eq!(cfg.disks[0].path, "/dev/zorvia-disk-data");
     }
 
     fn restore_env(extra: &[(&str, &str)]) -> impl Fn(&str) -> Option<String> {
@@ -700,6 +737,21 @@ mod tests {
             r#"[{"name":"root","path":"/restore/../etc/x"}]"#
         )]));
         assert!(bad(&[("BACKUP_ENCRYPTION_KEY", "short")]));
+    }
+
+    #[tokio::test]
+    async fn disk_len_measures_by_seeking_and_rewinds() {
+        let path = std::env::temp_dir().join(format!("zorvia-disk-len-{}", std::process::id()));
+        std::fs::write(&path, vec![1u8; 4096]).unwrap();
+        let mut f = tokio::fs::File::open(&path).await.unwrap();
+        assert_eq!(disk_len(&mut f).await.unwrap(), 4096);
+        let mut first = [0u8; 4];
+        f.read_exact(&mut first).await.unwrap();
+        assert_eq!(
+            first, [1; 4],
+            "reading must start at offset 0 after measuring"
+        );
+        std::fs::remove_file(&path).ok();
     }
 
     #[tokio::test]

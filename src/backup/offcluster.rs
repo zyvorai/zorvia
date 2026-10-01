@@ -207,6 +207,13 @@ pub struct VolumeRestore {
     pub pvc_spec: Value,
 }
 
+impl VolumeRestore {
+    /// A Block-mode volume is mounted as a raw device, not as a filesystem.
+    pub fn is_block(&self) -> bool {
+        self.pvc_spec.get("volumeMode").and_then(|m| m.as_str()) == Some("Block")
+    }
+}
+
 fn dns_label(s: &str) -> bool {
     !s.is_empty()
         && s.len() <= 63
@@ -263,7 +270,8 @@ pub fn ensure_size_at_least(pvc_spec: &mut Value, restore_size: &str) {
 
 /// Work out which volumes to restore from a VirtualMachineSnapshotContent.
 /// Volumes KubeVirt did not snapshot (no `volumeSnapshotName`) are skipped;
-/// block-mode volumes are rejected (the agent reads disk *files*).
+/// block-mode volumes are kept and flagged (`VolumeRestore::is_block`): the agent
+/// reads the raw device, and a restore writes it back as a `disk.img` file.
 pub fn plan_restores(content: &Value, short_id: &str) -> Result<Vec<VolumeRestore>> {
     let backups = content
         .pointer("/spec/volumeBackups")
@@ -285,9 +293,6 @@ pub fn plan_restores(content: &Value, short_id: &str) -> Result<Vec<VolumeRestor
         let src = vb
             .pointer("/persistentVolumeClaim/spec")
             .ok_or_else(|| anyhow!("volume '{volume}' has no PVC spec in the snapshot"))?;
-        if src.get("volumeMode").and_then(|m| m.as_str()) == Some("Block") {
-            bail!("volume '{volume}' is block-mode; off-cluster backup supports filesystem-mode volumes only");
-        }
         // Whitelist: never carry over volumeName/dataSource/etc. from the
         // original claim.
         let mut spec = serde_json::Map::new();
@@ -571,6 +576,7 @@ pub async fn run(
             .map(|r| BackupDisk {
                 name: r.volume_name.clone(),
                 pvc: r.pvc_name.clone(),
+                block: r.is_block(),
             })
             .collect(),
         env,
@@ -791,11 +797,18 @@ mod tests {
     }
 
     #[test]
-    fn rejects_block_mode_and_bad_volume_names() {
+    fn keeps_block_mode_volumes_and_rejects_bad_volume_names() {
+        let c = content();
+        assert!(!plan_restores(&c, "x").unwrap()[0].is_block());
         let mut c = content();
         c["spec"]["volumeBackups"][0]["persistentVolumeClaim"]["spec"]["volumeMode"] =
             json!("Block");
-        assert!(plan_restores(&c, "x").is_err());
+        let plan = plan_restores(&c, "x").unwrap();
+        assert!(plan[0].is_block());
+        assert_eq!(
+            plan[0].pvc_spec["volumeMode"], "Block",
+            "temp PVC must stay Block"
+        );
         let mut c = content();
         c["spec"]["volumeBackups"][0]["volumeName"] = json!("Root_Disk");
         assert!(plan_restores(&c, "x").is_err());
