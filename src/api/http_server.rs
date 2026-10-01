@@ -418,6 +418,19 @@ pub mod web {
             }
         }
 
+        if let Some(allowed) = identity.namespaces.as_deref() {
+            let default_ns = state.read().await.namespace.clone();
+            if let Err(msg) = crate::api::auth::tenancy::check_namespace_access(
+                allowed,
+                &default_ns,
+                api_path,
+                request.uri().query(),
+            ) {
+                let (status, json) = err_json(403, "FORBIDDEN", &msg);
+                return (status, json).into_response();
+            }
+        }
+
         request.extensions_mut().insert(identity);
         next.run(request).await.into_response()
     }
@@ -580,6 +593,10 @@ pub mod web {
             .route("/v1/users/{id}", delete(users_delete))
             .route("/v1/users/{id}/role", put(users_update_role))
             .route("/v1/users/{id}/enabled", put(users_set_enabled))
+            .route(
+                "/v1/users/{id}/namespaces",
+                get(users_get_namespaces).put(users_set_namespaces),
+            )
             .route(
                 "/v1/api-tokens",
                 get(api_tokens_list).post(api_tokens_create),
@@ -1724,6 +1741,29 @@ pub mod web {
             Json(body),
         )
         .await
+    }
+
+    async fn users_set_namespaces(
+        State(state): State<SharedState>,
+        Path(id): Path<String>,
+        Json(body): Json<crate::api::auth::handlers::SetNamespacesRequest>,
+    ) -> impl IntoResponse {
+        let auth = auth_shared(&state).await;
+        crate::api::auth::handlers::set_namespaces_handler(
+            axum::extract::State(auth),
+            Path(id),
+            Json(body),
+        )
+        .await
+    }
+
+    async fn users_get_namespaces(
+        State(state): State<SharedState>,
+        Path(id): Path<String>,
+    ) -> impl IntoResponse {
+        let auth = auth_shared(&state).await;
+        crate::api::auth::handlers::get_namespaces_handler(axum::extract::State(auth), Path(id))
+            .await
     }
 
     async fn users_set_enabled(
