@@ -61,3 +61,15 @@ app.kubernetes.io/component: api
 {{- printf "%s:%s" .Values.image.repository (.Values.image.tag | toString) }}
 {{- end }}
 {{- end }}
+
+{{/*
+Zorvia keeps users, audit and operations in SQLite files under /data. Two
+replicas writing the same files are only safe on a volume that is genuinely
+shared (ReadWriteMany) and even then are not a tested topology, so refuse the
+combination that looks like HA but is not.
+*/}}
+{{- define "zorvia.validateHA" -}}
+{{- if and (gt (int .Values.replicaCount) 1) .Values.persistence.enabled (not (has "ReadWriteMany" .Values.persistence.accessModes)) -}}
+{{- fail "replicaCount > 1 needs persistence.accessModes to include ReadWriteMany: Zorvia's SQLite state is not safe on a ReadWriteOnce volume shared by two pods. Use replicaCount: 1 (active/standby via fast pod rescheduling) or an RWX storage class. See docs/HA.md." -}}
+{{- end -}}
+{{- end }}

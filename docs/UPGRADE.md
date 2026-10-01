@@ -20,6 +20,7 @@
 10. **`ZORVIA_JWT_SECRET` must be 32+ bytes.** A shorter secret is ignored (ephemeral secret, sessions reset on restart).
 11. **Failed-login lockout** (8 attempts / 15 min per username) and TOTP re-enrolment now requires password + current code.
 12. **OIDC** sign-in needs cookies enabled on the console origin, and the token now arrives as `/sign-in#oidc_token=…`.
+13. **Helm: `replicaCount > 1` requires a ReadWriteMany volume**, and `values-production.yaml` now sets one replica with `strategy: Recreate` and no PodDisruptionBudget. See [HA.md](HA.md).
 
 ### Compatible
 
