@@ -18,6 +18,15 @@ export interface VsphereSource {
   password_key?: string
 }
 
+export interface ImportNetwork {
+  name: string
+  /** Source port-group label for the operation record; supplied by the operator. */
+  source_network?: string
+  /** Existing attachment in the target namespace; omitted means pod networking. */
+  attachment?: string
+  mac_address?: string
+}
+
 export interface ImportVm {
   source_vm: string
   /** Defaults to a DNS-label form of source_vm. */
@@ -28,6 +37,11 @@ export interface ImportVm {
   memory?: string
   /** Start the VM once deployed (cutover). Default: leave it stopped. */
   start?: boolean
+  /** Replace target NICs while stopped, before cutover. Empty keeps importer defaults. */
+  networks?: ImportNetwork[]
+  require_guest_agent?: boolean
+  /** 30..3600 seconds. */
+  boot_timeout_secs?: number
 }
 
 export interface ImportRequest {

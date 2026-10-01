@@ -99,7 +99,7 @@ pub fn max_concurrency(kind: &str) -> Option<usize> {
 }
 
 fn may_start(kind: &str, running: usize) -> bool {
-    max_concurrency(kind).map_or(true, |cap| running < cap)
+    max_concurrency(kind).is_none_or(|cap| running < cap)
 }
 
 /// One reconcile pass. Claims queued operations and re-queues orphans.

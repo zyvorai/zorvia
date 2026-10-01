@@ -112,7 +112,7 @@ async fn gate_vm_socket(
     let namespace = s.namespace.clone();
     // These sockets act on the default namespace only.
     if let Some(allowed) = identity.namespaces.as_deref() {
-        if !allowed.iter().any(|a| *a == namespace) {
+        if !allowed.contains(&namespace) {
             let (st, j) = err_json(403, "FORBIDDEN", "No access to this namespace");
             return Err((st, j).into_response());
         }
