@@ -21,6 +21,28 @@ use crate::api::pam_auth::{authenticate_pam, validate_username};
 
 const OIDC_PENDING_TTL_SECS: u64 = 600;
 
+/// Write the generated bootstrap password to `<dir>/bootstrap-admin-password`
+/// with owner-only permissions (never overwriting an existing file's mode).
+fn write_bootstrap_password(
+    dir: &std::path::Path,
+    user: &str,
+    password: &str,
+) -> std::io::Result<std::path::PathBuf> {
+    use std::io::Write;
+    std::fs::create_dir_all(dir)?;
+    let path = dir.join("bootstrap-admin-password");
+    let mut opts = std::fs::OpenOptions::new();
+    opts.write(true).create(true).truncate(true);
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::OpenOptionsExt;
+        opts.mode(0o600);
+    }
+    let mut f = opts.open(&path)?;
+    writeln!(f, "user: {user}\npassword: {password}")?;
+    Ok(path)
+}
+
 pub struct AuthState {
     pub jwt: JwtConfig,
     pub db: UserDb,
@@ -42,12 +64,26 @@ impl AuthState {
         } else if db.count_users()? == 0 {
             // First boot outside lab: generate a one-time password.
             let generated = format!("Zv-{}", uuid::Uuid::new_v4());
-            log::warn!(
-                "ZORVIA_ADMIN_PASSWORD unset; generated bootstrap password for '{}': {} \
-                 (shown once — store it and rotate)",
-                admin_user,
-                generated
-            );
+            // Not into the log (it is shipped and retained): a 0600 file next to the
+            // auth database, to be read once and deleted.
+            let dir = std::path::Path::new(&UserDb::env_path())
+                .parent()
+                .map(std::path::Path::to_path_buf)
+                .unwrap_or_else(|| std::path::PathBuf::from("."));
+            match write_bootstrap_password(&dir, &admin_user, &generated) {
+                Ok(path) => log::warn!(
+                    "ZORVIA_ADMIN_PASSWORD unset; generated a bootstrap password for '{}' and \
+                     wrote it to {} (mode 0600). Read it once, delete the file, then rotate it.",
+                    admin_user,
+                    path.display()
+                ),
+                Err(e) => log::warn!(
+                    "ZORVIA_ADMIN_PASSWORD unset; generated bootstrap password for '{}': {} \
+                     (could not write it to a file: {e}; shown once, store it and rotate)",
+                    admin_user,
+                    generated
+                ),
+            }
             generated
         } else {
             // DB already seeded; password only needed for seed.
@@ -1207,6 +1243,26 @@ pub async fn logout_handler(
         None => auth.db.bump_token_version(&claims.sub).is_ok(),
     };
     Json(serde_json::json!({ "success": true, "sessions_revoked": revoked })).into_response()
+}
+
+#[cfg(test)]
+mod bootstrap_password_tests {
+    use super::*;
+
+    #[test]
+    fn bootstrap_password_goes_to_an_owner_only_file() {
+        let dir = std::env::temp_dir().join(format!("zorvia-boot-{}", std::process::id()));
+        let path = write_bootstrap_password(&dir, "admin", "Zv-secret").unwrap();
+        let text = std::fs::read_to_string(&path).unwrap();
+        assert!(text.contains("user: admin") && text.contains("password: Zv-secret"));
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            let mode = std::fs::metadata(&path).unwrap().permissions().mode() & 0o777;
+            assert_eq!(mode, 0o600);
+        }
+        std::fs::remove_dir_all(&dir).ok();
+    }
 }
 
 #[cfg(test)]

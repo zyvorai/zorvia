@@ -105,9 +105,14 @@ When deploying Zorvia:
   account is only revealed to someone who knows its password, and unknown users cost the
   same bcrypt time as real ones; an API token whose `expires_at` cannot be read is treated
   as expired, and creation rejects a malformed value.
-- Not yet addressed: TOTP secrets are stored in plaintext; the bootstrap admin password
-  is logged when none is supplied; API tokens and PAM sessions are not
-  namespace-restricted.
+- A generated bootstrap admin password (only when `ZORVIA_ADMIN_PASSWORD` is unset on a
+  fresh database) is written to `bootstrap-admin-password` (mode 0600) next to the auth
+  database instead of the log; read it once and delete the file.
+- OIDC ID tokens: the JWKS is cached for 5 minutes (an unknown `kid` forces one refresh),
+  `azp` is required when there are several audiences and must be this client, and `nbf`/`iat`
+  are checked with 2 minutes of skew.
+- Not yet addressed: TOTP secrets are stored in plaintext; API tokens and PAM sessions are
+  not namespace-restricted.
 - JWT access tokens default to a **60-minute** TTL (`ZORVIA_JWT_TTL_MINUTES`);
   local-user disable/role/password/TOTP changes bump `token_version` and revoke
   outstanding sessions.
