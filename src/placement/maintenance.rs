@@ -55,6 +55,13 @@ pub struct VmVerdict {
     pub disruption: String,
 }
 
+impl VmVerdict {
+    #[cfg(test)]
+    fn no_dest(&self) -> bool {
+        self.action == Action::NoDestination
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct MaintenancePlan {
     pub node: String,
@@ -104,6 +111,7 @@ fn blockers(vm: &MaintenanceVm) -> Vec<String> {
 pub fn plan_drain(node: &str, nodes: &[NodeSnapshot], vms: &[MaintenanceVm]) -> MaintenancePlan {
     let target = nodes.iter().find(|n| n.name == node);
     let mut warnings = Vec::new();
+    let other_nodes = nodes.iter().filter(|n| n.name != node).count();
     if target.is_none() {
         warnings.push(format!("node '{node}' was not found"));
     }
@@ -123,7 +131,7 @@ pub fn plan_drain(node: &str, nodes: &[NodeSnapshot], vms: &[MaintenanceVm]) -> 
             )
         })
         .collect();
-    if nodes.iter().filter(|n| n.name != node).count() == 0 {
+    if other_nodes == 0 {
         warnings.push(
             "there is no other node: nothing can be migrated, a drain means downtime for every VM"
                 .into(),
@@ -181,10 +189,16 @@ pub fn plan_drain(node: &str, nodes: &[NodeSnapshot], vms: &[MaintenanceVm]) -> 
                 });
             }
             None => {
-                reasons.push(format!(
-                    "no other schedulable node has {:.1} vCPU and {:.1} GiB free",
-                    vm.cpu, vm.memory_gib
-                ));
+                reasons.push(if other_nodes == 0 {
+                    "there is no other node to move it to".to_string()
+                } else if free.is_empty() {
+                    "every other node is cordoned (unschedulable)".to_string()
+                } else {
+                    format!(
+                        "no other schedulable node has {:.1} vCPU and {:.1} GiB free",
+                        vm.cpu, vm.memory_gib
+                    )
+                });
                 verdicts.push(VmVerdict {
                     name: vm.name.clone(),
                     namespace: vm.namespace.clone(),
@@ -283,6 +297,10 @@ mod tests {
         assert!(!p.can_drain_without_downtime);
         assert_eq!(p.no_destination, 1);
         assert!(p.warnings.iter().any(|w| w.contains("no other node")));
+        assert_eq!(
+            p.vms[0].reasons,
+            vec!["there is no other node to move it to"]
+        );
     }
 
     #[test]
@@ -296,6 +314,8 @@ mod tests {
         assert_eq!(p.live_migrate, 1);
         assert_eq!(p.no_destination, 1);
         assert!(!p.can_drain_without_downtime);
+        let blocked = p.vms.iter().find(|v| v.no_dest()).unwrap();
+        assert!(blocked.reasons[0].starts_with("no other schedulable node has"));
     }
 
     #[test]
@@ -351,6 +371,10 @@ mod tests {
         let p = plan_drain("a", &nodes, &[vm("web", 1.0, 1.0)]);
         assert_eq!(p.no_destination, 1);
         assert!(p.warnings.iter().any(|w| w.contains("cordoned")));
+        assert_eq!(
+            p.vms[0].reasons,
+            vec!["every other node is cordoned (unschedulable)"]
+        );
         let missing = plan_drain("zz", &nodes, &[]);
         assert!(!missing.node_found && !missing.can_drain_without_downtime);
     }
