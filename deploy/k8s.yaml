@@ -244,8 +244,6 @@ spec:
               cpu: 500m
               memory: 256Mi
           env:
-            - name: ZORVIA_LAB_MODE
-              value: "1"
             - name: ZORVIA_WEB_DIR
               value: /usr/share/zorvia/web
             - name: ZORVIA_AUTH_DB
@@ -355,8 +353,9 @@ spec:
 #     --from-literal=admin-user=admin \
 #     --from-literal=admin-password="$(openssl rand -base64 24)" \
 #     --from-literal=jwt-secret="$(openssl rand -hex 32)"
-# Lab deploys set ZORVIA_LAB_MODE=1 (above). Production must omit lab mode
-# and supply unique credentials — the API refuses known lab defaults otherwise.
+# Lab mode (ZORVIA_LAB_MODE=1) is NOT set here: it permits known default
+# credentials and a shared API key with full admin. Set it only on a throwaway
+# loopback-only lab. The API refuses known lab defaults otherwise.
 ---
 apiVersion: v1
 kind: Service

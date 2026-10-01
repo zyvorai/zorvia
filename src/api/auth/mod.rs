@@ -10,11 +10,12 @@ pub mod permissions;
 mod user_db;
 
 pub use handlers::{
-    create_api_token_handler, delete_api_token_handler, list_api_tokens_handler, login_handler,
-    me_handler, oidc_callback_handler, oidc_login_handler, providers_handler,
-    revoke_api_token_handler, totp_disable_handler, totp_setup_handler, totp_verify_handler,
-    AuthState, CreateApiTokenRequest, LoginRequest, OidcCallbackQuery, SharedAuth,
-    TotpDisableRequest, TotpVerifyRequest,
+    change_password_handler, create_api_token_handler, delete_api_token_handler,
+    list_api_tokens_handler, login_handler, logout_handler, me_handler, oidc_callback_handler,
+    oidc_login_handler, providers_handler, revoke_api_token_handler, totp_disable_handler,
+    totp_setup_handler, totp_verify_handler, AuthState, ChangePasswordRequest,
+    CreateApiTokenRequest, LoginRequest, OidcCallbackQuery, SharedAuth, TotpDisableRequest,
+    TotpVerifyRequest,
 };
 pub use identity::{AuthIdentity, AuthKind};
 pub use jwt::{Claims, JwtConfig, Role};

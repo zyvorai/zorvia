@@ -33,11 +33,88 @@ pub struct WsAuthQuery {
     pub port: Option<u16>,
 }
 
-fn authorize(state: &WebState, token: Option<&str>) -> bool {
-    let Some(token) = token.filter(|t| !t.is_empty()) else {
+/// A VM name goes straight into a Kubernetes API path, so it must be a plain
+/// DNS-1123 name (no `/`, `?`, `#`, `%` or `..`).
+fn valid_vm_name(s: &str) -> bool {
+    !s.is_empty()
+        && s.len() <= 253
+        && s.chars()
+            .all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || c == '-' || c == '.')
+        && !s.starts_with(['-', '.'])
+        && !s.ends_with(['-', '.'])
+        && !s.contains("..")
+}
+
+/// Browsers always send `Origin` on a WebSocket handshake and it is not covered
+/// by the same-origin policy, so a cross-site page holding a leaked `?token=`
+/// could otherwise open a console. Non-browser clients send no Origin.
+fn origin_allowed(headers: &http::HeaderMap) -> bool {
+    let Some(origin) = headers.get(http::header::ORIGIN) else {
+        return true;
+    };
+    let Ok(origin) = origin.to_str() else {
         return false;
     };
-    state.auth.resolve_credential(token).is_some()
+    let origin_host = origin.split_once("://").map(|(_, h)| h).unwrap_or(origin);
+    let host = headers
+        .get(http::header::HOST)
+        .and_then(|h| h.to_str().ok())
+        .unwrap_or("");
+    !host.is_empty() && origin_host.eq_ignore_ascii_case(host)
+}
+
+async fn audit_session(
+    audit: &SharedAuditTrail,
+    identity: &crate::api::auth::AuthIdentity,
+    namespace: &str,
+    vm: &str,
+    kind: &str,
+) {
+    let entry = crate::audit_trail::AuditEntry {
+        id: crate::utils::generate_id("audit", vm),
+        timestamp: chrono::Utc::now(),
+        user: identity
+            .username
+            .clone()
+            .unwrap_or_else(|| "api-token".into()),
+        severity: crate::audit_trail::AuditSeverity::High,
+        action: crate::audit_trail::AuditAction::Exec,
+        resource_type: "vm".into(),
+        resource_name: vm.to_string(),
+        namespace: namespace.to_string(),
+        details: serde_json::json!({ "session": kind }),
+        ip_address: String::new(),
+        success: true,
+    };
+    audit.write().await.record(entry);
+}
+
+/// Shared gate for the VM console/VNC/SSH sockets: Origin, permission, name.
+#[allow(clippy::result_large_err)]
+async fn gate_vm_socket(
+    state: &SharedState,
+    headers: &http::HeaderMap,
+    token: Option<&str>,
+    required: crate::api::auth::permissions::ApiPermission,
+    name: &str,
+    kind: &str,
+) -> Result<(String, SharedAuditTrail, crate::kube::KubeClient), axum::response::Response> {
+    if !origin_allowed(headers) {
+        let (st, j) = err_json(403, "FORBIDDEN", "Cross-origin WebSocket refused");
+        return Err((st, j).into_response());
+    }
+    let s = state.read().await;
+    let identity = authorize_permission(&s, token, required).map_err(|r| *r)?;
+    if !valid_vm_name(name) {
+        let (st, j) = err_json(400, "INVALID", "invalid VM name");
+        return Err((st, j).into_response());
+    }
+    let namespace = s.namespace.clone();
+    let audit = s.audit.clone();
+    let client = s.client();
+    drop(s);
+    audit_session(&audit, &identity, &namespace, name, kind).await;
+    Ok((namespace, audit, client))
 }
 
 /// Resolve a `?token=` credential and require `required`, mirroring
@@ -224,16 +301,23 @@ async fn proxy_kube_ws(
 pub async fn ws_console(
     ws: WebSocketUpgrade,
     State(state): State<SharedState>,
+    headers: http::HeaderMap,
     Path(name): Path<String>,
     Query(q): Query<WsAuthQuery>,
 ) -> impl IntoResponse {
-    let s = state.read().await;
-    if !authorize(&s, q.token.as_deref()) {
-        let (st, j) = err_json(401, "UNAUTHORIZED", "Missing or invalid token");
-        return (st, j).into_response();
-    }
-    let namespace = s.namespace.clone();
-    drop(s);
+    let (namespace, _, _) = match gate_vm_socket(
+        &state,
+        &headers,
+        q.token.as_deref(),
+        crate::api::auth::permissions::ApiPermission::VmPower,
+        &name,
+        "console",
+    )
+    .await
+    {
+        Ok(v) => v,
+        Err(r) => return r,
+    };
     ws.protocols(["plain.kubevirt.io"])
         .on_upgrade(move |socket| proxy_kube_ws(socket, namespace, name, "console"))
         .into_response()
@@ -242,16 +326,23 @@ pub async fn ws_console(
 pub async fn ws_vnc(
     ws: WebSocketUpgrade,
     State(state): State<SharedState>,
+    headers: http::HeaderMap,
     Path(name): Path<String>,
     Query(q): Query<WsAuthQuery>,
 ) -> impl IntoResponse {
-    let s = state.read().await;
-    if !authorize(&s, q.token.as_deref()) {
-        let (st, j) = err_json(401, "UNAUTHORIZED", "Missing or invalid token");
-        return (st, j).into_response();
-    }
-    let namespace = s.namespace.clone();
-    drop(s);
+    let (namespace, _, _) = match gate_vm_socket(
+        &state,
+        &headers,
+        q.token.as_deref(),
+        crate::api::auth::permissions::ApiPermission::VmPower,
+        &name,
+        "vnc",
+    )
+    .await
+    {
+        Ok(v) => v,
+        Err(r) => return r,
+    };
     ws.protocols(["binary.kubevirt.io"])
         .on_upgrade(move |socket| proxy_kube_ws(socket, namespace, name, "vnc"))
         .into_response()
@@ -260,17 +351,25 @@ pub async fn ws_vnc(
 pub async fn ws_ssh(
     ws: WebSocketUpgrade,
     State(state): State<SharedState>,
+    headers: http::HeaderMap,
     Path(name): Path<String>,
     Query(q): Query<WsAuthQuery>,
 ) -> impl IntoResponse {
-    let s = state.read().await;
-    if !authorize(&s, q.token.as_deref()) {
-        let (st, j) = err_json(401, "UNAUTHORIZED", "Missing or invalid token");
-        return (st, j).into_response();
-    }
-    let namespace = s.namespace.clone();
-    let client = s.client();
-    drop(s);
+    // SSH runs `virtctl ssh` from the control plane with a caller-chosen user
+    // and port, so it needs more than power-control rights.
+    let (namespace, _, client) = match gate_vm_socket(
+        &state,
+        &headers,
+        q.token.as_deref(),
+        crate::api::auth::permissions::ApiPermission::ClusterAdmin,
+        &name,
+        "ssh",
+    )
+    .await
+    {
+        Ok(v) => v,
+        Err(r) => return r,
+    };
     let user = q.user.clone().unwrap_or_else(|| "zorvia".into());
     let port = q.port.unwrap_or(22);
     if let Err(e) = crate::kube::ssh::validate_ssh_user(&user) {
@@ -400,4 +499,33 @@ async fn proxy_ssh(
         _ = from_pty => {}
     }
     let _ = child.kill().await;
+}
+
+#[cfg(test)]
+mod gate_tests {
+    use super::*;
+
+    #[test]
+    fn vm_names_cannot_escape_the_api_path() {
+        assert!(valid_vm_name("web-01"));
+        for bad in [
+            "", "a/b", "a?x=1", "a#b", "a%2fb", "..", "a..b", "-a", "A", "a b",
+        ] {
+            assert!(!valid_vm_name(bad), "{bad:?} must be rejected");
+        }
+    }
+
+    #[test]
+    fn cross_origin_handshakes_are_refused() {
+        let mut h = http::HeaderMap::new();
+        h.insert(http::header::HOST, "zorvia.example:30152".parse().unwrap());
+        assert!(origin_allowed(&h), "no Origin (non-browser) is allowed");
+        h.insert(
+            http::header::ORIGIN,
+            "https://zorvia.example:30152".parse().unwrap(),
+        );
+        assert!(origin_allowed(&h));
+        h.insert(http::header::ORIGIN, "https://evil.test".parse().unwrap());
+        assert!(!origin_allowed(&h));
+    }
 }

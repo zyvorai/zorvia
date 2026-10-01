@@ -182,8 +182,6 @@ spec:
               cpu: 500m
               memory: 256Mi
           env:
-            - name: ZORVIA_LAB_MODE
-              value: "1"
             - name: ZORVIA_WEB_DIR
               value: /usr/share/zorvia/web
             - name: ZORVIA_AUTH_DB
@@ -259,7 +257,7 @@ spec:
 ---
 # Auth Secret is NOT committed. Create it before apply:
 #   ./scripts/create-auth-secret.sh
-# For lab only, you may set ZORVIA_LAB_MODE=1 on the Deployment.
+# Lab mode is deliberately off by default (see k8s.yaml).
 ---
 apiVersion: v1
 kind: Service
