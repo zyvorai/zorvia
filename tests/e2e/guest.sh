@@ -12,7 +12,8 @@
 # Env: ZORVIA_LAB_HOST/PORT, ZORVIA_E2E_USER (admin) + ZORVIA_E2E_PASSWORD or
 #      ZORVIA_E2E_TOKEN; E2E_IMAGE (containerdisk), E2E_VM (name prefix);
 #      KUBECTL (e.g. "ssh root@host KUBECONFIG=/etc/rancher/k3s/k3s.yaml kubectl")
-#      enables the node check (E2E_NAMESPACE = the API's default namespace) and the API-restart scenario.
+#      E2E_STORAGE_CLASS (a snapshot-capable CSI class) enables the data-snapshot scenario;
+#      KUBECTL enables the node check (E2E_NAMESPACE = the API's default namespace) and the API-restart scenario.
 set -uo pipefail
 
 HOST="${ZORVIA_LAB_HOST:?set ZORVIA_LAB_HOST}"
@@ -44,7 +45,14 @@ run() { # name fn
   out=$("$2" 2>&1); rc=$?
   case $rc in 0) row "$1" PASS $((SECONDS-t0)) "$out" ;; 77) row "$1" SKIP $((SECONDS-t0)) "$out" ;; *) row "$1" FAIL $((SECONDS-t0)) "$out" ;; esac
 }
-cleanup() { api DELETE "/vms/$VM" >/dev/null 2>&1; }
+cleanup() {
+  api DELETE "/vms/$VM" >/dev/null 2>&1
+  if [ -n "$KUBECTL" ]; then
+    api DELETE "/vms/$VM-pvc" >/dev/null 2>&1
+    $KUBECTL -n "$NS" delete vmsnapshot "$VM-pvc-d1" --ignore-not-found >/dev/null 2>&1
+    $KUBECTL -n "$NS" delete dv "$VM-pvc-data" --ignore-not-found >/dev/null 2>&1
+  fi
+}
 trap cleanup EXIT
 
 wait_for() { # seconds cmd...
@@ -82,6 +90,49 @@ s_snapshot_revert() {
   [ -z "$warn" ] && echo "created, listed, deleted" || echo "created, listed, deleted (config-only: no PVC-backed disk)"
 }
 
+# A containerdisk guest has no PVC, so this one gives the guest a real
+# CSI-backed data disk (a pre-created blank DataVolume) and checks that the
+# snapshot captures it: the API reports no config-only warning and a
+# VolumeSnapshot becomes ready. Filesystem mode is explicit because CDI would
+# otherwise pick Block on RBD, whose importer cannot open the device here.
+s_data_snapshot() {
+  [ -n "$KUBECTL" ] && [ -n "${E2E_STORAGE_CLASS:-}" ] || { echo "set KUBECTL and E2E_STORAGE_CLASS"; return 77; }
+  local pvm="$VM-pvc" dv="$VM-pvc-data" r
+  $KUBECTL -n "$NS" apply -f - >/dev/null <<DV || { echo "could not create DataVolume"; return 1; }
+apiVersion: cdi.kubevirt.io/v1beta1
+kind: DataVolume
+metadata:
+  name: $dv
+  namespace: $NS
+  annotations:
+    cdi.kubevirt.io/storage.bind.immediate.requested: "true"
+spec:
+  source:
+    blank: {}
+  storage:
+    storageClassName: $E2E_STORAGE_CLASS
+    volumeMode: Filesystem
+    accessModes: ["ReadWriteOnce"]
+    resources:
+      requests:
+        storage: 1Gi
+DV
+  $KUBECTL -n "$NS" wait "dv/$dv" --for=condition=Ready --timeout=300s >/dev/null 2>&1 || { echo "DataVolume never Ready"; return 1; }
+  r=$(api POST /vms "{\"name\":\"$pvm\",\"image\":\"$IMAGE\",\"cpus\":2,\"memory\":2048,\"disks\":[
+    {\"name\":\"root\",\"size\":\"10Gi\",\"boot_order\":1,\"source\":{\"type\":\"containerDisk\",\"image\":\"$IMAGE\"}},
+    {\"name\":\"data\",\"size\":\"1Gi\",\"boot_order\":2,\"source\":{\"type\":\"dataVolume\",\"name\":\"$dv\"}}]}")
+  case "$(echo "$r" | code)" in 2??|408) ;; *) echo "create: $(echo "$r" | body | head -c 200)"; return 1 ;; esac
+  running() { api GET "/vms/$pvm" | body | jq -e '.state == "running"' >/dev/null 2>&1; }
+  wait_for 600 running || { echo "PVC guest never running"; return 1; }
+  r=$(api POST "/vms/$pvm/snapshots" '{"name":"d1"}'); [ "$(echo "$r" | code)" -lt 300 ] || { echo "snapshot: $(echo "$r" | body | head -c 200)"; return 1; }
+  snap_ok() { [ "$($KUBECTL -n "$NS" get vmsnapshot "$pvm-d1" -o jsonpath='{.status.readyToUse}' 2>/dev/null)" = true ]; }
+  wait_for 300 snap_ok || { echo "VirtualMachineSnapshot never ready"; return 1; }
+  [ -z "$(api GET "/vms/$pvm/snapshots" | body | jq -r '.[0].warning // empty')" ] || { echo "API still warns config-only"; return 1; }
+  local vs; vs=$($KUBECTL -n "$NS" get volumesnapshot --no-headers 2>/dev/null | grep -c "$dv")
+  [ "${vs:-0}" -ge 1 ] || { echo "no VolumeSnapshot for $dv"; return 1; }
+  echo "data snapshot ready: $vs VolumeSnapshot(s) on $E2E_STORAGE_CLASS"
+}
+
 s_live_migration() {
   local nodes
   if [ -n "$KUBECTL" ]; then
@@ -116,6 +167,7 @@ s_api_restart() {
 echo "| scenario | result | time | detail |"; echo "|---|---|---|---|"
 run "create + boot + guest ready ($IMAGE)" s_create_boot
 run "snapshot create/delete" s_snapshot_revert
+run "data snapshot on CSI storage (${E2E_STORAGE_CLASS:-unset})" s_data_snapshot
 run "live migration under load" s_live_migration
 run "API restart, guest untouched" s_api_restart
 echo; echo "VM: $VM  host: $HOST  $(date -u +%FT%TZ)"

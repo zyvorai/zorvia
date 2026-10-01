@@ -15,3 +15,12 @@ tests/e2e/guest.sh
 Not covered yet: Windows guests, node failure, upgrades, off-cluster backup/restore/drill (those
 are exercised separately, see `docs/OFFCLUSTER_BACKUP.md`). CI runs it on demand through the
 `guest-lab` job of `e2e-kubevirt.yml` on a self-hosted `zorvia-lab` runner.
+
+## Data snapshot on CSI storage
+
+Set `E2E_STORAGE_CLASS` (with `KUBECTL`) to add a scenario that boots a guest with a real
+PVC-backed data disk and checks the snapshot captures it (no config-only warning, a
+`VolumeSnapshot` ready). The blank DataVolume is created with `volumeMode: Filesystem`: on the
+Ceph RBD class CDI defaults to Block mode and its importer crashes with
+`cannot open /dev/cdi-block-volume: Permission denied`, and the off-cluster backup agent rejects
+Block volumes anyway.
