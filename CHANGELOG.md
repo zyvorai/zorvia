@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added (maintenance)
+
+- `GET /api/v1/maintenance/plan?node=` (cluster.admin): read-only pre-drain plan per VM (live-migrate
+  destination, downtime, no destination), from KubeVirt's migratability, RWO volumes, pinned
+  devices and destination capacity. See [docs/MAINTENANCE.md](docs/MAINTENANCE.md).
+
 ### Added (validation)
 
 - `tests/e2e/guest.sh`: real-guest E2E (boot, snapshot, data snapshot on CSI storage,

@@ -4,6 +4,7 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
 pub mod advisor;
+pub mod maintenance;
 
 #[derive(Debug, Clone)]
 pub struct PlacementEngine {
