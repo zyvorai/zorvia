@@ -144,16 +144,20 @@ impl UserDb {
         Ok(())
     }
 
-    pub fn from_env() -> Result<Self> {
-        let path = std::env::var("ZORVIA_AUTH_DB").unwrap_or_else(|_| {
+    /// Path of the auth database (`ZORVIA_AUTH_DB`, else the user data dir).
+    pub fn env_path() -> String {
+        std::env::var("ZORVIA_AUTH_DB").unwrap_or_else(|_| {
             dirs::data_dir()
                 .unwrap_or_else(|| std::path::PathBuf::from("."))
                 .join("zorvia")
                 .join("auth.db")
                 .to_string_lossy()
                 .to_string()
-        });
-        Self::open(&path)
+        })
+    }
+
+    pub fn from_env() -> Result<Self> {
+        Self::open(&Self::env_path())
     }
 
     pub fn count_users(&self) -> Result<usize> {

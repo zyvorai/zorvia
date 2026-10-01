@@ -62,12 +62,12 @@ struct TokenResponse {
     error_description: Option<String>,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Clone)]
 struct Jwks {
     keys: Vec<Jwk>,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Clone)]
 struct Jwk {
     kid: Option<String>,
     kty: String,
@@ -86,8 +86,10 @@ pub struct IdTokenClaims {
     pub iss: String,
     pub aud: Aud,
     pub exp: i64,
-    #[allow(dead_code)]
     pub iat: Option<i64>,
+    pub nbf: Option<i64>,
+    /// Authorized party: the client the token was issued to.
+    pub azp: Option<String>,
     pub nonce: Option<String>,
     pub email: Option<String>,
     pub preferred_username: Option<String>,
@@ -108,6 +110,54 @@ impl Aud {
             Aud::Many(v) => v.iter().any(|a| a == client_id),
         }
     }
+
+    fn len(&self) -> usize {
+        match self {
+            Aud::One(_) => 1,
+            Aud::Many(v) => v.len(),
+        }
+    }
+}
+
+/// Clock skew tolerated for `nbf` / `iat`.
+const CLOCK_SKEW_SECS: i64 = 120;
+
+/// Claim checks beyond the signature (pure, so it is unit-tested): audience,
+/// authorized party (OIDC Core 3.1.3.7: required when there are several
+/// audiences, and must be us whenever present), nonce, and the time claims.
+pub(crate) fn check_claims(
+    claims: &IdTokenClaims,
+    client_id: &str,
+    expected_nonce: &str,
+    now: i64,
+) -> anyhow::Result<()> {
+    if !claims.aud.contains(client_id) {
+        anyhow::bail!("id_token aud does not include client_id");
+    }
+    match claims.azp.as_deref() {
+        Some(azp) if azp != client_id => anyhow::bail!("id_token azp is not this client"),
+        None if claims.aud.len() > 1 => {
+            anyhow::bail!("id_token has several audiences but no azp")
+        }
+        _ => {}
+    }
+    let nonce = claims
+        .nonce
+        .as_deref()
+        .ok_or_else(|| anyhow::anyhow!("id_token missing nonce"))?;
+    if nonce != expected_nonce {
+        anyhow::bail!("id_token nonce mismatch");
+    }
+    if claims.exp < now {
+        anyhow::bail!("id_token expired");
+    }
+    if claims.nbf.is_some_and(|nbf| nbf > now + CLOCK_SKEW_SECS) {
+        anyhow::bail!("id_token is not valid yet (nbf)");
+    }
+    if claims.iat.is_some_and(|iat| iat > now + CLOCK_SKEW_SECS) {
+        anyhow::bail!("id_token was issued in the future (iat)");
+    }
+    Ok(())
 }
 
 impl OidcConfig {
@@ -283,30 +333,18 @@ pub async fn verify_id_token(
 ) -> anyhow::Result<IdTokenClaims> {
     let header = decode_header(id_token)?;
     let kid = header.kid;
-    let client = reqwest::Client::builder()
-        .timeout(std::time::Duration::from_secs(15))
-        .build()?;
-    let jwks: Jwks = client
-        .get(jwks_uri)
-        .send()
-        .await?
-        .error_for_status()?
-        .json()
-        .await?;
-
-    let rsa: Vec<_> = jwks
-        .keys
-        .iter()
-        .filter(|k| k.kty == "RSA" && k.n.is_some() && k.e.is_some())
-        .collect();
-    // Without a `kid` we may only guess when the IdP publishes a single key;
-    // otherwise any key in the set could be tried against the signature.
-    let jwk = match kid.as_ref() {
-        Some(kid) => rsa.iter().find(|k| k.kid.as_ref() == Some(kid)),
-        None if rsa.len() == 1 => rsa.first(),
-        None => None,
-    }
-    .ok_or_else(|| anyhow::anyhow!("no matching RSA JWK for id_token"))?;
+    // Cached for a few minutes; an unknown `kid` forces one refresh (key rotation).
+    let (mut jwks, mut from_cache) = get_jwks(jwks_uri, false).await?;
+    let jwk = loop {
+        match select_jwk(&jwks, kid.as_deref()) {
+            Some(j) => break j,
+            None if from_cache => {
+                jwks = get_jwks(jwks_uri, true).await?.0;
+                from_cache = false;
+            }
+            None => anyhow::bail!("no matching RSA JWK for id_token"),
+        }
+    };
 
     let n = jwk.n.as_deref().unwrap();
     let e = jwk.e.as_deref().unwrap();
@@ -327,21 +365,64 @@ pub async fn verify_id_token(
     let data = decode::<IdTokenClaims>(id_token, &key, &validation)?;
     let claims = data.claims;
 
-    if !claims.aud.contains(&cfg.client_id) {
-        anyhow::bail!("id_token aud does not include client_id");
-    }
-    let nonce = claims
-        .nonce
-        .as_deref()
-        .ok_or_else(|| anyhow::anyhow!("id_token missing nonce"))?;
-    if nonce != expected_nonce {
-        anyhow::bail!("id_token nonce mismatch");
-    }
-    let now = chrono::Utc::now().timestamp();
-    if claims.exp < now {
-        anyhow::bail!("id_token expired");
-    }
+    check_claims(
+        &claims,
+        &cfg.client_id,
+        expected_nonce,
+        chrono::Utc::now().timestamp(),
+    )?;
     Ok(claims)
+}
+
+const JWKS_TTL: std::time::Duration = std::time::Duration::from_secs(300);
+
+type JwksCache = std::sync::Mutex<std::collections::HashMap<String, (std::time::Instant, Jwks)>>;
+
+/// The IdP's key set, from a 5-minute cache unless `force`. The bool says whether
+/// it came from the cache.
+async fn get_jwks(uri: &str, force: bool) -> anyhow::Result<(Jwks, bool)> {
+    static CACHE: std::sync::OnceLock<JwksCache> = std::sync::OnceLock::new();
+    let cache = CACHE.get_or_init(Default::default);
+    if !force {
+        if let Some((at, j)) = cache.lock().unwrap_or_else(|e| e.into_inner()).get(uri) {
+            if at.elapsed() < JWKS_TTL {
+                return Ok((j.clone(), true));
+            }
+        }
+    }
+    let client = reqwest::Client::builder()
+        .timeout(std::time::Duration::from_secs(15))
+        .build()?;
+    let jwks: Jwks = client
+        .get(uri)
+        .send()
+        .await?
+        .error_for_status()?
+        .json()
+        .await?;
+    cache
+        .lock()
+        .unwrap_or_else(|e| e.into_inner())
+        .insert(uri.to_string(), (std::time::Instant::now(), jwks.clone()));
+    Ok((jwks, false))
+}
+
+/// Pick the signing key. Without a `kid` we may only guess when the IdP
+/// publishes a single RSA key; otherwise any key in the set could be tried.
+fn select_jwk(jwks: &Jwks, kid: Option<&str>) -> Option<Jwk> {
+    let rsa: Vec<&Jwk> = jwks
+        .keys
+        .iter()
+        .filter(|k| k.kty == "RSA" && k.n.is_some() && k.e.is_some())
+        .collect();
+    match kid {
+        Some(kid) => rsa
+            .into_iter()
+            .find(|k| k.kid.as_deref() == Some(kid))
+            .cloned(),
+        None if rsa.len() == 1 => rsa.first().map(|k| (*k).clone()),
+        None => None,
+    }
 }
 
 pub fn display_username(claims: &IdTokenClaims) -> String {
@@ -364,6 +445,79 @@ pub fn display_username(claims: &IdTokenClaims) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    fn claims(aud: Aud, azp: Option<&str>) -> IdTokenClaims {
+        IdTokenClaims {
+            sub: "u".into(),
+            iss: "https://idp".into(),
+            aud,
+            exp: 2_000,
+            iat: Some(1_000),
+            nbf: Some(1_000),
+            azp: azp.map(str::to_string),
+            nonce: Some("n1".into()),
+            email: None,
+            preferred_username: None,
+            name: None,
+        }
+    }
+
+    #[test]
+    fn claim_checks_cover_audience_azp_nonce_and_time() {
+        let now = 1_500;
+        let one = || Aud::One("zorvia".into());
+        assert!(check_claims(&claims(one(), None), "zorvia", "n1", now).is_ok());
+        assert!(check_claims(&claims(one(), Some("zorvia")), "zorvia", "n1", now).is_ok());
+        assert!(check_claims(&claims(one(), Some("other")), "zorvia", "n1", now).is_err());
+        assert!(check_claims(&claims(Aud::One("x".into()), None), "zorvia", "n1", now).is_err());
+        assert!(check_claims(&claims(one(), None), "zorvia", "wrong", now).is_err());
+        // Several audiences need azp, and it must be us.
+        let many = || Aud::Many(vec!["zorvia".into(), "other".into()]);
+        assert!(check_claims(&claims(many(), None), "zorvia", "n1", now).is_err());
+        assert!(check_claims(&claims(many(), Some("zorvia")), "zorvia", "n1", now).is_ok());
+        // Time: expired, not yet valid, issued in the future (beyond the skew).
+        assert!(check_claims(&claims(one(), None), "zorvia", "n1", 2_001).is_err());
+        let mut c = claims(one(), None);
+        c.nbf = Some(now + CLOCK_SKEW_SECS + 1);
+        assert!(check_claims(&c, "zorvia", "n1", now).is_err());
+        c.nbf = Some(now + CLOCK_SKEW_SECS - 1);
+        assert!(check_claims(&c, "zorvia", "n1", now).is_ok());
+        let mut c = claims(one(), None);
+        c.iat = Some(now + CLOCK_SKEW_SECS + 1);
+        assert!(check_claims(&c, "zorvia", "n1", now).is_err());
+    }
+
+    fn jwk(kid: Option<&str>) -> Jwk {
+        Jwk {
+            kid: kid.map(str::to_string),
+            kty: "RSA".into(),
+            use_: None,
+            n: Some("n".into()),
+            e: Some("e".into()),
+            alg: None,
+        }
+    }
+
+    #[test]
+    fn jwk_selection_requires_a_kid_unless_there_is_one_key() {
+        let one = Jwks {
+            keys: vec![jwk(Some("a"))],
+        };
+        assert!(select_jwk(&one, None).is_some());
+        assert!(select_jwk(&one, Some("a")).is_some());
+        assert!(select_jwk(&one, Some("b")).is_none());
+        let two = Jwks {
+            keys: vec![jwk(Some("a")), jwk(Some("b"))],
+        };
+        assert!(select_jwk(&two, None).is_none());
+        assert_eq!(
+            select_jwk(&two, Some("b")).unwrap().kid.as_deref(),
+            Some("b")
+        );
+        let mut ec = jwk(Some("e"));
+        ec.kty = "EC".into();
+        assert!(select_jwk(&Jwks { keys: vec![ec] }, Some("e")).is_none());
+    }
 
     #[test]
     fn pkce_challenge_is_stable() {
