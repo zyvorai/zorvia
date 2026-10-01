@@ -60,6 +60,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Security
 
+- API tokens can be restricted to a namespace allow-list at creation (`namespaces`), enforced like
+  user restrictions; see docs/TENANCY.md.
+
 - Bootstrap admin password goes to a 0600 file instead of the log; OIDC JWKS cache with
   refresh on unknown `kid`, `azp`/`nbf`/`iat` checks.
 

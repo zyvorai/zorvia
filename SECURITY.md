@@ -111,8 +111,10 @@ When deploying Zorvia:
 - OIDC ID tokens: the JWKS is cached for 5 minutes (an unknown `kid` forces one refresh),
   `azp` is required when there are several audiences and must be this client, and `nbf`/`iat`
   are checked with 2 minutes of skew.
-- Not yet addressed: TOTP secrets are stored in plaintext; API tokens and PAM sessions are
-  not namespace-restricted.
+- API tokens can be confined to namespaces at creation (`namespaces`); see
+  [docs/TENANCY.md](docs/TENANCY.md).
+- Not yet addressed: TOTP secrets are stored in plaintext; PAM sessions are not
+  namespace-restricted (PAM login is opt-in and a stub on current builds).
 - JWT access tokens default to a **60-minute** TTL (`ZORVIA_JWT_TTL_MINUTES`);
   local-user disable/role/password/TOTP changes bump `token_version` and revoke
   outstanding sessions.

@@ -169,12 +169,9 @@ impl AuthState {
         }
         if let Ok(Some(tok)) = self.db.lookup_api_token(credential) {
             let _ = self.db.touch_api_token(&tok.id);
-            return Some(AuthIdentity::from_api_token(
-                tok.id,
-                tok.name,
-                tok.role,
-                &tok.scopes,
-            ));
+            let mut id = AuthIdentity::from_api_token(tok.id, tok.name, tok.role, &tok.scopes);
+            id.namespaces = tok.namespaces;
+            return Some(id);
         }
         let claims = self.validate_bearer(credential)?;
         let mut id = AuthIdentity::from_jwt(claims.sub.clone(), claims.username, claims.role);
@@ -1063,6 +1060,9 @@ pub struct CreateApiTokenRequest {
     #[serde(default)]
     pub scopes: Vec<String>,
     pub expires_at: Option<String>,
+    /// Confine the token to these namespaces (omit for unrestricted).
+    #[serde(default)]
+    pub namespaces: Option<Vec<String>>,
 }
 
 #[derive(Debug, Serialize)]
@@ -1076,6 +1076,7 @@ struct ApiTokenSummary {
     created: String,
     last_used: Option<String>,
     revoked: bool,
+    namespaces: Option<Vec<String>>,
 }
 
 impl From<&ApiTokenRecord> for ApiTokenSummary {
@@ -1090,6 +1091,7 @@ impl From<&ApiTokenRecord> for ApiTokenSummary {
             created: t.created.clone(),
             last_used: t.last_used.clone(),
             revoked: t.revoked,
+            namespaces: t.namespaces.clone(),
         }
     }
 }
@@ -1126,6 +1128,11 @@ pub async fn create_api_token_handler(
             .into_response();
         }
     }
+    if let Some(list) = &body.namespaces {
+        if list.len() > 64 || list.iter().any(|n| !valid_ns_name(n)) {
+            return err(StatusCode::BAD_REQUEST, "Invalid namespace list").into_response();
+        }
+    }
     let created_by = bearer_token(&headers)
         .and_then(|t| auth.validate_bearer(&t))
         .map(|c| c.username);
@@ -1136,7 +1143,20 @@ pub async fn create_api_token_handler(
         body.expires_at.as_deref(),
         created_by.as_deref(),
     ) {
-        Ok((rec, plaintext)) => {
+        Ok((mut rec, plaintext)) => {
+            if let Some(list) = body.namespaces.as_deref() {
+                if auth
+                    .db
+                    .set_api_token_namespaces(&rec.id, Some(list))
+                    .is_err()
+                {
+                    // Never hand out a token that was meant to be restricted but is not.
+                    let _ = auth.db.revoke_api_token(&rec.id);
+                    return err(StatusCode::INTERNAL_SERVER_ERROR, "Failed to create token")
+                        .into_response();
+                }
+                rec.namespaces = Some(list.to_vec());
+            }
             let mut summary = serde_json::to_value(ApiTokenSummary::from(&rec))
                 .unwrap_or_else(|_| serde_json::json!({}));
             if let Some(obj) = summary.as_object_mut() {
@@ -1243,6 +1263,54 @@ pub async fn logout_handler(
         None => auth.db.bump_token_version(&claims.sub).is_ok(),
     };
     Json(serde_json::json!({ "success": true, "sessions_revoked": revoked })).into_response()
+}
+
+#[cfg(test)]
+mod token_namespace_tests {
+    use super::*;
+
+    #[test]
+    fn token_namespaces_roundtrip_and_a_corrupt_list_restricts() {
+        let db = UserDb::open(":memory:").unwrap();
+        let (rec, plain) = db
+            .create_api_token("ci", Role::User, vec![], None, None)
+            .unwrap();
+        assert_eq!(
+            db.lookup_api_token(&plain).unwrap().unwrap().namespaces,
+            None
+        );
+        db.set_api_token_namespaces(&rec.id, Some(&["team-a".to_string()]))
+            .unwrap();
+        assert_eq!(
+            db.lookup_api_token(&plain).unwrap().unwrap().namespaces,
+            Some(vec!["team-a".to_string()])
+        );
+        // Listing shows it too.
+        assert!(db
+            .list_api_tokens()
+            .unwrap()
+            .iter()
+            .any(|t| t.namespaces.as_deref() == Some(&["team-a".to_string()][..])));
+        db.set_api_token_namespaces(&rec.id, None).unwrap();
+        assert_eq!(
+            db.lookup_api_token(&plain).unwrap().unwrap().namespaces,
+            None
+        );
+    }
+
+    #[test]
+    fn an_unreadable_stored_list_means_no_namespaces_not_all() {
+        let db = UserDb::open(":memory:").unwrap();
+        let (rec, plain) = db
+            .create_api_token("ci", Role::User, vec![], None, None)
+            .unwrap();
+        db.set_api_token_namespaces(&rec.id, Some(&[])).unwrap();
+        assert_eq!(
+            db.lookup_api_token(&plain).unwrap().unwrap().namespaces,
+            Some(vec![]),
+            "an empty list confines the token to nothing"
+        );
+    }
 }
 
 #[cfg(test)]
