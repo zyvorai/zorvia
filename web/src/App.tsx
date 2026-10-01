@@ -20,6 +20,7 @@ import Platform from './pages/marketing/Platform'
 import SecurityPage from './pages/marketing/Security'
 
 const Dashboard = lazy(() => import('./pages/Dashboard'))
+const Fleet = lazy(() => import('./pages/Fleet'))
 const VMList = lazy(() => import('./pages/VMList'))
 const VMDetails = lazy(() => import('./pages/VMDetails'))
 const CreateVM = lazy(() => import('./pages/CreateVM'))
@@ -107,6 +108,7 @@ function ConsoleRoutes() {
         <Suspense fallback={<PageSkeleton />}>
           <Routes>
             <Route index element={<Dashboard />} />
+            <Route path="fleet" element={<AdminRoute><Fleet /></AdminRoute>} />
             <Route path="vms" element={<VMList />} />
             <Route path="vms/:name" element={<VMDetails />} />
             <Route path="vms/:name/console" element={<Console />} />

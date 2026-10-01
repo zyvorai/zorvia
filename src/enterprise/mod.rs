@@ -1,7 +1,7 @@
 //! Phase 5 enterprise capability plans (gated by `ZORVIA_EXPERIMENTAL` + feature flags).
 //!
 //! These produce actionable plans / dry-runs. They do not call AWS, vSphere, or
-//! remote clusters until a later shipping release.
+//! remote clusters. Live fleet inventory is implemented in `multi_cluster::fleet`.
 
 use serde::{Deserialize, Serialize};
 
@@ -309,26 +309,6 @@ impl GpuSriovNumaPlan {
     }
 }
 
-/// Fleet multi-cluster inventory snapshot (empty until kubeconfigs are wired).
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct FleetInventory {
-    pub clusters: Vec<serde_json::Value>,
-    pub notes: Vec<String>,
-}
-
-impl FleetInventory {
-    pub fn try_snapshot() -> Result<Self, String> {
-        require("ZORVIA_FEATURE_FLEET")?;
-        Ok(Self {
-            clusters: Vec::new(),
-            notes: vec![
-                "Fleet inventory is empty until multi-kubeconfig discovery is configured.".into(),
-                "See src/multi_cluster for the in-memory model.".into(),
-            ],
-        })
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -343,6 +323,5 @@ mod tests {
         assert!(GoldenPipelinePlan::try_plan("img", "1.0", "default").is_err());
         assert!(CrossClusterDrPlan::try_plan("a", "b", vec!["vm".into()], 300).is_err());
         assert!(GpuSriovNumaPlan::try_plan("vm", 1, vec!["net1".into()], true).is_err());
-        assert!(FleetInventory::try_snapshot().is_err());
     }
 }

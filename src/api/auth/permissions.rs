@@ -117,6 +117,11 @@ pub fn required_permission(method: &str, path: &str) -> Option<ApiPermission> {
         return Some(ApiPermission::ClusterAdmin);
     }
 
+    // Fleet crosses cluster/namespace tenant boundaries; reads are admin-only too.
+    if path == "/v1/enterprise/fleet" || path.starts_with("/v1/enterprise/fleet/") {
+        return Some(ApiPermission::ClusterAdmin);
+    }
+
     // Auth self-service (any authenticated user)
     if path.starts_with("/v1/auth/") {
         return None;
@@ -564,6 +569,23 @@ mod tests {
             required_permission("POST", "/v1/atlas/volumes/vol_1/mirror"),
             Some(ApiPermission::StorageAdmin)
         );
+    }
+
+    #[test]
+    fn fleet_inventory_requires_cluster_admin_even_for_reads() {
+        for method in ["GET", "HEAD", "POST"] {
+            for path in ["/v1/enterprise/fleet", "/v1/enterprise/fleet/"] {
+                assert_eq!(
+                    required_permission(method, path),
+                    Some(ApiPermission::ClusterAdmin)
+                );
+            }
+        }
+        for role in [Role::User, Role::Viewer] {
+            assert!(!role_has_permission(&role, ApiPermission::ClusterAdmin));
+        }
+        assert!(!permissions_for_token(&Role::Admin, &["vm.read".into()])
+            .contains(&ApiPermission::ClusterAdmin));
     }
 
     #[test]

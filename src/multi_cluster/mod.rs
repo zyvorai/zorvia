@@ -1,3 +1,6 @@
+#[cfg(feature = "web")]
+pub mod fleet;
+
 // Multi-Cluster Management - Manage VMs across multiple Kubernetes clusters
 
 use chrono::{DateTime, Utc};
