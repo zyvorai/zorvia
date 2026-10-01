@@ -2,7 +2,7 @@
 # Real-guest E2E against a running Zorvia API on a KVM-capable cluster.
 #
 # Unlike the kind smoke job this boots a guest and drives it through the API:
-# create+boot (guest agent up) -> snapshot/revert -> live migration under CPU
+# create+boot (guest ready) -> snapshot/revert -> live migration under CPU
 # load -> API restart with the guest untouched. Each scenario prints one
 # markdown row (PASS / FAIL / SKIP + seconds) so a run can be pasted into
 # docs/SUPPORT_MATRIX.md. Exit status is non-zero if any scenario FAILed.
@@ -52,7 +52,8 @@ wait_for() { # seconds cmd...
   until "$@"; do [ $SECONDS -ge $deadline ] && return 1; sleep 5; done
 }
 
-vm_running() { api GET "/vms/$VM" | body | jq -e '(.. | strings? | select(. == "Running")) // empty' >/dev/null 2>&1; }
+# GET /vms/{name} reports a lowercase `state` (starting, running, ...).
+vm_running() { api GET "/vms/$VM" | body | jq -e '.state == "running"' >/dev/null 2>&1; }
 
 s_create_boot() {
   local r; r=$(api POST /vms "{\"name\":\"$VM\",\"image\":\"$IMAGE\",\"cpus\":2,\"memory\":2048,\"disk\":10,
@@ -60,9 +61,11 @@ s_create_boot() {
   # The API answers within 30 s; 408 only means the guest was not ready yet.
   case "$(echo "$r" | code)" in 2??|408) ;; *) echo "create: $(echo "$r" | body | head -c 200)"; return 1 ;; esac
   wait_for 900 vm_running || { echo "never Running"; return 1; }
+  # wait-ready answers 200 when the guest has an IP and Ready=True; whether the
+  # qemu guest agent itself is connected is reported separately, so show both.
   agent_up() { [ "$(api POST "/vms/$VM/wait-ready" | code)" = 200 ]; }
-  wait_for 900 agent_up || { echo "guest agent never came up"; return 1; }
-  echo "agent up"
+  wait_for 900 agent_up || { echo "guest never became ready"; return 1; }
+  echo "guest ready (IP + Ready=True), agent_connected=$(api POST "/vms/$VM/wait-ready" | body | jq -r .agent_connected)"
 }
 
 s_snapshot_revert() {
@@ -101,7 +104,8 @@ s_api_restart() {
   [ -n "$KUBECTL" ] || { echo "KUBECTL not set"; return 77; }
   $KUBECTL -n zorvia-system rollout restart deploy/zorvia-api >/dev/null 2>&1 || { echo "restart failed"; return 1; }
   up() { curl -skf -m 5 "$BASE/api/v1/health" >/dev/null 2>&1; }
-  sleep 5
+  # Wait for the rollout itself, otherwise the old pod can still answer health.
+  $KUBECTL -n zorvia-system rollout status deploy/zorvia-api --timeout=600s >/dev/null 2>&1 || { echo "rollout did not finish"; return 1; }
   wait_for 600 up || { echo "API did not return"; return 1; }
   # old token must still be valid (token_version lives in the DB) and the guest untouched
   [ "$(api GET "/vms/$VM" | code)" = 200 ] || { echo "session or VM lost after restart"; return 1; }
@@ -110,7 +114,7 @@ s_api_restart() {
 }
 
 echo "| scenario | result | time | detail |"; echo "|---|---|---|---|"
-run "create + boot + guest agent ($IMAGE)" s_create_boot
+run "create + boot + guest ready ($IMAGE)" s_create_boot
 run "snapshot create/delete" s_snapshot_revert
 run "live migration under load" s_live_migration
 run "API restart, guest untouched" s_api_restart
