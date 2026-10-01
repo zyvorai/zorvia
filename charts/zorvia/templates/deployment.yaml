@@ -1,3 +1,4 @@
+{{- include "zorvia.validateHA" . -}}
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -7,6 +8,12 @@ metadata:
     {{- include "zorvia.labels" . | nindent 4 }}
 spec:
   replicas: {{ .Values.replicaCount }}
+  {{- if not (and .Values.persistence.enabled (has "ReadWriteMany" .Values.persistence.accessModes)) }}
+  # A ReadWriteOnce volume cannot be attached by the new pod while the old one
+  # still holds it (Multi-Attach error), so replace rather than surge.
+  strategy:
+    type: Recreate
+  {{- end }}
   selector:
     matchLabels:
       {{- include "zorvia.selectorLabels" . | nindent 6 }}

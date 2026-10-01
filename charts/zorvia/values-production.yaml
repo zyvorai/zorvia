@@ -1,5 +1,8 @@
 labMode: false
-replicaCount: 2
+# One replica: state is SQLite on a ReadWriteOnce volume. HA is fast
+# rescheduling after node loss (see docs/HA.md); raise this only with an RWX
+# storage class (the chart refuses replicaCount > 1 on RWO).
+replicaCount: 1
 
 image:
   repository: ghcr.io/zyvorai/zorvia
@@ -40,8 +43,9 @@ resources:
     cpu: "1"
     memory: 512Mi
 
+# Off for a single replica: minAvailable 1 would block every node drain.
 podDisruptionBudget:
-  enabled: true
+  enabled: false
   minAvailable: 1
 
 networkPolicy:
