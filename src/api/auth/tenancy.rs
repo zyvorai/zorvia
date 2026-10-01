@@ -73,7 +73,7 @@ pub fn check_namespace_access(
         return Err("all_namespaces is not available to namespace-restricted users".into());
     }
     let ns = requested_namespace(path, query).unwrap_or_else(|| default_namespace.to_string());
-    if allowed.iter().any(|a| *a == ns) {
+    if allowed.contains(&ns) {
         Ok(())
     } else {
         Err(format!("No access to namespace '{ns}'"))

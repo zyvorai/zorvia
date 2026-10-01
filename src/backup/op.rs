@@ -144,7 +144,7 @@ async fn run_backup_op(ctx: OpContext) -> Outcome {
                         }
                         Ok(None) => {}
                     }
-                    let warning = info.captured_no_volumes().then(|| {
+                    let warning = info.captured_no_volumes().then_some({
                         "VM has no PVC/DataVolume-backed disks; only its configuration was captured"
                     });
                     return Outcome::Succeeded(Some(serde_json::json!({

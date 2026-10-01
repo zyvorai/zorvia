@@ -7,6 +7,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added (migration cutover guards)
+
+- Admin VMware Imports console: readiness checks, explicit target networking,
+  wave progress, boot policy and cancellation.
+- Same-namespace Multus/pod NIC mappings with validation and optimistic
+  resourceVersion checks before cutover; optional guest-agent readiness.
+- Import preflight blocks on unreadable resources and existing root
+  PVCs/DataVolumes, and rechecks names at execution time.
+- Import Jobs always deploy stopped guests. Cancellation and failure delete
+  only the exact Job UID, preserving VM disks for operator inspection. This
+  replaces automatic name-based VM/PVC cleanup; see `docs/VM_IMPORT.md`.
+- Scheduler election fails closed, retries initialization, honors foreign lease
+  duration, bounds API waits and expires local authority with a monotonic
+  deadline; see `docs/SCHEDULER_LEADERSHIP.md`.
+- Small Clippy cleanups for the current stable toolchain, without changing
+  tenancy, WebSocket permissions or backup HTTP response behavior.
+
 ### Security
 
 Findings from an identity and tenancy audit (all server-side; PRs #138-#141):

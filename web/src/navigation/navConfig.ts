@@ -134,6 +134,7 @@ export const TOP_MEGA_GROUPS: { label: string; items: NavItem[] }[] = [
     label: 'Ops',
     items: [
       { label: 'Migrations', path: '/app/migrations', icon: ArrowRightLeft, blurb: 'Live and cold migrations.' },
+      { label: 'VMware Imports', path: '/app/vmware-imports', icon: UploadCloud, blurb: 'Readiness, network mapping, and import waves.', adminOnly: true },
       {
         label: 'Migration Readiness',
         path: '/app/migrations/readiness',

@@ -87,6 +87,10 @@ rules:
     resources: ["nodes"]
     verbs: ["get", "list", "watch"]
   # Network Policies feature (POST/DELETE /network-policies).
+  # Read-only: verify existing Multus target attachments before VM import.
+  - apiGroups: ["k8s.cni.cncf.io"]
+    resources: ["network-attachment-definitions"]
+    verbs: ["get"]
   - apiGroups: ["networking.k8s.io"]
     resources: ["networkpolicies"]
     verbs: ["get", "list", "watch", "create", "delete"]

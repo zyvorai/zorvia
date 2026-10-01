@@ -51,7 +51,7 @@ async fn preflight(client: &kube::Client, req: &ImportRequest) -> (Vec<String>, 
                 .into(),
         );
     }
-    if !blockers.is_empty() && !migration_import::dns_label(&req.namespace) {
+    if !blockers.is_empty() {
         return (blockers, warnings); // nothing further can be checked safely
     }
 
@@ -66,7 +66,7 @@ async fn preflight(client: &kube::Client, req: &ImportRequest) -> (Vec<String>, 
                 }
             }
         }
-        Err(e) => warnings.push(format!("could not check installed API groups: {e}")),
+        Err(e) => blockers.push(format!("could not check installed API groups: {e}")),
     }
 
     // Namespace, and whether it will admit a privileged pod.
@@ -91,7 +91,7 @@ async fn preflight(client: &kube::Client, req: &ImportRequest) -> (Vec<String>, 
                 )),
             }
         }
-        Err(_) => blockers.push(format!("namespace '{}' does not exist", req.namespace)),
+        Err(e) => blockers.push(format!("cannot inspect namespace '{}': {e}", req.namespace)),
     }
 
     // Storage classes and target VM names.
@@ -107,23 +107,49 @@ async fn preflight(client: &kube::Client, req: &ImportRequest) -> (Vec<String>, 
     wanted.sort();
     wanted.dedup();
     for sc in wanted {
-        if classes.get(sc).await.is_err() {
-            blockers.push(format!("StorageClass '{sc}' does not exist"));
+        if let Err(e) = classes.get(sc).await {
+            blockers.push(format!("cannot inspect StorageClass '{sc}': {e}"));
         }
     }
     if migration_import::dns_label(&req.namespace) {
-        let vms = crate::backup::restore::vm_api(client, &req.namespace);
         for vm in &req.vms {
             let target = vm
                 .target_vm_name
                 .clone()
                 .unwrap_or_else(|| migration_import::default_target_name(&vm.source_vm));
-            if vms.get(&target).await.is_ok() {
-                blockers.push(format!(
-                    "a VM named '{target}' already exists in '{}'",
-                    req.namespace
-                ));
+            if let Err(e) =
+                migration_import::ensure_target_available(client, &req.namespace, &target).await
+            {
+                blockers.push(e.to_string());
             }
+        }
+    }
+
+    let attachments = migration_import::networks::attachment_api(client, &req.namespace);
+    let mut names: Vec<_> = req
+        .vms
+        .iter()
+        .flat_map(|vm| vm.networks.iter())
+        .filter_map(|n| n.attachment.as_deref())
+        .collect();
+    names.sort_unstable();
+    names.dedup();
+    for name in names {
+        match attachments.get(name).await {
+            Ok(attachment) => {
+                match serde_json::to_value(&attachment)
+                    .map_err(anyhow::Error::from)
+                    .and_then(|v| migration_import::networks::validate_attachment(&v))
+                {
+                    Ok(()) => {}
+                    Err(e) => blockers.push(format!(
+                        "NetworkAttachmentDefinition '{name}' is invalid: {e}"
+                    )),
+                }
+            }
+            Err(e) => blockers.push(format!(
+                "cannot inspect NetworkAttachmentDefinition '{name}': {e}"
+            )),
         }
     }
 
