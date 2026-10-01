@@ -1,5 +1,8 @@
 # Pricing
 
+> **Note:** Zyvor is moving to an enterprise subscription model for new quotes: an annual subscription that includes updates and the stated support level, with open-source and non-production terms unchanged. See `docs/SUBSCRIPTION-MODEL.md` in this repository. Rates below apply to existing agreements; contact [sales@zyvor.dev](mailto:sales@zyvor.dev) for current rates.
+
+
 > **Approved launch prices.** These are the launch prices for Zorvia services. Final terms are in your signed order form. No billing, payment collection or entitlement enforcement exists in the product yet.
 
 ## The software stays free
