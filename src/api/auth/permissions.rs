@@ -211,6 +211,11 @@ pub fn required_permission(method: &str, path: &str) -> Option<ApiPermission> {
         };
     }
 
+    // The maintenance plan lists every VM on a node and where it would go.
+    if path == "/v1/maintenance/plan" {
+        return Some(ApiPermission::ClusterAdmin);
+    }
+
     // Cluster-wide pod inventory, logs and exec are admin-only even on GET
     if path.starts_with("/v1/pods") || path.starts_with("/v1/namespaces") {
         return Some(ApiPermission::ClusterAdmin);
@@ -355,6 +360,10 @@ mod tests {
         assert_eq!(
             required_permission("POST", "/backups/restore"),
             Some(VmCreate)
+        );
+        assert_eq!(
+            required_permission("GET", "/v1/maintenance/plan"),
+            Some(ClusterAdmin)
         );
         assert_eq!(required_permission("GET", "/vms"), None);
     }
