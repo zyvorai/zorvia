@@ -526,6 +526,8 @@ async fn restore_disks(
             .map(|d| BackupDisk {
                 name: d.name.clone(),
                 pvc: mapping[&d.name].clone(),
+                // Restores always write a disk.img file into a Filesystem PVC.
+                block: false,
             })
             .collect(),
         env: target.agent_env(),
