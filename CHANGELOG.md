@@ -14,6 +14,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   restart) and [docs/SUPPORT_MATRIX.md](docs/SUPPORT_MATRIX.md) with the first measured
   results and an explicit list of what is not validated.
 - Chart refuses `replicaCount > 1` on a ReadWriteOnce volume; [docs/HA.md](docs/HA.md).
+
 ### Added (Block-mode backup)
 
 - Off-cluster backup accepts `volumeMode: Block` source volumes (raw-device read; restore

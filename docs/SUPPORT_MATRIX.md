@@ -49,7 +49,7 @@ password change, lockout).
 - **VMware import** against a real vCenter (and the Migration Cockpit's NIC mapping against
   real Multus networks). Unit and mock tests only. Experimental.
 - **Multi-cluster fleet inventory** against real remote clusters. Experimental.
-- **Block-mode volumes** (rejected by the backup agent), **other CSI drivers**, **other
+- **Block-mode backup beyond one run**: a 1 GiB RBD Block volume holding 64 MiB of random data was backed up and restored with identical SHA-256 (2026-10-01); restoring *into* Block volumes and larger or real guest disks are not covered. **Other CSI drivers**, **other
   Kubernetes/KubeVirt/CDI versions**, upgrades between Zorvia versions, site-level DR.
 
 ## Problems the runs found (and where they stand)
@@ -60,6 +60,7 @@ password change, lockout).
 | Re-enrolling TOTP left 2FA off until the new code was verified | Fixed (pending secret) |
 | Deploy script's `kubectl apply` resets `ATLAS_URL`; a stuck `Terminating` API pod keeps the scheduler lease | Operational pitfall; re-set the variable and force-delete the stuck pod |
 | On the RBD class CDI chooses Block volume mode and the importer cannot open the device (`Permission denied`) | Workaround: create DataVolumes with `volumeMode: Filesystem`. Not fixed in Zorvia |
+| Backup agent rejected Block-mode source volumes | Fixed: raw-device read, restored as `disk.img`. The live run also found that the agent's own path check refused the device node, which unit tests had missed |
 | Restored VMs' PVCs outlive the VM | Expected Kubernetes behaviour; delete them yourself |
 
 ## Reproduce
