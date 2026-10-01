@@ -34,6 +34,11 @@ pub struct FabricCreateVmRequest {
     pub guest_os: Option<String>,
     #[serde(default)]
     pub cloud_init: Option<FabricCloudInit>,
+    /// Install an in-guest agent through cloud-init: `zyvor` (GuestKit's agent,
+    /// checksum-verified), `qemu` (qemu-guest-agent) or `none`. Defaults to
+    /// `ZORVIA_GUEST_AGENT`, else none. See `crate::guest_agent`.
+    #[serde(default)]
+    pub guest_agent: Option<String>,
     #[serde(default)]
     pub expose_ssh: Option<bool>,
     #[serde(default)]
@@ -398,16 +403,28 @@ pub async fn fabric_create_vm(
     }
 
     if guest_os != "windows" {
-        if let Some(ci) = &req.cloud_init {
-            let ud = build_cloud_init_yaml(ci, &req.name);
-            builder = builder.cloud_init(ud);
-        } else {
+        let ud = match &req.cloud_init {
+            Some(ci) => build_cloud_init_yaml(ci, &req.name),
             // Minimal Linux cloud-init so images that expect a datasource still boot.
-            let ud = format!(
+            None => format!(
                 "#cloud-config\nhostname: {}\nmanage_etc_hosts: true\nusers:\n  - name: zorvia\n    sudo: ALL=(ALL) NOPASSWD:ALL\n    shell: /bin/bash\n",
                 req.name
-            );
-            builder = builder.cloud_init(ud);
+            ),
+        };
+        let kind = match req.guest_agent.as_deref() {
+            Some(k) => crate::guest_agent::AgentKind::parse(k),
+            None => Ok(crate::guest_agent::AgentKind::from_env_default()),
+        };
+        let merged = kind.and_then(|kind| {
+            let pkg = crate::guest_agent::AgentPackage::from_env()?;
+            crate::guest_agent::merge_cloud_init(&ud, kind, &pkg)
+        });
+        match merged {
+            Ok(ud) => builder = builder.cloud_init(ud),
+            Err(e) => {
+                let (st, j) = err_json(400, "INVALID", &e.to_string());
+                return (st, j).into_response();
+            }
         }
     }
 

@@ -70,6 +70,7 @@ pub mod features;
 pub mod finops;
 pub mod gitops;
 pub mod golden_images;
+pub mod guest_agent;
 pub mod guest_insight;
 pub mod handlers;
 pub mod health;

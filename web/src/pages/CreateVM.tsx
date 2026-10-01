@@ -129,6 +129,7 @@ export default function CreateVM() {
   const [ciPassword, setCiPassword] = useState('')
   const [ciSshKeys, setCiSshKeys] = useState('')
   const [ciUserData, setCiUserData] = useState('')
+  const [guestAgent, setGuestAgent] = useState<'default' | 'zyvor' | 'qemu' | 'none'>('default')
   const [exposeSsh, setExposeSsh] = useState(true)
   const [exposeVnc, setExposeVnc] = useState(false)
   const [exposeRdp, setExposeRdp] = useState(false)
@@ -401,6 +402,7 @@ export default function CreateVM() {
         guest_os: guestOs,
         network_tap: networkMode === 'bridged',
         network_static_ip: networkMode === 'bridged' && staticIp,
+        ...(guestOs === 'linux' && guestAgent !== 'default' ? { guest_agent: guestAgent } : {}),
         expose_ssh: exposeSsh,
         expose_vnc: exposeVnc,
         expose_rdp: exposeRdp,
@@ -582,6 +584,28 @@ export default function CreateVM() {
                       placeholder="#cloud-config"
                     />
                   </div>
+                </div>
+              )}
+
+              {guestOs === 'linux' && (
+                <div className="rounded-lg border border-[var(--zf-hairline)] p-4 space-y-2 bg-[var(--zf-surface)]">
+                  <h3 className="text-sm font-semibold text-[var(--zf-ink)]">Guest agent</h3>
+                  <select
+                    value={guestAgent}
+                    onChange={(e) => setGuestAgent(e.target.value as typeof guestAgent)}
+                    className="w-full px-3 py-2 border border-[var(--zf-hairline)] rounded-lg text-sm"
+                    aria-label="Guest agent"
+                  >
+                    <option value="default">Server default</option>
+                    <option value="zyvor">Zyvor guest agent (GuestKit; Debian/Ubuntu guests)</option>
+                    <option value="qemu">qemu-guest-agent (package install)</option>
+                    <option value="none">None</option>
+                  </select>
+                  <p className="text-xs text-[var(--zf-muted)]">
+                    Installed by cloud-init on first boot. An agent gives consistent online snapshots (the guest filesystem is
+                    frozen around them) and lets recovery drills see inside the guest. The Zyvor agent is downloaded by the guest
+                    and its SHA-256 is verified.
+                  </p>
                 </div>
               )}
 

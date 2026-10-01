@@ -44,8 +44,9 @@ password change, lockout).
 - **Node failure and control-plane failover time.** [HA.md](HA.md) describes the supported
   topology; no node-loss run has been recorded, so there is no RTO figure.
 - **Windows guests**, including virtio drivers and the guest agent.
-- **Guest agent paths**: the lab guest has none, so agent-based drill evidence, agent
-  readiness and application-level checks have not been exercised.
+- **Guest agent paths beyond install and connection**: the Zyvor agent installs through
+  cloud-init and KubeVirt reports it connected (see [GUEST_AGENT.md](GUEST_AGENT.md)); agent-based
+  drill evidence, agent-backed readiness and application-level checks are not yet exercised.
 - **VMware import** against a real vCenter (and the Migration Cockpit's NIC mapping against
   real Multus networks). Unit and mock tests only. Experimental.
 - **Multi-cluster fleet inventory** against real remote clusters. Experimental.
