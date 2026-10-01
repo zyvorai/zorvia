@@ -1,7 +1,7 @@
 # Off-cluster backup Job entrypoint image. The agent only reads disk images
 # from read-only PVC mounts and talks HTTPS to the object store, so it needs no
 # privileges and no extra packages beyond CA certificates.
-FROM rust:1.98-slim-bookworm@sha256:dacc9e51f252243eb59d2fb4cb4ad8b0d3f607b6a82c398cf8a321e59ff778a7 AS builder
+FROM rust:1.98-slim-bookworm@sha256:ff521445a372125ed4f76e1453a1f8098f2d05332d1601d30db1c1f62757e730 AS builder
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential \
