@@ -92,7 +92,14 @@ pub struct AuthState {
 
 impl AuthState {
     pub fn from_env() -> anyhow::Result<Self> {
+        // Key provider first: it protects the TOTP secrets in the database opened next.
+        crate::keys::init_from_env()?;
         let db = UserDb::from_env()?;
+        match db.seal_existing_totp() {
+            Ok(n) if n > 0 => log::info!("sealed {n} TOTP secret(s) with the key provider"),
+            Ok(_) => {}
+            Err(e) => anyhow::bail!("cannot seal existing TOTP secrets: {e:#}"),
+        }
         let admin_user = std::env::var("ZORVIA_ADMIN_USER").unwrap_or_else(|_| "admin".to_string());
 
         let admin_password = if lab_mode() {
@@ -1379,6 +1386,60 @@ mod oidc_group_sync_tests {
 }
 
 #[cfg(test)]
+mod totp_at_rest_tests {
+    use super::*;
+    use crate::keys::{self, KeyProvider};
+    use std::collections::HashMap;
+
+    #[test]
+    fn totp_secrets_are_sealed_at_rest_legacy_rows_migrate_and_copies_fail_closed() {
+        let db = UserDb::open(":memory:").unwrap();
+        let a = db.create_user("alice", "Password-123", Role::User).unwrap();
+        let b = db.create_user("bob", "Password-123", Role::User).unwrap();
+        // A legacy row, written before any provider existed.
+        db.set_totp(&a.id, "JBSWY3DPEHPK3PXP", true).unwrap();
+        if keys::provider().is_none() {
+            assert_eq!(db.raw_totp(&a.id).0.as_deref(), Some("JBSWY3DPEHPK3PXP"));
+        }
+        let mut k = HashMap::new();
+        k.insert("k1".to_string(), [5u8; 32]);
+        keys::set_provider_for_tests(KeyProvider::local("k1", k).unwrap());
+        // The migration seals it; the API still returns the plaintext secret.
+        db.seal_existing_totp().unwrap();
+        let raw = db.raw_totp(&a.id).0.unwrap();
+        assert!(
+            keys::is_sealed(&raw) && !raw.contains("JBSWY3DPEHPK3PXP"),
+            "{raw}"
+        );
+        assert_eq!(
+            db.get_by_id(&a.id).unwrap().unwrap().totp_secret.as_deref(),
+            Some("JBSWY3DPEHPK3PXP")
+        );
+        assert_eq!(db.seal_existing_totp().unwrap(), 0, "idempotent");
+        // New writes are sealed too, including the pending re-enrolment secret.
+        db.set_totp_pending(&a.id, Some("PENDINGSECRET234"))
+            .unwrap();
+        let pend = db.raw_totp(&a.id).1.unwrap();
+        assert!(keys::is_sealed(&pend) && !pend.contains("PENDINGSECRET234"));
+        assert_eq!(
+            db.get_totp_pending(&a.id).unwrap().as_deref(),
+            Some("PENDINGSECRET234")
+        );
+        db.commit_totp_pending(&a.id, "PENDINGSECRET234").unwrap();
+        assert!(keys::is_sealed(&db.raw_totp(&a.id).0.unwrap()));
+        // Alice's ciphertext copied onto Bob's row does not become Bob's secret.
+        db.overwrite_raw_totp(&b.id, &db.raw_totp(&a.id).0.unwrap());
+        assert_eq!(db.get_by_id(&b.id).unwrap().unwrap().totp_secret, None);
+        // The admin reset clears everything and revokes sessions.
+        let tv = db.get_by_id(&a.id).unwrap().unwrap().token_version;
+        db.disable_totp(&a.id).unwrap();
+        let after = db.get_by_id(&a.id).unwrap().unwrap();
+        assert!(!after.totp_enabled && after.totp_secret.is_none() && after.token_version > tv);
+        assert_eq!(db.raw_totp(&a.id), (None, None));
+    }
+}
+
+#[cfg(test)]
 mod token_namespace_tests {
     use super::*;
 
@@ -1606,6 +1667,25 @@ pub async fn set_namespaces_handler(
         .into_response();
     }
     Json(serde_json::json!({ "id": id, "namespaces": body.namespaces })).into_response()
+}
+
+/// `DELETE /v1/users/{id}/totp` (users.admin): remove a user's second factor and revoke
+/// their sessions. The recovery path for a lost authenticator or a lost encryption key.
+pub async fn reset_totp_handler(
+    State(auth): State<SharedAuth>,
+    Path(id): Path<String>,
+) -> impl IntoResponse {
+    match auth.db.get_by_id(&id) {
+        Ok(Some(_)) => {}
+        Ok(None) => return err(StatusCode::NOT_FOUND, "User not found").into_response(),
+        Err(_) => return err(StatusCode::INTERNAL_SERVER_ERROR, "Lookup failed").into_response(),
+    }
+    if auth.db.disable_totp(&id).is_err() {
+        return err(StatusCode::INTERNAL_SERVER_ERROR, "Failed to reset 2FA").into_response();
+    }
+    log::warn!("2FA reset for user {id} by an administrator; sessions revoked");
+    Json(serde_json::json!({ "id": id, "totp_enabled": false, "sessions_revoked": true }))
+        .into_response()
 }
 
 pub async fn get_namespaces_handler(

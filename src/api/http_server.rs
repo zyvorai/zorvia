@@ -605,6 +605,7 @@ pub mod web {
             .route("/v1/users/{id}", delete(users_delete))
             .route("/v1/users/{id}/role", put(users_update_role))
             .route("/v1/users/{id}/enabled", put(users_set_enabled))
+            .route("/v1/users/{id}/totp", delete(users_reset_totp))
             .route(
                 "/v1/users/{id}/namespaces",
                 get(users_get_namespaces).put(users_set_namespaces),
@@ -1780,6 +1781,14 @@ pub mod web {
             Json(body),
         )
         .await
+    }
+
+    async fn users_reset_totp(
+        State(state): State<SharedState>,
+        Path(id): Path<String>,
+    ) -> impl IntoResponse {
+        let auth = auth_shared(&state).await;
+        crate::api::auth::handlers::reset_totp_handler(axum::extract::State(auth), Path(id)).await
     }
 
     async fn users_get_namespaces(

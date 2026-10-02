@@ -115,8 +115,10 @@ When deploying Zorvia:
   unmatched users are denied by default; see [docs/OIDC.md](docs/OIDC.md).
 - API tokens can be confined to namespaces at creation (`namespaces`); see
   [docs/TENANCY.md](docs/TENANCY.md).
-- Not yet addressed: TOTP secrets are stored in plaintext; PAM sessions are not
-  namespace-restricted (PAM login is opt-in and a stub on current builds).
+- TOTP secrets can be encrypted at rest with a key provider (a local AES-256-GCM key or HashiCorp Vault Transit),
+  bound to their owner, with an admin 2FA reset as the recovery path; see [docs/KEY_PROVIDER.md](docs/KEY_PROVIDER.md).
+  Off unless configured: with no provider they are stored as before.
+- Not yet addressed: PAM sessions are not namespace-restricted (PAM login is opt-in and a stub on current builds).
 - JWT access tokens default to a **60-minute** TTL (`ZORVIA_JWT_TTL_MINUTES`);
   local-user disable/role/password/TOTP changes bump `token_version` and revoke
   outstanding sessions.

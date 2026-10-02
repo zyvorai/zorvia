@@ -36,6 +36,8 @@ pub mod cli;
 pub mod commercial;
 pub mod config;
 #[cfg(feature = "web")]
+pub mod keys;
+#[cfg(feature = "web")]
 pub mod kryton;
 pub mod kube;
 #[cfg(feature = "web")]
