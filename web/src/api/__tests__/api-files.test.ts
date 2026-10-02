@@ -334,6 +334,16 @@ describe('migrations', () => {
 
 // ─── snapshots.ts ─────────────────────────────────────────────────────────────
 
+describe('guestAgent', () => {
+  it('getGuestAgent and getGuestInventory use the guest routes', async () => {
+    const { getGuestAgent, getGuestInventory } = await import('../guestAgent')
+    await getGuestAgent('vm1')
+    expect(mockApiGet).toHaveBeenCalledWith('/api/vms/vm1/guest/agent')
+    await getGuestInventory('vm1', 'packages')
+    expect(mockApiGet).toHaveBeenCalledWith('/api/vms/vm1/guest/inventory/packages')
+  })
+})
+
 describe('snapshots', () => {
   it('listSnapshots calls apiGet', async () => {
     const { listSnapshots } = await import('../snapshots')
