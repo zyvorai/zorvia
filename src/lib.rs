@@ -113,6 +113,7 @@ pub mod recommendation;
 pub mod rook;
 pub mod search_history;
 pub mod session_sharing;
+pub mod state_docs;
 pub mod state_persistence;
 pub mod topology;
 pub mod vcenter_ops;

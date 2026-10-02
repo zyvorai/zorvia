@@ -345,13 +345,10 @@ impl WebhookManager {
 
     pub fn load() -> Self {
         let path = Self::persistence_path();
-        if path.exists() {
-            match std::fs::read_to_string(&path) {
-                Ok(content) => match serde_json::from_str(&content) {
-                    Ok(manager) => return manager,
-                    Err(e) => log::warn!("Failed to parse webhooks: {}", e),
-                },
-                Err(e) => log::warn!("Failed to read webhooks: {}", e),
+        if let Some(content) = crate::state_docs::read(&path) {
+            match serde_json::from_str(&content) {
+                Ok(manager) => return manager,
+                Err(e) => log::warn!("Failed to parse webhooks: {}", e),
             }
         }
         Self::new()
@@ -359,12 +356,8 @@ impl WebhookManager {
 
     pub fn save(&self) -> anyhow::Result<()> {
         let path = Self::persistence_path();
-        if let Some(parent) = path.parent() {
-            std::fs::create_dir_all(parent)?;
-        }
         let content = serde_json::to_string_pretty(self)?;
-        std::fs::write(&path, content)?;
-        Ok(())
+        crate::state_docs::write(&path, &content)
     }
 
     /// Delivers `payload` to every enabled webhook subscribed to `event`,

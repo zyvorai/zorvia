@@ -63,13 +63,28 @@ app.kubernetes.io/component: api
 {{- end }}
 
 {{/*
-Zorvia keeps users, audit and operations in SQLite files under /data. Two
-replicas writing the same files are only safe on a volume that is genuinely
-shared (ReadWriteMany) and even then are not a tested topology, so refuse the
-combination that looks like HA but is not.
+True when the control plane runs more than one replica.
+*/}}
+{{- define "zorvia.multiReplica" -}}
+{{- if gt (int .Values.replicaCount) 1 -}}true{{- end -}}
+{{- end }}
+
+{{/*
+Single replica: state is SQLite files under /data on one volume. More than one
+replica needs the shared PostgreSQL store for users, operations, audit and the
+JSON documents (docs/POSTGRES.md), leader election for the background loops, and
+an explicit acknowledgement of what is still per replica.
 */}}
 {{- define "zorvia.validateHA" -}}
-{{- if and (gt (int .Values.replicaCount) 1) .Values.persistence.enabled (not (has "ReadWriteMany" .Values.persistence.accessModes)) -}}
-{{- fail "replicaCount > 1 needs persistence.accessModes to include ReadWriteMany: Zorvia's SQLite state is not safe on a ReadWriteOnce volume shared by two pods. Use replicaCount: 1 (active/standby via fast pod rescheduling) or an RWX storage class. See docs/HA.md." -}}
+{{- if gt (int .Values.replicaCount) 1 -}}
+{{- if not (or .Values.database.url .Values.database.existingSecret) -}}
+{{- fail "replicaCount > 1 needs the PostgreSQL store: set database.existingSecret (or database.url). Without it the state is SQLite files that two pods must not share. See docs/POSTGRES.md." -}}
+{{- end -}}
+{{- if not .Values.api.leaderElection -}}
+{{- fail "replicaCount > 1 needs api.leaderElection: true, otherwise every replica runs the schedulers and the operations reconciler." -}}
+{{- end -}}
+{{- if not .Values.ha.acceptLocalState -}}
+{{- fail "replicaCount > 1: commercial-offerings records (ZORVIA_COMMERCIAL_DB) and the JSONL audit sidecar stay per replica and are lost with the pod. Set ha.acceptLocalState: true to confirm you do not use them. See docs/POSTGRES.md." -}}
+{{- end -}}
 {{- end -}}
 {{- end }}

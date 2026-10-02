@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added (PostgreSQL backend, phase 4: shared documents and two-replica chart)
+
+- Schedules, warm pools, alerts, webhooks and migration history are stored in PostgreSQL when configured (files remain the fallback
+  and the default). The chart accepts `replicaCount > 1` with a database, leader election and `ha.acceptLocalState: true`
+  (`values-ha.yaml`: emptyDir `/data`, rolling updates, PodDisruptionBudget, anti-affinity); without them it refuses.
+  Commercial-offerings records and the JSONL audit sidecar stay per replica.
+
 ### Added (PostgreSQL backend, phase 3: audit trail)
 
 - The audit trail is written to and read from PostgreSQL (`ZORVIA_DATABASE_URL`), so every replica shows one trail; one-time import of an
