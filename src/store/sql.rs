@@ -89,6 +89,15 @@ impl Row {
     }
 }
 
+impl std::fmt::Debug for Backend {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(match self {
+            Backend::Sqlite(_) => "Backend::Sqlite",
+            Backend::Postgres(_) => "Backend::Postgres",
+        })
+    }
+}
+
 pub enum Backend {
     Sqlite(Mutex<rusqlite::Connection>),
     Postgres(Pg),

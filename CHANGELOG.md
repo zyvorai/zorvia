@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added (PostgreSQL backend, phase 3: audit trail)
+
+- The audit trail is written to and read from PostgreSQL (`ZORVIA_DATABASE_URL`), so every replica shows one trail; one-time import of an
+  existing `audit.db` with `ZORVIA_DATABASE_IMPORT=1`. Failed audit writes are now logged instead of silently dropped.
+
 ### Added (PostgreSQL backend, phase 2: operations)
 
 - The durable operations queue also runs on PostgreSQL (`ZORVIA_DATABASE_URL`). Idempotency keys are claimed by the insert itself, so

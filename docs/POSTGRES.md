@@ -1,6 +1,6 @@
 # PostgreSQL backend
 
-Status: **Beta, phases 1-2 (auth store and operations queue).**
+Status: **Beta, phases 1-3 (auth store, operations queue, audit trail).**
 
 ## What moves
 
@@ -8,10 +8,10 @@ Status: **Beta, phases 1-2 (auth store and operations queue).**
 |---|---|
 | Users, API tokens, session revocations, TOTP state, login throttle | **PostgreSQL** |
 | Durable operations (`ops.db`): queue, state, progress, results | **PostgreSQL** |
-| Audit trail (`audit.db`) | SQLite on the data volume (phase 3) |
+| Audit trail (`audit.db`) | **PostgreSQL** (every replica writes to it; reads refresh at most once a second) |
 | Schedules, warm pools, alerts and other JSON state | Files on the data volume |
 
-Because audit and the JSON state are still per replica, **running two active replicas is not yet supported.** What you get now:
+Because the JSON state files (schedules, warm pools, alerts, ...) are still per replica, **running two active replicas is not yet supported.** What you get now:
 sign-in state and the operation queue survive the loss of the data volume and are the same for every replica. Token revocation
 and TOTP replay protection hold across replicas, an idempotency key creates one operation even when two replicas race on it,
 and only one replica can claim an operation (all covered by the race tests below).
@@ -35,7 +35,7 @@ Postgres advisory lock so replicas starting together do not race.
 
 ## Migrating from SQLite
 
-Start once with `ZORVIA_DATABASE_IMPORT=1`: users, tokens and revocations are copied from `auth.db` into an **empty** database.
+Start once with `ZORVIA_DATABASE_IMPORT=1`: users, tokens and revocations are copied from `auth.db`, and the audit history from `audit.db`, into **empty** tables.
 It is idempotent and does nothing when the database already has users. Remove the flag afterwards. The SQLite file is left
 untouched, so rollback is unsetting the URL.
 
@@ -48,3 +48,9 @@ untouched, so rollback is unsetting the URL.
 
 - No automatic failover of PostgreSQL itself; use your operator (CloudNativePG, Patroni, managed service).
 - One statement is retried once on a dropped connection; there is no pool, each replica holds one connection.
+
+## Audit trail notes
+
+The API keeps the newest 10 000 entries in memory for filtering and refreshes them from PostgreSQL when the audit pages or the security
+dashboard are read. The optional JSONL sidecar (`ZORVIA_AUDIT_JSONL`) is still written per replica to its own volume. A failed audit
+write is logged as a warning and does not fail the request, as with SQLite.
