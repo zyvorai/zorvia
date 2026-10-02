@@ -68,6 +68,8 @@ See [GUEST_AGENT.md](GUEST_AGENT.md).
   drill evidence, agent-backed readiness and application-level checks are not yet exercised.
 - **VMware import** against a real vCenter (and the Migration Cockpit's NIC mapping against
   real Multus networks). Unit and mock tests only. Experimental.
+- **GPU / SR-IOV passthrough on real devices.** Only the API behaviour (inventory, preflight refusals, permissions) was checked, on a lab
+  with neither ([DEVICES.md](DEVICES.md)). Experimental.
 - **Multi-cluster fleet inventory** against real remote clusters. Experimental.
 - **Block-mode backup beyond one run**: a 1 GiB RBD Block volume holding 64 MiB of random data was backed up and restored with identical SHA-256 (2026-10-01); restoring into Block volumes was also verified (same SHA-256 into a Block volume and, with `volume_mode: Filesystem`, into a file, 2026-10-02); larger or real guest disks are not covered. **CSI drivers beyond RBD and the hostpath
   driver (no networked/replicated driver other than Ceph)**, **other
