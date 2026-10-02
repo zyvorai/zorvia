@@ -129,6 +129,23 @@ spec:
               value: /usr/share/zorvia/web
             - name: ZORVIA_AUTH_DB
               value: /data/auth.db
+            {{- if or .Values.database.url .Values.database.existingSecret }}
+            # Users/tokens in PostgreSQL (docs/POSTGRES.md). Operations, audit and
+            # JSON state still live on the data volume.
+            - name: ZORVIA_DATABASE_URL
+              {{- if .Values.database.existingSecret }}
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.database.existingSecret }}
+                  key: {{ .Values.database.secretKey }}
+              {{- else }}
+              value: {{ .Values.database.url | quote }}
+              {{- end }}
+            {{- if .Values.database.import }}
+            - name: ZORVIA_DATABASE_IMPORT
+              value: "1"
+            {{- end }}
+            {{- end }}
             - name: ZORVIA_OPS_DB
               value: /data/ops.db
             # JSON stores (backup/power schedules, warm pools, alerts, ...) use

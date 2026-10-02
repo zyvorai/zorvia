@@ -36,6 +36,15 @@ auth:
   # When true and existingSecret empty, chart fails NOTES with create instructions.
   # Secrets are never generated into committed values.
 
+database:
+  # PostgreSQL for users/tokens/revocations (docs/POSTGRES.md). Empty = SQLite on the data volume.
+  # Prefer existingSecret (a Secret holding the connection URL) over a URL in values.
+  url: ""
+  existingSecret: ""
+  secretKey: url
+  # One-time copy of an existing auth.db into an empty database (idempotent; turn off afterwards).
+  import: false
+
 service:
   type: NodePort
   port: 443

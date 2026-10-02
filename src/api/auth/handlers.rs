@@ -95,6 +95,18 @@ impl AuthState {
         // Key provider first: it protects the TOTP secrets in the database opened next.
         crate::keys::init_from_env()?;
         let db = UserDb::from_env()?;
+        // Moving from SQLite to PostgreSQL: with ZORVIA_DATABASE_IMPORT=1 an empty PostgreSQL
+        // store is filled once from the existing auth.db (the file is left untouched).
+        if db.is_postgres()
+            && std::env::var("ZORVIA_DATABASE_IMPORT").is_ok_and(|v| v == "1")
+            && db.count_users()? == 0
+        {
+            let src = UserDb::env_path();
+            if std::path::Path::new(&src).exists() {
+                let n = db.import_from_sqlite(&src)?;
+                log::info!("imported {n} user(s) from {src} into PostgreSQL");
+            }
+        }
         match db.seal_existing_totp() {
             Ok(n) if n > 0 => log::info!("sealed {n} TOTP secret(s) with the key provider"),
             Ok(_) => {}
