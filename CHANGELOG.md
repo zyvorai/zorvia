@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added (GPU / SR-IOV passthrough)
+
+- `devices` on `POST /api/vms` (GPUs and host devices emitted as KubeVirt `gpus`/`hostDevices`), a preflight that refuses
+  VMs the cluster cannot schedule (422 with reasons), `GET /api/v1/devices` inventory and `POST /api/v1/devices/preflight`,
+  an SR-IOV network check, a Create VM section, and read access to the KubeVirt CR in the RBAC. Experimental: not run on
+  real GPU/SR-IOV hardware. See docs/DEVICES.md.
+
 ### Added (key provider)
 
 - Optional encryption of TOTP secrets at rest: local AES-256-GCM key (`ZORVIA_KEY_FILE`/`ZORVIA_KEY_HEX`, with rotation) or HashiCorp

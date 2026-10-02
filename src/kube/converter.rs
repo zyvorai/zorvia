@@ -1,6 +1,6 @@
 use crate::config::{
     BootloaderType, ClockConfig, DiskDeviceType, DiskSource, FeaturesConfig, FirmwareConfig,
-    NetworkType, VMConfig,
+    HostDeviceKind, NetworkType, VMConfig,
 };
 use crate::kube::types::*;
 use anyhow::Result;
@@ -320,6 +320,30 @@ pub fn vm_config_to_kubevirt(config: &VMConfig) -> Result<VirtualMachine> {
                         max_guest: config.memory.max_guest.clone(),
                     }),
                     devices: Some(Devices {
+                        gpus: {
+                            let g: Vec<GpuDevice> = config
+                                .host_devices
+                                .iter()
+                                .filter(|d| d.kind == HostDeviceKind::Gpu)
+                                .map(|d| GpuDevice {
+                                    name: d.name.clone(),
+                                    device_name: d.device_name.clone(),
+                                })
+                                .collect();
+                            (!g.is_empty()).then_some(g)
+                        },
+                        host_devices: {
+                            let h: Vec<HostDevice> = config
+                                .host_devices
+                                .iter()
+                                .filter(|d| d.kind == HostDeviceKind::HostDevice)
+                                .map(|d| HostDevice {
+                                    name: d.name.clone(),
+                                    device_name: d.device_name.clone(),
+                                })
+                                .collect();
+                            (!h.is_empty()).then_some(h)
+                        },
                         disks: Some(disks),
                         interfaces: Some(interfaces),
                         tpm,
@@ -680,5 +704,71 @@ mod tests {
         let cloud_init_vol = volumes.iter().find(|v| v.name == "cloudinitdisk");
         assert!(cloud_init_vol.is_some());
         assert!(cloud_init_vol.unwrap().cloud_init_no_cloud.is_some());
+    }
+
+    #[test]
+    fn gpus_and_host_devices_become_the_right_kubevirt_fields() {
+        let config = VMConfigBuilder::new("gpu-vm")
+            .namespace("default")
+            .cpu(4, 1, 1)
+            .memory("8Gi")
+            .add_blank_disk("rootdisk", "20Gi", 1)
+            .add_pod_network("default")
+            .add_gpu("gpu0", "nvidia.com/GA102GL_A10")
+            .add_host_device("nic0", "intel.com/x710")
+            .build();
+        let vm = vm_config_to_kubevirt(&config).unwrap();
+        let dev = vm.spec.template.spec.domain.devices.as_ref().unwrap();
+        let gpus = dev.gpus.as_ref().unwrap();
+        assert_eq!(
+            (gpus[0].name.as_str(), gpus[0].device_name.as_str()),
+            ("gpu0", "nvidia.com/GA102GL_A10")
+        );
+        let hd = dev.host_devices.as_ref().unwrap();
+        assert_eq!(
+            (hd[0].name.as_str(), hd[0].device_name.as_str()),
+            ("nic0", "intel.com/x710")
+        );
+        // The wire shape KubeVirt expects: camelCase deviceName / hostDevices.
+        let json = serde_json::to_value(dev).unwrap();
+        assert_eq!(json["gpus"][0]["deviceName"], "nvidia.com/GA102GL_A10");
+        assert_eq!(json["hostDevices"][0]["deviceName"], "intel.com/x710");
+        // A VM without devices emits neither field.
+        let plain = VMConfigBuilder::new("plain")
+            .namespace("default")
+            .cpu(1, 1, 1)
+            .memory("1Gi")
+            .add_blank_disk("rootdisk", "5Gi", 1)
+            .add_pod_network("default")
+            .build();
+        let vm = vm_config_to_kubevirt(&plain).unwrap();
+        let json =
+            serde_json::to_value(vm.spec.template.spec.domain.devices.as_ref().unwrap()).unwrap();
+        assert!(json.get("gpus").is_none() && json.get("hostDevices").is_none());
+    }
+
+    #[test]
+    fn an_sriov_interface_uses_the_sriov_binding_on_a_multus_network() {
+        let config = VMConfigBuilder::new("sriov-vm")
+            .namespace("default")
+            .cpu(2, 1, 1)
+            .memory("4Gi")
+            .add_blank_disk("rootdisk", "20Gi", 1)
+            .add_interface(crate::config::InterfaceConfig {
+                name: "vf0".into(),
+                network: "vf-net".into(),
+                model: "virtio".into(),
+                network_type: NetworkType::SRIOV {
+                    name: "vf-net".into(),
+                },
+                mac_address: None,
+            })
+            .build();
+        let vm = vm_config_to_kubevirt(&config).unwrap();
+        let json = serde_json::to_value(&vm.spec.template.spec).unwrap();
+        assert!(json["domain"]["devices"]["interfaces"][0]
+            .get("sriov")
+            .is_some());
+        assert_eq!(json["networks"][0]["multus"]["networkName"], "vf-net");
     }
 }

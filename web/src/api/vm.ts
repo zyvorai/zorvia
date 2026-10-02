@@ -49,6 +49,8 @@ export interface CreateVMRequest {
   }
   /** Install an in-guest agent through cloud-init (server default: none). */
   guest_agent?: 'zyvor' | 'qemu' | 'none'
+  /** GPUs / host devices to pass through. Checked against the cluster before creation (422 with issues if not schedulable). */
+  devices?: { name: string; device_name: string; kind?: 'gpu' | 'host-device' }[]
   expose_ssh?: boolean
   expose_vnc?: boolean
   expose_rdp?: boolean

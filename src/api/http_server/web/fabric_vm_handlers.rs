@@ -95,6 +95,10 @@ pub struct FabricCreateVmRequest {
     /// when present. Each entry matches `VMConfig`'s `InterfaceConfig` shape.
     #[serde(default)]
     pub interfaces: Option<Vec<InterfaceConfig>>,
+    /// GPUs / host devices to pass through (device-plugin resources). Checked against
+    /// the cluster before the VM is created; see `crate::devices`.
+    #[serde(default)]
+    pub devices: Option<Vec<crate::config::HostDeviceConfig>>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -390,6 +394,44 @@ pub async fn fabric_create_vm(
         } else {
             builder = builder.add_blank_disk("rootdisk", &disk_size, 1);
         }
+    }
+
+    let devices = req.devices.clone().unwrap_or_default();
+    for d in &devices {
+        if let Err(e) = d.validate() {
+            let (st, j) = err_json(400, "INVALID", &e);
+            return (st, j).into_response();
+        }
+    }
+    let sriov = super::devices_handlers::sriov_names(req.interfaces.as_deref().unwrap_or_default());
+    // A VM that asks for hardware the cluster cannot give would sit Pending: refuse it now.
+    let issues = super::devices_handlers::preflight_for_create(
+        &client.client(),
+        &namespace,
+        &devices,
+        &sriov,
+    )
+    .await;
+    if crate::devices::has_errors(&issues) {
+        let msg = issues
+            .iter()
+            .filter(|i| i.severity == "error")
+            .map(|i| format!("{}: {}", i.subject, i.message))
+            .collect::<Vec<_>>()
+            .join("; ");
+        return (
+            StatusCode::UNPROCESSABLE_ENTITY,
+            Json(json!({ "error": { "code": "DEVICE_PREFLIGHT_FAILED", "message": msg }, "issues": issues })),
+        )
+            .into_response();
+    }
+    for d in devices {
+        builder = match d.kind {
+            crate::config::HostDeviceKind::Gpu => builder.add_gpu(d.name, d.device_name),
+            crate::config::HostDeviceKind::HostDevice => {
+                builder.add_host_device(d.name, d.device_name)
+            }
+        };
     }
 
     if let Some(interfaces) = req.interfaces.clone().filter(|i| !i.is_empty()) {

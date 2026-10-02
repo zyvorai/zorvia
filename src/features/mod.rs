@@ -170,7 +170,7 @@ pub const FEATURES: &[Feature] = &[
         id: "gpu-sriov-numa",
         name: "GPU/SR-IOV/NUMA placement",
         maturity: Maturity::Experimental,
-        notes: "Phase 5 — plan API at /api/v1/enterprise/placement/gpu-numa",
+        notes: "GPU / host-device passthrough and SR-IOV interfaces: `devices` on VM create (KubeVirt gpus/hostDevices), a preflight that refuses VMs the cluster cannot schedule, GET /api/v1/devices inventory (docs/DEVICES.md). Unit-tested and API-checked on a lab without GPU or SR-IOV hardware: not run on real devices. NUMA placement remains a plan API at /api/v1/enterprise/placement/gpu-numa",
     },
     Feature {
         id: "fleet-multicluster",

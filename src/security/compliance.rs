@@ -678,6 +678,8 @@ mod tests {
                             }),
                             memory: None,
                             devices: Some(Devices {
+                                gpus: None,
+                                host_devices: None,
                                 disks: Some(vec![Disk {
                                     name: "rootdisk".to_string(),
                                     disk: Some(DiskTarget {

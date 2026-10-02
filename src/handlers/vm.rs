@@ -1564,6 +1564,8 @@ mod tests {
     fn test_vm_to_config_with_pod_network() {
         let mut vm = build_test_vm("net-vm", 2, 1, 1, "4Gi");
         vm.spec.template.spec.domain.devices = Some(Devices {
+            gpus: None,
+            host_devices: None,
             disks: None,
             interfaces: Some(vec![Interface {
                 name: "default".to_string(),
@@ -1599,6 +1601,8 @@ mod tests {
     fn test_vm_to_config_with_multus_network() {
         let mut vm = build_test_vm("multus-vm", 2, 1, 1, "4Gi");
         vm.spec.template.spec.domain.devices = Some(Devices {
+            gpus: None,
+            host_devices: None,
             disks: None,
             interfaces: Some(vec![Interface {
                 name: "data-net".to_string(),

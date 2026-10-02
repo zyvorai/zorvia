@@ -130,6 +130,10 @@ pub struct Memory {
 #[serde(rename_all = "camelCase")]
 pub struct Devices {
     #[serde(skip_serializing_if = "Option::is_none")]
+    pub gpus: Option<Vec<GpuDevice>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub host_devices: Option<Vec<HostDevice>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub disks: Option<Vec<Disk>>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub interfaces: Option<Vec<Interface>>,
@@ -145,6 +149,22 @@ pub struct Devices {
     pub autoattach_graphics_device: Option<bool>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub network_interface_multiqueue: Option<bool>,
+}
+
+/// `spec.domain.devices.gpus[]`: `deviceName` is the device-plugin resource.
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct GpuDevice {
+    pub name: String,
+    pub device_name: String,
+}
+
+/// `spec.domain.devices.hostDevices[]`.
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct HostDevice {
+    pub name: String,
+    pub device_name: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]

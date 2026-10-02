@@ -312,6 +312,30 @@ impl VMConfigBuilder {
         self
     }
 
+    /// Pass a GPU through (`device_name` is the device-plugin resource, e.g. `nvidia.com/GA102GL_A10`).
+    pub fn add_gpu(mut self, name: impl Into<String>, device_name: impl Into<String>) -> Self {
+        self.config.host_devices.push(HostDeviceConfig {
+            name: name.into(),
+            device_name: device_name.into(),
+            kind: HostDeviceKind::Gpu,
+        });
+        self
+    }
+
+    /// Pass any other host device through (PCI, mediated, USB device-plugin resource).
+    pub fn add_host_device(
+        mut self,
+        name: impl Into<String>,
+        device_name: impl Into<String>,
+    ) -> Self {
+        self.config.host_devices.push(HostDeviceConfig {
+            name: name.into(),
+            device_name: device_name.into(),
+            kind: HostDeviceKind::HostDevice,
+        });
+        self
+    }
+
     /// Set the machine type (e.g., "q35").
     pub fn machine_type(mut self, machine_type: impl Into<String>) -> Self {
         self.config.machine_type = Some(machine_type.into());

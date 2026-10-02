@@ -64,6 +64,7 @@ pub mod change_plan;
 pub mod compliance;
 pub mod cost;
 pub mod devexp;
+pub mod devices;
 pub mod disk;
 pub mod dr;
 pub mod edge;

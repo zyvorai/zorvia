@@ -211,6 +211,15 @@ pub fn required_permission(method: &str, path: &str) -> Option<ApiPermission> {
         };
     }
 
+    // Device inventory names every node's hardware; the preflight is a read-only check any
+    // VM creator may run (VM creation itself runs it).
+    if path == "/v1/devices" {
+        return Some(ApiPermission::ClusterAdmin);
+    }
+    if path == "/v1/devices/preflight" {
+        return Some(ApiPermission::VmCreate);
+    }
+
     // The maintenance plan lists every VM on a node and where it would go.
     if path == "/v1/maintenance/plan" {
         return Some(ApiPermission::ClusterAdmin);
@@ -364,6 +373,14 @@ mod tests {
         assert_eq!(
             required_permission("GET", "/v1/maintenance/plan"),
             Some(ClusterAdmin)
+        );
+        assert_eq!(
+            required_permission("GET", "/v1/devices"),
+            Some(ClusterAdmin)
+        );
+        assert_eq!(
+            required_permission("POST", "/v1/devices/preflight"),
+            Some(VmCreate)
         );
         assert_eq!(required_permission("GET", "/vms"), None);
     }

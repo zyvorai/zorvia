@@ -14,6 +14,7 @@ pub fn validate_vm_config(config: &VMConfig) -> Result<()> {
     validate_memory(&config.memory)?;
     validate_disks(&config.disks)?;
     validate_interfaces(&config.interfaces)?;
+    validate_host_devices(&config.host_devices)?;
 
     if let Some(tgp) = config.termination_grace_period {
         if tgp < 0 {
@@ -21,6 +22,20 @@ pub fn validate_vm_config(config: &VMConfig) -> Result<()> {
         }
     }
 
+    Ok(())
+}
+
+fn validate_host_devices(devices: &[HostDeviceConfig]) -> Result<()> {
+    if devices.len() > 16 {
+        return Err(anyhow!("a VM can hold at most 16 passthrough devices"));
+    }
+    let mut seen = std::collections::HashSet::new();
+    for d in devices {
+        d.validate().map_err(|e| anyhow!(e))?;
+        if !seen.insert(d.name.as_str()) {
+            return Err(anyhow!("duplicate device name '{}'", d.name));
+        }
+    }
     Ok(())
 }
 
@@ -485,5 +500,66 @@ mod tests {
             .build();
 
         assert!(validate_vm_config(&config).is_ok());
+    }
+
+    #[test]
+    fn passthrough_devices_are_validated() {
+        let base = || {
+            let mut c = crate::config::VMConfigBuilder::new("web-1")
+                .namespace("default")
+                .cpu(1, 1, 1)
+                .memory("1Gi")
+                .add_blank_disk("rootdisk", "5Gi", 1)
+                .add_pod_network("default")
+                .build();
+            c.host_devices.clear();
+            c
+        };
+        let mut ok = base();
+        ok.host_devices.push(HostDeviceConfig {
+            name: "gpu0".into(),
+            device_name: "nvidia.com/GA102GL_A10".into(),
+            kind: HostDeviceKind::Gpu,
+        });
+        assert!(validate_vm_config(&ok).is_ok());
+        for (name, dev) in [
+            ("Gpu0", "nvidia.com/a"),
+            ("gpu0", "no-slash"),
+            ("gpu0", "a/b/c"),
+            ("gpu0", "nv idia/x"),
+            ("gpu0", "/x"),
+            ("gpu0", "a/"),
+        ] {
+            let mut c = base();
+            c.host_devices.push(HostDeviceConfig {
+                name: name.into(),
+                device_name: dev.into(),
+                kind: HostDeviceKind::Gpu,
+            });
+            assert!(validate_vm_config(&c).is_err(), "{name} {dev}");
+        }
+        let mut dup = ok.clone();
+        dup.host_devices.push(dup.host_devices[0].clone());
+        assert!(validate_vm_config(&dup).is_err(), "duplicate names");
+        let mut many = base();
+        for i in 0..17 {
+            many.host_devices.push(HostDeviceConfig {
+                name: format!("d{i}"),
+                device_name: "v.com/r".into(),
+                kind: HostDeviceKind::HostDevice,
+            });
+        }
+        assert!(validate_vm_config(&many).is_err(), "more than 16");
+    }
+
+    #[test]
+    fn a_device_without_a_kind_is_a_gpu_and_old_configs_still_load() {
+        let d: HostDeviceConfig =
+            serde_json::from_str(r#"{"name":"g","device_name":"v.com/r"}"#).unwrap();
+        assert_eq!(d.kind, HostDeviceKind::Gpu);
+        let d: HostDeviceConfig =
+            serde_json::from_str(r#"{"name":"g","device_name":"v.com/r","kind":"host-device"}"#)
+                .unwrap();
+        assert_eq!(d.kind, HostDeviceKind::HostDevice);
     }
 }
