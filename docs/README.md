@@ -33,6 +33,7 @@ Start here: root [README.md](../README.md) (hero, gallery, quick start) · live 
 | [PODS.md](PODS.md) | Pods page: all-namespace inventory, Terminal.app logs + exec, WebSocket protocol, RBAC, audit |
 | [RESCUE.md](RESCUE.md) | Rescue mode: offline hostname/SSH-key/enable-SSH via a Job-mounted disk, GuestKit, RBAC, audit |
 | [SUPPORT_MATRIX.md](SUPPORT_MATRIX.md) | Validated versions and measured E2E results; what is not validated |
+| [KEY_PROVIDER.md](KEY_PROVIDER.md) | Encrypting TOTP secrets at rest (local key, Vault Transit), rotation, 2FA reset |
 | [TLS_ROTATION.md](TLS_ROTATION.md) | Certificate hot reload (cert-manager, rotated Secrets) |
 | [GUEST_AGENT.md](GUEST_AGENT.md) | Installing and trusting the in-guest agent (GuestKit / qemu-guest-agent) at VM creation |
 | [MAINTENANCE.md](MAINTENANCE.md) | Pre-drain plan: what a node drain would do to each VM |

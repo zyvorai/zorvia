@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added (key provider)
+
+- Optional encryption of TOTP secrets at rest: local AES-256-GCM key (`ZORVIA_KEY_FILE`/`ZORVIA_KEY_HEX`, with rotation) or HashiCorp
+  Vault Transit (`ZORVIA_VAULT_*`); existing secrets are sealed at startup; values are bound to their user. New
+  `DELETE /api/v1/users/{id}/totp` (users.admin) resets a user's 2FA (lost authenticator or lost key). See
+  docs/KEY_PROVIDER.md.
+
 ### Added (enterprise identity)
 
 - OIDC group-to-role (and namespace) mapping: `ZORVIA_OIDC_GROUP_ROLES`, `ZORVIA_OIDC_GROUPS_CLAIM`,
