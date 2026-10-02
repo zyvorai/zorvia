@@ -13,6 +13,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `ZORVIA_OIDC_DEFAULT_ROLE`; applied at every sign-in, revokes sessions on change, denies unmatched users by
   default. See docs/OIDC.md.
 
+### Added (TLS rotation)
+
+- The API server hot-reloads its TLS certificate and key when the files change (`ZORVIA_TLS_RELOAD_SECS`, default
+  60; a failed reload keeps the previous certificate). See docs/TLS_ROTATION.md.
+
 ### Changed
 
 - `s3-immutable-backup` (off-cluster backup, restore, drills, key check) is now **Beta**: verified end to end on two CSI

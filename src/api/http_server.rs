@@ -1545,6 +1545,14 @@ pub mod web {
             let rustls_config =
                 axum_server::tls_rustls::RustlsConfig::from_pem_file(&tls.cert_path, &tls.key_path)
                     .await?;
+            if let Some(every) = crate::api::tls_reload::reload_interval() {
+                tokio::spawn(crate::api::tls_reload::watch(
+                    rustls_config.clone(),
+                    tls.cert_path.clone(),
+                    tls.key_path.clone(),
+                    every,
+                ));
+            }
             let addr: std::net::SocketAddr = addr.parse()?;
             axum_server::bind_rustls(addr, rustls_config)
                 .serve(app.into_make_service())
