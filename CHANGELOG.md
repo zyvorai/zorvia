@@ -7,11 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added (PostgreSQL backend, phase 2: operations)
+
+- The durable operations queue also runs on PostgreSQL (`ZORVIA_DATABASE_URL`). Idempotency keys are claimed by the insert itself, so
+  racing replicas create one operation; start-up recovery on a shared store skips operations with a live heartbeat.
+
 ### Added (PostgreSQL backend, phase 1)
 
 - Users, tokens and session revocations can live in PostgreSQL (`ZORVIA_DATABASE_URL`, Helm `database.*`) instead of SQLite, through
   a small SQL layer that runs the same queries on both. One-time import of an existing `auth.db` (`ZORVIA_DATABASE_IMPORT=1`).
-  Cross-replica race tests (token revocation, TOTP replay, login throttle) run against a real Postgres. Operations, audit and JSON
+  Cross-replica race tests (token revocation, TOTP replay, login throttle) run against a real Postgres. Audit and JSON
   state are still per replica, so active/active is not complete yet. See docs/POSTGRES.md.
 
 ### Added (GPU / SR-IOV passthrough)

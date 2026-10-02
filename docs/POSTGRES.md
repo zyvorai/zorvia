@@ -1,19 +1,26 @@
 # PostgreSQL backend
 
-Status: **Beta, phase 1 (auth store only).**
+Status: **Beta, phases 1-2 (auth store and operations queue).**
 
 ## What moves
 
 | Store | Backend with `ZORVIA_DATABASE_URL` set |
 |---|---|
 | Users, API tokens, session revocations, TOTP state, login throttle | **PostgreSQL** |
-| Durable operations (`ops.db`) | SQLite on the data volume (phase 2) |
+| Durable operations (`ops.db`): queue, state, progress, results | **PostgreSQL** |
 | Audit trail (`audit.db`) | SQLite on the data volume (phase 3) |
 | Schedules, warm pools, alerts and other JSON state | Files on the data volume |
 
-Because the last three are still per replica, **running two active replicas is not yet supported.** What this phase gives you:
-sign-in state survives the loss of the data volume and is the same for every replica, so token revocation and TOTP replay
-protection hold across replicas (proved by the race tests below).
+Because audit and the JSON state are still per replica, **running two active replicas is not yet supported.** What you get now:
+sign-in state and the operation queue survive the loss of the data volume and are the same for every replica. Token revocation
+and TOTP replay protection hold across replicas, an idempotency key creates one operation even when two replicas race on it,
+and only one replica can claim an operation (all covered by the race tests below).
+
+### Operations on a shared store
+
+Only the lease leader runs operations. At start-up the leader re-queues work left `running` by a dead process, but on PostgreSQL it
+leaves alone any operation whose heartbeat is newer than 90 seconds, so a replica that starts while another is healthy does not
+steal its work; a genuinely orphaned operation is picked up by the normal 120 s orphan check.
 
 ## Configure
 

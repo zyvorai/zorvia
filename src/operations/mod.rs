@@ -2,7 +2,8 @@
 //!
 //! Work such as image capture, backups and migrations used to live in
 //! in-memory registries and lose all state on restart. `OperationsDb` persists
-//! each operation (state, phase, progress, params, result) in SQLite so a
+//! each operation (state, phase, progress, params, result) in SQLite (or PostgreSQL,
+//! `ZORVIA_DATABASE_URL`, so replicas share one queue) so a
 //! reconciler can resume it after a restart, honour cancellation, and stop
 //! retrying after `max_attempts`. A restart of the process is not a failed
 //! attempt: interrupted work is re-queued with its attempt refunded, bounded by
@@ -12,11 +13,10 @@
 //! `queued -> running -> succeeded | failed | cancelled`, with
 //! `running -> queued` on a retryable failure or after a restart.
 
+use crate::store::{Backend, Row, Value};
 use anyhow::{anyhow, Context, Result};
 use chrono::Utc;
-use rusqlite::{params, OptionalExtension};
 use serde::{Deserialize, Serialize};
-use std::sync::Mutex;
 
 pub mod runtime;
 
@@ -153,7 +153,7 @@ pub fn ops_db_path(get: impl Fn(&str) -> Option<String>) -> String {
 }
 
 pub struct OperationsDb {
-    conn: Mutex<rusqlite::Connection>,
+    db: Backend,
 }
 
 /// How many times one operation may be interrupted (process restart or lost
@@ -168,31 +168,64 @@ fn now() -> String {
     Utc::now().to_rfc3339()
 }
 
-fn row_to_op(r: &rusqlite::Row<'_>) -> rusqlite::Result<Operation> {
-    let params_s: String = r.get(7)?;
-    let result_s: Option<String> = r.get(8)?;
-    Ok(Operation {
-        id: r.get(0)?,
-        kind: r.get(1)?,
-        resource: r.get(2)?,
-        namespace: r.get(3)?,
-        state: OpState::parse(&r.get::<_, String>(4)?),
-        phase: r.get(5)?,
-        progress: r.get::<_, i64>(6)?.clamp(0, 100) as u8,
-        params: serde_json::from_str(&params_s).unwrap_or(serde_json::Value::Null),
-        result: result_s.and_then(|s| serde_json::from_str(&s).ok()),
-        error: r.get(9)?,
-        attempts: r.get::<_, i64>(10)?.max(0) as u32,
-        max_attempts: r.get::<_, i64>(11)?.max(1) as u32,
-        idempotency_key: r.get(12)?,
-        owner: r.get(13)?,
-        cancel_requested: r.get::<_, i64>(14)? != 0,
-        created: r.get(15)?,
-        updated: r.get(16)?,
-        completed: r.get(17)?,
-        interruptions: r.get::<_, i64>(18)?.max(0) as u32,
-    })
+fn row_to_op(r: &Row) -> Operation {
+    Operation {
+        id: r.opt_text(0).unwrap_or_default(),
+        kind: r.opt_text(1).unwrap_or_default(),
+        resource: r.opt_text(2).unwrap_or_default(),
+        namespace: r.opt_text(3).unwrap_or_default(),
+        state: OpState::parse(&r.opt_text(4).unwrap_or_default()),
+        phase: r.opt_text(5).unwrap_or_default(),
+        progress: r.int(6).clamp(0, 100) as u8,
+        params: r
+            .opt_text(7)
+            .and_then(|s| serde_json::from_str(&s).ok())
+            .unwrap_or(serde_json::Value::Null),
+        result: r.opt_text(8).and_then(|s| serde_json::from_str(&s).ok()),
+        error: r.opt_text(9),
+        attempts: r.int(10).max(0) as u32,
+        max_attempts: r.int(11).max(1) as u32,
+        idempotency_key: r.opt_text(12),
+        owner: r.opt_text(13),
+        cancel_requested: r.int(14) != 0,
+        created: r.opt_text(15).unwrap_or_default(),
+        updated: r.opt_text(16).unwrap_or_default(),
+        completed: r.opt_text(17),
+        interruptions: r.int(18).max(0) as u32,
+    }
 }
+
+const PG_SCHEMA: &str = "
+SELECT pg_advisory_xact_lock(727272002);
+CREATE TABLE IF NOT EXISTS operations (
+    id TEXT PRIMARY KEY,
+    kind TEXT NOT NULL,
+    resource TEXT NOT NULL,
+    namespace TEXT NOT NULL,
+    state TEXT NOT NULL,
+    phase TEXT NOT NULL DEFAULT '',
+    progress BIGINT NOT NULL DEFAULT 0,
+    params TEXT NOT NULL DEFAULT 'null',
+    result TEXT,
+    error TEXT,
+    attempts BIGINT NOT NULL DEFAULT 0,
+    max_attempts BIGINT NOT NULL DEFAULT 3,
+    idempotency_key TEXT,
+    owner TEXT,
+    cancel_requested BIGINT NOT NULL DEFAULT 0,
+    created TEXT NOT NULL,
+    updated TEXT NOT NULL,
+    completed TEXT,
+    interruptions BIGINT NOT NULL DEFAULT 0
+);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_operations_idem
+    ON operations(idempotency_key) WHERE idempotency_key IS NOT NULL;
+CREATE INDEX IF NOT EXISTS idx_operations_state ON operations(state);";
+
+/// A running operation whose heartbeat is older than this belongs to a dead process.
+/// Used by startup recovery on a shared (PostgreSQL) store, where another replica's
+/// healthy work must not be re-queued.
+const SHARED_RECOVERY_STALE_SECS: i64 = 90;
 
 impl OperationsDb {
     pub fn open(path: &str) -> Result<Self> {
@@ -204,7 +237,8 @@ impl OperationsDb {
             }
             rusqlite::Connection::open(path)?
         };
-        conn.execute_batch(
+        let db = Backend::sqlite(conn);
+        db.batch(
             "CREATE TABLE IF NOT EXISTS operations (
                 id TEXT PRIMARY KEY,
                 kind TEXT NOT NULL,
@@ -232,108 +266,146 @@ impl OperationsDb {
         )?;
         // Added after the table above shipped: existing databases need the
         // column; a duplicate-column error on new ones is expected and ignored.
-        let _ = conn.execute_batch(
-            "ALTER TABLE operations ADD COLUMN interruptions INTEGER NOT NULL DEFAULT 0;",
-        );
-        Ok(Self {
-            conn: Mutex::new(conn),
-        })
+        let _ =
+            db.batch("ALTER TABLE operations ADD COLUMN interruptions INTEGER NOT NULL DEFAULT 0;");
+        Ok(Self { db })
+    }
+
+    pub fn open_postgres(url: &str) -> Result<Self> {
+        let db = Backend::postgres(url)?;
+        db.batch(PG_SCHEMA)?;
+        Ok(Self { db })
+    }
+
+    pub fn is_postgres(&self) -> bool {
+        self.db.is_postgres()
     }
 
     pub fn from_env() -> Result<Self> {
-        Self::open(&ops_db_path(|k| std::env::var(k).ok()))
+        match crate::store::database_url() {
+            Some(url) => {
+                let db = Self::open_postgres(&url)?;
+                log::info!("operations store: PostgreSQL");
+                Ok(db)
+            }
+            None => Self::open(&ops_db_path(|k| std::env::var(k).ok())),
+        }
     }
 
-    fn lock(&self) -> std::sync::MutexGuard<'_, rusqlite::Connection> {
-        self.conn.lock().unwrap_or_else(|e| e.into_inner())
+    /// Stable newest-first ordering; SQLite breaks ties by insertion order.
+    fn newest_first(&self) -> &'static str {
+        if self.db.is_postgres() {
+            "created DESC, id DESC"
+        } else {
+            "created DESC, rowid DESC"
+        }
+    }
+
+    fn oldest_first(&self) -> &'static str {
+        if self.db.is_postgres() {
+            "created ASC, id ASC"
+        } else {
+            "created ASC, rowid ASC"
+        }
+    }
+
+    fn fetch(&self, id: &str) -> Result<Option<Operation>> {
+        Ok(self
+            .db
+            .query_one(
+                &format!("SELECT {COLS} FROM operations WHERE id = ?1"),
+                &[id.into()],
+            )?
+            .map(|r| row_to_op(&r)))
     }
 
     /// Create an operation. Returns `(operation, created)`; `created` is
-    /// false when `idempotency_key` matched an existing operation.
+    /// false when `idempotency_key` matched an existing operation. The key is
+    /// claimed by the insert itself, so two replicas racing on one key still
+    /// produce a single operation.
     pub fn create(&self, new: NewOperation) -> Result<(Operation, bool)> {
-        let conn = self.lock();
-        if let Some(key) = &new.idempotency_key {
-            let existing = conn
-                .query_row(
-                    &format!("SELECT {COLS} FROM operations WHERE idempotency_key = ?1"),
-                    params![key],
-                    row_to_op,
-                )
-                .optional()?;
-            if let Some(op) = existing {
-                return Ok((op, false));
-            }
-        }
         let id = format!("op-{}", uuid::Uuid::new_v4().simple());
         let ts = now();
-        conn.execute(
-            "INSERT INTO operations (id, kind, resource, namespace, state, params, \
-             max_attempts, idempotency_key, owner, created, updated) \
-             VALUES (?1, ?2, ?3, ?4, 'queued', ?5, ?6, ?7, ?8, ?9, ?9)",
-            params![
-                id,
-                new.kind,
-                new.resource,
-                new.namespace,
-                new.params.to_string(),
-                new.max_attempts.max(1),
-                new.idempotency_key,
-                new.owner,
-                ts
-            ],
-        )
-        .context("insert operation")?;
-        let op = conn.query_row(
-            &format!("SELECT {COLS} FROM operations WHERE id = ?1"),
-            params![id],
-            row_to_op,
-        )?;
+        let n = self
+            .db
+            .exec(
+                "INSERT INTO operations (id, kind, resource, namespace, state, params, \
+                 max_attempts, idempotency_key, owner, created, updated) \
+                 VALUES (?1, ?2, ?3, ?4, 'queued', ?5, ?6, ?7, ?8, ?9, ?9) \
+                 ON CONFLICT (idempotency_key) WHERE idempotency_key IS NOT NULL DO NOTHING",
+                &[
+                    id.clone().into(),
+                    new.kind.into(),
+                    new.resource.into(),
+                    new.namespace.into(),
+                    new.params.to_string().into(),
+                    new.max_attempts.max(1).into(),
+                    new.idempotency_key.clone().into(),
+                    new.owner.into(),
+                    ts.into(),
+                ],
+            )
+            .context("insert operation")?;
+        if n == 0 {
+            let key = new
+                .idempotency_key
+                .ok_or_else(|| anyhow!("operation was not inserted"))?;
+            let existing = self
+                .db
+                .query_one(
+                    &format!("SELECT {COLS} FROM operations WHERE idempotency_key = ?1"),
+                    &[key.into()],
+                )?
+                .map(|r| row_to_op(&r))
+                .ok_or_else(|| anyhow!("idempotent operation vanished"))?;
+            return Ok((existing, false));
+        }
+        let op = self
+            .fetch(&id)?
+            .ok_or_else(|| anyhow!("operation {id} vanished after insert"))?;
         Ok((op, true))
     }
 
     pub fn get(&self, id: &str) -> Result<Option<Operation>> {
-        Ok(self
-            .lock()
-            .query_row(
-                &format!("SELECT {COLS} FROM operations WHERE id = ?1"),
-                params![id],
-                row_to_op,
-            )
-            .optional()?)
+        self.fetch(id)
     }
 
     /// Newest first, optionally filtered by kind.
     pub fn list(&self, kind: Option<&str>, limit: usize) -> Result<Vec<Operation>> {
-        let conn = self.lock();
         let limit = limit.clamp(1, 500) as i64;
-        let mut stmt = conn.prepare(&format!(
-            "SELECT {COLS} FROM operations WHERE (?1 IS NULL OR kind = ?1) \
-             ORDER BY created DESC, rowid DESC LIMIT ?2"
-        ))?;
-        let rows = stmt.query_map(params![kind, limit], row_to_op)?;
-        rows.collect::<rusqlite::Result<Vec<_>>>()
-            .map_err(Into::into)
+        let order = self.newest_first();
+        let rows = match kind {
+            Some(k) => self.db.query(
+                &format!("SELECT {COLS} FROM operations WHERE kind = ?1 ORDER BY {order} LIMIT ?2"),
+                &[k.into(), limit.into()],
+            )?,
+            None => self.db.query(
+                &format!("SELECT {COLS} FROM operations ORDER BY {order} LIMIT ?1"),
+                &[limit.into()],
+            )?,
+        };
+        Ok(rows.iter().map(row_to_op).collect())
     }
 
     /// Operations the reconciler should still act on, oldest first.
     pub fn list_active(&self) -> Result<Vec<Operation>> {
-        let conn = self.lock();
-        let mut stmt = conn.prepare(&format!(
-            "SELECT {COLS} FROM operations WHERE state IN ('queued','running') \
-             ORDER BY created ASC, rowid ASC"
-        ))?;
-        let rows = stmt.query_map([], row_to_op)?;
-        rows.collect::<rusqlite::Result<Vec<_>>>()
-            .map_err(Into::into)
+        let rows = self.db.query(
+            &format!(
+                "SELECT {COLS} FROM operations WHERE state IN ('queued','running') ORDER BY {}",
+                self.oldest_first()
+            ),
+            &[],
+        )?;
+        Ok(rows.iter().map(row_to_op).collect())
     }
 
     /// queued -> running, counting the attempt. Returns false if the
     /// operation was not queued (already claimed, cancelled, or finished).
     pub fn start(&self, id: &str) -> Result<bool> {
-        let n = self.lock().execute(
+        let n = self.db.exec(
             "UPDATE operations SET state='running', attempts=attempts+1, updated=?2 \
              WHERE id=?1 AND state='queued'",
-            params![id, now()],
+            &[id.into(), now().into()],
         )?;
         Ok(n == 1)
     }
@@ -341,20 +413,28 @@ impl OperationsDb {
     /// Record phase/progress of a running operation (progress is capped at
     /// 99 -- 100 is only set by `succeed`).
     pub fn set_progress(&self, id: &str, phase: &str, progress: u8) -> Result<()> {
-        self.lock().execute(
+        self.db.exec(
             "UPDATE operations SET phase=?2, progress=?3, updated=?4 \
              WHERE id=?1 AND state='running'",
-            params![id, phase, progress.min(99), now()],
+            &[
+                id.into(),
+                phase.into(),
+                (progress.min(99) as i64).into(),
+                now().into(),
+            ],
         )?;
         Ok(())
     }
 
     pub fn succeed(&self, id: &str, result: Option<&serde_json::Value>) -> Result<()> {
-        let ts = now();
-        self.lock().execute(
+        self.db.exec(
             "UPDATE operations SET state='succeeded', progress=100, result=?2, error=NULL, \
              updated=?3, completed=?3 WHERE id=?1 AND state='running'",
-            params![id, result.map(|r| r.to_string()), ts],
+            &[
+                id.into(),
+                result.map(|r| r.to_string()).into(),
+                now().into(),
+            ],
         )?;
         Ok(())
     }
@@ -363,28 +443,27 @@ impl OperationsDb {
     /// goes back to `queued`; otherwise it becomes `failed`. Returns the
     /// resulting state.
     pub fn fail(&self, id: &str, error: &str, retryable: bool) -> Result<OpState> {
-        let conn = self.lock();
-        let (attempts, max, cancel): (i64, i64, i64) = conn
-            .query_row(
+        let row = self
+            .db
+            .query_one(
                 "SELECT attempts, max_attempts, cancel_requested FROM operations WHERE id=?1",
-                params![id],
-                |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)),
-            )
-            .optional()?
+                &[id.into()],
+            )?
             .ok_or_else(|| anyhow!("operation {id} not found"))?;
+        let (attempts, max, cancel) = (row.int(0), row.int(1), row.int(2));
         let ts = now();
         if retryable && cancel == 0 && attempts < max {
-            conn.execute(
+            self.db.exec(
                 "UPDATE operations SET state='queued', error=?2, updated=?3 \
                  WHERE id=?1 AND state='running'",
-                params![id, error, ts],
+                &[id.into(), error.into(), ts.into()],
             )?;
             Ok(OpState::Queued)
         } else {
-            conn.execute(
+            self.db.exec(
                 "UPDATE operations SET state='failed', error=?2, updated=?3, completed=?3 \
                  WHERE id=?1 AND state IN ('running','queued')",
-                params![id, error, ts],
+                &[id.into(), error.into(), ts.into()],
             )?;
             Ok(OpState::Failed)
         }
@@ -394,34 +473,30 @@ impl OperationsDb {
     /// running one is flagged so its handler can stop and call
     /// `mark_cancelled`. Returns the resulting state, or `None` if unknown.
     pub fn request_cancel(&self, id: &str) -> Result<Option<OpState>> {
-        let conn = self.lock();
         let ts = now();
-        conn.execute(
+        self.db.exec(
             "UPDATE operations SET state='cancelled', cancel_requested=1, updated=?2, \
              completed=?2 WHERE id=?1 AND state='queued'",
-            params![id, ts],
+            &[id.into(), ts.clone().into()],
         )?;
-        conn.execute(
+        self.db.exec(
             "UPDATE operations SET cancel_requested=1, updated=?2 \
              WHERE id=?1 AND state='running'",
-            params![id, ts],
+            &[id.into(), ts.into()],
         )?;
-        let state: Option<String> = conn
-            .query_row(
-                "SELECT state FROM operations WHERE id=?1",
-                params![id],
-                |r| r.get(0),
-            )
-            .optional()?;
-        Ok(state.map(|s| OpState::parse(&s)))
+        Ok(self
+            .db
+            .query_one("SELECT state FROM operations WHERE id=?1", &[id.into()])?
+            .and_then(|r| r.opt_text(0))
+            .map(|s| OpState::parse(&s)))
     }
 
     pub fn mark_cancelled(&self, id: &str) -> Result<()> {
         let ts = now();
-        self.lock().execute(
+        self.db.exec(
             "UPDATE operations SET state='cancelled', updated=?2, completed=?2 \
              WHERE id=?1 AND state IN ('running','queued')",
-            params![id, ts],
+            &[id.into(), ts.into()],
         )?;
         Ok(())
     }
@@ -429,9 +504,9 @@ impl OperationsDb {
     /// Heartbeat from the process running an operation, so other replicas
     /// can tell it apart from one orphaned by a dead leader.
     pub fn touch(&self, id: &str) -> Result<()> {
-        self.lock().execute(
+        self.db.exec(
             "UPDATE operations SET updated=?2 WHERE id=?1 AND state='running'",
-            params![id, now()],
+            &[id.into(), now().into()],
         )?;
         Ok(())
     }
@@ -440,25 +515,25 @@ impl OperationsDb {
     /// The interrupted attempt is refunded (a lost owner is not a failed
     /// attempt); after `MAX_INTERRUPTIONS` the operation is failed instead.
     pub fn requeue_orphan(&self, id: &str) -> Result<OpState> {
-        let conn = self.lock();
         let ts = now();
-        conn.execute(
+        self.db.exec(
             "UPDATE operations SET state='failed', updated=?2, completed=?2, \
              error='owner stopped responding too many times' \
              WHERE id=?1 AND state='running' AND interruptions >= ?3",
-            params![id, ts, MAX_INTERRUPTIONS],
+            &[id.into(), ts.clone().into(), MAX_INTERRUPTIONS.into()],
         )?;
-        conn.execute(
+        self.db.exec(
             "UPDATE operations SET state='queued', updated=?2, \
-             attempts=MAX(attempts-1,0), interruptions=interruptions+1 \
+             attempts=CASE WHEN attempts > 0 THEN attempts - 1 ELSE 0 END, \
+             interruptions=interruptions+1 \
              WHERE id=?1 AND state='running'",
-            params![id, ts],
+            &[id.into(), ts.into()],
         )?;
-        let state: String = conn.query_row(
-            "SELECT state FROM operations WHERE id=?1",
-            params![id],
-            |r| r.get(0),
-        )?;
+        let state = self
+            .db
+            .query_one("SELECT state FROM operations WHERE id=?1", &[id.into()])?
+            .and_then(|r| r.opt_text(0))
+            .ok_or_else(|| anyhow!("operation {id} not found"))?;
         Ok(OpState::parse(&state))
     }
 
@@ -466,27 +541,64 @@ impl OperationsDb {
     /// re-queued with its attempt refunded (a restart is not a failure), unless
     /// it was being cancelled or has been interrupted `MAX_INTERRUPTIONS`
     /// times already. Returns how many were touched.
+    ///
+    /// On a shared PostgreSQL store only operations whose heartbeat has stopped
+    /// are touched: a replica that starts (or takes the lease) while another one
+    /// is still running its work must not steal it.
     pub fn recover_interrupted(&self) -> Result<usize> {
-        let conn = self.lock();
         let ts = now();
-        let cancelled = conn.execute(
-            "UPDATE operations SET state='cancelled', updated=?1, completed=?1 \
-             WHERE state='running' AND cancel_requested=1",
-            params![ts],
-        )?;
-        let failed = conn.execute(
-            "UPDATE operations SET state='failed', updated=?1, completed=?1, \
-             error='interrupted by restart too many times' \
-             WHERE state='running' AND interruptions >= ?2",
-            params![ts, MAX_INTERRUPTIONS],
-        )?;
-        let requeued = conn.execute(
-            "UPDATE operations SET state='queued', updated=?1, \
-             attempts=MAX(attempts-1,0), interruptions=interruptions+1 \
-             WHERE state='running'",
-            params![ts],
-        )?;
-        Ok(cancelled + failed + requeued)
+        let (stale, cutoff) = if self.db.is_postgres() {
+            (
+                " AND updated < ?3",
+                (Utc::now() - chrono::Duration::seconds(SHARED_RECOVERY_STALE_SECS)).to_rfc3339(),
+            )
+        } else {
+            ("", String::new())
+        };
+        let bind = |extra: Option<Value>| -> Vec<Value> {
+            let mut v = vec![Value::from(ts.clone())];
+            if let Some(e) = extra {
+                v.push(e);
+            }
+            v
+        };
+        // Parameter numbering: ?1 timestamp, ?2 interruption cap or cutoff, ?3 cutoff.
+        let cutoff_v = || {
+            if self.db.is_postgres() {
+                Some(Value::from(cutoff.clone()))
+            } else {
+                None
+            }
+        };
+        let cancelled = {
+            let sql = format!(
+                "UPDATE operations SET state='cancelled', updated=?1, completed=?1 \
+                 WHERE state='running' AND cancel_requested=1{}",
+                stale.replace("?3", "?2")
+            );
+            self.db.exec(&sql, &bind(cutoff_v()))?
+        };
+        let failed = {
+            let sql = format!(
+                "UPDATE operations SET state='failed', updated=?1, completed=?1, \
+                 error='interrupted by restart too many times' \
+                 WHERE state='running' AND interruptions >= ?2{stale}"
+            );
+            let mut p = bind(Some(MAX_INTERRUPTIONS.into()));
+            p.extend(cutoff_v());
+            self.db.exec(&sql, &p)?
+        };
+        let requeued = {
+            let sql = format!(
+                "UPDATE operations SET state='queued', updated=?1, \
+                 attempts=CASE WHEN attempts > 0 THEN attempts - 1 ELSE 0 END, \
+                 interruptions=interruptions+1 \
+                 WHERE state='running'{}",
+                stale.replace("?3", "?2")
+            );
+            self.db.exec(&sql, &bind(cutoff_v()))?
+        };
+        Ok((cancelled + failed + requeued) as usize)
     }
 }
 
@@ -697,5 +809,107 @@ mod tests {
         db.recover_interrupted().unwrap();
         assert_eq!(db.get(&id).unwrap().unwrap().state, OpState::Queued);
         std::fs::remove_dir_all(dir).ok();
+    }
+
+    /// Behaviour every backend must share: the idempotency key is claimed atomically
+    /// by concurrent creators, only one claimer wins an operation, and ordering is stable.
+    fn shared_queue_behaviour(make: &dyn Fn() -> OperationsDb) {
+        let a = std::sync::Arc::new(make());
+        let b = std::sync::Arc::new(make());
+        // Two replicas creating the same idempotent operation at once: one op.
+        let mut handles = Vec::new();
+        for i in 0..8 {
+            let db = if i % 2 == 0 { a.clone() } else { b.clone() };
+            handles.push(std::thread::spawn(move || {
+                db.create(new_op(Some("race-key"))).unwrap()
+            }));
+        }
+        let results: Vec<_> = handles.into_iter().map(|h| h.join().unwrap()).collect();
+        assert_eq!(results.iter().filter(|(_, created)| *created).count(), 1);
+        let id = results[0].0.id.clone();
+        assert!(results.iter().all(|(op, _)| op.id == id));
+        // Two replicas claiming it: exactly one wins.
+        let mut claims = Vec::new();
+        for i in 0..8 {
+            let db = if i % 2 == 0 { a.clone() } else { b.clone() };
+            let id = id.clone();
+            claims.push(std::thread::spawn(move || db.start(&id).unwrap()));
+        }
+        let won = claims.into_iter().map(|h| h.join().unwrap());
+        assert_eq!(won.filter(|w| *w).count(), 1);
+        assert_eq!(a.get(&id).unwrap().unwrap().attempts, 1);
+        // The other replica sees progress and the result.
+        a.set_progress(&id, "copy", 40).unwrap();
+        assert_eq!(b.get(&id).unwrap().unwrap().progress, 40);
+        b.succeed(&id, Some(&serde_json::json!({"ok": true})))
+            .unwrap();
+        let done = a.get(&id).unwrap().unwrap();
+        assert_eq!(done.state, OpState::Succeeded);
+        assert_eq!(done.result.unwrap()["ok"], true);
+        // Newest first, kind filter, active list.
+        let (x, _) = a.create(new_op(None)).unwrap();
+        let (y, _) = b.create(new_op(None)).unwrap();
+        let listed = a.list(Some("golden-image"), 10).unwrap();
+        assert_eq!(listed[0].id, y.id);
+        assert_eq!(listed[1].id, x.id);
+        assert!(a.list(Some("nope"), 10).unwrap().is_empty());
+        let active: Vec<_> = a.list_active().unwrap().into_iter().map(|o| o.id).collect();
+        assert_eq!(active, vec![x.id.clone(), y.id.clone()]);
+        // Retry accounting and orphan refund are visible to both.
+        assert!(a.start(&x.id).unwrap());
+        assert_eq!(b.fail(&x.id, "boom", true).unwrap(), OpState::Queued);
+        assert!(b.start(&x.id).unwrap());
+        assert_eq!(a.fail(&x.id, "boom", true).unwrap(), OpState::Failed);
+        assert_eq!(a.request_cancel(&y.id).unwrap(), Some(OpState::Cancelled));
+        assert_eq!(a.request_cancel("op-missing").unwrap(), None);
+    }
+
+    #[test]
+    fn sqlite_shared_queue_behaviour() {
+        let dir = std::env::temp_dir().join(format!("zorvia-ops-{}", uuid::Uuid::new_v4()));
+        let path = dir.join("ops.db").to_string_lossy().to_string();
+        // Two handles on one file stand in for two processes.
+        shared_queue_behaviour(&|| OperationsDb::open(&path).unwrap());
+        std::fs::remove_dir_all(dir).ok();
+    }
+
+    /// Needs a throwaway PostgreSQL: `ZORVIA_TEST_POSTGRES_URL=postgres://...`.
+    #[test]
+    fn postgres_shared_queue_behaviour_and_stale_recovery() {
+        let Ok(url) = std::env::var("ZORVIA_TEST_POSTGRES_URL") else {
+            eprintln!("skipped: ZORVIA_TEST_POSTGRES_URL is not set");
+            return;
+        };
+        let reset = || {
+            let db = OperationsDb::open_postgres(&url).unwrap();
+            db.db.batch("DROP TABLE IF EXISTS operations").unwrap();
+        };
+        reset();
+        assert!(OperationsDb::open_postgres(&url).unwrap().is_postgres());
+        shared_queue_behaviour(&|| OperationsDb::open_postgres(&url).unwrap());
+
+        // Startup recovery on a shared store leaves a live replica's work alone and
+        // re-queues work whose heartbeat stopped.
+        reset();
+        let db = OperationsDb::open_postgres(&url).unwrap();
+        let (live, _) = db.create(new_op(None)).unwrap();
+        let (dead, _) = db.create(new_op(None)).unwrap();
+        db.start(&live.id).unwrap();
+        db.start(&dead.id).unwrap();
+        let old = (Utc::now() - chrono::Duration::seconds(600)).to_rfc3339();
+        db.db
+            .exec(
+                "UPDATE operations SET updated=?2 WHERE id=?1",
+                &[dead.id.as_str().into(), old.into()],
+            )
+            .unwrap();
+        assert_eq!(db.recover_interrupted().unwrap(), 1);
+        assert_eq!(db.get(&live.id).unwrap().unwrap().state, OpState::Running);
+        let d = db.get(&dead.id).unwrap().unwrap();
+        assert_eq!(
+            (d.state, d.attempts, d.interruptions),
+            (OpState::Queued, 0, 1)
+        );
+        reset();
     }
 }
