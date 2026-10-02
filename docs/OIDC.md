@@ -22,6 +22,38 @@ The flow is:
 
 Admin RBAC and session revocation apply to OIDC users the same as password users.
 
+## Group-to-role mapping
+
+By default every OIDC user is created as a plain `User` and an admin changes roles by hand. Set
+`ZORVIA_OIDC_GROUP_ROLES` and the identity provider decides instead, **at every sign-in**:
+
+```bash
+ZORVIA_OIDC_GROUP_ROLES='[
+  {"group":"zorvia-admins","role":"admin"},
+  {"group":"team-a-devs","role":"user","namespaces":["team-a"]},
+  {"group":"auditors","role":"viewer"}
+]'
+ZORVIA_OIDC_GROUPS_CLAIM=groups      # name of the ID-token claim (array of strings, or one string)
+ZORVIA_OIDC_DEFAULT_ROLE=deny        # viewer | user | admin | deny (default deny) when no group matches
+```
+
+- The **highest** matching role wins (`admin` > `user` > `viewer`).
+- `namespaces` confines a non-admin user to those namespaces (see [TENANCY.md](TENANCY.md)). The allow-list is the
+  union over the matching mappings **at the winning role**; if one of those has no list the user is unrestricted. A
+  lower-role group (say a global read-only `auditors`) never lifts the restriction of a restricted `user` group.
+  Admins are never restricted.
+- Group matching is exact and case-sensitive. The groups claim must be in the ID token (configure the IdP to emit it
+  and request a scope that includes it, e.g. `ZORVIA_OIDC_SCOPES="openid profile email groups"`).
+- A change of role or namespaces at sign-in bumps the user's token version, so older sessions stop working: a demotion
+  or a narrowed list cannot be outlived by an old token.
+- A user who matches no group and has no default role is refused (403) and their existing sessions are revoked.
+  Removing someone from the IdP group therefore removes their access at the latest at their next sign-in or when
+  their token expires (`ZORVIA_JWT_TTL_MINUTES`); there is no back-channel logout.
+- A malformed mapping fails startup rather than guessing.
+
+Not exercised against a real IdP yet: the decision logic, the claim parsing and the role/namespace/revocation sync are
+unit-tested; the end-to-end sign-in with a group-bearing token still needs a trial with your IdP.
+
 ## Configuration
 
 | Variable | Required | Default |

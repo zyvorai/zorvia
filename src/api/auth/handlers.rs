@@ -21,6 +21,42 @@ use crate::api::pam_auth::{authenticate_pam, validate_username};
 
 const OIDC_PENDING_TTL_SECS: u64 = 600;
 
+/// Bring an existing OIDC user in line with what the IdP groups now say. A change of role or
+/// namespaces bumps `token_version`, which revokes the user's other sessions (so a demotion
+/// or a narrowed allow-list cannot be outlived by an old token). Returns the refreshed user.
+fn sync_oidc_user(
+    db: &UserDb,
+    user: super::user_db::User,
+    role: Role,
+    namespaces: Option<Vec<String>>,
+) -> anyhow::Result<super::user_db::User> {
+    // Admins are never namespace-restricted.
+    let namespaces = if role == Role::Admin {
+        None
+    } else {
+        namespaces
+    };
+    let current = db.get_namespaces(&user.id)?;
+    let mut changed = false;
+    if user.role != role {
+        db.update_role(&user.id, role)?; // bumps token_version
+        changed = true;
+    }
+    if current != namespaces {
+        db.set_namespaces(&user.id, namespaces.as_deref())?;
+        if !changed {
+            db.bump_token_version(&user.id)?;
+        }
+        changed = true;
+    }
+    if changed {
+        return db
+            .get_by_id(&user.id)?
+            .ok_or_else(|| anyhow::anyhow!("user vanished during group sync"));
+    }
+    Ok(user)
+}
+
 /// Write the generated bootstrap password to `<dir>/bootstrap-admin-password`
 /// with owner-only permissions (never overwriting an existing file's mode).
 fn write_bootstrap_password(
@@ -49,6 +85,8 @@ pub struct AuthState {
     /// Lab-only shared API key (honored only when ZORVIA_LAB_MODE=1).
     pub lab_api_key: Option<String>,
     pub oidc: Option<OidcConfig>,
+    /// OIDC group -> role mapping; `None` keeps the legacy behaviour (every OIDC user is a User).
+    pub oidc_groups: Option<super::groups::GroupPolicy>,
     pub oidc_pending: Mutex<HashMap<String, PendingOidc>>,
 }
 
@@ -127,6 +165,8 @@ impl AuthState {
             db,
             lab_api_key,
             oidc: OidcConfig::from_env(),
+            // A broken mapping fails startup: guessing would grant or deny access wrongly.
+            oidc_groups: super::groups::GroupPolicy::from_env()?,
             oidc_pending: Mutex::new(HashMap::new()),
         })
     }
@@ -1014,7 +1054,33 @@ pub async fn oidc_callback_handler(
     };
 
     let display = display_username(&claims);
-    let user = match auth.db.upsert_oidc_user(&claims.sub, Role::User) {
+    // The IdP's groups decide the role and namespaces at every login (when configured).
+    let decision = auth
+        .oidc_groups
+        .as_ref()
+        .map(|p| p.decide(&super::groups::groups_from_claims(&claims.extra, &p.claim)));
+    let (initial_role, sync) = match decision {
+        None => (Role::User, None),
+        Some(super::groups::Decision::Allow { role, namespaces }) => {
+            (role.clone(), Some((role, namespaces)))
+        }
+        Some(super::groups::Decision::Deny) => {
+            // No matching group: no access, and any session this user holds is revoked.
+            if let Ok(Some(existing)) = auth.db.get_by_username(&format!("oidc:{}", claims.sub)) {
+                let _ = auth.db.bump_token_version(&existing.id);
+            }
+            log::warn!(
+                "OIDC login denied: no group of subject {} maps to a role",
+                claims.sub
+            );
+            return err(
+                StatusCode::FORBIDDEN,
+                "Your identity provider groups do not grant access to Zorvia",
+            )
+            .into_response();
+        }
+    };
+    let user = match auth.db.upsert_oidc_user(&claims.sub, initial_role) {
         Ok(u) => u,
         Err(e) => {
             log::error!("OIDC JIT user upsert failed: {e:#}");
@@ -1024,6 +1090,20 @@ pub async fn oidc_callback_handler(
             )
             .into_response();
         }
+    };
+    let user = match sync {
+        Some((role, namespaces)) => match sync_oidc_user(&auth.db, user, role, namespaces) {
+            Ok(u) => u,
+            Err(e) => {
+                log::error!("OIDC group sync failed: {e:#}");
+                return err(
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    "Failed to apply group mapping",
+                )
+                .into_response();
+            }
+        },
+        None => user,
     };
     if !user.enabled {
         return err(StatusCode::FORBIDDEN, "This account has been disabled").into_response();
@@ -1263,6 +1343,39 @@ pub async fn logout_handler(
         None => auth.db.bump_token_version(&claims.sub).is_ok(),
     };
     Json(serde_json::json!({ "success": true, "sessions_revoked": revoked })).into_response()
+}
+
+#[cfg(test)]
+mod oidc_group_sync_tests {
+    use super::*;
+
+    #[test]
+    fn group_changes_update_role_and_namespaces_and_revoke_old_sessions() {
+        let db = UserDb::open(":memory:").unwrap();
+        let u = db.upsert_oidc_user("sub-1", Role::User).unwrap();
+        let tv0 = u.token_version;
+        // Nothing changed: no revocation.
+        let u = sync_oidc_user(&db, u, Role::User, None).unwrap();
+        assert_eq!(u.token_version, tv0);
+        // Narrowed to a namespace: allow-list stored, sessions revoked.
+        let u = sync_oidc_user(&db, u, Role::User, Some(vec!["team-a".into()])).unwrap();
+        assert_eq!(
+            db.get_namespaces(&u.id).unwrap(),
+            Some(vec!["team-a".to_string()])
+        );
+        assert!(u.token_version > tv0);
+        // Promoted to admin: role changes, the allow-list is dropped (admins are unrestricted).
+        let tv1 = u.token_version;
+        let u = sync_oidc_user(&db, u, Role::Admin, Some(vec!["team-a".into()])).unwrap();
+        assert_eq!(u.role, Role::Admin);
+        assert_eq!(db.get_namespaces(&u.id).unwrap(), None);
+        assert!(u.token_version > tv1);
+        // Demoted again.
+        let tv2 = u.token_version;
+        let u = sync_oidc_user(&db, u, Role::Viewer, None).unwrap();
+        assert_eq!(u.role, Role::Viewer);
+        assert!(u.token_version > tv2);
+    }
 }
 
 #[cfg(test)]

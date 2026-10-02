@@ -94,6 +94,9 @@ pub struct IdTokenClaims {
     pub email: Option<String>,
     pub preferred_username: Option<String>,
     pub name: Option<String>,
+    /// Everything else in the token, for the configurable groups claim.
+    #[serde(flatten)]
+    pub extra: std::collections::HashMap<String, serde_json::Value>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -459,6 +462,7 @@ mod tests {
             email: None,
             preferred_username: None,
             name: None,
+            extra: Default::default(),
         }
     }
 
