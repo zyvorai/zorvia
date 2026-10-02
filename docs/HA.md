@@ -1,7 +1,8 @@
 # Control-plane availability
 
-Zorvia's state (users, audit trail, durable operations, schedules) is SQLite and JSON
-files under `/data`, on one PersistentVolumeClaim. That decides the supported topology.
+By default Zorvia's state (users, audit trail, durable operations, schedules) is SQLite and JSON
+files under `/data`, on one PersistentVolumeClaim, which decides the topology: one replica with fast
+failover. With PostgreSQL configured it can run two active replicas (below).
 
 ## Supported: one replica, fast failover (active/standby)
 
@@ -18,17 +19,34 @@ attempts), schedules and backup history.
 The chart uses `strategy: Recreate` on RWO so the new pod is not blocked by a
 Multi-Attach error. Upgrades therefore have a short API outage too.
 
-## Not supported: two replicas on a ReadWriteOnce volume
+## Beta: two replicas on PostgreSQL (active/active API)
 
-Two writers on one SQLite file are unsafe, and an RWO volume cannot be mounted from two
-nodes anyway. The chart fails to render when `replicaCount > 1` and `persistence.accessModes`
-has no `ReadWriteMany`. Even on RWX, active/active is not a tested topology; leader election
-(`Lease zorvia-schedulers`) only keeps background loops single-instance.
+With `database.existingSecret` set ([POSTGRES.md](POSTGRES.md)) users, tokens, revocations, the
+operations queue, the audit trail and the JSON documents (backup and power schedules, warm pools,
+alerts, webhooks, migration history) live in PostgreSQL, so any replica can serve any request and a
+replica loss costs only the in-flight requests, not a volume re-attach.
 
-## Planned
+```bash
+helm upgrade --install zorvia charts/zorvia -f charts/zorvia/values-production.yaml -f charts/zorvia/values-ha.yaml
+```
 
-A PostgreSQL backend for users, audit and operations would allow true active/active. It is
-not part of the current release.
+The chart refuses `replicaCount > 1` unless a database is configured, `api.leaderElection` is on, and
+`ha.acceptLocalState: true` confirms the two things that stay per replica: commercial-offerings records
+(`ZORVIA_COMMERCIAL_DB`, an Experimental single-instance feature) and the optional JSONL audit sidecar.
+With several replicas `/data` is an `emptyDir`, rolling updates replace `Recreate`, and a
+PodDisruptionBudget plus preferred anti-affinity spread the pods.
+
+Only the lease holder runs the schedulers and the operations reconciler; the others serve the API.
+Two replicas saving the *same* JSON document in the same instant are last-writer-wins.
+
+PostgreSQL becomes the single point of failure, so run it with its own HA (CloudNativePG, Patroni, a
+managed service). Failover of that database and leader failover with an operation mid-flight have not
+been measured.
+
+## Not supported: two replicas on SQLite
+
+Two writers on one SQLite file are unsafe, and an RWO volume cannot be mounted from two nodes anyway.
+The chart fails to render `replicaCount > 1` without a database.
 
 Measured so far: an API pod restart (`kubectl rollout restart`) takes about 40 to 50 s to a healthy API on the reference lab, with sessions and VMs unaffected ([SUPPORT_MATRIX.md](SUPPORT_MATRIX.md)). That is a planned restart, not node loss; no node-loss time has been recorded.
 

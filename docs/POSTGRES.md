@@ -1,6 +1,6 @@
 # PostgreSQL backend
 
-Status: **Beta, phases 1-3 (auth store, operations queue, audit trail).**
+Status: **Beta (auth store, operations queue, audit trail, JSON documents); two active replicas supported with the caveats below.**
 
 ## What moves
 
@@ -9,12 +9,17 @@ Status: **Beta, phases 1-3 (auth store, operations queue, audit trail).**
 | Users, API tokens, session revocations, TOTP state, login throttle | **PostgreSQL** |
 | Durable operations (`ops.db`): queue, state, progress, results | **PostgreSQL** |
 | Audit trail (`audit.db`) | **PostgreSQL** (every replica writes to it; reads refresh at most once a second) |
-| Schedules, warm pools, alerts and other JSON state | Files on the data volume |
+| JSON documents: backup and power schedules, warm pools, alerts, webhooks, migration history | **PostgreSQL** (`state_docs` table, one row per document) |
+| Commercial-offerings records (`commercial.db`), JSONL audit sidecar | Per replica, on local disk (not for multi-replica) |
 
-Because the JSON state files (schedules, warm pools, alerts, ...) are still per replica, **running two active replicas is not yet supported.** What you get now:
-sign-in state and the operation queue survive the loss of the data volume and are the same for every replica. Token revocation
-and TOTP replay protection hold across replicas, an idempotency key creates one operation even when two replicas race on it,
-and only one replica can claim an operation (all covered by the race tests below).
+Two active replicas are supported ([HA.md](HA.md), `values-ha.yaml`): any replica serves any request, token revocation and TOTP
+replay protection hold across replicas, an idempotency key creates one operation even when replicas race on it, only one replica
+claims an operation, and only the lease holder runs schedulers. What stays per replica is listed above; the chart makes you
+acknowledge it (`ha.acceptLocalState`).
+
+JSON documents are loaded on every request and saved whole, so replicas see each other's changes immediately; two replicas saving
+the same document in the same instant are last-writer-wins. An installation switching to PostgreSQL keeps its files as a
+fallback: a document is read from its file until the first save writes it to the database.
 
 ### Operations on a shared store
 

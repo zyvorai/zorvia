@@ -8,7 +8,7 @@ metadata:
     {{- include "zorvia.labels" . | nindent 4 }}
 spec:
   replicas: {{ .Values.replicaCount }}
-  {{- if not (and .Values.persistence.enabled (has "ReadWriteMany" .Values.persistence.accessModes)) }}
+  {{- if not (or (include "zorvia.multiReplica" .) (and .Values.persistence.enabled (has "ReadWriteMany" .Values.persistence.accessModes))) }}
   # A ReadWriteOnce volume cannot be attached by the new pod while the old one
   # still holds it (Multi-Attach error), so replace rather than surge.
   strategy:
@@ -237,7 +237,7 @@ spec:
               mountPath: /certs
               readOnly: true
             {{- end }}
-            {{- if .Values.persistence.enabled }}
+            {{- if or .Values.persistence.enabled (include "zorvia.multiReplica" .) }}
             - name: data
               mountPath: /data
             {{- end }}
@@ -246,7 +246,11 @@ spec:
         - name: tls-certs
           emptyDir: {}
         {{- end }}
-        {{- if .Values.persistence.enabled }}
+        {{- if include "zorvia.multiReplica" . }}
+        # Replicas share PostgreSQL, not a volume: /data is scratch space.
+        - name: data
+          emptyDir: {}
+        {{- else if .Values.persistence.enabled }}
         - name: data
           persistentVolumeClaim:
             claimName: {{ include "zorvia.fullname" . }}-data
