@@ -85,7 +85,7 @@ pub async fn list_audit_logs_handler(
     let s = state.read().await;
     let audit = s.audit.clone();
     drop(s);
-    let trail = audit.read().await;
+    let trail = crate::audit_trail::read_fresh(&audit).await;
 
     let mut matched: Vec<&crate::audit_trail::AuditEntry> = trail
         .entries
@@ -116,7 +116,7 @@ pub async fn audit_stats_handler(State(state): State<SharedState>) -> impl IntoR
     let s = state.read().await;
     let audit = s.audit.clone();
     drop(s);
-    let trail = audit.read().await;
+    let trail = crate::audit_trail::read_fresh(&audit).await;
 
     let mut by_action: BTreeMap<&'static str, u64> = BTreeMap::new();
     let mut by_user: BTreeMap<String, u64> = BTreeMap::new();
@@ -167,7 +167,7 @@ pub async fn export_audit_logs_handler(
     let s = state.read().await;
     let audit = s.audit.clone();
     drop(s);
-    let trail = audit.read().await;
+    let trail = crate::audit_trail::read_fresh(&audit).await;
     let limit = q.limit.clamp(1, 50_000);
     let body = trail.export_jsonl(q.user.as_deref(), q.resource_type.as_deref(), limit);
     (

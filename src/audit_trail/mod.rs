@@ -1,12 +1,13 @@
-//! Audit Trail - Comprehensive audit event tracking with optional SQLite persistence.
+//! Audit Trail - Comprehensive audit event tracking with optional SQLite persistence,
+//! or PostgreSQL (`ZORVIA_DATABASE_URL`) so every replica writes to and reads from one trail.
 
+#[cfg(feature = "web")]
+use crate::store::{Backend, Row};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 #[cfg(feature = "web")]
 use std::path::Path;
-#[cfg(feature = "web")]
-use std::sync::Mutex;
 
 use crate::utils::generate_id;
 
@@ -14,9 +15,12 @@ use crate::utils::generate_id;
 pub struct AuditTrail {
     pub entries: Vec<AuditEntry>,
     pub max_entries: usize,
-    /// When set, every `record` is also written to SQLite (web builds only).
+    /// When set, every `record` is also written to SQLite or PostgreSQL (web builds only).
     #[cfg(feature = "web")]
-    db: Option<Mutex<rusqlite::Connection>>,
+    db: Option<Backend>,
+    /// When the in-memory window was last read from a shared database.
+    #[cfg(feature = "web")]
+    refreshed: Option<std::time::Instant>,
 }
 
 impl Clone for AuditTrail {
@@ -26,6 +30,8 @@ impl Clone for AuditTrail {
             max_entries: self.max_entries,
             #[cfg(feature = "web")]
             db: None,
+            #[cfg(feature = "web")]
+            refreshed: None,
         }
     }
 }
@@ -87,6 +93,8 @@ impl AuditTrail {
             max_entries,
             #[cfg(feature = "web")]
             db: None,
+            #[cfg(feature = "web")]
+            refreshed: None,
         }
     }
 
@@ -94,6 +102,26 @@ impl AuditTrail {
     pub fn from_env() -> Self {
         #[cfg(feature = "web")]
         {
+            if let Some(url) = crate::store::database_url() {
+                return match Self::open_postgres(&url, 10000) {
+                    Ok(mut t) => {
+                        if std::env::var("ZORVIA_DATABASE_IMPORT").as_deref() == Ok("1") {
+                            if let Some(p) = Self::sqlite_path_from_env() {
+                                match t.import_from_sqlite(&p) {
+                                    Ok(0) => {}
+                                    Ok(n) => log::info!("imported {n} audit entries from {p}"),
+                                    Err(e) => log::warn!("audit import from {p} failed: {e}"),
+                                }
+                            }
+                        }
+                        t
+                    }
+                    Err(e) => {
+                        log::warn!("Audit PostgreSQL unavailable ({e}); using in-memory trail");
+                        Self::default()
+                    }
+                };
+            }
             let path = std::env::var("ZORVIA_AUDIT_DB").ok().or_else(|| {
                 std::env::var("ZORVIA_AUTH_DB").ok().map(|auth| {
                     let p = std::path::PathBuf::from(auth);
@@ -123,8 +151,8 @@ impl AuditTrail {
         if let Some(parent) = path.parent() {
             std::fs::create_dir_all(parent).ok();
         }
-        let conn = rusqlite::Connection::open(path)?;
-        conn.execute_batch(
+        let db = Backend::sqlite(rusqlite::Connection::open(path)?);
+        db.batch(
             "CREATE TABLE IF NOT EXISTS audit_entries (
                 id TEXT PRIMARY KEY,
                 timestamp TEXT NOT NULL,
@@ -143,7 +171,8 @@ impl AuditTrail {
         let mut trail = Self {
             entries: Vec::new(),
             max_entries,
-            db: Some(Mutex::new(conn)),
+            db: Some(db),
+            refreshed: None,
         };
         trail.reload_from_db()?;
         log::info!(
@@ -155,39 +184,133 @@ impl AuditTrail {
     }
 
     #[cfg(feature = "web")]
+    fn sqlite_path_from_env() -> Option<String> {
+        let p = std::env::var("ZORVIA_AUDIT_DB").ok().or_else(|| {
+            std::env::var("ZORVIA_AUTH_DB").ok().map(|auth| {
+                std::path::PathBuf::from(auth)
+                    .parent()
+                    .unwrap_or_else(|| Path::new("."))
+                    .join("audit.db")
+                    .to_string_lossy()
+                    .to_string()
+            })
+        })?;
+        Path::new(&p).exists().then_some(p)
+    }
+
+    /// One-time copy of a SQLite audit database into an empty shared store. Entries
+    /// already present (same id) are kept; returns how many were added.
+    #[cfg(feature = "web")]
+    pub fn import_from_sqlite(&mut self, path: &str) -> anyhow::Result<usize> {
+        let Some(db) = &self.db else { return Ok(0) };
+        let existing = db
+            .query_one("SELECT COUNT(*) FROM audit_entries", &[])?
+            .map(|r| r.int(0))
+            .unwrap_or(0);
+        if existing > 0 {
+            return Ok(0);
+        }
+        let src = Backend::sqlite(rusqlite::Connection::open_with_flags(
+            path,
+            rusqlite::OpenFlags::SQLITE_OPEN_READ_ONLY,
+        )?);
+        let rows = src.query(
+            "SELECT id, timestamp, user_name, action, resource_type, resource_name, namespace,
+                    details, ip_address, success, severity FROM audit_entries",
+            &[],
+        )?;
+        let mut n = 0;
+        for r in &rows {
+            n += db.exec(
+                "INSERT INTO audit_entries
+                 (id, timestamp, user_name, action, resource_type, resource_name, namespace,
+                  details, ip_address, success, severity)
+                 VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11)
+                 ON CONFLICT (id) DO NOTHING",
+                &(0..11)
+                    .map(|i| match i {
+                        9 => r.int(9).into(),
+                        _ => r.opt_text(i).unwrap_or_default().into(),
+                    })
+                    .collect::<Vec<crate::store::Value>>(),
+            )? as usize;
+        }
+        self.reload_from_db()?;
+        Ok(n)
+    }
+
+    /// The trail in PostgreSQL, shared by every replica.
+    #[cfg(feature = "web")]
+    pub fn open_postgres(url: &str, max_entries: usize) -> anyhow::Result<Self> {
+        let db = Backend::postgres(url)?;
+        db.batch(
+            "SELECT pg_advisory_xact_lock(727272003);
+            CREATE TABLE IF NOT EXISTS audit_entries (
+                id TEXT PRIMARY KEY,
+                timestamp TEXT NOT NULL,
+                user_name TEXT NOT NULL,
+                action TEXT NOT NULL,
+                resource_type TEXT NOT NULL,
+                resource_name TEXT NOT NULL,
+                namespace TEXT NOT NULL,
+                details TEXT NOT NULL,
+                ip_address TEXT NOT NULL,
+                success BIGINT NOT NULL,
+                severity TEXT NOT NULL
+            );
+            CREATE INDEX IF NOT EXISTS idx_audit_ts ON audit_entries(timestamp);",
+        )?;
+        let mut trail = Self {
+            entries: Vec::new(),
+            max_entries,
+            db: Some(db),
+            refreshed: None,
+        };
+        trail.reload_from_db()?;
+        log::info!(
+            "Audit trail: PostgreSQL ({} entries loaded)",
+            trail.entries.len()
+        );
+        Ok(trail)
+    }
+
+    /// True when the trail lives in a database other replicas also write to.
+    #[cfg(feature = "web")]
+    pub fn is_shared(&self) -> bool {
+        self.db.as_ref().is_some_and(|d| d.is_postgres())
+    }
+
+    /// Re-read the newest entries from a shared database (at most once a second), so a
+    /// replica shows what the others recorded. A no-op for SQLite and memory.
+    #[cfg(feature = "web")]
+    pub fn refresh_shared(&mut self) {
+        if !self.is_shared() {
+            return;
+        }
+        if self
+            .refreshed
+            .is_some_and(|t| t.elapsed() < std::time::Duration::from_secs(1))
+        {
+            return;
+        }
+        match self.reload_from_db() {
+            Ok(()) => self.refreshed = Some(std::time::Instant::now()),
+            Err(e) => log::warn!("audit: cannot refresh from the shared store: {e}"),
+        }
+    }
+
+    #[cfg(feature = "web")]
     fn reload_from_db(&mut self) -> anyhow::Result<()> {
         let Some(db) = &self.db else {
             return Ok(());
         };
-        let conn = db.lock().map_err(|e| anyhow::anyhow!("{e}"))?;
-        let mut stmt = conn.prepare(
+        let rows = db.query(
             "SELECT id, timestamp, user_name, action, resource_type, resource_name, namespace,
                     details, ip_address, success, severity
-             FROM audit_entries ORDER BY timestamp DESC LIMIT ?1",
+             FROM audit_entries ORDER BY timestamp DESC, id DESC LIMIT ?1",
+            &[(self.max_entries as i64).into()],
         )?;
-        let rows = stmt.query_map([self.max_entries as i64], |row| {
-            let details_s: String = row.get(7)?;
-            let success: i64 = row.get(9)?;
-            Ok(AuditEntry {
-                id: row.get(0)?,
-                timestamp: DateTime::parse_from_rfc3339(&row.get::<_, String>(1)?)
-                    .map(|d| d.with_timezone(&Utc))
-                    .unwrap_or_else(|_| Utc::now()),
-                user: row.get(2)?,
-                action: action_from_str(&row.get::<_, String>(3)?),
-                resource_type: row.get(4)?,
-                resource_name: row.get(5)?,
-                namespace: row.get(6)?,
-                details: serde_json::from_str(&details_s).unwrap_or(Value::Null),
-                ip_address: row.get(8)?,
-                success: success != 0,
-                severity: severity_from_str(&row.get::<_, String>(10)?),
-            })
-        })?;
-        let mut entries = Vec::new();
-        for r in rows {
-            entries.push(r?);
-        }
+        let mut entries: Vec<AuditEntry> = rows.iter().map(row_to_entry).collect();
         entries.reverse();
         self.entries = entries;
         Ok(())
@@ -196,26 +319,27 @@ impl AuditTrail {
     pub fn record(&mut self, entry: AuditEntry) {
         #[cfg(feature = "web")]
         if let Some(db) = &self.db {
-            if let Ok(conn) = db.lock() {
-                let _ = conn.execute(
-                    "INSERT OR REPLACE INTO audit_entries
-                     (id, timestamp, user_name, action, resource_type, resource_name, namespace,
-                      details, ip_address, success, severity)
-                     VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11)",
-                    rusqlite::params![
-                        entry.id,
-                        entry.timestamp.to_rfc3339(),
-                        entry.user,
-                        action_to_str(&entry.action),
-                        entry.resource_type,
-                        entry.resource_name,
-                        entry.namespace,
-                        entry.details.to_string(),
-                        entry.ip_address,
-                        if entry.success { 1 } else { 0 },
-                        severity_to_str(&entry.severity),
-                    ],
-                );
+            if let Err(e) = db.exec(
+                "INSERT INTO audit_entries
+                 (id, timestamp, user_name, action, resource_type, resource_name, namespace,
+                  details, ip_address, success, severity)
+                 VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11)
+                 ON CONFLICT (id) DO NOTHING",
+                &[
+                    entry.id.clone().into(),
+                    entry.timestamp.to_rfc3339().into(),
+                    entry.user.clone().into(),
+                    action_to_str(&entry.action).into(),
+                    entry.resource_type.clone().into(),
+                    entry.resource_name.clone().into(),
+                    entry.namespace.clone().into(),
+                    entry.details.to_string().into(),
+                    entry.ip_address.clone().into(),
+                    entry.success.into(),
+                    severity_to_str(&entry.severity).into(),
+                ],
+            ) {
+                log::warn!("audit: cannot persist entry {}: {e}", entry.id);
             }
         }
         self.entries.push(entry.clone());
@@ -345,6 +469,18 @@ impl AuditTrail {
     }
 }
 
+/// Read guard on the shared trail, refreshed first when the trail lives in a database
+/// other replicas write to.
+#[cfg(feature = "web")]
+pub async fn read_fresh(
+    audit: &std::sync::Arc<tokio::sync::RwLock<AuditTrail>>,
+) -> tokio::sync::RwLockReadGuard<'_, AuditTrail> {
+    if audit.read().await.is_shared() {
+        audit.write().await.refresh_shared();
+    }
+    audit.read().await
+}
+
 #[derive(Debug, Clone)]
 pub struct AuditStats {
     pub total: usize,
@@ -361,6 +497,30 @@ impl Default for AuditTrail {
 }
 
 #[cfg(feature = "web")]
+#[cfg(feature = "web")]
+fn row_to_entry(row: &Row) -> AuditEntry {
+    AuditEntry {
+        id: row.opt_text(0).unwrap_or_default(),
+        timestamp: row
+            .opt_text(1)
+            .and_then(|t| DateTime::parse_from_rfc3339(&t).ok())
+            .map(|d| d.with_timezone(&Utc))
+            .unwrap_or_else(Utc::now),
+        user: row.opt_text(2).unwrap_or_default(),
+        action: action_from_str(&row.opt_text(3).unwrap_or_default()),
+        resource_type: row.opt_text(4).unwrap_or_default(),
+        resource_name: row.opt_text(5).unwrap_or_default(),
+        namespace: row.opt_text(6).unwrap_or_default(),
+        details: row
+            .opt_text(7)
+            .and_then(|d| serde_json::from_str(&d).ok())
+            .unwrap_or(Value::Null),
+        ip_address: row.opt_text(8).unwrap_or_default(),
+        success: row.int(9) != 0,
+        severity: severity_from_str(&row.opt_text(10).unwrap_or_default()),
+    }
+}
+
 fn action_to_str(a: &AuditAction) -> &'static str {
     match a {
         AuditAction::Create => "Create",
@@ -496,5 +656,55 @@ mod tests {
         assert!(lines[1].contains("\"user\":\"a\""));
         let filtered = trail.export_jsonl(Some("b"), Some("vm"), 10);
         assert_eq!(filtered.lines().count(), 1);
+    }
+
+    /// Two replicas on one PostgreSQL see each other's entries after a refresh, and an
+    /// old SQLite trail can be imported once. Needs `ZORVIA_TEST_POSTGRES_URL`.
+    #[test]
+    fn postgres_trail_is_shared_between_replicas() {
+        let Ok(url) = std::env::var("ZORVIA_TEST_POSTGRES_URL") else {
+            eprintln!("skipped: ZORVIA_TEST_POSTGRES_URL is not set");
+            return;
+        };
+        let reset = || {
+            let t = AuditTrail::open_postgres(&url, 100).unwrap();
+            t.db.as_ref()
+                .unwrap()
+                .batch("DROP TABLE IF EXISTS audit_entries")
+                .unwrap();
+        };
+        reset();
+        let mut a = AuditTrail::open_postgres(&url, 100).unwrap();
+        let mut b = AuditTrail::open_postgres(&url, 100).unwrap();
+        assert!(a.is_shared());
+        a.log_action("alice", AuditAction::Login, "auth", "login", "ns", true);
+        b.log_action("bob", AuditAction::Delete, "vm", "vm1", "ns", false);
+        assert_eq!(a.entries.len(), 1);
+        a.refresh_shared();
+        b.refresh_shared();
+        for t in [&a, &b] {
+            let users: Vec<_> = t.entries.iter().map(|e| e.user.as_str()).collect();
+            assert_eq!(users, ["alice", "bob"]);
+            assert!(t.entries[1].severity == AuditSeverity::High && !t.entries[1].success);
+        }
+        // The window is capped like the SQLite one.
+        let mut small = AuditTrail::open_postgres(&url, 1).unwrap();
+        assert_eq!(small.entries.len(), 1);
+        assert_eq!(small.entries[0].user, "bob");
+        small.refresh_shared();
+
+        // Import from an existing SQLite trail, once.
+        reset();
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("audit.db");
+        {
+            let mut old = AuditTrail::open_persistent(&path, 100).unwrap();
+            old.log_action("old-admin", AuditAction::Create, "vm", "legacy", "ns", true);
+        }
+        let mut fresh = AuditTrail::open_postgres(&url, 100).unwrap();
+        assert_eq!(fresh.import_from_sqlite(path.to_str().unwrap()).unwrap(), 1);
+        assert_eq!(fresh.import_from_sqlite(path.to_str().unwrap()).unwrap(), 0);
+        assert_eq!(fresh.entries[0].resource_name, "legacy");
+        reset();
     }
 }

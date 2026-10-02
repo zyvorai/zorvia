@@ -54,7 +54,7 @@ pub async fn security_dashboard_handler(State(state): State<SharedState>) -> imp
         Err(_) => Vec::new(),
     };
 
-    let trail = audit.read().await;
+    let trail = crate::audit_trail::read_fresh(&audit).await;
     let failed_logins: Vec<serde_json::Value> = trail
         .entries
         .iter()
