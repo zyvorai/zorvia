@@ -13,6 +13,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   drivers (Rook-Ceph RBD incl. Block volumes, and the hostpath driver). Limits are listed in
   docs/FEATURE_MATURITY.md and docs/SUPPORT_MATRIX.md.
 
+### Added (Block restore)
+
+- Off-cluster restore into Block volumes: the manifest records `source_block`, restores default to the source's
+  volume mode, and `volume_mode` (`Block`/`Filesystem`) on the restore request overrides it. See
+  docs/OFFCLUSTER_BACKUP.md.
+
 ### Added (guest agent)
 
 - `guest_agent` on `POST /api/vms` (`zyvor` | `qemu` | `none`, default `ZORVIA_GUEST_AGENT`) installs

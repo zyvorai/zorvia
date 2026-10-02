@@ -29,6 +29,9 @@ pub struct DiskInput {
     pub pvc: String,
     /// Path of the disk image inside the pod (a mounted, read-only PVC).
     pub path: String,
+    /// The PVC is `volumeMode: Block` and `path` is its raw device.
+    #[serde(default)]
+    pub block: bool,
 }
 
 #[derive(Clone)]
@@ -54,6 +57,8 @@ pub struct DiskSummary {
     pub size_bytes: u64,
     pub stored_bytes: u64,
     pub sha256: String,
+    /// The source volume was Block mode (restore defaults to the same mode).
+    pub source_block: bool,
 }
 
 #[derive(Debug, Serialize)]
@@ -278,7 +283,9 @@ async fn upload_disk(
             );
         }
         client.complete_multipart(key, &upload_id, &etags).await?;
-        Ok::<_, anyhow::Error>(digest.finish(&disk.name, &disk.pvc, key))
+        let mut entry = digest.finish(&disk.name, &disk.pvc, key);
+        entry.source_block = disk.block;
+        Ok::<_, anyhow::Error>(entry)
     }
     .await;
 
@@ -571,6 +578,7 @@ pub async fn run(
                 size_bytes: d.size_bytes,
                 stored_bytes: d.stored_bytes,
                 sha256: d.sha256.clone(),
+                source_block: d.source_block,
             })
             .collect(),
         encrypted: cfg.encryption_key.is_some(),
@@ -584,8 +592,42 @@ pub async fn run(
 pub struct RestoreDisk {
     /// Disk name as recorded in the manifest.
     pub name: String,
-    /// Where to write it (a freshly provisioned, writable PVC mount).
+    /// Where to write it: a `disk.img` on a freshly provisioned, writable
+    /// Filesystem PVC mount, or (`block`) the raw device of a Block PVC.
     pub path: String,
+    #[serde(default)]
+    pub block: bool,
+}
+
+/// Device node a Block-mode restore target is attached at (see
+/// `kube::backup_job::restore_device_path`).
+fn restore_device_path(name: &str) -> String {
+    format!("/dev/zorvia-restore-{name}")
+}
+
+/// Open the destination of one disk. A file is created and must not exist; a Block
+/// device already exists, is opened for writing without truncation and must be at
+/// least `need` bytes. The bool says whether the target is a device (never deleted
+/// on failure).
+fn open_restore_target(path: &str, device: bool, need: u64) -> Result<std::fs::File> {
+    use std::io::{Seek, SeekFrom};
+    if !device {
+        return std::fs::OpenOptions::new()
+            .write(true)
+            .create_new(true)
+            .open(path)
+            .with_context(|| format!("create {path} (must not already exist)"));
+    }
+    let mut f = std::fs::OpenOptions::new()
+        .write(true)
+        .open(path)
+        .with_context(|| format!("open block device {path}"))?;
+    let size = f.seek(SeekFrom::End(0))?;
+    f.seek(SeekFrom::Start(0))?;
+    if size < need {
+        bail!("block device {path} is {size} bytes, the backup needs {need}");
+    }
+    Ok(f)
 }
 
 #[derive(Clone)]
@@ -619,8 +661,14 @@ impl RestoreConfig {
             if !dns_label(&d.name) {
                 bail!("invalid disk name '{}'", d.name);
             }
-            if !d.path.starts_with("/restore/") || d.path.contains("..") {
-                bail!("restore path '{}' must be under /restore/", d.path);
+            let device_ok = d.block && d.path == restore_device_path(&d.name);
+            if !device_ok && (d.block || !d.path.starts_with("/restore/") || d.path.contains(".."))
+            {
+                bail!(
+                    "restore path '{}' must be under /restore/ (or /dev/zorvia-restore-{} for a Block target)",
+                    d.path,
+                    d.name
+                );
             }
         }
         let manifest_key = req("RESTORE_MANIFEST_KEY")?;
@@ -679,11 +727,7 @@ pub async fn run_restore(
             &format!("restoring {}", disk.name),
         );
 
-        let mut file = std::fs::OpenOptions::new()
-            .write(true)
-            .create_new(true)
-            .open(&want.path)
-            .with_context(|| format!("create {} (must not already exist)", want.path))?;
+        let mut file = open_restore_target(&want.path, want.block, disk.size_bytes)?;
         let mut written = 0u64;
         // This disk's slice of the 2..98 progress range.
         let base = 2 + 96 * i as u64 / n;
@@ -709,7 +753,10 @@ pub async fn run_restore(
         });
         drop(file);
         if let Err(e) = result {
-            let _ = std::fs::remove_file(&want.path);
+            // A created file is removed; a Block device is the volume itself and stays.
+            if !want.block {
+                let _ = std::fs::remove_file(&want.path);
+            }
             return Err(e.context(format!("restoring disk '{}'", disk.name)));
         }
         restored.push(DiskSummary {
@@ -717,6 +764,7 @@ pub async fn run_restore(
             size_bytes: disk.size_bytes,
             stored_bytes: disk.stored_bytes,
             sha256: disk.sha256.clone(),
+            source_block: disk.source_block,
         });
     }
     progress(99, "done");
@@ -744,6 +792,7 @@ mod tests {
                 size: stored.len() as u64,
                 sha256: sha256_hex(stored),
             }],
+            source_block: false,
         }
     }
 
@@ -883,6 +932,43 @@ mod tests {
         )]))
         .unwrap();
         assert_eq!(cfg.disks[0].path, "/dev/zorvia-disk-data");
+    }
+
+    #[test]
+    fn restore_accepts_only_the_exact_block_target_for_a_block_disk() {
+        let base = |disks: &str| RestoreConfig::from_env(restore_env(&[("RESTORE_DISKS", disks)]));
+        assert!(
+            base(r#"[{"name":"data","path":"/dev/zorvia-restore-data","block":true}]"#).is_ok()
+        );
+        // Block flag without the exact device path, device path without the flag, or any other device.
+        assert!(base(r#"[{"name":"data","path":"/restore/data/disk.img","block":true}]"#).is_err());
+        assert!(base(r#"[{"name":"data","path":"/dev/zorvia-restore-data"}]"#).is_err());
+        assert!(base(r#"[{"name":"data","path":"/dev/sda","block":true}]"#).is_err());
+        assert!(
+            base(r#"[{"name":"data","path":"/dev/zorvia-restore-other","block":true}]"#).is_err()
+        );
+    }
+
+    #[test]
+    fn block_target_opening_checks_size_and_never_creates_or_truncates() {
+        let dir = std::env::temp_dir().join(format!("zorvia-blk-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let dev = dir.join("device");
+        std::fs::write(&dev, vec![9u8; 4096]).unwrap();
+        let p = dev.to_str().unwrap();
+        // Big enough: opened, contents kept (no truncation).
+        drop(open_restore_target(p, true, 4096).unwrap());
+        assert_eq!(std::fs::metadata(&dev).unwrap().len(), 4096);
+        // Too small for the backup: refused.
+        let e = open_restore_target(p, true, 8192).unwrap_err();
+        assert!(format!("{e:#}").contains("needs 8192"), "{e:#}");
+        // A missing device is an error, not a new file.
+        assert!(open_restore_target(dir.join("nope").to_str().unwrap(), true, 1).is_err());
+        // Filesystem targets must not exist yet.
+        assert!(open_restore_target(p, false, 1).is_err());
+        let fresh = dir.join("fresh.img");
+        assert!(open_restore_target(fresh.to_str().unwrap(), false, 1).is_ok());
+        std::fs::remove_dir_all(&dir).ok();
     }
 
     fn restore_env(extra: &[(&str, &str)]) -> impl Fn(&str) -> Option<String> {

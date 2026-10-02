@@ -28,12 +28,37 @@ pub struct RestoreParams {
     pub new_vm_name: String,
     pub storage_class: Option<String>,
     pub start: bool,
+    /// `Block` or `Filesystem`: the volume mode of the restored disks. Unset = the
+    /// mode each disk had when it was backed up.
+    #[serde(default)]
+    pub volume_mode: Option<String>,
 }
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct SourceDisk {
     pub name: String,
     pub size_bytes: u64,
+    /// The source volume was Block mode.
+    pub block: bool,
+}
+
+/// Whether a disk is restored into a Block volume: an explicit request wins,
+/// otherwise the disk's original mode.
+pub fn target_is_block(requested: Option<&str>, source_block: bool) -> bool {
+    match requested {
+        Some("Block") => true,
+        Some(_) => false,
+        None => source_block,
+    }
+}
+
+/// `Block` / `Filesystem` (case-insensitive) or an error.
+pub fn parse_volume_mode(s: &str) -> Result<&'static str> {
+    match s.trim().to_ascii_lowercase().as_str() {
+        "block" => Ok("Block"),
+        "filesystem" | "fs" => Ok("Filesystem"),
+        other => bail!("volume_mode must be Block or Filesystem, not '{other}'"),
+    }
 }
 
 /// Everything needed to plan a restore, taken from a finished off-cluster
@@ -97,6 +122,10 @@ pub fn source_from_op(op: &Operation) -> Result<RestoreSource> {
                     Some(SourceDisk {
                         name: d.get("name")?.as_str()?.to_string(),
                         size_bytes: d.get("size_bytes")?.as_u64()?,
+                        block: d
+                            .get("source_block")
+                            .and_then(|b| b.as_bool())
+                            .unwrap_or(false),
                     })
                 })
                 .collect()
@@ -131,17 +160,28 @@ pub fn pvc_size_gi(disk_bytes: u64) -> String {
     format!("{}Gi", padded.div_ceil(GIB).max(1))
 }
 
+/// Requested size of a Block restore target: the raw image rounded up to whole GiB
+/// (no filesystem, so no headroom).
+pub fn block_pvc_size_gi(disk_bytes: u64) -> String {
+    format!("{}Gi", disk_bytes.div_ceil(GIB).max(1))
+}
+
 pub fn restore_target_pvc_manifest(
     name: &str,
     namespace: &str,
     size_bytes: u64,
     storage_class: Option<&str>,
     op_id: &str,
+    block: bool,
 ) -> Value {
     let mut spec = json!({
         "accessModes": ["ReadWriteOnce"],
-        "volumeMode": "Filesystem",
-        "resources": {"requests": {"storage": pvc_size_gi(size_bytes)}},
+        "volumeMode": if block { "Block" } else { "Filesystem" },
+        "resources": {"requests": {"storage": if block {
+            block_pvc_size_gi(size_bytes)
+        } else {
+            pvc_size_gi(size_bytes)
+        }}},
     });
     if let Some(sc) = storage_class {
         spec["storageClassName"] = json!(sc);
@@ -312,10 +352,16 @@ pub fn enqueue_restore_in(
     new_vm_name: &str,
     storage_class: Option<String>,
     start: bool,
+    volume_mode: Option<String>,
 ) -> Result<Operation> {
     if !dns_label(new_vm_name) {
         bail!("new_vm_name must be a DNS label (lowercase letters, digits, '-')");
     }
+    let volume_mode = volume_mode
+        .as_deref()
+        .map(parse_volume_mode)
+        .transpose()?
+        .map(str::to_string);
     if !dns_label(namespace) {
         bail!("invalid namespace");
     }
@@ -335,6 +381,7 @@ pub fn enqueue_restore_in(
         new_vm_name: new_vm_name.to_string(),
         storage_class,
         start,
+        volume_mode,
     })?;
     Ok(db.create(new)?.0)
 }
@@ -365,6 +412,7 @@ pub fn enqueue_drill_in(
         new_vm_name: format!("drill-{short}"),
         storage_class: None,
         start: true,
+        volume_mode: None,
     })?;
     db.create(new)
 }
@@ -499,6 +547,7 @@ async fn restore_disks(
             d.size_bytes,
             p.storage_class.as_deref(),
             &ctx.op.id,
+            target_is_block(p.volume_mode.as_deref(), d.block),
         );
         let pvc: PersistentVolumeClaim = match serde_json::from_value(manifest) {
             Ok(p) => p,
@@ -526,8 +575,8 @@ async fn restore_disks(
             .map(|d| BackupDisk {
                 name: d.name.clone(),
                 pvc: mapping[&d.name].clone(),
-                // Restores always write a disk.img file into a Filesystem PVC.
-                block: false,
+                // Block target: the agent writes the raw device; Filesystem: a disk.img file.
+                block: target_is_block(p.volume_mode.as_deref(), d.block),
             })
             .collect(),
         env: target.agent_env(),
@@ -990,12 +1039,44 @@ mod tests {
         assert_eq!(pvc_size_gi(1), "1Gi");
         assert_eq!(pvc_size_gi(10 * GIB), "12Gi"); // 10Gi + 10% + 64Mi
         assert_eq!(pvc_size_gi(20 * GIB), "23Gi");
-        let m = restore_target_pvc_manifest("rs-1-root", "d", 10 * GIB, Some("longhorn"), "op-1");
+        let m = restore_target_pvc_manifest(
+            "rs-1-root",
+            "d",
+            10 * GIB,
+            Some("longhorn"),
+            "op-1",
+            false,
+        );
         assert_eq!(m["spec"]["storageClassName"], "longhorn");
         assert_eq!(m["spec"]["volumeMode"], "Filesystem");
         assert_eq!(m["spec"]["resources"]["requests"]["storage"], "12Gi");
-        let m = restore_target_pvc_manifest("rs-1-root", "d", GIB, None, "op-1");
+        let m = restore_target_pvc_manifest("rs-1-root", "d", GIB, None, "op-1", false);
         assert!(m["spec"].get("storageClassName").is_none());
+    }
+
+    #[test]
+    fn block_targets_are_raw_and_sized_without_filesystem_headroom() {
+        assert_eq!(block_pvc_size_gi(GIB), "1Gi");
+        assert_eq!(block_pvc_size_gi(GIB + 1), "2Gi");
+        assert_eq!(block_pvc_size_gi(10 * GIB), "10Gi");
+        let m = restore_target_pvc_manifest("rs-1-data", "d", 10 * GIB, Some("rbd"), "op-1", true);
+        assert_eq!(m["spec"]["volumeMode"], "Block");
+        assert_eq!(m["spec"]["resources"]["requests"]["storage"], "10Gi");
+        assert_eq!(m["spec"]["storageClassName"], "rbd");
+    }
+
+    #[test]
+    fn restore_mode_defaults_to_the_source_and_can_be_overridden() {
+        assert!(target_is_block(None, true));
+        assert!(!target_is_block(None, false));
+        assert!(
+            !target_is_block(Some("Filesystem"), true),
+            "explicit Filesystem wins"
+        );
+        assert!(target_is_block(Some("Block"), false), "explicit Block wins");
+        assert_eq!(parse_volume_mode("block").unwrap(), "Block");
+        assert_eq!(parse_volume_mode(" Filesystem ").unwrap(), "Filesystem");
+        assert!(parse_volume_mode("raw").is_err());
     }
 
     fn backup_op(db: &OperationsDb, offcluster: Option<Value>, done: bool) -> Operation {
@@ -1033,7 +1114,8 @@ mod tests {
             src.disks,
             vec![SourceDisk {
                 name: "rootdisk".into(),
-                size_bytes: 1000
+                size_bytes: 1000,
+                block: false,
             }]
         );
         assert!(src.encrypted);
@@ -1054,12 +1136,35 @@ mod tests {
     fn enqueue_validates_and_blocks_duplicate_restores() {
         let db = OperationsDb::open(":memory:").unwrap();
         let src = source_from_op(&backup_op(&db, Some(oc()), true)).unwrap();
-        assert!(enqueue_restore_in(&db, &src, "default", "Bad_Name", None, false).is_err());
-        let op = enqueue_restore_in(&db, &src, "default", "web-1-new", None, true).unwrap();
+        assert!(enqueue_restore_in(&db, &src, "default", "Bad_Name", None, false, None).is_err());
+        assert!(
+            enqueue_restore_in(
+                &db,
+                &src,
+                "default",
+                "web-1-x",
+                None,
+                false,
+                Some("raw".into())
+            )
+            .is_err(),
+            "unknown volume_mode is refused before queuing"
+        );
+        let op = enqueue_restore_in(
+            &db,
+            &src,
+            "default",
+            "web-1-new",
+            None,
+            true,
+            Some("block".into()),
+        )
+        .unwrap();
+        assert_eq!(op.params["volume_mode"], "Block");
         assert_eq!(op.kind, RESTORE_KIND);
         assert_eq!(op.max_attempts, 1);
         assert_eq!(op.params["source_op"], src.op_id);
-        assert!(enqueue_restore_in(&db, &src, "default", "web-1-new", None, false).is_err());
+        assert!(enqueue_restore_in(&db, &src, "default", "web-1-new", None, false, None).is_err());
     }
 
     #[test]
