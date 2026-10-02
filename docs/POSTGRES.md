@@ -6,7 +6,8 @@ Status: **Beta (auth store, operations queue, audit trail, JSON documents); two 
 
 | Store | Backend with `ZORVIA_DATABASE_URL` set |
 |---|---|
-| Users, API tokens, session revocations, TOTP state, login throttle | **PostgreSQL** |
+| Users, API tokens, session revocations, TOTP state | **PostgreSQL** |
+| Failed-login lockout counters | In memory, per replica (see below) |
 | Durable operations (`ops.db`): queue, state, progress, results | **PostgreSQL** |
 | Audit trail (`audit.db`) | **PostgreSQL** (every replica writes to it; reads refresh at most once a second) |
 | JSON documents: backup and power schedules, warm pools, alerts, webhooks, migration history | **PostgreSQL** (`state_docs` table, one row per document) |
@@ -51,6 +52,7 @@ untouched, so rollback is unsetting the URL.
 
 ## Limits
 
+- The failed-login lockout (8 failures, 15 minutes) is counted in memory per replica, so with N replicas an attacker gets up to N times the attempts before a lockout; it is not shared through PostgreSQL.
 - No automatic failover of PostgreSQL itself; use your operator (CloudNativePG, Patroni, managed service).
 - One statement is retried once on a dropped connection; there is no pool, each replica holds one connection.
 

@@ -27,7 +27,7 @@ kubectl -n zorvia-system get secret zorvia-auth \
 
 Lab mode (`ZORVIA_LAB_MODE=1`) is **off** in the shipped manifests: it allows known default passwords and a shared `ZORVIA_API_KEY` with full admin. The deploy script creates random credentials, so you do not need it. The API refuses fixed lab passwords outside lab mode — use `./scripts/create-auth-secret.sh` before applying manifests.
 
-Auth + audit SQLite live on PVCs (`zorvia-auth-data`, audit DB path via `ZORVIA_AUDIT_DB`) so accounts and the audit trail survive restarts.
+Auth + audit SQLite (or PostgreSQL, [POSTGRES.md](POSTGRES.md)) live on PVCs (`zorvia-auth-data`, audit DB path via `ZORVIA_AUDIT_DB`) so accounts and the audit trail survive restarts.
 
 **Helm alternative:**
 

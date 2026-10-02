@@ -17,12 +17,14 @@ Levels used by Zorvia (also exposed at `GET /api/v1/features` when the API is ru
 | `snapshots-restore` | Snapshots & restore | GA | Empty-disk caveat in docs |
 | `live-migration` | Live migration | GA | Needs shared storage |
 | `web-console` | Web console + auth | GA | JWT + tokens; OIDC opt-in |
-| `audit-trail` | Audit trail | GA | SQLite + `GET /api/audit/export` JSONL; optional `ZORVIA_AUDIT_JSONL` sidecar |
+| `audit-trail` | Audit trail | GA | SQLite (or [PostgreSQL](POSTGRES.md)) + `GET /api/audit/export` JSONL; optional `ZORVIA_AUDIT_JSONL` sidecar (per replica) |
 | `pod-ops` | Pods: logs, exec, events, YAML, restart/delete | Beta | `cluster.admin` only; `pods` delete + `pods/log` + `pods/exec` RBAC; exec, restart and delete audited — [PODS.md](PODS.md) |
 | `rescue-mode` | Rescue mode: hostname/SSH-key/enable-SSH via a Job-mounted disk | Beta | `cluster.admin` only; 3 of 5 UI operations wired (reset-password, install-packages, inspect deferred); needs on-cluster verification of the mounted PVC's disk-image path before trusting it against a production VM — [RESCUE.md](RESCUE.md) |
 | `schedulers` | Backup/power/alert/warm-pool | Beta | Lease election; in-process |
 | `rook-storage` | Rook-Ceph management | Beta | Bootstrap SA optional |
 | `atlas-storage` | Atlas storage integration: inventory, backend/RBD/object-store lifecycle, AI insights, observability, governance, DataBridge | Beta | Optional, gated on `ATLAS_URL`; `storage.admin`; disaster recovery is scaffolding on Atlas's own side — unverified without a 2nd real Ceph cluster — see [ATLAS_INTEGRATION.md](ATLAS_INTEGRATION.md) |
+| `postgres-store` | PostgreSQL store and two active replicas | Beta | Users/tokens, operations, audit and JSON documents in PostgreSQL; `values-ha.yaml` runs two replicas. Live-verified on a single-node lab; DB failover, leader failover under load and node-loss RTO not measured; commercial records and the JSONL sidecar stay per replica — [POSTGRES.md](POSTGRES.md), [HA.md](HA.md) |
+| `guest-agent-integration` | Zyvor guest agent: install, guest views, snapshot hooks, drill probe | Beta | Debian-family guests; read-only method set; freeze needs the drop-in Zorvia writes; Windows/RPM and real DB-flush hooks not verified — [GUEST_AGENT.md](GUEST_AGENT.md) |
 | `helm-chart` | Helm chart | Beta | Lab + hardened production values |
 | `oidc` | OIDC / SSO | Beta | `ZORVIA_OIDC_ENABLED=1` + PKCE/JWKS; lab bake-off [OIDC_LAB.md](OIDC_LAB.md) |
 | `ai-troubleshoot` | AI troubleshooting | Model only | Rules demo, not ML RCA |

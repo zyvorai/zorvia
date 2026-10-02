@@ -36,9 +36,10 @@ Start here: root [README.md](../README.md) (hero, gallery, quick start) · live 
 | [DEVICES.md](DEVICES.md) | GPU / SR-IOV / host-device passthrough: create, preflight, inventory (Experimental) |
 | [KEY_PROVIDER.md](KEY_PROVIDER.md) | Encrypting TOTP secrets at rest (local key, Vault Transit), rotation, 2FA reset |
 | [TLS_ROTATION.md](TLS_ROTATION.md) | Certificate hot reload (cert-manager, rotated Secrets) |
-| [GUEST_AGENT.md](GUEST_AGENT.md) | Installing and trusting the in-guest agent (GuestKit / qemu-guest-agent) at VM creation |
+| [GUEST_AGENT.md](GUEST_AGENT.md) | In-guest agent (GuestKit / qemu-guest-agent): install at creation, freeze fix, read-only guest views, snapshot hooks, drill probe |
 | [MAINTENANCE.md](MAINTENANCE.md) | Pre-drain plan: what a node drain would do to each VM |
-| [HA.md](HA.md) | Supported control-plane topology, failover behaviour, node-loss test |
+| [HA.md](HA.md) | Supported control-plane topology (one replica, or two on PostgreSQL), failover behaviour, node-loss test |
+| [POSTGRES.md](POSTGRES.md) | PostgreSQL store: what moves (users, operations, audit, JSON documents), import from SQLite, limits (Beta) |
 | [TENANCY.md](TENANCY.md) | Per-user namespace allow-lists |
 | [OFFCLUSTER_BACKUP.md](OFFCLUSTER_BACKUP.md) | Encrypted, verified S3 backups, restore, recovery drills, retention (Atlas bucket target) |
 | [VM_IMPORT.md](VM_IMPORT.md) | VMware import with h2kvm: waves, preflight, rollback |

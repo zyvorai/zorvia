@@ -68,7 +68,7 @@ pub const FEATURES: &[Feature] = &[
         id: "audit-trail",
         name: "Audit trail",
         maturity: Maturity::Ga,
-        notes: "SQLite persistence; GET /api/audit/export JSONL; optional ZORVIA_AUDIT_JSONL sidecar",
+        notes: "SQLite (or PostgreSQL) persistence; GET /api/audit/export JSONL; optional ZORVIA_AUDIT_JSONL sidecar (per replica)",
     },
     Feature {
         id: "pod-ops",
@@ -99,6 +99,18 @@ pub const FEATURES: &[Feature] = &[
         name: "Atlas storage integration: inventory, backend/RBD/object-store, AI insights, observability, governance, DataBridge",
         maturity: Maturity::Beta,
         notes: "Optional, gated on ATLAS_URL; storage.admin; disaster recovery is scaffolding on Atlas's own side, unverified without a 2nd real Ceph cluster; see docs/ATLAS_INTEGRATION.md",
+    },
+    Feature {
+        id: "postgres-store",
+        name: "PostgreSQL store and two active replicas",
+        maturity: Maturity::Beta,
+        notes: "Users/tokens, operations, audit and JSON documents in PostgreSQL (ZORVIA_DATABASE_URL); values-ha.yaml runs two replicas. Live-verified on a single-node lab; DB failover, leader failover under load and node-loss RTO not measured; commercial records and the JSONL sidecar stay per replica — docs/POSTGRES.md, docs/HA.md",
+    },
+    Feature {
+        id: "guest-agent-integration",
+        name: "Zyvor guest agent: install, guest views, snapshot hooks, drill probe",
+        maturity: Maturity::Beta,
+        notes: "Debian-family guests; read-only method set over the QGA channel; freeze needs the systemd drop-in Zorvia writes; Windows/RPM guests and real database-flush hooks not verified — docs/GUEST_AGENT.md",
     },
     Feature {
         id: "helm-chart",
