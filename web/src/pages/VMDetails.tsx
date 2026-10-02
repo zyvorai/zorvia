@@ -10,7 +10,7 @@ import { listAuditLogs, AuditLog } from '../api/audit'
 import {
   Play, Square, RotateCw, Trash2, Info, Activity, HardDrive,
   Network, Camera, Terminal, Cpu, MemoryStick, Pause, Wifi,
-  AlertCircle, Loader2, RefreshCw, Plus, Plug, Usb, Cloud, Settings, Wrench, Shield, MonitorPlay, Copy,
+  AlertCircle, Loader2, RefreshCw, Plus, Plug, Usb, Cloud, Settings, Wrench, Shield, MonitorPlay, Copy, Bot,
 } from 'lucide-react'
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts'
 import { useToastContext } from '../contexts/ToastContext'
@@ -31,6 +31,7 @@ import { usePermissions } from '../hooks/usePermissions'
 import ReadOnlyNotice from '../components/ReadOnlyNotice'
 import HotplugTab from './vm-details/HotplugTab'
 import DevicesTab from './vm-details/DevicesTab'
+import GuestAgentTab from './vm-details/GuestAgentTab'
 import CloudInitTab from './vm-details/CloudInitTab'
 import AdvancedTab from './vm-details/AdvancedTab'
 import RescueTab from './vm-details/RescueTab'
@@ -39,7 +40,7 @@ import { AnsiText } from '../components/AnsiText'
 import { AppleTerminalFrame } from '../components/AppleTerminalFrame'
 import { isSpinnerNoise } from '../utils/ansi'
 
-type Tab = 'overview' | 'metrics' | 'disks' | 'network' | 'dataplane' | 'snapshots' | 'logs' | 'hotplug' | 'devices' | 'cloudinit' | 'advanced' | 'rescue'
+type Tab = 'overview' | 'metrics' | 'disks' | 'network' | 'dataplane' | 'snapshots' | 'logs' | 'hotplug' | 'devices' | 'guest' | 'cloudinit' | 'advanced' | 'rescue'
 
 export default function VMDetails() {
   const { name } = useParams<{ name: string }>()
@@ -152,6 +153,7 @@ export default function VMDetails() {
     { id: 'snapshots', label: 'Snapshots', icon: Camera },
     { id: 'hotplug', label: 'Hotplug', icon: Plug },
     { id: 'devices', label: 'Devices', icon: Usb },
+    { id: 'guest', label: 'Guest agent', icon: Bot },
     { id: 'cloudinit', label: 'Cloud-init', icon: Cloud },
     { id: 'rescue', label: 'Rescue', icon: Wrench },
     { id: 'advanced', label: 'Advanced', icon: Settings },
@@ -284,6 +286,7 @@ export default function VMDetails() {
         {activeTab === 'snapshots' && <SnapshotsTab vm={vm} />}
         {activeTab === 'hotplug' && <HotplugTab vm={vm} />}
         {activeTab === 'devices' && <DevicesTab vm={vm} />}
+        {activeTab === 'guest' && <GuestAgentTab vm={vm} />}
         {activeTab === 'cloudinit' && <CloudInitTab vm={vm} />}
         {activeTab === 'rescue' && <RescueTab vm={vm} />}
         {activeTab === 'advanced' && <AdvancedTab vm={vm} />}
