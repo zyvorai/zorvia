@@ -111,6 +111,8 @@ When deploying Zorvia:
 - OIDC ID tokens: the JWKS is cached for 5 minutes (an unknown `kid` forces one refresh),
   `azp` is required when there are several audiences and must be this client, and `nbf`/`iat`
   are checked with 2 minutes of skew.
+- OIDC group-to-role mapping (`ZORVIA_OIDC_GROUP_ROLES`): the IdP's groups set role and namespaces at every sign-in,
+  unmatched users are denied by default; see [docs/OIDC.md](docs/OIDC.md).
 - API tokens can be confined to namespaces at creation (`namespaces`); see
   [docs/TENANCY.md](docs/TENANCY.md).
 - Not yet addressed: TOTP secrets are stored in plaintext; PAM sessions are not

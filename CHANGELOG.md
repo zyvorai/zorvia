@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added (enterprise identity)
+
+- OIDC group-to-role (and namespace) mapping: `ZORVIA_OIDC_GROUP_ROLES`, `ZORVIA_OIDC_GROUPS_CLAIM`,
+  `ZORVIA_OIDC_DEFAULT_ROLE`; applied at every sign-in, revokes sessions on change, denies unmatched users by
+  default. See docs/OIDC.md.
+
 ### Changed
 
 - `s3-immutable-backup` (off-cluster backup, restore, drills, key check) is now **Beta**: verified end to end on two CSI
