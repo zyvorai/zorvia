@@ -51,6 +51,16 @@ permission check is skipped rather than guessed.
 `GET /api/v1/devices` (cluster.admin) is the inventory: per node the device-plugin resources and free counts,
 KubeVirt's builtin pseudo-devices, the permitted devices and feature gates, and whether Multus is installed.
 
+## What was checked live (2026-10-02, lab with KubeVirt 1.9 and Multus, no GPU, no SR-IOV NIC)
+
+`GET /api/v1/devices` listed the node's KubeVirt builtins (kvm, tun, vhost-net, sev), no passthrough devices, an empty
+`permittedHostDevices`, and `multus_installed: true`. A fake GPU failed the preflight with both errors (not permitted, no node
+advertises it); `POST /api/vms` with it, and with an SR-IOV NIC on a network that does not exist, answered **422
+`DEVICE_PREFLIGHT_FAILED`** and **left no VM behind**; an invalid device name answered 400. Permissions: a Viewer gets 403 on both
+the inventory and the preflight, a User gets 403 on the inventory and 200 on the preflight. Not exercised: the path where the
+NetworkAttachmentDefinition CRD is absent (it relies on the API server's 404 wording and is untested on a cluster without Multus),
+and anything with real devices.
+
 ## What you have to set up (Zorvia does not)
 
 1. A **device plugin** for the hardware (NVIDIA GPU operator / KubeVirt GPU device plugin, the SR-IOV network
