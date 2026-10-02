@@ -11,6 +11,8 @@ pub mod pagination;
 pub mod pam_auth;
 pub mod routes;
 pub mod server;
+#[cfg(feature = "web")]
+pub mod tls_reload;
 pub mod webhooks;
 pub mod websocket;
 
