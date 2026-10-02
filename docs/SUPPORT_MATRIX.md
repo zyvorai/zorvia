@@ -15,6 +15,7 @@ stack before relying on any number.
 | KubeVirt | v1.9.0 |
 | CDI | v1.66.0 |
 | Storage | Rook v1.20.8, Ceph 19.2.3 (single OSD, `HEALTH_WARN` as expected for one node), RBD class `zyvor-rbd-prod` |
+| Second CSI driver | Kubernetes `csi-driver-host-path` v1.18.0 (`csi-hostpath-sc`, node-local, supports snapshots), added 2026-10-02 |
 | Object storage | Ceph RGW bucket provisioned through Atlas |
 | Guest image | `quay.io/containerdisks/ubuntu:24.04` |
 
@@ -38,6 +39,24 @@ The security checks in [SECURITY.md](../SECURITY.md) were also run live against 
 (permission matrix as Viewer/User/namespace-restricted, socket gating, MFA re-enrolment, logout,
 password change, lockout).
 
+## Results on the second CSI driver, 2026-10-02
+
+`E2E_STORAGE_CLASS=csi-hostpath-sc E2E_BACKUP=1 tests/e2e/guest.sh` (same stack, guest agent off for this run):
+
+| Scenario | Result | Time |
+|---|---|---|
+| Data snapshot on CSI storage | PASS | 140 s |
+| Off-cluster backup (encrypted, read-back verified, 1 GiB) | PASS | 149 s |
+| Restore | PASS | 57 s |
+| Recovery drill | PASS | 251 s (restore 104 s, boot 132 s) |
+| API restart, guest untouched | PASS | 48 s |
+
+## Guest agent (Zyvor guest agent via `guest_agent: zyvor`), 2026-10-01
+
+Installed through the create API by cloud-init and reported connected by KubeVirt after 171 to 355 s
+across three runs; full E2E (snapshot, data snapshot, backup, restore, drill, API restart) passed with it.
+See [GUEST_AGENT.md](GUEST_AGENT.md).
+
 ## Not validated
 
 - **Live migration**, on any hardware (single-node lab).
@@ -50,7 +69,8 @@ password change, lockout).
 - **VMware import** against a real vCenter (and the Migration Cockpit's NIC mapping against
   real Multus networks). Unit and mock tests only. Experimental.
 - **Multi-cluster fleet inventory** against real remote clusters. Experimental.
-- **Block-mode backup beyond one run**: a 1 GiB RBD Block volume holding 64 MiB of random data was backed up and restored with identical SHA-256 (2026-10-01); restoring *into* Block volumes and larger or real guest disks are not covered. **Other CSI drivers**, **other
+- **Block-mode backup beyond one run**: a 1 GiB RBD Block volume holding 64 MiB of random data was backed up and restored with identical SHA-256 (2026-10-01); restoring *into* Block volumes and larger or real guest disks are not covered. **CSI drivers beyond RBD and the hostpath
+  driver (no networked/replicated driver other than Ceph)**, **other
   Kubernetes/KubeVirt/CDI versions**, upgrades between Zorvia versions, site-level DR.
 
 ## Problems the runs found (and where they stand)

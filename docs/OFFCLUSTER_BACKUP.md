@@ -46,7 +46,7 @@ access; a missing Secret fails the operation immediately with a clear message.
 Keep the encryption key somewhere other than the bucket: without it an
 encrypted backup cannot be restored.
 
-Verified end to end (encrypted backup, read-back, restore, recovery drill) on KubeVirt v1.9.0 / CDI v1.66.0 with Rook-Ceph RBD and an Atlas-provisioned RGW bucket; see [SUPPORT_MATRIX.md](SUPPORT_MATRIX.md) for versions and timings. Block-mode source volumes are supported for backup (see below).
+Verified end to end (encrypted backup, read-back, restore, recovery drill, key check) on KubeVirt v1.9.0 / CDI v1.66.0 with Rook-Ceph RBD and the Kubernetes hostpath CSI driver, and an Atlas-provisioned RGW bucket (maturity: Beta); see [SUPPORT_MATRIX.md](SUPPORT_MATRIX.md) for versions and timings. Block-mode source volumes are supported for backup (see below).
 
 ## Back up now
 
