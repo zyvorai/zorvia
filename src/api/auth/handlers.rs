@@ -325,7 +325,8 @@ fn err(status: StatusCode, msg: &str) -> (StatusCode, Json<serde_json::Value>) {
 
 /// Failed-login throttle: after `MAX_FAILURES` 401s for one username inside
 /// `LOCKOUT`, further attempts get 429 until the window ends. This also caps
-/// TOTP guessing, because a wrong code is a 401. In-memory and per process,
+/// TOTP guessing, because a wrong code is a 401. In memory per process, plus a
+/// shared counter in the user database on PostgreSQL (see `shared_throttle`),
 /// keyed by lower-cased username (unknown names are tracked too, so the
 /// response does not reveal whether an account exists).
 mod login_throttle {
@@ -393,22 +394,63 @@ mod login_throttle {
     }
 }
 
+/// The in-memory counter always applies; on PostgreSQL the shared counter applies as well, so
+/// attempts spread over several replicas still add up to one lockout.
+async fn shared_throttle<T: Send + 'static>(
+    auth: &SharedAuth,
+    f: impl FnOnce(&super::user_db::UserDb, i64) -> anyhow::Result<T> + Send + 'static,
+) -> Option<T> {
+    if !auth.db.is_postgres() {
+        return None;
+    }
+    let auth = auth.clone();
+    let now = chrono::Utc::now().timestamp();
+    match tokio::task::spawn_blocking(move || f(&auth.db, now)).await {
+        Ok(Ok(v)) => Some(v),
+        Ok(Err(e)) => {
+            log::warn!("shared login throttle unavailable: {e}");
+            None
+        }
+        Err(_) => None,
+    }
+}
+
 pub async fn login_handler(
     State(auth): State<SharedAuth>,
     Json(req): Json<LoginRequest>,
 ) -> axum::response::Response {
     let username = req.username.clone();
-    if login_throttle::blocked(&username) {
+    let key = username.to_lowercase();
+    let lockout = login_throttle::LOCKOUT.as_secs() as i64;
+    let max = login_throttle::MAX_FAILURES as i64;
+    let shared_blocked = {
+        let k = key.clone();
+        shared_throttle(&auth, move |db, now| {
+            db.login_blocked(&k, now, max, lockout)
+        })
+        .await
+        .unwrap_or(false)
+    };
+    if shared_blocked || login_throttle::blocked(&username) {
         return err(
             StatusCode::TOO_MANY_REQUESTS,
             "Too many failed sign-in attempts. Try again later.",
         )
         .into_response();
     }
-    let resp = login_inner(auth, req).await;
+    let resp = login_inner(auth.clone(), req).await;
     match resp.status() {
-        StatusCode::UNAUTHORIZED => login_throttle::record_failure(&username),
-        s if s.is_success() => login_throttle::clear(&username),
+        StatusCode::UNAUTHORIZED => {
+            login_throttle::record_failure(&username);
+            shared_throttle(&auth, move |db, now| {
+                db.login_record_failure(&key, now, lockout)
+            })
+            .await;
+        }
+        s if s.is_success() => {
+            login_throttle::clear(&username);
+            shared_throttle(&auth, move |db, _| db.login_clear(&key)).await;
+        }
         _ => {}
     }
     resp

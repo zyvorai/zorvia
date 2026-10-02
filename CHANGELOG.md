@@ -9,6 +9,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- With PostgreSQL the failed-login lockout is shared by all replicas (`login_failures`); before, each replica counted separately, so N replicas allowed N times the attempts.
+
 - While PostgreSQL is unreachable the API answered 401 (clients sign the user out) and requests could hang for minutes. It now answers
   503 `AUTH_STORE_UNAVAILABLE` with `Retry-After`, bounds every database request (`ZORVIA_DATABASE_TIMEOUT_SECS`, default 8 s), and
   connects with a 5 s timeout and keepalives.
