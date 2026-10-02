@@ -37,7 +37,7 @@ With several replicas `/data` is an `emptyDir`, rolling updates replace `Recreat
 PodDisruptionBudget plus preferred anti-affinity spread the pods.
 
 Only the lease holder runs the schedulers and the operations reconciler; the others serve the API.
-Two replicas saving the *same* JSON document in the same instant are last-writer-wins.
+Two replicas saving the *same* JSON document in the same instant are last-writer-wins. The failed-login lockout is shared through the database.
 
 PostgreSQL becomes the single point of failure, so run it with its own HA (CloudNativePG, Patroni, a
 managed service). Measured on the lab (2026-10-02, single node, two replicas):

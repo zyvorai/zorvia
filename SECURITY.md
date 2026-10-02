@@ -93,7 +93,7 @@ When deploying Zorvia:
   sessions via a per-user not-before time); `POST /v1/auth/password` changes your own
   password and revokes sessions.
 - **Brute force.** 8 failed sign-ins for a username lock it for 15 minutes (in-memory,
-  per process; with several replicas each keeps its own count, see [docs/POSTGRES.md](docs/POSTGRES.md)). A wrong TOTP code counts as a failure. This also means someone who
+  per process, plus a shared counter in PostgreSQL when it is configured, so several replicas lock together; see [docs/POSTGRES.md](docs/POSTGRES.md)). A wrong TOTP code counts as a failure. This also means someone who
   knows a username can lock that account out for 15 minutes.
 - **JWT secret.** `ZORVIA_JWT_SECRET` must be at least 32 bytes outside lab mode; a
   shorter value is ignored and an ephemeral secret is used (tokens reset on restart).

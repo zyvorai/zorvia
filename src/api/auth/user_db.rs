@@ -81,6 +81,7 @@ CREATE TABLE IF NOT EXISTS api_tokens (
     namespaces TEXT
 );
 CREATE TABLE IF NOT EXISTS pam_revocations (username TEXT PRIMARY KEY, not_before BIGINT NOT NULL);
+CREATE TABLE IF NOT EXISTS login_failures (username TEXT PRIMARY KEY, failures BIGINT NOT NULL, last_failure BIGINT NOT NULL);
 ";
 
 impl UserDb {
@@ -136,7 +137,8 @@ impl UserDb {
         }
         // PAM sessions have no users row; logout records a not-before time here.
         let _ = db.batch(
-            "CREATE TABLE IF NOT EXISTS pam_revocations (username TEXT PRIMARY KEY, not_before INTEGER NOT NULL);",
+            "CREATE TABLE IF NOT EXISTS pam_revocations (username TEXT PRIMARY KEY, not_before INTEGER NOT NULL);
+             CREATE TABLE IF NOT EXISTS login_failures (username TEXT PRIMARY KEY, failures INTEGER NOT NULL, last_failure INTEGER NOT NULL);",
         );
         Ok(Self { db })
     }
@@ -158,6 +160,50 @@ impl UserDb {
             "INSERT INTO pam_revocations (username, not_before) VALUES (?1, ?2)
              ON CONFLICT(username) DO UPDATE SET not_before = excluded.not_before",
             &[username.into(), now.into()],
+        )?;
+        Ok(())
+    }
+
+    /// Shared failed-login counter (all replicas on PostgreSQL see one count). Blocked once
+    /// `max` failures were recorded and the last one is less than `lockout_secs` old.
+    pub fn login_blocked(
+        &self,
+        username: &str,
+        now: i64,
+        max: i64,
+        lockout_secs: i64,
+    ) -> Result<bool> {
+        Ok(self
+            .db
+            .query_one(
+                "SELECT failures, last_failure FROM login_failures WHERE username = ?1",
+                &[username.into()],
+            )?
+            .is_some_and(|r| r.int(0) >= max && now - r.int(1) < lockout_secs))
+    }
+
+    /// Count one failed sign-in atomically; a count older than the lockout starts again at 1,
+    /// and every further failure extends the lockout.
+    pub fn login_record_failure(&self, username: &str, now: i64, lockout_secs: i64) -> Result<()> {
+        self.db.exec(
+            "INSERT INTO login_failures (username, failures, last_failure) VALUES (?1, 1, ?2)
+             ON CONFLICT (username) DO UPDATE SET
+               failures = CASE WHEN login_failures.last_failure + ?3 <= ?2 THEN 1 ELSE login_failures.failures + 1 END,
+               last_failure = ?2",
+            &[username.into(), now.into(), lockout_secs.into()],
+        )?;
+        // Keep the table small: forget names whose lockout has long passed.
+        self.db.exec(
+            "DELETE FROM login_failures WHERE last_failure + ?2 < ?1",
+            &[now.into(), (lockout_secs * 2).into()],
+        )?;
+        Ok(())
+    }
+
+    pub fn login_clear(&self, username: &str) -> Result<()> {
+        self.db.exec(
+            "DELETE FROM login_failures WHERE username = ?1",
+            &[username.into()],
         )?;
         Ok(())
     }
@@ -842,6 +888,29 @@ mod tests {
     /// The same behaviour on every backend. Run for SQLite always and for PostgreSQL when
     /// `ZORVIA_TEST_POSTGRES_URL` points at a throwaway database.
     fn conformance(db: &UserDb) {
+        // Shared failed-login counter.
+        let (max, lock) = (3, 100);
+        assert!(!db.login_blocked("Mallory", 1000, max, lock).unwrap());
+        for _ in 0..3 {
+            db.login_record_failure("Mallory", 1000, lock).unwrap();
+        }
+        assert!(db.login_blocked("Mallory", 1050, max, lock).unwrap());
+        assert!(!db.login_blocked("someone-else", 1050, max, lock).unwrap());
+        assert!(
+            !db.login_blocked("Mallory", 1100, max, lock).unwrap(),
+            "lockout over"
+        );
+        db.login_record_failure("Mallory", 1101, lock).unwrap();
+        assert!(
+            !db.login_blocked("Mallory", 1102, max, lock).unwrap(),
+            "an old count starts again at one"
+        );
+        db.login_record_failure("Mallory", 1102, lock).unwrap();
+        db.login_record_failure("Mallory", 1103, lock).unwrap();
+        assert!(db.login_blocked("Mallory", 1104, max, lock).unwrap());
+        db.login_clear("Mallory").unwrap();
+        assert!(!db.login_blocked("Mallory", 1104, max, lock).unwrap());
+
         // Users, uniqueness, roles, revocation counter.
         let a = db.create_user("alice", "password123", Role::User).unwrap();
         assert!(
@@ -1057,7 +1126,7 @@ mod tests {
         let reset = |url: &str| {
             let db = UserDb::open_postgres(url).unwrap();
             db.db
-                .batch("DROP TABLE IF EXISTS users, api_tokens, pam_revocations")
+                .batch("DROP TABLE IF EXISTS users, api_tokens, pam_revocations, login_failures")
                 .unwrap();
             UserDb::open_postgres(url).unwrap()
         };
@@ -1103,7 +1172,7 @@ mod tests {
         let _ = std::fs::remove_file(&path);
         let _ = fresh
             .db
-            .batch("DROP TABLE IF EXISTS users, api_tokens, pam_revocations");
+            .batch("DROP TABLE IF EXISTS users, api_tokens, pam_revocations, login_failures");
     }
 
     /// Two independent connections (two replicas) on one database.
