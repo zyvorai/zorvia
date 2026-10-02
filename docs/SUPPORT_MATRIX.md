@@ -80,6 +80,9 @@ See [GUEST_AGENT.md](GUEST_AGENT.md).
 | JSON documents: an alert rule created on one replica visible on the other, deleted from the other | PASS |
 | `helm template`: refuses `replicaCount > 1` without a database, leader election or the local-state acknowledgement; renders no PVC and no `Recreate` for [values-ha.yaml](../charts/zorvia/values-ha.yaml) | PASS (not installed with Helm on the lab; the lab is deployed by script) |
 
+| Leader pod killed during an off-cluster backup | PASS: re-queued after ~120 s, completed encrypted at 188 s, one interruption recorded |
+| PostgreSQL pod deleted under load | PASS after a fix: first run answered 401 (clients would sign out) and hung requests; now 503 with `Retry-After`, bounded requests, automatic reconnect |
+
 Concurrency (idempotency keys, operation claims, document and audit visibility) is also covered by tests that run against a
 real PostgreSQL. See [POSTGRES.md](POSTGRES.md) and [HA.md](HA.md).
 
@@ -87,8 +90,9 @@ real PostgreSQL. See [POSTGRES.md](POSTGRES.md) and [HA.md](HA.md).
 
 - **Live migration**, on any hardware (single-node lab).
 - **Node failure and control-plane failover time**, with one replica or two. [HA.md](HA.md) describes the supported
-  topologies; no node-loss run has been recorded, so there is no RTO figure. Also unmeasured: PostgreSQL failover, leader
-  failover with an operation in flight, and load on a shared database. The lab has one node, so two replicas share a node.
+  topologies; no node-loss run has been recorded, so there is no RTO figure. Leader failover with an operation in flight and
+  a PostgreSQL pod restart were measured (above); failover of a replicated PostgreSQL and load on a shared database were not.
+  The lab has one node, so two replicas share a node.
 - **Windows guests**, including virtio drivers and the guest agent.
 - **Guest agent paths not yet exercised**: the drill's `guest_probe` (the drill guest used the serial console), real
   database-flush hooks (none installed in the lab guest), Windows and RPM-based guests
@@ -114,6 +118,7 @@ real PostgreSQL. See [POSTGRES.md](POSTGRES.md) and [HA.md](HA.md).
 | Restored VMs' PVCs outlive the VM | Expected Kubernetes behaviour; delete them yourself |
 | `guest_agent: zyvor` guests could not be snapshotted online with PVC disks: the agent's `fsfreeze` is not permitted | Fixed in Zorvia (cloud-init drop-in); existing VMs need the drop-in. Upstream: GuestKit's QGA freeze handlers do not use its privileged helper |
 | The recovery drill of a guest with an ephemeral root disk cannot see the agent | Known limit; the drill falls back to the serial console |
+| Deleting the PostgreSQL pod made the API answer 401 and hang | Fixed: 503 `AUTH_STORE_UNAVAILABLE`, request timeouts, connect timeout and keepalives |
 | The build host's disk filled up (incremental build cache) | Operational: build with `CARGO_INCREMENTAL=0` |
 
 ## Reproduce

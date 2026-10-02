@@ -40,8 +40,14 @@ Only the lease holder runs the schedulers and the operations reconciler; the oth
 Two replicas saving the *same* JSON document in the same instant are last-writer-wins.
 
 PostgreSQL becomes the single point of failure, so run it with its own HA (CloudNativePG, Patroni, a
-managed service). Failover of that database and leader failover with an operation mid-flight have not
-been measured.
+managed service). Measured on the lab (2026-10-02, single node, two replicas):
+
+- **Leader killed with an off-cluster backup running** (`kubectl delete pod --force` on the lease holder): the operation stalled
+  for about 120 s (heartbeat staleness plus lease takeover), was re-queued with its attempt refunded (`interruptions: 1`), re-run by the new
+  leader and succeeded, encrypted, 188 s after the kill. The API itself kept answering on the other replica.
+- **PostgreSQL pod deleted under load**: 503 while it was down, automatic reconnection, no restart ([POSTGRES.md](POSTGRES.md)).
+
+Not measured: failover of a replicated PostgreSQL, node loss on a multi-node cluster, load.
 
 ## Not supported: two replicas on SQLite
 
