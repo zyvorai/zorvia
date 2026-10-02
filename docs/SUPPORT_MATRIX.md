@@ -56,10 +56,12 @@ password change, lockout).
 Installed through the create API by cloud-init and reported connected by KubeVirt after 130 to 355 s
 across runs. 2026-10-02 findings and results:
 
-- **Online snapshots of PVC-backed guests failed at the freeze** with the packaged unit (agent unprivileged, no
-  capabilities: `fsfreeze: Operation not permitted`, measured on a fresh guest). Fixed by a systemd drop-in Zorvia's
-  cloud-init writes (ambient `CAP_SYS_ADMIN` only). With it, on a guest whose agent was connected: `guest-fsfreeze-freeze`
-  / `thaw` succeed, an online snapshot becomes ready, and an off-cluster backup succeeds.
+- **Online snapshots of PVC-backed guests failed at the freeze** with the 1.2.4 package (agent unprivileged, no
+  capabilities: `fsfreeze: Operation not permitted`, measured on a fresh guest). Worked around by a systemd drop-in Zorvia's
+  cloud-init wrote (ambient `CAP_SYS_ADMIN` only; with it `guest-fsfreeze-freeze`/`thaw` succeed, an online snapshot becomes
+  ready and an off-cluster backup succeeds), then **fixed in GuestKit 1.2.5** (freeze through the privileged helper). The 1.2.5
+  binaries were verified in a real guest with an empty capability set: freeze/thaw succeed and the helper socket survives an agent
+  restart. Zorvia now pins 1.2.5 and writes the drop-in only for a mirrored or older package.
 - Read-only guest views (`/guest/agent`, `/guest/inventory/*`) returned real data (665 packages, 122 certificates, users,
   security posture, container inventory).
 - Snapshots and backups recorded `guest_quiesce: application` (the guest's pre-snapshot hooks ran; the lab guest has only the

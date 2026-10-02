@@ -26,7 +26,7 @@ silently ignored.
 
 ### How the Zyvor agent is fetched and trusted
 
-The guest downloads a **pinned release** (`GuestKit v1.2.4`) over HTTPS and runs
+The guest downloads a **pinned release** (`GuestKit v1.2.5`) over HTTPS and runs
 `sha256sum -c` against a pinned checksum before `dpkg -i`; a changed or tampered download is
 not installed. For air-gapped or mirrored environments set on the Zorvia deployment:
 
@@ -51,15 +51,16 @@ cloud-init writes the identical rule and triggers udev. The rule is harmless onc
   only when it is **on the VM's disk**: a guest whose root is an ephemeral containerdisk boots a fresh
   image when restored and the drill namespace blocks the network the cloud-init install needs, so such a
   drill falls back to the serial console (observed: `guest_agent=false`). VMs with persistent root disks keep the agent.
-- KubeVirt freezes and thaws the guest filesystem around online snapshots when an agent is present. The packaged
-  unit (v1.2.4) runs the agent unprivileged with no capabilities, so its `fsfreeze` fails with "Operation not permitted"
-  and **every online snapshot of a VM with PVC-backed disks fails at the freeze** (measured: `guest-fsfreeze-freeze`
-  errors on a fresh guest; with the drop-in below it returns frozen/thawed). Zorvia's cloud-init therefore writes
-  `/etc/systemd/system/guestkit-agent.service.d/10-zorvia-freeze.conf` granting only `CAP_SYS_ADMIN` as an ambient
-  capability. **VMs created with `guest_agent: zyvor` before this change need the same drop-in** (or `guest_agent: qemu`)
-  before they can be snapshotted online; the proper fix is in GuestKit: its unit says privileged operations run in a separate `guestkitd-exec` helper, but
-  the QGA freeze/thaw handlers in v1.2.4 run `fsfreeze` directly from the unprivileged process. Once that is fixed the
-  drop-in is redundant.
+- KubeVirt freezes and thaws the guest filesystem around online snapshots when an agent is present. **GuestKit 1.2.4 and
+  older could not do this**: the unit runs the agent unprivileged with no capabilities and its QGA freeze handlers ran
+  `fsfreeze` themselves, so `fsfreeze` failed with "Operation not permitted" and every online snapshot of a VM with
+  PVC-backed disks failed at the freeze (measured on a fresh guest). GuestKit 1.2.5 ([fix](https://github.com/zyvorai/guestkit/pull/43))
+  freezes through its privileged helper (`guestkitd-exec`), which is the pinned release now, so no workaround is needed.
+  Verified in a real guest with the 1.2.5 binaries and an empty capability set: freeze and thaw succeed, and the helper
+  socket is recreated when the agent restarts. For a mirrored or older package (`ZORVIA_GUEST_AGENT_URL` set) Zorvia's
+  cloud-init still writes `/etc/systemd/system/guestkit-agent.service.d/10-zorvia-freeze.conf`, granting only
+  `CAP_SYS_ADMIN` as an ambient capability. **VMs created with `guest_agent: zyvor` before 1.2.5 keep the old agent** and need that
+  drop-in (or an upgrade of the package inside the guest, or `guest_agent: qemu`) before they can be snapshotted online.
 - Not yet: Windows (the agent supports it, installed offline by GuestKit; no Zorvia path yet) and RPM
   guests for the Zyvor agent (no `.rpm` asset is published).
 
@@ -75,6 +76,8 @@ Only a fixed **read-only** method set is reachable; guest exec, file and configu
 |---|---|---|
 | `GET /api/vms/{name}/guest/agent` | agent version/protocol, health, snapshot readiness (hooks, quiesce support) | `vm.power` |
 | `GET /api/vms/{name}/guest/inventory/{packages\|users\|certificates\|containers\|security}` | what the guest itself reports | `vm.power` |
+
+The VM page has a **Guest agent** tab showing the same data (agent version, snapshot readiness with each hook, and the five inventories).
 
 Both answer `409 GUEST_AGENT_NOT_CONNECTED` for guests without a connected agent (and `502` if the agent errors).
 The inventories expose accounts, certificates and installed software, so they are not available to read-only roles.
