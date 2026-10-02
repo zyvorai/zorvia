@@ -133,8 +133,8 @@ pub const FEATURES: &[Feature] = &[
     Feature {
         id: "s3-immutable-backup",
         name: "Off-cluster S3 backups (encrypted, Object Lock), restore, recovery drills",
-        maturity: Maturity::Experimental,
-        notes: "Agent Job uploads checksummed, AES-GCM, Object-Lock copies with read-back verification; restore + drills (docs/OFFCLUSTER_BACKUP.md). Verified live end to end on one stack (KubeVirt 1.9 / CDI 1.66 / Rook-Ceph RBD, Filesystem and Block volumes, Atlas-provisioned RGW bucket): snapshot→temp PVC→agent Job→encrypted upload→read-back, restore (sha256 identical) and a recovery drill with serial-console boot proof; earlier against SeaweedFS with Object Lock. Not yet: Object Lock on RGW, other CSI drivers, guest-agent or application-level drill checks (docs/SUPPORT_MATRIX.md). Plan API at /api/v1/enterprise/s3-backup/plan",
+        maturity: Maturity::Beta,
+        notes: "Agent Job uploads checksummed, AES-GCM, Object-Lock copies with read-back verification; restore, recovery drills and an encryption-key check (docs/OFFCLUSTER_BACKUP.md). Verified live end to end on two CSI drivers (Rook-Ceph RBD with Filesystem and Block volumes, and the Kubernetes hostpath driver) on KubeVirt 1.9 / CDI 1.66 with an Atlas-provisioned RGW bucket: snapshot→temp PVC→agent Job→encrypted upload→read-back, restore (sha256 identical), a recovery drill with serial-console boot proof, and the key check; Object Lock earlier against SeaweedFS. Limits: single-node lab, one Kubernetes/KubeVirt/CDI version, Object Lock not yet run on RGW, drills do no application-level checks (docs/SUPPORT_MATRIX.md). Plan API at /api/v1/enterprise/s3-backup/plan",
     },
     Feature {
         id: "cross-cluster-dr",

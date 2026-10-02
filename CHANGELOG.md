@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- `s3-immutable-backup` (off-cluster backup, restore, drills, key check) is now **Beta**: verified end to end on two CSI
+  drivers (Rook-Ceph RBD incl. Block volumes, and the hostpath driver). Limits are listed in
+  docs/FEATURE_MATURITY.md and docs/SUPPORT_MATRIX.md.
+
 ### Added (guest agent)
 
 - `guest_agent` on `POST /api/vms` (`zyvor` | `qemu` | `none`, default `ZORVIA_GUEST_AGENT`) installs
