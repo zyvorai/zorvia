@@ -40,6 +40,70 @@ pub struct VMConfig {
     /// Machine type (e.g., "q35")
     #[serde(skip_serializing_if = "Option::is_none")]
     pub machine_type: Option<String>,
+    /// GPUs and other host devices passed through to the guest (device-plugin resources).
+    /// A VM holding one is pinned to its node: it cannot be live-migrated.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub host_devices: Vec<HostDeviceConfig>,
+}
+
+/// How a device is presented to KubeVirt.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
+#[serde(rename_all = "kebab-case")]
+pub enum HostDeviceKind {
+    /// `spec.domain.devices.gpus` (a physical GPU or an mediated vGPU).
+    #[default]
+    Gpu,
+    /// `spec.domain.devices.hostDevices` (any other PCI/USB/mediated device).
+    HostDevice,
+}
+
+/// One passthrough device: `device_name` is the extended resource the device plugin
+/// advertises (e.g. `nvidia.com/GA102GL_A10`), which KubeVirt must also list in
+/// `permittedHostDevices`.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct HostDeviceConfig {
+    pub name: String,
+    pub device_name: String,
+    #[serde(default)]
+    pub kind: HostDeviceKind,
+}
+
+impl HostDeviceConfig {
+    /// `vendor.com/resource`: one slash, both sides made of `[A-Za-z0-9._-]`.
+    pub fn valid_device_name(s: &str) -> bool {
+        let mut parts = s.split('/');
+        let (Some(a), Some(b), None) = (parts.next(), parts.next(), parts.next()) else {
+            return false;
+        };
+        let ok = |p: &str| {
+            !p.is_empty()
+                && p.len() <= 63
+                && p.bytes()
+                    .all(|c| c.is_ascii_alphanumeric() || b"._-".contains(&c))
+        };
+        ok(a) && ok(b)
+    }
+
+    pub fn validate(&self) -> Result<(), String> {
+        let name_ok = !self.name.is_empty()
+            && self.name.len() <= 63
+            && self
+                .name
+                .bytes()
+                .all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || c == b'-')
+            && !self.name.starts_with('-')
+            && !self.name.ends_with('-');
+        if !name_ok {
+            return Err(format!("device name '{}' must be a DNS label", self.name));
+        }
+        if !Self::valid_device_name(&self.device_name) {
+            return Err(format!(
+                "device '{}' must look like vendor.com/resource",
+                self.device_name
+            ));
+        }
+        Ok(())
+    }
 }
 
 /// CPU configuration

@@ -4,6 +4,7 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router'
 import { createVM, listVMs } from '../api/vm'
+import { getDeviceInventory, suggestedResources } from '../api/passthrough'
 import type { CreateVMDisk, CreateVMFeatures, CreateVMFirmware, CreateVMInterface, PortForwardSpec, VM } from '../api/vm'
 import { listImages, createImageFromVm, getConvertJob, listCloudImages, downloadCloudImage, listDownloads } from '../api/images'
 import type { ImageInfo, CloudImage } from '../api/images'
@@ -123,6 +124,8 @@ export default function CreateVM() {
   const [portForwards, setPortForwards] = useState<{ hostPort: string; guestPort: string; protocol: 'tcp' | 'udp' }[]>([])
   const [extraDisks, setExtraDisks] = useState<DiskRow[]>([])
   const [extraNics, setExtraNics] = useState<NicRow[]>([])
+  const [devices, setDevices] = useState<{ name: string; deviceName: string; kind: 'gpu' | 'host-device' }[]>([])
+  const [deviceOptions, setDeviceOptions] = useState<string[]>([])
   const [guestOs, setGuestOs] = useState<'linux' | 'windows'>('linux')
   const [ciHostname, setCiHostname] = useState('')
   const [ciUsername, setCiUsername] = useState('zorvia')
@@ -410,6 +413,13 @@ export default function CreateVM() {
         ...(port_forwards.length ? { port_forwards } : {}),
         ...(extraDisks.length ? { disks: buildDisksField() } : {}),
         ...(extraNics.length ? { interfaces: buildInterfacesField() } : {}),
+        ...(devices.some((d) => d.name.trim() && d.deviceName.trim())
+          ? {
+              devices: devices
+                .filter((d) => d.name.trim() && d.deviceName.trim())
+                .map((d) => ({ name: d.name.trim(), device_name: d.deviceName.trim(), kind: d.kind })),
+            }
+          : {}),
         cloud_init: {
           hostname: ciHostname.trim() || name,
           username: ciUsername.trim() || 'zorvia',
@@ -1222,6 +1232,76 @@ export default function CreateVM() {
                       </button>
                     </div>
                     )}
+
+                    <div>
+                      <label className="flex items-center gap-2 text-sm font-medium text-[var(--zf-ink)] mb-2">
+                        <Cpu className="w-4 h-4 text-[var(--zf-muted)]" />
+                        Passthrough devices (GPU / host device)
+                      </label>
+                      <div className="space-y-3">
+                        {devices.map((row, i) => (
+                          <div key={i} className="flex flex-wrap items-center gap-2 bg-[var(--zf-surface)] border border-[var(--zf-hairline)] rounded-lg p-3">
+                            <input
+                              type="text"
+                              value={row.name}
+                              onChange={(e) => setDevices((d) => d.map((r, j) => (j === i ? { ...r, name: e.target.value } : r)))}
+                              placeholder="Name (e.g. gpu0)"
+                              aria-label="Device name"
+                              className="w-32 px-2.5 py-1.5 bg-[var(--zf-surface)] border border-[var(--zf-hairline)] rounded-md text-sm text-[var(--zf-ink)]"
+                            />
+                            <input
+                              type="text"
+                              list="zf-device-resources"
+                              value={row.deviceName}
+                              onChange={(e) => setDevices((d) => d.map((r, j) => (j === i ? { ...r, deviceName: e.target.value } : r)))}
+                              placeholder="Resource (vendor.com/name)"
+                              aria-label="Device resource"
+                              className="flex-1 min-w-[12rem] px-2.5 py-1.5 bg-[var(--zf-surface)] border border-[var(--zf-hairline)] rounded-md text-sm text-[var(--zf-ink)]"
+                            />
+                            <select
+                              value={row.kind}
+                              onChange={(e) => setDevices((d) => d.map((r, j) => (j === i ? { ...r, kind: e.target.value as 'gpu' | 'host-device' } : r)))}
+                              aria-label="Device kind"
+                              className="px-2 py-1.5 bg-[var(--zf-surface)] border border-[var(--zf-hairline)] rounded-md text-sm text-[var(--zf-ink)]"
+                            >
+                              <option value="gpu">GPU</option>
+                              <option value="host-device">Host device</option>
+                            </select>
+                            <button
+                              type="button"
+                              onClick={() => setDevices((d) => d.filter((_, j) => j !== i))}
+                              aria-label="Remove device"
+                              className="p-1.5 text-[var(--zf-muted)] hover:text-[var(--zf-ink)]"
+                            >
+                              <X className="w-4 h-4" />
+                            </button>
+                          </div>
+                        ))}
+                        <datalist id="zf-device-resources">
+                          {deviceOptions.map((o) => (
+                            <option key={o} value={o} />
+                          ))}
+                        </datalist>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setDevices((d) => [...d, { name: `dev${d.length}`, deviceName: '', kind: 'gpu' }])
+                            if (!deviceOptions.length) {
+                              getDeviceInventory()
+                                .then((inv) => setDeviceOptions(suggestedResources(inv)))
+                                .catch(() => {})
+                            }
+                          }}
+                          className="inline-flex items-center gap-1.5 text-sm text-[var(--zf-link)] hover:underline"
+                        >
+                          <Plus className="w-4 h-4" /> Add device
+                        </button>
+                        <p className="text-xs text-[var(--zf-muted)]">
+                          The device must be advertised by a node and permitted in the KubeVirt CR; creation is refused with the reason
+                          otherwise. A VM with a passthrough device cannot be live-migrated.
+                        </p>
+                      </div>
+                    </div>
 
                     <div>
                       <label className="flex items-center gap-2 text-sm font-medium text-[var(--zf-ink)] mb-2">

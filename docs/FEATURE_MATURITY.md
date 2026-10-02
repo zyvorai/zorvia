@@ -33,7 +33,7 @@ Levels used by Zorvia (also exposed at `GET /api/v1/features` when the API is ru
 | `transiva-migration` | Transiva migration | Experimental | Plan API only; superseded by `vm-import-h2kvm` |
 | `vm-import-h2kvm` | VMware → KubeVirt import via h2kvm Jobs | Experimental | Admin console, fail-closed preflight, explicit target NIC mapping, guarded cutover, boot policy, data-preserving cancellation; needs `ZORVIA_H2KVM_IMAGE`; not yet exercised against a real vCenter |
 | `golden-image-pipeline` | Golden-image pipeline | Experimental | Plan + `POST …/golden-pipeline/run` (CDI apply); scan/sign deferred |
-| `gpu-sriov-numa` | GPU/SR-IOV/NUMA | Experimental | Plan API only |
+| `gpu-sriov-numa` | GPU/SR-IOV/NUMA | Experimental | GPU/host-device passthrough and SR-IOV interfaces at VM create with a scheduling preflight and device inventory ([DEVICES.md](DEVICES.md)); unit-tested, API-checked on a lab without such hardware, **not run on real GPUs/VFs**. NUMA placement is still a plan API only |
 | `fleet-multicluster` | Fleet multi-cluster | Experimental | Live read-only nodes/VM inventory and admin console; explicit enrollment, partial results and freshness; real multi-cluster validation pending; see docs/FLEET.md |
 
 Set `ZORVIA_EXPERIMENTAL=1` only in non-production environments to exercise model-only / experimental surfaces.

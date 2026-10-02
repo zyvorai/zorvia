@@ -135,6 +135,9 @@ pub mod web {
     #[path = "placement_handlers.rs"]
     mod placement_handlers;
     use placement_handlers::*;
+    #[path = "devices_handlers.rs"]
+    mod devices_handlers;
+    use devices_handlers::{devices_inventory_handler, devices_preflight_handler};
     #[path = "maintenance_handlers.rs"]
     mod maintenance_handlers;
     use maintenance_handlers::maintenance_plan_handler;
@@ -822,6 +825,8 @@ pub mod web {
             .route("/backups/jobs", get(list_backup_jobs_handler))
             .route("/backups/jobs/{id}", get(get_backup_job_handler))
             .route("/v1/maintenance/plan", get(maintenance_plan_handler))
+            .route("/v1/devices", get(devices_inventory_handler))
+            .route("/v1/devices/preflight", post(devices_preflight_handler))
             .route("/placement/rebalance", get(placement_rebalance_handler))
             .route("/placement/{vm}", get(placement_recommend_handler))
             .route(
