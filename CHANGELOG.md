@@ -9,6 +9,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- While PostgreSQL is unreachable the API answered 401 (clients sign the user out) and requests could hang for minutes. It now answers
+  503 `AUTH_STORE_UNAVAILABLE` with `Retry-After`, bounds every database request (`ZORVIA_DATABASE_TIMEOUT_SECS`, default 8 s), and
+  connects with a 5 s timeout and keepalives.
+
 - `guest_agent: zyvor` guests could not be snapshotted online when they had PVC-backed disks: the packaged agent unit has no
   capabilities, so its `fsfreeze` failed and KubeVirt failed the snapshot. Cloud-init now adds a systemd drop-in granting
   `CAP_SYS_ADMIN` (ambient) to the agent. Existing Zyvor-agent VMs need the drop-in (docs/GUEST_AGENT.md).

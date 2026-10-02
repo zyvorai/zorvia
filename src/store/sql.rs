@@ -202,15 +202,35 @@ fn db_runtime() -> &'static tokio::runtime::Runtime {
     })
 }
 
-/// Run a future on the database runtime and wait for it here.
+/// How long one database request may take before it is abandoned
+/// (`ZORVIA_DATABASE_TIMEOUT_SECS`, 2 to 25, default 8). Without a bound a database that
+/// stops answering without closing the connection (a pod that vanished) would hold every
+/// request that needs the store until TCP gives up.
+fn request_timeout() -> std::time::Duration {
+    let secs = std::env::var("ZORVIA_DATABASE_TIMEOUT_SECS")
+        .ok()
+        .and_then(|v| v.parse::<u64>().ok())
+        .unwrap_or(8)
+        .clamp(2, 25);
+    std::time::Duration::from_secs(secs)
+}
+
+const TIMEOUT_MSG: &str = "database request timed out";
+
+/// Run a future on the database runtime and wait for it here, for at most the request timeout.
 fn run<F, T>(fut: F) -> Result<T>
 where
     F: Future<Output = Result<T>> + Send + 'static,
     T: Send + 'static,
 {
+    let limit = request_timeout();
     let (tx, rx) = std::sync::mpsc::channel();
     db_runtime().spawn(async move {
-        let _ = tx.send(fut.await);
+        let out = match tokio::time::timeout(limit, fut).await {
+            Ok(r) => r,
+            Err(_) => Err(anyhow!(TIMEOUT_MSG)),
+        };
+        let _ = tx.send(out);
     });
     rx.recv()
         .map_err(|_| anyhow!("database task ended unexpectedly"))?
@@ -260,7 +280,13 @@ fn tls_for(url: &str) -> Result<Option<postgres_native_tls::MakeTlsConnector>> {
 
 async fn connect_client(url: &str) -> Result<tokio_postgres::Client> {
     let tls = tls_for(url)?;
-    let cfg: tokio_postgres::Config = url.parse().context("invalid ZORVIA_DATABASE_URL")?;
+    let mut cfg: tokio_postgres::Config = url.parse().context("invalid ZORVIA_DATABASE_URL")?;
+    if cfg.get_connect_timeout().is_none() {
+        cfg.connect_timeout(std::time::Duration::from_secs(5));
+    }
+    // Notice a database that vanished without closing the connection.
+    cfg.keepalives(true)
+        .keepalives_idle(std::time::Duration::from_secs(15));
     macro_rules! go {
         ($tls:expr) => {{
             let (client, conn) = cfg.connect($tls).await.context("connect to PostgreSQL")?;
@@ -396,7 +422,7 @@ impl Pg {
     {
         match run(f(self.current())) {
             Ok(v) => Ok(v),
-            Err(e) if is_closed(&e) => {
+            Err(e) if is_closed(&e) || is_timeout(&e) => {
                 let u = self.url.clone();
                 let fresh = Arc::new(run(async move { connect_client(&u).await })?);
                 *self.client.lock().unwrap_or_else(|e| e.into_inner()) = fresh.clone();
@@ -449,6 +475,10 @@ impl Pg {
             async move { Ok(c.batch_execute(&sql).await?) }
         })
     }
+}
+
+fn is_timeout(e: &anyhow::Error) -> bool {
+    e.to_string() == TIMEOUT_MSG
 }
 
 fn is_closed(e: &anyhow::Error) -> bool {
@@ -538,5 +568,15 @@ mod tests {
             .unwrap()
             .is_some());
         assert!(tls_for("postgres://u@h/db?sslmode=banana").is_err());
+    }
+
+    #[test]
+    fn an_unreachable_database_is_an_error_not_a_hang() {
+        let t = std::time::Instant::now();
+        let e = Backend::postgres("postgres://u:p@127.0.0.1:1/db")
+            .err()
+            .unwrap();
+        assert!(t.elapsed() < std::time::Duration::from_secs(8), "{e}");
+        assert!(is_timeout(&anyhow!(TIMEOUT_MSG)) && !is_timeout(&anyhow!("other")));
     }
 }

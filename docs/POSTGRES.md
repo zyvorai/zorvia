@@ -50,6 +50,17 @@ untouched, so rollback is unsetting the URL.
 `cargo test` runs the same conformance and race suite on SQLite always, and on Postgres when `ZORVIA_TEST_POSTGRES_URL` is set
 (CI-less today: run it against a throwaway container). Live-verified on the lab cluster (single node, Postgres 17 in-cluster): import of the existing admin, sign-in, restart persistence, and two replicas where a logout on one replica made the token fail on the other. Not verified: Postgres failover, TLS-enabled connections to a managed service.
 
+## When the database is down
+
+Measured on the lab by deleting the PostgreSQL pod under load (single node, the pod took about 40 s to come back):
+
+- Requests that need the user store answer **503 `AUTH_STORE_UNAVAILABLE`** with `Retry-After: 5` (never 401, so clients do not sign the
+  user out); about 22 seconds of 503 in that run, zero 401. Nothing is authenticated while the store cannot be read.
+- Every database request is bounded: `ZORVIA_DATABASE_TIMEOUT_SECS` (2 to 25, default 8), 5 s to connect, TCP keepalives after 15 s.
+  A request already waiting when the database vanished can take up to that long; one such slow request was seen.
+- The connection re-establishes by itself once the database is back; no restart is needed. Audit entries written while it is down are
+  logged as warnings and lost (the in-memory view still shows them until the next refresh); the operations reconciler pauses and resumes.
+
 ## Limits
 
 - The failed-login lockout (8 failures, 15 minutes) is counted in memory per replica, so with N replicas an attacker gets up to N times the attempts before a lockout; it is not shared through PostgreSQL.

@@ -415,9 +415,33 @@ pub mod web {
             return (status, json).into_response();
         };
 
-        let Some(identity) = auth.resolve_credential(&credential) else {
-            let (status, json) = err_json(401, "UNAUTHORIZED", "Invalid or missing credentials");
-            return (status, json).into_response();
+        // The store lookup is synchronous (and can wait on a database): keep it off the
+        // async workers.
+        let checked = {
+            let auth = auth.clone();
+            tokio::task::spawn_blocking(move || auth.check_credential(&credential)).await
+        };
+        let identity = match checked {
+            Ok(crate::api::auth::handlers::CredentialCheck::Valid(id)) => id,
+            Ok(crate::api::auth::handlers::CredentialCheck::StoreUnavailable) | Err(_) => {
+                // Not a 401: the session may be fine, and clients must not sign the user out.
+                let (status, json) = err_json(
+                    503,
+                    "AUTH_STORE_UNAVAILABLE",
+                    "The user database is unavailable; retry shortly",
+                );
+                let mut resp = (status, json).into_response();
+                resp.headers_mut().insert(
+                    header::RETRY_AFTER,
+                    axum::http::HeaderValue::from_static("5"),
+                );
+                return resp;
+            }
+            Ok(crate::api::auth::handlers::CredentialCheck::Invalid) => {
+                let (status, json) =
+                    err_json(401, "UNAUTHORIZED", "Invalid or missing credentials");
+                return (status, json).into_response();
+            }
         };
 
         // Path under /api nest: strip /api prefix for permission map
