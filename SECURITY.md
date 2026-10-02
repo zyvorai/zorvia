@@ -93,7 +93,7 @@ When deploying Zorvia:
   sessions via a per-user not-before time); `POST /v1/auth/password` changes your own
   password and revokes sessions.
 - **Brute force.** 8 failed sign-ins for a username lock it for 15 minutes (in-memory,
-  per process). A wrong TOTP code counts as a failure. This also means someone who
+  per process; with several replicas each keeps its own count, see [docs/POSTGRES.md](docs/POSTGRES.md)). A wrong TOTP code counts as a failure. This also means someone who
   knows a username can lock that account out for 15 minutes.
 - **JWT secret.** `ZORVIA_JWT_SECRET` must be at least 32 bytes outside lab mode; a
   shorter value is ignored and an ephemeral secret is used (tokens reset on restart).
@@ -118,6 +118,12 @@ When deploying Zorvia:
 - TOTP secrets can be encrypted at rest with a key provider (a local AES-256-GCM key or HashiCorp Vault Transit),
   bound to their owner, with an admin 2FA reset as the recovery path; see [docs/KEY_PROVIDER.md](docs/KEY_PROVIDER.md).
   Off unless configured: with no provider they are stored as before.
+- PostgreSQL (`ZORVIA_DATABASE_URL`) holds password hashes, token hashes and sealed TOTP secrets: keep the URL in a Secret
+  (`database.existingSecret`), use `sslmode=verify-full` with `ZORVIA_DATABASE_CA_FILE` outside a trusted network (`require`
+  encrypts but does not verify the server), and give the database user rights on Zorvia's tables only; see [docs/POSTGRES.md](docs/POSTGRES.md).
+- Guest agent views (`/api/vms/{name}/guest/...`) read accounts, certificates and installed software from inside a guest and
+  need `vm.power`; only a fixed read-only method set of the agent is reachable (no guest exec or file access). The Zyvor
+  agent is given the single ambient capability `CAP_SYS_ADMIN` so it can freeze filesystems for snapshots; see [docs/GUEST_AGENT.md](docs/GUEST_AGENT.md).
 - Not yet addressed: PAM sessions are not namespace-restricted (PAM login is opt-in and a stub on current builds).
 - JWT access tokens default to a **60-minute** TTL (`ZORVIA_JWT_TTL_MINUTES`);
   local-user disable/role/password/TOTP changes bump `token_version` and revoke

@@ -194,6 +194,8 @@ Delivery is phased. Catalog, quote requests, contracts and coverage are implemen
 | Security, cost, tenancy, DR, HA, automation | [docs/platform-surface.md](docs/platform-surface.md) |
 | Validated versions, measured results, what is not validated | [docs/SUPPORT_MATRIX.md](docs/SUPPORT_MATRIX.md) |
 | Per-user namespace restriction | [docs/TENANCY.md](docs/TENANCY.md) |
+| Control-plane HA, PostgreSQL store, two replicas | [docs/HA.md](docs/HA.md) · [docs/POSTGRES.md](docs/POSTGRES.md) |
+| In-guest agent: install, guest views, snapshot hooks | [docs/GUEST_AGENT.md](docs/GUEST_AGENT.md) |
 | Verified off-cluster backup, restore, recovery drills | [docs/OFFCLUSTER_BACKUP.md](docs/OFFCLUSTER_BACKUP.md) |
 | VMware import (h2kvm) and Atlas storage | [docs/VM_IMPORT.md](docs/VM_IMPORT.md) · [docs/ATLAS_INTEGRATION.md](docs/ATLAS_INTEGRATION.md) |
 | Config file and the Rust library | [docs/config-and-library.md](docs/config-and-library.md) |

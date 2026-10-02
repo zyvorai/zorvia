@@ -51,21 +51,48 @@ password change, lockout).
 | Recovery drill | PASS | 251 s (restore 104 s, boot 132 s) |
 | API restart, guest untouched | PASS | 48 s |
 
-## Guest agent (Zyvor guest agent via `guest_agent: zyvor`), 2026-10-01
+## Guest agent (Zyvor guest agent via `guest_agent: zyvor`), 2026-10-01 and 2026-10-02
 
-Installed through the create API by cloud-init and reported connected by KubeVirt after 171 to 355 s
-across three runs; full E2E (snapshot, data snapshot, backup, restore, drill, API restart) passed with it.
+Installed through the create API by cloud-init and reported connected by KubeVirt after 130 to 355 s
+across runs. 2026-10-02 findings and results:
+
+- **Online snapshots of PVC-backed guests failed at the freeze** with the packaged unit (agent unprivileged, no
+  capabilities: `fsfreeze: Operation not permitted`, measured on a fresh guest). Fixed by a systemd drop-in Zorvia's
+  cloud-init writes (ambient `CAP_SYS_ADMIN` only). With it, on a guest whose agent was connected: `guest-fsfreeze-freeze`
+  / `thaw` succeed, an online snapshot becomes ready, and an off-cluster backup succeeds.
+- Read-only guest views (`/guest/agent`, `/guest/inventory/*`) returned real data (665 packages, 122 certificates, users,
+  security posture, container inventory).
+- Snapshots and backups recorded `guest_quiesce: application` (the guest's pre-snapshot hooks ran; the lab guest has only the
+  default flush scripts, which report the database as not active).
+- Full E2E with `guest_agent: zyvor` (snapshot, data snapshot, backup, restore, drill, API restart) passed; the drill still
+  falls back to the serial console because the E2E guest's root is an ephemeral containerdisk.
+
 See [GUEST_AGENT.md](GUEST_AGENT.md).
+
+## PostgreSQL store and two replicas, 2026-10-02 (single-node lab, Postgres 17 in the cluster)
+
+| Check | Result |
+|---|---|
+| Import of the existing admin from `auth.db`, sign-in, restart persistence | PASS |
+| Two replicas: logout on one rejects the token on the other | PASS |
+| Operations queue on Postgres: boot, snapshots, encrypted backup, restore, drill, API restart | PASS |
+| Audit trail: 199 existing entries imported; entries written on one replica visible on the other | PASS |
+| JSON documents: an alert rule created on one replica visible on the other, deleted from the other | PASS |
+| `helm template`: refuses `replicaCount > 1` without a database, leader election or the local-state acknowledgement; renders no PVC and no `Recreate` for [values-ha.yaml](../charts/zorvia/values-ha.yaml) | PASS (not installed with Helm on the lab; the lab is deployed by script) |
+
+Concurrency (idempotency keys, operation claims, document and audit visibility) is also covered by tests that run against a
+real PostgreSQL. See [POSTGRES.md](POSTGRES.md) and [HA.md](HA.md).
 
 ## Not validated
 
 - **Live migration**, on any hardware (single-node lab).
-- **Node failure and control-plane failover time.** [HA.md](HA.md) describes the supported
-  topology; no node-loss run has been recorded, so there is no RTO figure.
+- **Node failure and control-plane failover time**, with one replica or two. [HA.md](HA.md) describes the supported
+  topologies; no node-loss run has been recorded, so there is no RTO figure. Also unmeasured: PostgreSQL failover, leader
+  failover with an operation in flight, and load on a shared database. The lab has one node, so two replicas share a node.
 - **Windows guests**, including virtio drivers and the guest agent.
-- **Guest agent paths beyond install and connection**: the Zyvor agent installs through
-  cloud-init and KubeVirt reports it connected (see [GUEST_AGENT.md](GUEST_AGENT.md)); agent-based
-  drill evidence, agent-backed readiness and application-level checks are not yet exercised.
+- **Guest agent paths not yet exercised**: the drill's `guest_probe` (the drill guest used the serial console), real
+  database-flush hooks (none installed in the lab guest), Windows and RPM-based guests
+  (see [GUEST_AGENT.md](GUEST_AGENT.md)).
 - **VMware import** against a real vCenter (and the Migration Cockpit's NIC mapping against
   real Multus networks). Unit and mock tests only. Experimental.
 - **GPU / SR-IOV passthrough on real devices.** Only the API behaviour (inventory, preflight refusals, permissions) was checked, on a lab
@@ -85,6 +112,9 @@ See [GUEST_AGENT.md](GUEST_AGENT.md).
 | On the RBD class CDI chooses Block volume mode and the importer cannot open the device (`Permission denied`) | Workaround: create DataVolumes with `volumeMode: Filesystem`. Not fixed in Zorvia |
 | Backup agent rejected Block-mode source volumes | Fixed: raw-device read, restored as `disk.img`. The live run also found that the agent's own path check refused the device node, which unit tests had missed |
 | Restored VMs' PVCs outlive the VM | Expected Kubernetes behaviour; delete them yourself |
+| `guest_agent: zyvor` guests could not be snapshotted online with PVC disks: the agent's `fsfreeze` is not permitted | Fixed in Zorvia (cloud-init drop-in); existing VMs need the drop-in. Upstream: GuestKit's QGA freeze handlers do not use its privileged helper |
+| The recovery drill of a guest with an ephemeral root disk cannot see the agent | Known limit; the drill falls back to the serial console |
+| The build host's disk filled up (incremental build cache) | Operational: build with `CARGO_INCREMENTAL=0` |
 
 ## Reproduce
 

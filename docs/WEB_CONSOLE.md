@@ -50,6 +50,7 @@ Useful env on the API pod:
 | `ZORVIA_JWT_SECRET` | JWT signing secret, 32+ bytes outside lab mode |
 | `ZORVIA_ADMIN_USER` / `ZORVIA_ADMIN_PASSWORD` | Bootstrap admin |
 | `ZORVIA_AUTH_DB` | Path to the sqlite user database (default `/data/auth.db` in the deploy manifest, backed by a PVC) |
+| `ZORVIA_DATABASE_URL` | `postgres://...`: keep users, tokens, operations, audit and JSON documents in PostgreSQL instead (`ZORVIA_DATABASE_IMPORT=1` copies existing SQLite data once) — [POSTGRES.md](POSTGRES.md) |
 | `ZORVIA_LAB_MODE` | `1` to allow lab defaults / shared API key. Off in the shipped manifests; throwaway labs only |
 | `ZORVIA_OIDC_*` | Opt-in SSO — see [OIDC.md](OIDC.md) |
 | `ZORVIA_EXPERIMENTAL` / `ZORVIA_FEATURE_*` | Phase 5 plan APIs — see [PHASE5_ENTERPRISE.md](PHASE5_ENTERPRISE.md) |
@@ -245,7 +246,7 @@ Native v1 routes remain under `/api/v1/…` (auth, health, namespaced VM power, 
 
 ### Audit export
 
-Persistent audit SQLite (`ZORVIA_AUDIT_DB`) backs the trail. Admins can pull events for SIEM shippers:
+Persistent audit SQLite (`ZORVIA_AUDIT_DB`, or PostgreSQL with `ZORVIA_DATABASE_URL`) backs the trail. Admins can pull events for SIEM shippers:
 
 ```bash
 curl -sk -H "Authorization: Bearer $TOKEN" \
