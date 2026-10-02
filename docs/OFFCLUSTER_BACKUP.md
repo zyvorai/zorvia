@@ -57,13 +57,13 @@ Scheduled backups use it automatically once a target is set.
 
 ### Block-mode volumes
 
-Source volumes with `volumeMode: Block` (the default on some RBD classes) are supported for backup. The temp PVC stays Block and is attached to the agent Job as a raw device; the agent measures it by seeking to the end and streams it. Because the device node is `root:disk 0660`, Jobs with a Block source run the agent as root (still `privileged: false`, no privilege escalation, every capability dropped); filesystem-only Jobs keep the unprivileged CDI UID. A restore always writes the content back as a `disk.img` file on a Filesystem PVC. Verified on Ceph RBD: the SHA-256 of the restored file equals that of the source device. Restoring *into* Block volumes is not supported.
+Source volumes with `volumeMode: Block` (the default on some RBD classes) are supported for backup. The temp PVC stays Block and is attached to the agent Job as a raw device; the agent measures it by seeking to the end and streams it. Because the device node is `root:disk 0660`, Jobs with a Block source run the agent as root (still `privileged: false`, no privilege escalation, every capability dropped); filesystem-only Jobs keep the unprivileged CDI UID. The manifest records that a disk was Block (`source_block`), and **a restore defaults to the same mode**: a Block source is restored into a new Block volume (sized to the raw image rounded up to whole GiB, attached to the restore Job as a writable device, written without truncation and refused if smaller than the backup), a Filesystem source into a `disk.img` file as before. Override with `volume_mode` (`Block` or `Filesystem`) on the restore request, e.g. to move a Block disk onto a storage class that only offers Filesystem. Jobs that attach a Block volume run the agent as root (still unprivileged, every capability dropped). Backups taken before this change carry no `source_block` and restore as Filesystem. Verified on Ceph RBD: backup -> restore into a Block volume and, separately, into a Filesystem volume both reproduce the source SHA-256.
 
 ## Restore
 
 `GET /api/backups/offcluster` lists restorable backups.
 `POST /api/backups/offcluster/{operation_id}/restore` with
-`{"new_vm_name": "...", "namespace"?, "storage_class"?, "start"?}` restores the
+`{"new_vm_name": "...", "namespace"?, "storage_class"?, "start"?, "volume_mode"?}` restores the
 disks into new PVCs (each part verified before it is written; existing files
 are never overwritten) and creates a new VM from the saved spec. Firmware
 uuid/serial and MAC addresses are dropped so it cannot collide with the

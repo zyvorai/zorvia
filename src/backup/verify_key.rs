@@ -43,6 +43,7 @@ pub fn enqueue_in(db: &OperationsDb, source_op_id: &str) -> Result<Operation> {
         new_vm_name: String::new(),
         storage_class: None,
         start: false,
+        volume_mode: None,
     })?;
     Ok(db.create(new)?.0)
 }

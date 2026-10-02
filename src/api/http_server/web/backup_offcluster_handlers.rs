@@ -101,6 +101,9 @@ pub struct RestoreBody {
     pub storage_class: Option<String>,
     #[serde(default)]
     pub start: bool,
+    /// `Block` or `Filesystem`; unset restores each disk in the mode it had.
+    #[serde(default)]
+    pub volume_mode: Option<String>,
 }
 
 fn load_source(op_id: &str) -> Result<restore::RestoreSource, Box<axum::response::Response>> {
@@ -136,6 +139,7 @@ pub async fn restore_offcluster_handler(
         &body.new_vm_name,
         body.storage_class.clone(),
         body.start,
+        body.volume_mode.clone(),
     ) {
         Ok(op) => (
             StatusCode::ACCEPTED,

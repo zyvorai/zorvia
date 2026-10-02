@@ -30,6 +30,10 @@ pub struct DiskEntry {
     /// Parts as stored: `size` and `sha256` describe the stored bytes
     /// (ciphertext when encrypted).
     pub parts: Vec<PartEntry>,
+    /// The source volume was `volumeMode: Block` (read as a raw device). A restore
+    /// defaults to the same mode. Absent in older manifests, which means Filesystem.
+    #[serde(default)]
+    pub source_block: bool,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -195,6 +199,7 @@ impl DiskDigest {
             stored_bytes: self.stored,
             sha256,
             parts: self.parts,
+            source_block: false,
         }
     }
 }
