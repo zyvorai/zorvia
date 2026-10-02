@@ -253,6 +253,11 @@ pub fn required_permission(method: &str, path: &str) -> Option<ApiPermission> {
     if path.starts_with("/vms/") && path.ends_with("/logs") {
         return Some(ApiPermission::VmPower);
     }
+    // What is installed, who has accounts and which certificates a guest holds is read
+    // from inside the guest by its agent: not for read-only roles.
+    if path.starts_with("/vms/") && path.contains("/guest/") {
+        return Some(ApiPermission::VmPower);
+    }
 
     if method == "GET" || method == "HEAD" {
         return None;
@@ -361,6 +366,14 @@ mod tests {
             assert_eq!(required_permission("GET", p), Some(ClusterAdmin), "{p}");
         }
         assert_eq!(required_permission("GET", "/vms/a/logs"), Some(VmPower));
+        assert_eq!(
+            required_permission("GET", "/vms/a/guest/inventory/users"),
+            Some(VmPower)
+        );
+        assert_eq!(
+            required_permission("GET", "/vms/a/guest/agent"),
+            Some(VmPower)
+        );
         assert_eq!(required_permission("DELETE", "/backups/b1"), Some(VmDelete));
         assert_eq!(
             required_permission("DELETE", "/vms/a/snapshots/s1"),

@@ -1129,7 +1129,12 @@ pub async fn fabric_create_snapshot(
     let s = state.read().await;
     let namespace = s.namespace.clone();
     let kube = s.kube_client.client();
+    let kube_client = s.kube_client.clone();
     drop(s);
+
+    // Run the guest's own pre-snapshot hooks (database flush scripts) when the Zyvor agent
+    // is connected, and record how consistent the snapshot can honestly be called.
+    let guest_quiesce = crate::guest_rpc::pre_snapshot_hooks(&kube_client, &namespace, &vm).await;
 
     let snap_name = if body.name.starts_with(&vm) {
         body.name.clone()
@@ -1164,6 +1169,7 @@ pub async fn fabric_create_snapshot(
                 "parent_id": null,
                 "size_bytes": 0,
                 "created": info.created_at.map(|t| t.to_rfc3339()).unwrap_or_default(),
+                "guest_quiesce": guest_quiesce,
             })),
         )
             .into_response(),

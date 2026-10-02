@@ -27,7 +27,9 @@ pub mod web {
 
     #[path = "fabric_vm_handlers.rs"]
     mod fabric_vm_handlers;
+    mod guest_agent_handlers;
     use fabric_vm_handlers::*;
+    use guest_agent_handlers::*;
 
     #[path = "adopt_handlers.rs"]
     mod adopt_handlers;
@@ -749,6 +751,8 @@ pub mod web {
             .route("/vms/{name}/metrics", get(fabric_vm_metrics))
             .route("/vms/{name}/guest-insight", get(fabric_guest_insight))
             .route("/vms/{name}/wait-ready", post(fabric_wait_guest_ready))
+            .route("/vms/{name}/guest/agent", get(guest_agent_info))
+            .route("/vms/{name}/guest/inventory/{kind}", get(guest_inventory))
             .route("/vms/{name}/logs", get(fabric_vm_logs))
             .route("/datavolumes/{name}/wait", post(fabric_wait_data_volume))
             .route("/readyz", get(fabric_readyz))

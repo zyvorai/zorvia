@@ -77,6 +77,8 @@ pub mod gitops;
 pub mod golden_images;
 pub mod guest_agent;
 pub mod guest_insight;
+#[cfg(feature = "web")]
+pub mod guest_rpc;
 pub mod handlers;
 pub mod health;
 pub mod migration;

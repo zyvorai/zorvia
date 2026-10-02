@@ -17,6 +17,16 @@ use anyhow::{anyhow, bail, Result};
 use serde_yaml::{Mapping, Value};
 
 /// Pinned GuestKit release shipped by default.
+/// systemd drop-in for the packaged unit. The unit runs the agent as the unprivileged
+/// `zyvor-agent` user with an empty capability bounding set, so the `fsfreeze` it runs for
+/// KubeVirt fails with "Operation not permitted" and every online snapshot of a VM with
+/// PVC-backed disks fails at the freeze (measured on a live guest). Freezing needs only
+/// CAP_SYS_ADMIN, granted as an ambient capability and nothing else.
+pub const FREEZE_DROPIN_PATH: &str =
+    "/etc/systemd/system/guestkit-agent.service.d/10-zorvia-freeze.conf";
+pub const FREEZE_DROPIN: &str =
+    "[Service]\nCapabilityBoundingSet=CAP_SYS_ADMIN\nAmbientCapabilities=CAP_SYS_ADMIN\n";
+
 pub const DEFAULT_VERSION: &str = "1.2.4";
 pub const DEFAULT_URL: &str =
     "https://github.com/zyvorai/guestkit/releases/download/v1.2.4/zyvor-vm-tools_1.2.4_amd64.deb";
@@ -150,7 +160,14 @@ pub fn merge_cloud_init(user_data: &str, kind: AgentKind, pkg: &AgentPackage) ->
                 Value::String("/etc/udev/rules.d/60-zyvor-guest-agent.rules".into()),
             );
             rule.insert("content".into(), Value::String(UDEV_RULE.into()));
-            append(map, "write_files", vec![Value::Mapping(rule)])?;
+            let mut dropin = Mapping::new();
+            dropin.insert("path".into(), Value::String(FREEZE_DROPIN_PATH.into()));
+            dropin.insert("content".into(), Value::String(FREEZE_DROPIN.into()));
+            append(
+                map,
+                "write_files",
+                vec![Value::Mapping(rule), Value::Mapping(dropin)],
+            )?;
             let install = format!(
                 "command -v dpkg >/dev/null 2>&1 || {{ echo 'zyvor guest agent: needs a Debian-family guest' >&2; exit 0; }}; \
                  set -e; curl -fsSL -o /tmp/zyvor-vm-tools.deb '{url}'; \
@@ -172,6 +189,7 @@ pub fn merge_cloud_init(user_data: &str, kind: AgentKind, pkg: &AgentPackage) ->
                         "--action=change",
                     ]),
                     cmd(&["udevadm", "settle", "--timeout=10"]),
+                    cmd(&["systemctl", "daemon-reload"]),
                     cmd(&["systemctl", "enable", "--now", "guestkit-agent.service"]),
                     cmd(&["systemctl", "restart", "guestkit-agent.service"]),
                 ],
@@ -240,7 +258,21 @@ mod tests {
             .iter()
             .any(|c| c == &cmd(&["systemctl", "restart", "guestkit-agent.service"])));
         let files = v["write_files"].as_sequence().unwrap();
-        assert_eq!(files.len(), 2, "user file kept, udev rule added");
+        assert_eq!(
+            files.len(),
+            3,
+            "user file kept, udev rule and freeze drop-in added"
+        );
+        let dropin = files[2]["content"].as_str().unwrap();
+        assert!(files[2]["path"]
+            .as_str()
+            .unwrap()
+            .ends_with("10-zorvia-freeze.conf"));
+        assert!(dropin.contains("AmbientCapabilities=CAP_SYS_ADMIN"));
+        assert!(
+            !dropin.contains("CAP_NET") && !dropin.contains("User="),
+            "only the freeze capability"
+        );
         let rule = files[1]["content"].as_str().unwrap();
         assert!(rule.contains("org.qemu.guest_agent.0") && rule.contains("zyvor-agent"));
     }

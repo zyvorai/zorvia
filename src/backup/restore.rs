@@ -886,8 +886,15 @@ async fn drill_boot(
                 let agent = report.agent_connected;
                 let console = !agent && serial_console_shows_boot(client, ns, &p.new_vm_name).await;
                 if agent || console {
+                    // Beyond "the agent is connected": ask the Zyvor agent itself.
+                    let guest_probe = if agent {
+                        crate::guest_rpc::probe(&ctx.client, ns, &p.new_vm_name).await
+                    } else {
+                        None
+                    };
                     return Ok(Outcome::Succeeded(Some(json!({
                         "drill": {
+                            "guest_probe": guest_probe,
                             "backup_operation": src.op_id,
                             "vm_name": src.vm_name,
                             "booted": true,
