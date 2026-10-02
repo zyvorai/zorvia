@@ -325,10 +325,11 @@ impl UserDb {
     }
 
     pub fn set_totp(&self, user_id: &str, secret: &str, enabled: bool) -> Result<()> {
+        let stored = seal_for(user_id, secret)?;
         let conn = self.conn.lock().map_err(|e| anyhow::anyhow!("{e}"))?;
         conn.execute(
             "UPDATE users SET totp_secret = ?1, totp_enabled = ?2 WHERE id = ?3",
-            params![secret, if enabled { 1 } else { 0 }, user_id],
+            params![stored, if enabled { 1 } else { 0 }, user_id],
         )
         .context("update totp")?;
         Ok(())
@@ -346,33 +347,100 @@ impl UserDb {
     }
 
     pub fn set_totp_pending(&self, user_id: &str, secret: Option<&str>) -> Result<()> {
+        let stored = secret.map(|s| seal_for(user_id, s)).transpose()?;
         let conn = self.conn.lock().map_err(|e| anyhow::anyhow!("{e}"))?;
         conn.execute(
             "UPDATE users SET totp_pending = ?1 WHERE id = ?2",
-            params![secret, user_id],
+            params![stored, user_id],
         )?;
         Ok(())
     }
 
     pub fn get_totp_pending(&self, user_id: &str) -> Result<Option<String>> {
         let conn = self.conn.lock().map_err(|e| anyhow::anyhow!("{e}"))?;
-        Ok(conn
+        let raw: Option<String> = conn
             .query_row(
                 "SELECT totp_pending FROM users WHERE id = ?1",
                 params![user_id],
                 |r| r.get(0),
             )
-            .unwrap_or(None))
+            .unwrap_or(None);
+        Ok(open_stored(user_id, raw))
     }
 
     /// Swap the pending secret in, keep 2FA on, and revoke existing sessions.
     pub fn commit_totp_pending(&self, user_id: &str, secret: &str) -> Result<()> {
+        let stored = seal_for(user_id, secret)?;
         let conn = self.conn.lock().map_err(|e| anyhow::anyhow!("{e}"))?;
         conn.execute(
             "UPDATE users SET totp_secret = ?1, totp_enabled = 1, totp_pending = NULL, token_version = token_version + 1 WHERE id = ?2",
-            params![secret, user_id],
+            params![stored, user_id],
         )?;
         Ok(())
+    }
+
+    /// With a key provider configured: seal every TOTP secret that is still plaintext
+    /// (or sealed under a rotated-out key id) and return how many rows changed.
+    /// Idempotent; run at startup. Without a provider it only reports sealed values
+    /// that can no longer be read (a missing key), which would lock those users out.
+    pub fn seal_existing_totp(&self) -> Result<usize> {
+        let rows: Vec<(String, Option<String>, Option<String>)> = {
+            let conn = self.conn.lock().map_err(|e| anyhow::anyhow!("{e}"))?;
+            let mut stmt = conn.prepare(
+                "SELECT id, totp_secret, totp_pending FROM users
+                 WHERE totp_secret IS NOT NULL OR totp_pending IS NOT NULL",
+            )?;
+            let it = stmt.query_map([], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)))?;
+            it.collect::<rusqlite::Result<Vec<_>>>()?
+        };
+        let Some(p) = crate::keys::provider() else {
+            let sealed = rows
+                .iter()
+                .filter(|(_, a, b)| {
+                    [a, b]
+                        .iter()
+                        .any(|v| v.as_deref().is_some_and(crate::keys::is_sealed))
+                })
+                .count();
+            if sealed > 0 {
+                log::error!(
+                    "{sealed} user(s) have encrypted TOTP secrets but no key provider is configured: \
+                     they cannot sign in with 2FA until the key is configured or an admin resets their 2FA"
+                );
+            }
+            return Ok(0);
+        };
+        let mut changed = 0;
+        for (id, secret, pending) in rows {
+            let mut fix = |v: Option<String>| -> Result<Option<String>> {
+                let Some(v) = v else { return Ok(None) };
+                if !p.needs_seal(&v) {
+                    return Ok(Some(v));
+                }
+                let plain = if crate::keys::is_sealed(&v) {
+                    match p.open(&id, &v) {
+                        Ok(p) => p,
+                        Err(e) => {
+                            log::error!("user {id}: cannot re-seal a TOTP secret: {e:#}");
+                            return Ok(Some(v));
+                        }
+                    }
+                } else {
+                    v.clone()
+                };
+                changed += 1;
+                Ok(Some(p.seal(&id, &plain)?))
+            };
+            let (s2, p2) = (fix(secret.clone())?, fix(pending.clone())?);
+            if s2 != secret || p2 != pending {
+                let conn = self.conn.lock().map_err(|e| anyhow::anyhow!("{e}"))?;
+                conn.execute(
+                    "UPDATE users SET totp_secret = ?1, totp_pending = ?2 WHERE id = ?3",
+                    params![s2, p2, id],
+                )?;
+            }
+        }
+        Ok(changed)
     }
 
     pub fn disable_totp(&self, user_id: &str) -> Result<()> {
@@ -467,6 +535,27 @@ impl UserDb {
         Ok(Some(rec))
     }
 
+    #[cfg(test)]
+    pub(crate) fn raw_totp(&self, id: &str) -> (Option<String>, Option<String>) {
+        let conn = self.conn.lock().unwrap();
+        conn.query_row(
+            "SELECT totp_secret, totp_pending FROM users WHERE id = ?1",
+            params![id],
+            |r| Ok((r.get(0)?, r.get(1)?)),
+        )
+        .unwrap()
+    }
+
+    #[cfg(test)]
+    pub(crate) fn overwrite_raw_totp(&self, id: &str, secret: &str) {
+        let conn = self.conn.lock().unwrap();
+        conn.execute(
+            "UPDATE users SET totp_secret = ?1 WHERE id = ?2",
+            params![secret, id],
+        )
+        .unwrap();
+    }
+
     pub fn set_api_token_namespaces(&self, id: &str, namespaces: Option<&[String]>) -> Result<()> {
         let raw = namespaces.map(serde_json::to_string).transpose()?;
         let conn = self.conn.lock().map_err(|e| anyhow::anyhow!("{e}"))?;
@@ -529,6 +618,40 @@ fn parse_role_str(s: &str) -> Role {
     }
 }
 
+/// Seal a TOTP secret for `user_id` when a key provider is configured (an error is
+/// never swallowed into plaintext), else keep it as is.
+fn seal_for(user_id: &str, plain: &str) -> Result<String> {
+    match crate::keys::provider() {
+        Some(p) => p.seal(user_id, plain),
+        None => Ok(plain.to_string()),
+    }
+}
+
+/// Read a stored TOTP value: plaintext as is, a sealed one opened with the provider.
+/// An unreadable sealed value (no provider, wrong or missing key) is `None` and logged,
+/// so verification fails closed instead of treating ciphertext as a secret.
+fn open_stored(user_id: &str, stored: Option<String>) -> Option<String> {
+    let s = stored?;
+    if !crate::keys::is_sealed(&s) {
+        return Some(s);
+    }
+    match crate::keys::provider() {
+        Some(p) => match p.open(user_id, &s) {
+            Ok(plain) => Some(plain),
+            Err(e) => {
+                log::error!("user {user_id}: cannot decrypt the TOTP secret ({e:#}); an admin can reset their 2FA");
+                None
+            }
+        },
+        None => {
+            log::error!(
+                "user {user_id}: the TOTP secret is encrypted but no key provider is configured"
+            );
+            None
+        }
+    }
+}
+
 fn row_to_user(row: &rusqlite::Row) -> rusqlite::Result<User> {
     let role_s: String = row.get(3)?;
     let totp_enabled: i64 = row.get(5)?;
@@ -539,7 +662,10 @@ fn row_to_user(row: &rusqlite::Row) -> rusqlite::Result<User> {
         username: row.get(1)?,
         password_hash: row.get(2)?,
         role: parse_role_str(&role_s),
-        totp_secret: row.get(4)?,
+        totp_secret: {
+            let id: String = row.get(0)?;
+            open_stored(&id, row.get(4)?)
+        },
         totp_enabled: totp_enabled != 0,
         enabled: enabled != 0,
         created: row.get(7)?,
