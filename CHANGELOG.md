@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- `guest_agent: zyvor` guests could not be snapshotted online when they had PVC-backed disks: the packaged agent unit has no
+  capabilities, so its `fsfreeze` failed and KubeVirt failed the snapshot. Cloud-init now adds a systemd drop-in granting
+  `CAP_SYS_ADMIN` (ambient) to the agent. Existing Zyvor-agent VMs need the drop-in (docs/GUEST_AGENT.md).
+
+### Added (GuestKit integration)
+
+- `GET /api/vms/{name}/guest/agent` and `/guest/inventory/{packages|users|certificates|containers|security}`: read-only
+  views from inside the guest through the Zyvor agent (JSON-RPC over the QGA channel via `virsh` in the launcher pod; fixed
+  read-only method set). Snapshots and off-cluster backups run the guest's pre-snapshot hooks and record `guest_quiesce`
+  (application / filesystem / crash); recovery drills add `guest_probe`. See docs/GUEST_AGENT.md.
+
 ### Added (PostgreSQL backend, phase 4: shared documents and two-replica chart)
 
 - Schedules, warm pools, alerts, webhooks and migration history are stored in PostgreSQL when configured (files remain the fallback

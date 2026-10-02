@@ -98,6 +98,9 @@ async fn run_backup_op(ctx: OpContext) -> Outcome {
     };
 
     ctx.progress("creating-snapshot", 1);
+    // Guest-side pre-snapshot hooks (Zyvor agent), recorded with the backup.
+    let guest_quiesce =
+        crate::guest_rpc::pre_snapshot_hooks(&ctx.client, &p.namespace, &p.vm_name).await;
     if manager.get_snapshot(&p.snapshot_name).await.is_err() {
         let mut config = SnapshotConfig::new(&p.vm_name, &p.snapshot_name)
             .with_label("zorvia.io/backup", "true")
@@ -133,7 +136,7 @@ async fn run_backup_op(ctx: OpContext) -> Outcome {
                     match super::offcluster::OffClusterTarget::resolve().await {
                         Err(e) => return Outcome::Failed(format!("off-cluster target: {e}")),
                         Ok(Some(target)) => {
-                            return super::offcluster::run(
+                            let out = super::offcluster::run(
                                 &ctx,
                                 &target,
                                 &p.namespace,
@@ -141,6 +144,13 @@ async fn run_backup_op(ctx: OpContext) -> Outcome {
                                 &p.snapshot_name,
                             )
                             .await;
+                            return match out {
+                                Outcome::Succeeded(Some(mut v)) if v.is_object() => {
+                                    v["guest_quiesce"] = serde_json::json!(guest_quiesce);
+                                    Outcome::Succeeded(Some(v))
+                                }
+                                other => other,
+                            };
                         }
                         Ok(None) => {}
                     }
@@ -151,6 +161,7 @@ async fn run_backup_op(ctx: OpContext) -> Outcome {
                         "snapshot": p.snapshot_name,
                         "vm_name": p.vm_name,
                         "warning": warning,
+                        "guest_quiesce": guest_quiesce,
                     })));
                 }
                 SnapshotStatus::Failed => {
