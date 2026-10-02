@@ -47,6 +47,8 @@ pub mod network;
 pub mod operations;
 pub mod output;
 pub mod storage;
+#[cfg(feature = "web")]
+pub mod store;
 pub mod templates;
 pub mod terraform;
 pub mod tui;
