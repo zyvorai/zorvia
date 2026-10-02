@@ -192,23 +192,31 @@ impl AuthState {
 
     /// Validate JWT and ensure local users are still enabled with matching token_version.
     pub fn validate_bearer(&self, token: &str) -> Option<Claims> {
-        let claims = self.jwt.validate(token).ok()?;
+        self.validate_bearer_checked(token).ok().flatten()
+    }
+
+    /// Like `validate_bearer`, but tells "this credential is not valid" (`Ok(None)`) apart
+    /// from "the user store could not be read" (`Err`), so an outage of the database is not
+    /// reported to clients as a revoked session.
+    pub fn validate_bearer_checked(&self, token: &str) -> anyhow::Result<Option<Claims>> {
+        let Ok(claims) = self.jwt.validate(token) else {
+            return Ok(None);
+        };
         // Non-local identities (PAM) have no DB row / token_version.
         // Their `tv` is the issue time, so logout can revoke by timestamp.
         if let Some(name) = claims.sub.strip_prefix("pam:") {
-            if claims.tv < self.db.pam_not_before(name).unwrap_or(u32::MAX) {
-                return None;
+            if claims.tv < self.db.pam_not_before(name)? {
+                return Ok(None);
             }
-            return Some(claims);
+            return Ok(Some(claims));
         }
-        let user = self.db.get_by_id(&claims.sub).ok().flatten()?;
-        if !user.enabled {
-            return None;
+        let Some(user) = self.db.get_by_id(&claims.sub)? else {
+            return Ok(None);
+        };
+        if !user.enabled || user.token_version != claims.tv {
+            return Ok(None);
         }
-        if user.token_version != claims.tv {
-            return None;
-        }
-        Some(claims)
+        Ok(Some(claims))
     }
 
     pub fn lab_api_key_ok(&self, provided: &str) -> bool {
@@ -223,16 +231,39 @@ impl AuthState {
 
     /// Resolve a credential string (Bearer or x-api-key) into an identity.
     pub fn resolve_credential(&self, credential: &str) -> Option<AuthIdentity> {
+        match self.check_credential(credential) {
+            CredentialCheck::Valid(id) => Some(id),
+            _ => None,
+        }
+    }
+
+    /// Resolve a credential, distinguishing a store outage from an invalid credential.
+    /// Still fails closed: nothing is authenticated while the store cannot be read.
+    pub fn check_credential(&self, credential: &str) -> CredentialCheck {
         if self.lab_api_key_ok(credential) {
-            return Some(AuthIdentity::lab_api_key());
+            return CredentialCheck::Valid(AuthIdentity::lab_api_key());
         }
-        if let Ok(Some(tok)) = self.db.lookup_api_token(credential) {
-            let _ = self.db.touch_api_token(&tok.id);
-            let mut id = AuthIdentity::from_api_token(tok.id, tok.name, tok.role, &tok.scopes);
-            id.namespaces = tok.namespaces;
-            return Some(id);
+        match self.db.lookup_api_token(credential) {
+            Ok(Some(tok)) => {
+                let _ = self.db.touch_api_token(&tok.id);
+                let mut id = AuthIdentity::from_api_token(tok.id, tok.name, tok.role, &tok.scopes);
+                id.namespaces = tok.namespaces;
+                return CredentialCheck::Valid(id);
+            }
+            Ok(None) => {}
+            Err(e) => {
+                log::warn!("auth store unavailable: {e}");
+                return CredentialCheck::StoreUnavailable;
+            }
         }
-        let claims = self.validate_bearer(credential)?;
+        let claims = match self.validate_bearer_checked(credential) {
+            Ok(Some(c)) => c,
+            Ok(None) => return CredentialCheck::Invalid,
+            Err(e) => {
+                log::warn!("auth store unavailable: {e}");
+                return CredentialCheck::StoreUnavailable;
+            }
+        };
         let mut id = AuthIdentity::from_jwt(claims.sub.clone(), claims.username, claims.role);
         if !claims.sub.starts_with("pam:") && !matches!(id.role, Role::Admin) {
             // Fail closed: if the allow-list cannot be read, confine to nothing.
@@ -241,8 +272,18 @@ impl AuthState {
                 Err(_) => Some(Vec::new()),
             };
         }
-        Some(id)
+        CredentialCheck::Valid(id)
     }
+}
+
+/// Outcome of resolving a credential.
+#[derive(Debug)]
+pub enum CredentialCheck {
+    Valid(AuthIdentity),
+    /// Unknown, expired, revoked or malformed.
+    Invalid,
+    /// The user store could not be read (for example PostgreSQL is down).
+    StoreUnavailable,
 }
 
 pub type SharedAuth = Arc<AuthState>;
