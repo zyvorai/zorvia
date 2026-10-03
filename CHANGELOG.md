@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- The pinned Zyvor guest agent is GuestKit **v1.2.5**, which freezes filesystems through its privileged helper; the `CAP_SYS_ADMIN` drop-in is now only written for a mirrored or older package (`ZORVIA_GUEST_AGENT_URL`).
+
 ### Fixed
 
 - With PostgreSQL the failed-login lockout is shared by all replicas (`login_failures`); before, each replica counted separately, so N replicas allowed N times the attempts.

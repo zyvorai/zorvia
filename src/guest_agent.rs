@@ -16,21 +16,24 @@
 use anyhow::{anyhow, bail, Result};
 use serde_yaml::{Mapping, Value};
 
-/// Pinned GuestKit release shipped by default.
-/// systemd drop-in for the packaged unit. The unit runs the agent as the unprivileged
-/// `zyvor-agent` user with an empty capability bounding set, so the `fsfreeze` it runs for
-/// KubeVirt fails with "Operation not permitted" and every online snapshot of a VM with
-/// PVC-backed disks fails at the freeze (measured on a live guest). Freezing needs only
-/// CAP_SYS_ADMIN, granted as an ambient capability and nothing else.
+/// systemd drop-in for packages older than GuestKit 1.2.5. Their unit runs the agent as the
+/// unprivileged `zyvor-agent` user with an empty capability bounding set and their QGA freeze
+/// handlers ran `fsfreeze` themselves, so it failed with "Operation not permitted" and every
+/// online snapshot of a VM with PVC-backed disks failed at the freeze (measured on a live
+/// guest). Freezing needs only CAP_SYS_ADMIN, granted as an ambient capability and nothing
+/// else. GuestKit 1.2.5 freezes through its privileged helper instead, so the default package
+/// does not need it; it is only written when `ZORVIA_GUEST_AGENT_URL` points somewhere else
+/// (a mirror or an older build we cannot vouch for).
 pub const FREEZE_DROPIN_PATH: &str =
     "/etc/systemd/system/guestkit-agent.service.d/10-zorvia-freeze.conf";
 pub const FREEZE_DROPIN: &str =
     "[Service]\nCapabilityBoundingSet=CAP_SYS_ADMIN\nAmbientCapabilities=CAP_SYS_ADMIN\n";
 
-pub const DEFAULT_VERSION: &str = "1.2.4";
+/// Pinned GuestKit release shipped by default.
+pub const DEFAULT_VERSION: &str = "1.2.5";
 pub const DEFAULT_URL: &str =
-    "https://github.com/zyvorai/guestkit/releases/download/v1.2.4/zyvor-vm-tools_1.2.4_amd64.deb";
-pub const DEFAULT_SHA256: &str = "9ee868fb1fd12bfbe327f1ada112d7abde3ab1f8defb4239f062ad6fe21b4c94";
+    "https://github.com/zyvorai/guestkit/releases/download/v1.2.5/zyvor-vm-tools_1.2.5_amd64.deb";
+pub const DEFAULT_SHA256: &str = "9d2c211a7b1b372b14f602f0812d9596942776090e0fcfcd5b3a486803eb101c";
 
 /// Which agent to install.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -91,11 +94,16 @@ impl AgentPackage {
         }
         Ok(Self { url, sha256: sha })
     }
+
+    /// True for the pinned release, whose agent freezes through its privileged helper.
+    pub fn is_default(&self) -> bool {
+        self.url == DEFAULT_URL && self.sha256 == DEFAULT_SHA256
+    }
 }
 
 /// udev rule that hands the hypervisor channel to the agent's unprivileged user.
-/// The package ships the same rule from the release that follows 1.2.4; until
-/// then cloud-init writes it (identical content, so it is harmless afterwards).
+/// GuestKit 1.2.5 ships the same rule; cloud-init still writes it (identical content,
+/// harmless) so older or mirrored packages work too.
 const UDEV_RULE: &str = "# Let the unprivileged zyvor-agent user open the hypervisor channel.\n\
 SUBSYSTEM==\"virtio-ports\", ATTR{name}==\"org.qemu.guest_agent.0\", GROUP=\"zyvor-agent\", MODE=\"0660\"\n\
 SUBSYSTEM==\"virtio-ports\", ATTR{name}==\"com.zyvor.guestkit.0\", GROUP=\"zyvor-agent\", MODE=\"0660\"\n";
@@ -160,14 +168,14 @@ pub fn merge_cloud_init(user_data: &str, kind: AgentKind, pkg: &AgentPackage) ->
                 Value::String("/etc/udev/rules.d/60-zyvor-guest-agent.rules".into()),
             );
             rule.insert("content".into(), Value::String(UDEV_RULE.into()));
-            let mut dropin = Mapping::new();
-            dropin.insert("path".into(), Value::String(FREEZE_DROPIN_PATH.into()));
-            dropin.insert("content".into(), Value::String(FREEZE_DROPIN.into()));
-            append(
-                map,
-                "write_files",
-                vec![Value::Mapping(rule), Value::Mapping(dropin)],
-            )?;
+            let mut files = vec![Value::Mapping(rule)];
+            if !pkg.is_default() {
+                let mut dropin = Mapping::new();
+                dropin.insert("path".into(), Value::String(FREEZE_DROPIN_PATH.into()));
+                dropin.insert("content".into(), Value::String(FREEZE_DROPIN.into()));
+                files.push(Value::Mapping(dropin));
+            }
+            append(map, "write_files", files)?;
             let install = format!(
                 "command -v dpkg >/dev/null 2>&1 || {{ echo 'zyvor guest agent: needs a Debian-family guest' >&2; exit 0; }}; \
                  set -e; curl -fsSL -o /tmp/zyvor-vm-tools.deb '{url}'; \
@@ -260,11 +268,27 @@ mod tests {
         let files = v["write_files"].as_sequence().unwrap();
         assert_eq!(
             files.len(),
-            3,
-            "user file kept, udev rule and freeze drop-in added"
+            2,
+            "user file kept and udev rule added; the pinned 1.2.5 package needs no freeze drop-in"
         );
-        let dropin = files[2]["content"].as_str().unwrap();
-        assert!(files[2]["path"]
+        let rule = files[1]["content"].as_str().unwrap();
+        assert!(rule.contains("org.qemu.guest_agent.0") && rule.contains("zyvor-agent"));
+    }
+
+    #[test]
+    fn a_mirrored_or_older_package_gets_the_freeze_drop_in() {
+        let other = AgentPackage::new(
+            "https://mirror.example.com/zyvor-vm-tools_1.2.4_amd64.deb".into(),
+            "a".repeat(64),
+        )
+        .unwrap();
+        assert!(!other.is_default() && pkg().is_default());
+        let out = merge_cloud_init("#cloud-config\n", AgentKind::Zyvor, &other).unwrap();
+        let v: Value = serde_yaml::from_str(&out["#cloud-config".len()..]).unwrap();
+        let files = v["write_files"].as_sequence().unwrap();
+        assert_eq!(files.len(), 2);
+        let dropin = files[1]["content"].as_str().unwrap();
+        assert!(files[1]["path"]
             .as_str()
             .unwrap()
             .ends_with("10-zorvia-freeze.conf"));
@@ -273,8 +297,6 @@ mod tests {
             !dropin.contains("CAP_NET") && !dropin.contains("User="),
             "only the freeze capability"
         );
-        let rule = files[1]["content"].as_str().unwrap();
-        assert!(rule.contains("org.qemu.guest_agent.0") && rule.contains("zyvor-agent"));
     }
 
     #[test]

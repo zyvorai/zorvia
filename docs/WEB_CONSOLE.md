@@ -61,7 +61,7 @@ Useful env on the API pod:
 |------|------|
 | `/app` | Dashboard |
 | `/app/vms` | VM list |
-| `/app/vms/:name` | VM details (power, network/port-forwards, cloud-init, snapshots) |
+| `/app/vms/:name` | VM details (power, network/port-forwards, cloud-init, snapshots, devices, guest agent) |
 | `/app/vms/:name/console` | Serial + VNC + SSH tabs |
 | `/app/create` | Create VM wizard (Linux or Windows/Kryton) |
 | `/app/favorites` | Favorites |
