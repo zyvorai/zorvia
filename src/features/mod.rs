@@ -182,7 +182,7 @@ pub const FEATURES: &[Feature] = &[
         id: "gpu-sriov-numa",
         name: "GPU/SR-IOV/NUMA placement",
         maturity: Maturity::Experimental,
-        notes: "GPU / host-device passthrough and SR-IOV interfaces: `devices` on VM create (KubeVirt gpus/hostDevices), a preflight that refuses VMs the cluster cannot schedule, GET /api/v1/devices inventory (docs/DEVICES.md). Unit-tested and API-checked on a lab without GPU or SR-IOV hardware: not run on real devices. NUMA placement remains a plan API at /api/v1/enterprise/placement/gpu-numa",
+        notes: "GPU / host-device passthrough and SR-IOV interfaces at VM create (KubeVirt gpus/hostDevices) with a scheduling preflight, device and SR-IOV pool inventory, permit/remove of devices in the KubeVirt CR (cluster.admin, Helm devices.managePermitted), and NUMA / dedicated-CPU / hugepage placement with node checks (docs/DEVICES.md). Unit-tested and checked against a real KubeVirt API (dry runs and live permit/remove) on a lab without GPU or SR-IOV hardware: not run on real devices. NUMA placement-advisor planning remains a plan API at /api/v1/enterprise/placement/gpu-numa",
     },
     Feature {
         id: "fleet-multicluster",

@@ -24,6 +24,7 @@ const Fleet = lazy(() => import('./pages/Fleet'))
 const VMList = lazy(() => import('./pages/VMList'))
 const VMDetails = lazy(() => import('./pages/VMDetails'))
 const CreateVM = lazy(() => import('./pages/CreateVM'))
+const PassthroughDevices = lazy(() => import('./pages/PassthroughDevices'))
 const Console = lazy(() => import('./pages/Console'))
 const Snapshots = lazy(() => import('./pages/Snapshots'))
 const FavoriteVMs = lazy(() => import('./pages/FavoriteVMs'))
@@ -147,6 +148,7 @@ function ConsoleRoutes() {
             <Route path="batch-import" element={<BatchImport />} />
             <Route path="windows" element={<KrytonWindows />} />
             <Route path="access-control" element={<AdminRoute><AccessControl /></AdminRoute>} />
+            <Route path="devices" element={<AdminRoute><PassthroughDevices /></AdminRoute>} />
             <Route path="pods" element={<AdminRoute><Pods /></AdminRoute>} />
             <Route path="pods/:ns/:name/logs" element={<AdminRoute><PodLogsPage /></AdminRoute>} />
             <Route path="*" element={<Navigate to="/app" replace />} />

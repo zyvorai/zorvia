@@ -104,6 +104,7 @@ export const TOP_MEGA_GROUPS: { label: string; items: NavItem[] }[] = [
     items: [
           { label: 'Create VM', path: '/app/create', icon: Plus, blurb: 'Launch a new VM.' },
       { label: 'Favorites', path: '/app/favorites', icon: Star, blurb: 'Pinned VMs.' },
+      { label: 'Passthrough devices', path: '/app/devices', icon: Cpu, blurb: 'GPUs, SR-IOV and host devices.', adminOnly: true },
       { label: 'Templates', path: '/app/templates', icon: Layers, blurb: 'Reusable blueprints.' },
       { label: 'Compare', path: '/app/compare', icon: GitCompare, blurb: 'Side-by-side specs.' },
       { label: 'Batch Import', path: '/app/batch-import', icon: UploadCloud, blurb: 'Import many at once.' },

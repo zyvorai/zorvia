@@ -67,6 +67,10 @@ pub struct FabricCreateVmRequest {
     /// Isolate the QEMU emulator thread from vCPU threads.
     #[serde(default)]
     pub cpu_isolate_emulator_thread: Option<bool>,
+    /// Give the guest the host's NUMA topology. Needs `cpu_dedicated_placement` and
+    /// `memory_hugepages_page_size` (KubeVirt refuses it otherwise).
+    #[serde(default)]
+    pub cpu_numa_passthrough: Option<bool>,
     /// Hugepages page size (e.g. "2Mi", "1Gi").
     #[serde(default)]
     pub memory_hugepages_page_size: Option<String>,
@@ -354,6 +358,9 @@ pub async fn fabric_create_vm(
     if let Some(page_size) = &req.memory_hugepages_page_size {
         builder = builder.hugepages(page_size);
     }
+    if let Some(numa) = req.cpu_numa_passthrough {
+        builder = builder.numa_guest_mapping_passthrough(numa);
+    }
     if let Some(machine_type) = &req.machine_type {
         builder = builder.machine_type(machine_type);
     }
@@ -404,12 +411,18 @@ pub async fn fabric_create_vm(
         }
     }
     let sriov = super::devices_handlers::sriov_names(req.interfaces.as_deref().unwrap_or_default());
+    let placement = crate::devices::PlacementRequest {
+        dedicated_cpus: req.cpu_dedicated_placement == Some(true),
+        numa_passthrough: req.cpu_numa_passthrough == Some(true),
+        hugepages: req.memory_hugepages_page_size.clone(),
+    };
     // A VM that asks for hardware the cluster cannot give would sit Pending: refuse it now.
     let issues = super::devices_handlers::preflight_for_create(
         &client.client(),
         &namespace,
         &devices,
         &sriov,
+        &placement,
     )
     .await;
     if crate::devices::has_errors(&issues) {

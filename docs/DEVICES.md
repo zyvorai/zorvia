@@ -61,20 +61,59 @@ the inventory and the preflight, a User gets 403 on the inventory and 200 on the
 NetworkAttachmentDefinition CRD is absent (it relies on the API server's 404 wording and is untested on a cluster without Multus),
 and anything with real devices.
 
+## CPU, NUMA and hugepages (what GPU VMs usually need)
+
+`POST /api/vms` also takes `cpu_dedicated_placement` (pin vCPUs), `memory_hugepages_page_size` (`2Mi` or `1Gi`) and
+`cpu_numa_passthrough` (give the guest the host's NUMA topology, KubeVirt `cpu.numa.guestMappingPassthrough`). KubeVirt's
+admission webhook refuses NUMA passthrough without dedicated CPUs and without hugepages (verified against KubeVirt 1.9 with a
+server-side dry run), so Zorvia answers 400/422 with that reason first. Placement is also preflighted against the nodes:
+
+| check | error when |
+|---|---|
+| dedicated CPUs | no node carries `kubevirt.io/cpumanager=true` (the static CPU manager policy) |
+| hugepages | no node has free pages of that size |
+| NUMA | (warning) the VM follows the host node's topology and cannot move to a node with a different layout |
+
+`POST /api/v1/devices/preflight` accepts `dedicated_cpus`, `numa_passthrough` and `hugepages` too. The inventory reports
+`cpu_manager` and free `hugepages` per node, the SR-IOV pools (every `NetworkAttachmentDefinition` that names a pool, with free
+virtual functions across nodes), and a `kind_hints` map (`gpu` / `host-device`) for forms. The console has a
+**Passthrough devices** page (Compute menu, cluster admins) for all of it.
+
+## Permitting a device from Zorvia (cluster.admin)
+
+`POST /api/v1/devices/permitted` adds a device to the KubeVirt CR's `spec.configuration.permittedHostDevices`;
+`DELETE /api/v1/devices/permitted?resource_name=vendor.com/name` removes it. Both are audited as configuration changes.
+
+```json
+{ "kind": "pci",      "resource_name": "nvidia.com/GA102GL_A10", "pci_vendor_selector": "10DE:2236" }
+{ "kind": "mediated", "resource_name": "nvidia.com/GRID_T4-2Q",  "mdev_name_selector": "GRID T4-2Q" }
+{ "kind": "usb",      "resource_name": "kubevirt.io/storage",    "vendor": "46f4", "product": "0001" }
+```
+
+Selectors are validated and normalised (PCI ids upper case, USB ids lower case); `external_resource_provider: true` marks a
+resource whose device plugin runs outside KubeVirt. Asking for the same entry again answers `changed: false`; the same resource name
+with a different selector or kind is a 409 (remove it first). A merge patch replaces a whole list, so Zorvia sends the list it read
+together with the CR's `resourceVersion`: a concurrent change makes the API server answer 409 instead of being overwritten.
+
+This needs the service account to **patch** the `kubevirts` resource, which is off by default (it lets a Zorvia admin change which
+hardware every VM may take). Helm: `devices.managePermitted: true`; plain manifests: add `patch` to the `kubevirts` rule. Without it the
+API answers 403 `RBAC_DENIED` and says so.
+
 ## What you have to set up (Zorvia does not)
 
 1. A **device plugin** for the hardware (NVIDIA GPU operator / KubeVirt GPU device plugin, the SR-IOV network
    device plugin, ...) so nodes advertise the resource.
-2. The device in the KubeVirt CR's `spec.configuration.permittedHostDevices` (`pciHostDevices`,
-   `mediatedDevices` or `usb`).
+2. The device in the KubeVirt CR's `permittedHostDevices`: from the console or API above (with `devices.managePermitted`), or yourself.
 3. For SR-IOV: Multus and a `NetworkAttachmentDefinition` whose annotation `k8s.v1.cni.cncf.io/resourceName`
    names the VF pool. On older KubeVirt versions, the `GPU` / `HostDevices` feature gates.
-4. Host prerequisites for passthrough (IOMMU enabled, VFIO binding) are the node's job.
+4. Host prerequisites for passthrough (IOMMU enabled, VFIO binding, the CPU manager static policy, reserved hugepages) are the node's job.
 
 Zorvia's service account needs read access to the `kubevirts` resource (added to the Helm chart and the
-manifests: `get`, `list` only) and `get` on `network-attachment-definitions`.
+manifests: `get`, `list`), and `get`/`list` on `network-attachment-definitions` (pool listing).
 
 ## Not covered
 
-NUMA/CPU-pinning topology constraints, GPU sharing/MIG policy, hotplugging a device into a running VM, scheduling
-a VM onto the node that holds a specific unit, and any validation on real hardware.
+GPU sharing/MIG policy beyond naming the resource your device plugin exposes, hotplugging a device into a running VM (KubeVirt does
+not support it), choosing the node that holds a specific unit (KubeVirt schedules by the extended-resource request), and any
+validation on real hardware: the permit/unpermit patches and the NUMA/hugepage spec were checked against a real KubeVirt API
+(server-side dry run and live), but nothing here has run with a GPU or an SR-IOV NIC.

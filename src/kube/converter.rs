@@ -309,7 +309,13 @@ pub fn vm_config_to_kubevirt(config: &VMConfig) -> Result<VirtualMachine> {
                         model: config.cpu.model.clone(),
                         dedicated_cpu_placement: config.cpu.dedicated_cpu_placement,
                         isolate_emulator_thread: config.cpu.isolate_emulator_thread,
-                        numa: None,
+                        numa: config
+                            .cpu
+                            .numa_guest_mapping_passthrough
+                            .filter(|on| *on)
+                            .map(|_| NUMA {
+                                guest_mapping_passthrough: Some(NUMAGuestMapping {}),
+                            }),
                         realtime: None,
                         max_sockets: config.cpu.max_sockets,
                         features: None,
@@ -571,6 +577,7 @@ mod tests {
             .cpu(4, 1, 1)
             .cpu_model("host-passthrough")
             .dedicated_cpu_placement(true)
+            .numa_guest_mapping_passthrough(true)
             .isolate_emulator_thread(true)
             .memory("8Gi")
             .hugepages("2Mi")
@@ -650,6 +657,8 @@ mod tests {
         assert_eq!(cpu.model, Some("host-passthrough".to_string()));
         assert_eq!(cpu.dedicated_cpu_placement, Some(true));
         assert_eq!(cpu.isolate_emulator_thread, Some(true));
+        let numa = serde_json::to_value(cpu.numa.as_ref().unwrap()).unwrap();
+        assert_eq!(numa, serde_json::json!({ "guestMappingPassthrough": {} }));
 
         assert!(domain.memory.as_ref().unwrap().hugepages.is_some());
         assert_eq!(

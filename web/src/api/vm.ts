@@ -62,6 +62,8 @@ export interface CreateVMRequest {
   cpu_model?: string
   cpu_dedicated_placement?: boolean
   cpu_isolate_emulator_thread?: boolean
+  /** Guest NUMA topology; needs cpu_dedicated_placement and memory_hugepages_page_size. */
+  cpu_numa_passthrough?: boolean
   memory_hugepages_page_size?: string
   firmware?: CreateVMFirmware
   features?: CreateVMFeatures
