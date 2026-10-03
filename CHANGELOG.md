@@ -7,6 +7,38 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-10-03
+
+The production-platform release: what ships here is the work behind [docs/SUPPORT_MATRIX.md](docs/SUPPORT_MATRIX.md) (measured
+results on one reference stack, and what is not yet validated) and [docs/FEATURE_MATURITY.md](docs/FEATURE_MATURITY.md).
+
+**Highlights**
+
+- **Data protection you can prove:** encrypted off-cluster S3 backups with read-back verification, restore (including Block volumes),
+  recovery drills, durable operations that survive restarts.
+- **Identity and tenancy:** namespace allow-lists for users and API tokens, TOTP secrets sealed at rest (local key or Vault Transit),
+  OIDC group-to-role mapping, certificate hot reload, a security audit's fixes.
+- **High availability (Beta):** PostgreSQL store (users, operations, audit, schedules, shared lockout) and a two-replica Helm profile
+  (`values-ha.yaml`).
+- **Guests:** Zyvor guest agent (GuestKit v1.2.5) with application-consistent snapshots, read-only guest views, a Guest agent tab.
+- **Hardware (Experimental):** GPU/vGPU/SR-IOV passthrough, NUMA/hugepages/dedicated CPUs, permit/remove devices from the console.
+- **Console:** passthrough devices page, guest agent tab, sign-in page explains how to get the admin password.
+
+**Upgrade notes**
+
+- **CLI is restructured into nested subcommands** (breaking): `zorvia create` is now `zorvia vm create`, and so on. `zorvia --help` and
+  `zorvia commands` show the current syntax.
+- **Lab mode is no longer set by the shipped manifests.** A lab deployment that relied on the default admin password or shared API
+  key must set `ZORVIA_LAB_MODE=1` explicitly (or create real credentials with `scripts/create-auth-secret.sh`). `ZORVIA_JWT_SECRET`
+  must be at least 32 bytes outside lab mode.
+- **Read access is tighter:** Viewers can no longer read audit logs, webhooks or VM logs; deleting backups and snapshots needs `vm.delete`.
+- **Pods and sockets:** `/ws/console` and `/ws/vnc` need `vm.power`, `/ws/ssh` and pod sockets need `cluster.admin`.
+- **SQLite remains the default store.** PostgreSQL is opt-in (`ZORVIA_DATABASE_URL`, optional one-time `ZORVIA_DATABASE_IMPORT=1`); the
+  chart refuses `replicaCount > 1` without it. Existing Zyvor-agent VMs created before this release keep their old agent
+  (see docs/GUEST_AGENT.md).
+- The Helm chart gains `devices.managePermitted`, `ha.acceptLocalState` and `database.*` values; the service account may now `list`
+  network-attachment-definitions.
+
 ### Added (passthrough devices, complete)
 
 - Permit/remove passthrough devices in the KubeVirt CR from Zorvia (`POST`/`DELETE /api/v1/devices/permitted`, cluster.admin, audited;
