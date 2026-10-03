@@ -219,6 +219,10 @@ pub fn required_permission(method: &str, path: &str) -> Option<ApiPermission> {
     if path == "/v1/devices/preflight" {
         return Some(ApiPermission::VmCreate);
     }
+    // Changing which hardware VMs may take is a cluster setting.
+    if path == "/v1/devices/permitted" {
+        return Some(ApiPermission::ClusterAdmin);
+    }
 
     // The maintenance plan lists every VM on a node and where it would go.
     if path == "/v1/maintenance/plan" {
@@ -389,6 +393,14 @@ mod tests {
         );
         assert_eq!(
             required_permission("GET", "/v1/devices"),
+            Some(ClusterAdmin)
+        );
+        assert_eq!(
+            required_permission("POST", "/v1/devices/permitted"),
+            Some(ClusterAdmin)
+        );
+        assert_eq!(
+            required_permission("DELETE", "/v1/devices/permitted"),
             Some(ClusterAdmin)
         );
         assert_eq!(

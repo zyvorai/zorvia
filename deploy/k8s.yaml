@@ -87,11 +87,12 @@ rules:
     resources: ["nodes"]
     verbs: ["get", "list", "watch"]
   # Network Policies feature (POST/DELETE /network-policies).
-  # Read-only: verify existing Multus target attachments before VM import.
+  # Read-only: verify existing Multus target attachments before VM import, and list SR-IOV pools.
   - apiGroups: ["k8s.cni.cncf.io"]
     resources: ["network-attachment-definitions"]
-    verbs: ["get"]
-  # Read-only: which host devices KubeVirt permits (passthrough preflight).
+    verbs: ["get", "list"]
+  # Read-only: which host devices KubeVirt permits (passthrough preflight). Add "patch" here
+  # to let cluster admins permit/remove devices from Zorvia (POST/DELETE /api/v1/devices/permitted).
   - apiGroups: ["kubevirt.io"]
     resources: ["kubevirts"]
     verbs: ["get", "list"]

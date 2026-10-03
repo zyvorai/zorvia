@@ -43,6 +43,8 @@ interface AdvancedOptions {
   cpuMode: 'host-passthrough' | 'host-model' | 'custom'
   cpuModelName: string
   dedicatedCpuPlacement: boolean
+  numaPassthrough: boolean
+  hugepages: '' | '2Mi' | '1Gi'
   machineType: string
   enableTpm: boolean
   enableRng: boolean
@@ -55,6 +57,8 @@ const defaultAdvanced: AdvancedOptions = {
   cpuMode: 'host-passthrough',
   cpuModelName: '',
   dedicatedCpuPlacement: false,
+  numaPassthrough: false,
+  hugepages: '',
   machineType: 'q35',
   enableTpm: false,
   enableRng: true,
@@ -88,6 +92,8 @@ function buildAdvancedCreateFields(adv: AdvancedOptions, guestOs: 'linux' | 'win
     firmware,
     ...(cpu_model ? { cpu_model } : {}),
     ...(adv.dedicatedCpuPlacement ? { cpu_dedicated_placement: true } : {}),
+    ...(adv.numaPassthrough ? { cpu_numa_passthrough: true } : {}),
+    ...(adv.hugepages ? { memory_hugepages_page_size: adv.hugepages } : {}),
     ...(adv.machineType.trim() ? { machine_type: adv.machineType.trim() } : {}),
     ...(adv.enableTpm ? { enable_tpm: true } : {}),
     ...(adv.enableRng ? { enable_rng: true } : {}),
@@ -1065,6 +1071,36 @@ export default function CreateVM() {
                           onChange={(e) => setAdvanced({ ...advanced, dedicatedCpuPlacement: e.target.checked })}
                         />
                         Dedicated CPU placement (pin vCPUs to physical cores)
+                      </label>
+                      <label className="flex items-center gap-2 mt-2 text-sm text-[var(--zf-ink)]">
+                        <input
+                          type="checkbox"
+                          checked={advanced.numaPassthrough}
+                          onChange={(e) =>
+                            setAdvanced({
+                              ...advanced,
+                              numaPassthrough: e.target.checked,
+                              // KubeVirt refuses NUMA passthrough without both of these.
+                              ...(e.target.checked
+                                ? { dedicatedCpuPlacement: true, hugepages: advanced.hugepages || '2Mi' }
+                                : {}),
+                            })
+                          }
+                        />
+                        Guest NUMA topology (needs dedicated CPUs and hugepages; typical for GPU workloads)
+                      </label>
+                      <label className="flex items-center gap-2 mt-2 text-sm text-[var(--zf-ink)]">
+                        Hugepages
+                        <select
+                          value={advanced.hugepages}
+                          onChange={(e) => setAdvanced({ ...advanced, hugepages: e.target.value as AdvancedOptions['hugepages'] })}
+                          className="px-2 py-1 bg-[var(--zf-surface)] border border-[var(--zf-hairline)] rounded-lg text-sm"
+                          aria-label="Hugepage size"
+                        >
+                          <option value="">none</option>
+                          <option value="2Mi">2Mi</option>
+                          <option value="1Gi">1Gi</option>
+                        </select>
                       </label>
                     </div>
 

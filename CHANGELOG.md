@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added (passthrough devices, complete)
+
+- Permit/remove passthrough devices in the KubeVirt CR from Zorvia (`POST`/`DELETE /api/v1/devices/permitted`, cluster.admin, audited;
+  Helm `devices.managePermitted` adds the `patch` right on `kubevirts`; optimistic-concurrency merge patch). NUMA passthrough
+  (`cpu_numa_passthrough`), hugepages and dedicated-CPU placement rules and node checks (static CPU manager label, free hugepages),
+  SR-IOV pool inventory with free VFs, device-kind hints, a **Passthrough devices** console page and NUMA/hugepage options on
+  Create VM. Checked against a real KubeVirt API (server-side dry runs and live permit/remove); still not run on a GPU or SR-IOV NIC.
+  See docs/DEVICES.md.
+
 ### Changed
 
 - The pinned Zyvor guest agent is GuestKit **v1.2.5**, which freezes filesystems through its privileged helper; the `CAP_SYS_ADMIN` drop-in is now only written for a mirrored or older package (`ZORVIA_GUEST_AGENT_URL`).

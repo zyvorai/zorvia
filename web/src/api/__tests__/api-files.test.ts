@@ -334,6 +334,26 @@ describe('migrations', () => {
 
 // ─── snapshots.ts ─────────────────────────────────────────────────────────────
 
+describe('passthrough', () => {
+  it('permit and unpermit use the admin permitted route', async () => {
+    const { permitDevice, unpermitDevice, preflightDevices } = await import('../passthrough')
+    const dev = { kind: 'pci' as const, resource_name: 'nvidia.com/A10', pci_vendor_selector: '10DE:2236' }
+    await permitDevice(dev)
+    expect(mockApiPost).toHaveBeenCalledWith('/api/v1/devices/permitted', dev)
+    await unpermitDevice('nvidia.com/A10')
+    expect(mockApiDelete).toHaveBeenCalledWith('/api/v1/devices/permitted?resource_name=nvidia.com%2FA10')
+    await preflightDevices([], [], 'ns', { dedicated_cpus: true, numa_passthrough: true, hugepages: '2Mi' })
+    expect(mockApiPost).toHaveBeenCalledWith('/api/v1/devices/preflight', {
+      devices: [],
+      sriov_networks: [],
+      namespace: 'ns',
+      dedicated_cpus: true,
+      numa_passthrough: true,
+      hugepages: '2Mi',
+    })
+  })
+})
+
 describe('guestAgent', () => {
   it('getGuestAgent and getGuestInventory use the guest routes', async () => {
     const { getGuestAgent, getGuestInventory } = await import('../guestAgent')

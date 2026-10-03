@@ -57,6 +57,12 @@ impl VMConfigBuilder {
     }
 
     /// Enable dedicated CPU placement (CPU pinning).
+    /// Give the guest the host's NUMA topology; needs dedicated CPUs and hugepages.
+    pub fn numa_guest_mapping_passthrough(mut self, enabled: bool) -> Self {
+        self.config.cpu.numa_guest_mapping_passthrough = Some(enabled);
+        self
+    }
+
     pub fn dedicated_cpu_placement(mut self, enabled: bool) -> Self {
         self.config.cpu.dedicated_cpu_placement = Some(enabled);
         self

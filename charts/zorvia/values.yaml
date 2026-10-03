@@ -71,6 +71,11 @@ tls:
   inPod: true
   initImage: alpine/openssl:3.5.8
 
+devices:
+  # Let cluster admins permit/remove passthrough devices in the KubeVirt CR from Zorvia
+  # (adds `patch` on kubevirts to the service account). Off by default: read-only inventory and preflight.
+  managePermitted: false
+
 ha:
   # Needed for replicaCount > 1 (which also needs `database` and api.leaderElection): confirms you
   # do not rely on commercial-offerings records or the JSONL audit sidecar, which stay per replica.

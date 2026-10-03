@@ -38,9 +38,45 @@ pub fn extended_resources(allocatable: &BTreeMap<String, String>) -> BTreeMap<St
         .collect()
 }
 
+/// A Kubernetes quantity in bytes: a plain integer or one with a binary suffix
+/// (`Ki`, `Mi`, `Gi`, `Ti`), as hugepage capacity is reported.
+pub fn parse_bytes(q: &str) -> Option<u64> {
+    let q = q.trim();
+    for (suffix, mult) in [
+        ("Ti", 1u64 << 40),
+        ("Gi", 1 << 30),
+        ("Mi", 1 << 20),
+        ("Ki", 1 << 10),
+    ] {
+        if let Some(n) = q.strip_suffix(suffix) {
+            return n.parse::<u64>().ok().and_then(|n| n.checked_mul(mult));
+        }
+    }
+    q.parse().ok()
+}
+
+/// Number of hugepages of each size a node can still give, from its allocatable map
+/// (`hugepages-2Mi: 1Gi` -> `2Mi: 512`).
+pub fn hugepages(allocatable: &BTreeMap<String, String>) -> BTreeMap<String, u64> {
+    allocatable
+        .iter()
+        .filter_map(|(k, v)| {
+            let size = k.strip_prefix("hugepages-")?;
+            let page = parse_bytes(size)?;
+            let total = parse_bytes(v)?;
+            (page > 0).then(|| (size.to_string(), total / page))
+        })
+        .collect()
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 pub struct NodeDevices {
     pub node: String,
+    /// The node runs the static CPU manager policy (KubeVirt's `kubevirt.io/cpumanager` label),
+    /// which dedicated CPU placement needs.
+    pub cpu_manager: bool,
+    /// Free hugepages by page size (`2Mi`, `1Gi`).
+    pub hugepages: BTreeMap<String, u64>,
     /// Passthrough candidates: extended resources that are not KubeVirt builtins.
     pub devices: BTreeMap<String, u64>,
     /// KubeVirt's own pseudo-devices (kvm, tun, ...), listed for completeness.
@@ -54,9 +90,22 @@ impl NodeDevices {
             .partition(|(k, _)| is_builtin(k));
         Self {
             node: node.to_string(),
+            cpu_manager: false,
+            hugepages: hugepages(allocatable),
             devices,
             builtin,
         }
+    }
+
+    /// Like [`from_allocatable`](Self::from_allocatable), with the node's labels.
+    pub fn from_node(
+        node: &str,
+        allocatable: &BTreeMap<String, String>,
+        labels: &BTreeMap<String, String>,
+    ) -> Self {
+        let mut n = Self::from_allocatable(node, allocatable);
+        n.cpu_manager = labels.get("kubevirt.io/cpumanager").map(String::as_str) == Some("true");
+        n
     }
 }
 
@@ -155,6 +204,54 @@ pub struct DeviceInventory {
     pub kubevirt: Option<KubevirtDevices>,
     /// The NetworkAttachmentDefinition CRD (Multus) exists, which SR-IOV needs.
     pub multus_installed: bool,
+    /// SR-IOV networks (attachments that name a virtual-function pool) and how many VFs are free.
+    pub sriov_pools: Vec<SriovPool>,
+    /// Likely device kind (`gpu` or `host-device`) for each advertised resource, a hint for forms.
+    pub kind_hints: BTreeMap<String, String>,
+}
+
+/// A `NetworkAttachmentDefinition` that names a virtual-function pool.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+pub struct SriovPool {
+    pub namespace: String,
+    pub network: String,
+    /// The `k8s.v1.cni.cncf.io/resourceName` annotation.
+    pub resource_name: String,
+    /// Free virtual functions across all nodes.
+    pub free: u64,
+    /// Nodes that have any.
+    pub nodes: usize,
+}
+
+impl DeviceInventory {
+    /// Resolve attachments `(namespace, name, resource_name)` against what the nodes advertise.
+    /// Fill [`kind_hints`](Self::kind_hints) from the advertised resources.
+    pub fn with_kind_hints(mut self) -> Self {
+        self.kind_hints = self
+            .nodes
+            .iter()
+            .flat_map(|n| n.devices.keys())
+            .map(|r| (r.clone(), kind_hint(r).to_string()))
+            .collect();
+        self
+    }
+
+    pub fn with_sriov_pools(mut self, nads: &[(String, String, String)]) -> Self {
+        self.sriov_pools = nads
+            .iter()
+            .map(|(ns, name, res)| {
+                let (free, nodes) = self.capacity(res);
+                SriovPool {
+                    namespace: ns.clone(),
+                    network: name.clone(),
+                    resource_name: res.clone(),
+                    free,
+                    nodes,
+                }
+            })
+            .collect();
+        self
+    }
 }
 
 impl DeviceInventory {
@@ -288,6 +385,319 @@ pub fn preflight(
     out
 }
 
+/// CPU and memory placement a VM asks for, which GPU workloads usually need together.
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct PlacementRequest {
+    pub dedicated_cpus: bool,
+    pub numa_passthrough: bool,
+    /// Hugepage size (`2Mi`, `1Gi`).
+    pub hugepages: Option<String>,
+}
+
+impl PlacementRequest {
+    pub fn is_empty(&self) -> bool {
+        *self == Self::default()
+    }
+}
+
+/// Rules KubeVirt's admission webhook enforces for NUMA passthrough (checked against
+/// KubeVirt 1.9: it refuses `guestMappingPassthrough` without `dedicatedCpuPlacement`, and
+/// without requested hugepages), so the API can say so before sending the VM.
+pub fn placement_rules(req: &PlacementRequest) -> Result<(), String> {
+    if req.numa_passthrough && !req.dedicated_cpus {
+        return Err(
+            "NUMA passthrough needs dedicated CPU placement (cpu_dedicated_placement: true)".into(),
+        );
+    }
+    if req.numa_passthrough && req.hugepages.is_none() {
+        return Err("NUMA passthrough needs hugepages (memory_hugepages_page_size, e.g. \"2Mi\" or \"1Gi\")".into());
+    }
+    if let Some(h) = &req.hugepages {
+        if parse_bytes(h).is_none_or(|b| b == 0) {
+            return Err(format!(
+                "hugepage size '{h}' is not a quantity like 2Mi or 1Gi"
+            ));
+        }
+    }
+    Ok(())
+}
+
+/// Can some node give this placement? Dedicated CPUs need the static CPU manager policy;
+/// hugepages need free pages of that size. Skipped when no nodes could be read.
+pub fn placement_preflight(req: &PlacementRequest, inv: &DeviceInventory) -> Vec<Issue> {
+    let mut out = Vec::new();
+    if let Err(m) = placement_rules(req) {
+        out.push(err("placement", m));
+        return out;
+    }
+    if inv.nodes.is_empty() {
+        return out;
+    }
+    if req.dedicated_cpus && !inv.nodes.iter().any(|n| n.cpu_manager) {
+        out.push(err(
+            "dedicated-cpus",
+            "no node runs the static CPU manager policy (label kubevirt.io/cpumanager=true), so the VM would stay Pending".into(),
+        ));
+    }
+    if let Some(h) = &req.hugepages {
+        if !inv
+            .nodes
+            .iter()
+            .any(|n| n.hugepages.get(h).copied().unwrap_or(0) > 0)
+        {
+            out.push(err(
+                "hugepages",
+                format!("no node has free {h} hugepages (reserve them on the node, e.g. vm.nr_hugepages)"),
+            ));
+        }
+    }
+    if req.numa_passthrough {
+        out.push(warn(
+            "numa",
+            "guest NUMA mapping follows the host node's topology: the VM cannot be live-migrated to a node with a different layout".into(),
+        ));
+    }
+    out
+}
+
+// ── Permitting devices in the KubeVirt CR ─────────────────────────────────────────────
+
+/// A device to add to `spec.configuration.permittedHostDevices`.
+#[derive(Debug, Clone, PartialEq, Eq, serde::Deserialize)]
+#[serde(tag = "kind", rename_all = "lowercase")]
+pub enum PermitRequest {
+    /// A PCI device by `vendor:product` id (`10DE:2236`).
+    Pci {
+        resource_name: String,
+        pci_vendor_selector: String,
+        #[serde(default)]
+        external_resource_provider: bool,
+    },
+    /// A mediated (vGPU / mdev) device by type name.
+    Mediated {
+        resource_name: String,
+        mdev_name_selector: String,
+        #[serde(default)]
+        external_resource_provider: bool,
+    },
+    /// A USB device by vendor/product id.
+    Usb {
+        resource_name: String,
+        vendor: String,
+        product: String,
+        #[serde(default)]
+        external_resource_provider: bool,
+    },
+}
+
+fn hex4(s: &str) -> bool {
+    s.len() == 4 && s.bytes().all(|b| b.is_ascii_hexdigit())
+}
+
+impl PermitRequest {
+    pub fn resource_name(&self) -> &str {
+        match self {
+            Self::Pci { resource_name, .. }
+            | Self::Mediated { resource_name, .. }
+            | Self::Usb { resource_name, .. } => resource_name,
+        }
+    }
+
+    fn key(&self) -> &'static str {
+        match self {
+            Self::Pci { .. } => "pciHostDevices",
+            Self::Mediated { .. } => "mediatedDevices",
+            Self::Usb { .. } => "usb",
+        }
+    }
+
+    /// The entry as KubeVirt stores it, with selectors normalised (PCI ids upper case,
+    /// USB ids lower case).
+    pub fn validated_entry(&self) -> Result<Value, String> {
+        let name = self.resource_name();
+        if !HostDeviceConfig::valid_device_name(name) || is_builtin(name) {
+            return Err(format!(
+                "resource name '{name}' must look like vendor.com/resource (and not be a KubeVirt builtin)"
+            ));
+        }
+        use serde_json::json;
+        match self {
+            Self::Pci {
+                pci_vendor_selector: sel,
+                external_resource_provider: ext,
+                ..
+            } => {
+                let ok = sel.split_once(':').is_some_and(|(v, p)| hex4(v) && hex4(p));
+                if !ok {
+                    return Err(format!(
+                        "PCI selector '{sel}' must be vendor:product in hex, like 10DE:2236"
+                    ));
+                }
+                let mut e =
+                    json!({ "pciVendorSelector": sel.to_ascii_uppercase(), "resourceName": name });
+                if *ext {
+                    e["externalResourceProvider"] = json!(true);
+                }
+                Ok(e)
+            }
+            Self::Mediated {
+                mdev_name_selector: sel,
+                external_resource_provider: ext,
+                ..
+            } => {
+                let ok = !sel.trim().is_empty()
+                    && sel.len() <= 128
+                    && sel
+                        .bytes()
+                        .all(|c| c.is_ascii_alphanumeric() || b" ._-/".contains(&c));
+                if !ok {
+                    return Err("mediated device type name must be 1 to 128 characters of letters, digits, space and ._-/".into());
+                }
+                let mut e = json!({ "mdevNameSelector": sel, "resourceName": name });
+                if *ext {
+                    e["externalResourceProvider"] = json!(true);
+                }
+                Ok(e)
+            }
+            Self::Usb {
+                vendor,
+                product,
+                external_resource_provider: ext,
+                ..
+            } => {
+                if !hex4(vendor) || !hex4(product) {
+                    return Err("USB vendor and product ids must be 4 hex digits".into());
+                }
+                let mut e = json!({
+                    "resourceName": name,
+                    "selectors": [{ "vendor": vendor.to_ascii_lowercase(), "product": product.to_ascii_lowercase() }],
+                });
+                if *ext {
+                    e["externalResourceProvider"] = json!(true);
+                }
+                Ok(e)
+            }
+        }
+    }
+}
+
+const PERMITTED_KEYS: [&str; 3] = ["pciHostDevices", "mediatedDevices", "usb"];
+
+fn permitted_list(cfg: &Value, key: &str) -> Vec<Value> {
+    cfg.pointer(&format!("/permittedHostDevices/{key}"))
+        .and_then(|v| v.as_array())
+        .cloned()
+        .unwrap_or_default()
+}
+
+fn merge_patch(key: &str, list: Vec<Value>, resource_version: Option<&str>) -> Value {
+    // An emptied list is removed (null in a merge patch) rather than left as `[]`.
+    let list = if list.is_empty() {
+        Value::Null
+    } else {
+        Value::Array(list)
+    };
+    let mut patch = serde_json::json!({
+        "spec": { "configuration": { "permittedHostDevices": { key: list } } }
+    });
+    // A merge patch replaces a whole list, so name the version we read: a concurrent change
+    // makes the API server answer 409 instead of silently losing it.
+    if let Some(rv) = resource_version {
+        patch["metadata"] = serde_json::json!({ "resourceVersion": rv });
+    }
+    patch
+}
+
+#[derive(Debug, PartialEq, Eq)]
+pub enum PermitError {
+    Invalid(String),
+    Conflict(String),
+    NotFound(String),
+}
+
+impl std::fmt::Display for PermitError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Invalid(m) | Self::Conflict(m) | Self::NotFound(m) => f.write_str(m),
+        }
+    }
+}
+
+/// The merge patch that permits `req`, given the CR's current `spec.configuration`.
+/// `Ok(None)`: exactly this entry is already there.
+pub fn permit_patch(
+    cfg: &Value,
+    req: &PermitRequest,
+    resource_version: Option<&str>,
+) -> Result<Option<Value>, PermitError> {
+    let entry = req.validated_entry().map_err(PermitError::Invalid)?;
+    let name = req.resource_name();
+    for key in PERMITTED_KEYS {
+        for existing in permitted_list(cfg, key) {
+            if existing.get("resourceName").and_then(|v| v.as_str()) == Some(name) {
+                // Compare ignoring a missing `externalResourceProvider: false`.
+                let norm = |v: &Value| {
+                    let mut v = v.clone();
+                    if v.get("externalResourceProvider") == Some(&Value::Bool(false)) {
+                        v.as_object_mut()
+                            .map(|o| o.remove("externalResourceProvider"));
+                    }
+                    v
+                };
+                return if key == req.key() && norm(&existing) == norm(&entry) {
+                    Ok(None)
+                } else {
+                    Err(PermitError::Conflict(format!(
+                        "'{name}' is already permitted with a different selector or kind; remove it first"
+                    )))
+                };
+            }
+        }
+    }
+    let mut list = permitted_list(cfg, req.key());
+    list.push(entry);
+    Ok(Some(merge_patch(req.key(), list, resource_version)))
+}
+
+/// The merge patch that stops permitting `resource_name`.
+pub fn unpermit_patch(
+    cfg: &Value,
+    resource_name: &str,
+    resource_version: Option<&str>,
+) -> Result<Value, PermitError> {
+    for key in PERMITTED_KEYS {
+        let list = permitted_list(cfg, key);
+        let kept: Vec<Value> = list
+            .iter()
+            .filter(|e| e.get("resourceName").and_then(|v| v.as_str()) != Some(resource_name))
+            .cloned()
+            .collect();
+        if kept.len() != list.len() {
+            return Ok(merge_patch(key, kept, resource_version));
+        }
+    }
+    Err(PermitError::NotFound(format!(
+        "'{resource_name}' is not in permittedHostDevices"
+    )))
+}
+
+/// A hint for the Create VM page: what a resource name is most likely to be.
+pub fn kind_hint(resource: &str) -> &'static str {
+    let r = resource.to_ascii_lowercase();
+    let gpu_words = [
+        "gpu", "grid", "a100", "h100", "a10", "t4", "l4", "l40", "v100", "mi250", "mi300", "vgpu",
+        "mig-",
+    ];
+    if r.starts_with("nvidia.com/")
+        || r.starts_with("amd.com/")
+        || gpu_words.iter().any(|w| r.contains(w))
+    {
+        "gpu"
+    } else {
+        "host-device"
+    }
+}
+
 pub fn has_errors(issues: &[Issue]) -> bool {
     issues.iter().any(|i| i.severity == "error")
 }
@@ -339,6 +749,7 @@ mod tests {
                 },
             }),
             multus_installed: true,
+            ..Default::default()
         }
     }
 
@@ -478,5 +889,287 @@ mod tests {
     #[test]
     fn no_devices_means_no_issues_at_all() {
         assert!(preflight(&[], &[], &inventory(1, true)).is_empty());
+    }
+
+    // ── placement ──
+
+    fn node(cpu_manager: bool, hp: &[(&str, u64)]) -> NodeDevices {
+        NodeDevices {
+            node: "n".into(),
+            cpu_manager,
+            hugepages: hp.iter().map(|(k, v)| (k.to_string(), *v)).collect(),
+            devices: BTreeMap::new(),
+            builtin: BTreeMap::new(),
+        }
+    }
+
+    #[test]
+    fn quantities_and_hugepage_capacity_are_parsed() {
+        assert_eq!(parse_bytes("2Mi"), Some(2 << 20));
+        assert_eq!(parse_bytes("1Gi"), Some(1 << 30));
+        assert_eq!(parse_bytes("4096"), Some(4096));
+        assert_eq!(parse_bytes("x"), None);
+        let a = alloc(&[
+            ("hugepages-2Mi", "1Gi"),
+            ("hugepages-1Gi", "0"),
+            ("cpu", "4"),
+        ]);
+        let h = hugepages(&a);
+        assert_eq!(h.get("2Mi"), Some(&512));
+        assert_eq!(h.get("1Gi"), Some(&0));
+        assert!(!h.contains_key("cpu"));
+        let n = NodeDevices::from_node("n1", &a, &alloc(&[("kubevirt.io/cpumanager", "true")]));
+        assert!(n.cpu_manager);
+        assert!(
+            !NodeDevices::from_node("n2", &a, &alloc(&[("kubevirt.io/cpumanager", "false")]))
+                .cpu_manager
+        );
+    }
+
+    #[test]
+    fn numa_passthrough_follows_the_rules_kubevirts_webhook_enforces() {
+        let numa = |d: bool, h: Option<&str>| PlacementRequest {
+            dedicated_cpus: d,
+            numa_passthrough: true,
+            hugepages: h.map(String::from),
+        };
+        assert!(placement_rules(&numa(false, Some("2Mi")))
+            .unwrap_err()
+            .contains("dedicated"));
+        assert!(placement_rules(&numa(true, None))
+            .unwrap_err()
+            .contains("hugepages"));
+        assert!(placement_rules(&numa(true, Some("2Mi"))).is_ok());
+        assert!(placement_rules(&numa(true, Some("lots"))).is_err());
+        assert!(placement_rules(&PlacementRequest::default()).is_ok());
+        assert!(PlacementRequest::default().is_empty());
+    }
+
+    #[test]
+    fn dedicated_cpus_and_hugepages_need_a_node_that_can_give_them() {
+        let req = PlacementRequest {
+            dedicated_cpus: true,
+            numa_passthrough: true,
+            hugepages: Some("2Mi".into()),
+        };
+        let none = DeviceInventory {
+            nodes: vec![node(false, &[("2Mi", 0)])],
+            ..Default::default()
+        };
+        let issues = placement_preflight(&req, &none);
+        let subjects: Vec<_> = issues
+            .iter()
+            .map(|i| (i.severity, i.subject.as_str()))
+            .collect();
+        assert!(subjects.contains(&("error", "dedicated-cpus")));
+        assert!(subjects.contains(&("error", "hugepages")));
+        let ok = DeviceInventory {
+            nodes: vec![node(true, &[("2Mi", 512)])],
+            ..Default::default()
+        };
+        let issues = placement_preflight(&req, &ok);
+        assert!(!has_errors(&issues));
+        assert_eq!(
+            issues.len(),
+            1,
+            "only the NUMA migration warning: {issues:?}"
+        );
+        // A broken request is reported once, as a placement error, before looking at nodes.
+        let bad = PlacementRequest {
+            numa_passthrough: true,
+            ..Default::default()
+        };
+        assert_eq!(placement_preflight(&bad, &ok)[0].subject, "placement");
+        // No nodes readable: nothing to say.
+        assert!(placement_preflight(
+            &PlacementRequest {
+                dedicated_cpus: true,
+                ..Default::default()
+            },
+            &DeviceInventory::default()
+        )
+        .is_empty());
+    }
+
+    // ── permitting ──
+
+    fn pci(name: &str, sel: &str) -> PermitRequest {
+        PermitRequest::Pci {
+            resource_name: name.into(),
+            pci_vendor_selector: sel.into(),
+            external_resource_provider: false,
+        }
+    }
+
+    #[test]
+    fn permit_requests_are_validated_and_normalised() {
+        let e = pci("nvidia.com/GA102GL_A10", "10de:2236")
+            .validated_entry()
+            .unwrap();
+        assert_eq!(e["pciVendorSelector"], "10DE:2236");
+        assert!(e.get("externalResourceProvider").is_none());
+        for bad in ["10DE", "10DE:22", "10DE:223G", "GG:2236"] {
+            assert!(pci("nvidia.com/x", bad).validated_entry().is_err(), "{bad}");
+        }
+        for bad in ["noslash", "a/b/c", "devices.kubevirt.io/kvm", "a b/c"] {
+            assert!(pci(bad, "10DE:2236").validated_entry().is_err(), "{bad}");
+        }
+        let m = PermitRequest::Mediated {
+            resource_name: "nvidia.com/GRID_T4-2Q".into(),
+            mdev_name_selector: "GRID T4-2Q".into(),
+            external_resource_provider: true,
+        };
+        let e = m.validated_entry().unwrap();
+        assert_eq!(
+            (
+                e["mdevNameSelector"].as_str(),
+                e["externalResourceProvider"].as_bool()
+            ),
+            (Some("GRID T4-2Q"), Some(true))
+        );
+        assert!(PermitRequest::Mediated {
+            resource_name: "nvidia.com/x".into(),
+            mdev_name_selector: "bad;name".into(),
+            external_resource_provider: false,
+        }
+        .validated_entry()
+        .is_err());
+        let u = PermitRequest::Usb {
+            resource_name: "kubevirt.io/storage".into(),
+            vendor: "46F4".into(),
+            product: "0001".into(),
+            external_resource_provider: false,
+        };
+        assert_eq!(
+            u.validated_entry().unwrap()["selectors"][0]["vendor"],
+            "46f4"
+        );
+        assert!(PermitRequest::Usb {
+            resource_name: "kubevirt.io/storage".into(),
+            vendor: "46".into(),
+            product: "0001".into(),
+            external_resource_provider: false,
+        }
+        .validated_entry()
+        .is_err());
+        // The JSON shape of the API.
+        let r: PermitRequest = serde_json::from_value(json!({
+            "kind": "pci", "resource_name": "nvidia.com/A10", "pci_vendor_selector": "10DE:2236"
+        }))
+        .unwrap();
+        assert_eq!(r.resource_name(), "nvidia.com/A10");
+    }
+
+    #[test]
+    fn permitting_builds_a_full_list_patch_with_the_version_we_read() {
+        let cfg = json!({ "permittedHostDevices": { "pciHostDevices": [
+            { "pciVendorSelector": "8086:1572", "resourceName": "intel.com/x710" } ] } });
+        let patch = permit_patch(&cfg, &pci("nvidia.com/A10", "10de:2236"), Some("42"))
+            .unwrap()
+            .unwrap();
+        let list = patch
+            .pointer("/spec/configuration/permittedHostDevices/pciHostDevices")
+            .unwrap()
+            .as_array()
+            .unwrap();
+        assert_eq!(
+            list.len(),
+            2,
+            "the existing entry is kept: a merge patch replaces the whole list"
+        );
+        assert_eq!(list[1]["resourceName"], "nvidia.com/A10");
+        assert_eq!(patch["metadata"]["resourceVersion"], "42");
+        assert!(
+            permit_patch(&cfg, &pci("nvidia.com/A10", "10de:2236"), None)
+                .unwrap()
+                .unwrap()
+                .get("metadata")
+                .is_none()
+        );
+        // Same entry again: nothing to do. Same name, other selector or kind: conflict.
+        assert_eq!(
+            permit_patch(&cfg, &pci("intel.com/x710", "8086:1572"), None),
+            Ok(None)
+        );
+        assert!(matches!(
+            permit_patch(&cfg, &pci("intel.com/x710", "8086:1573"), None),
+            Err(PermitError::Conflict(_))
+        ));
+        let mdev = PermitRequest::Mediated {
+            resource_name: "intel.com/x710".into(),
+            mdev_name_selector: "x".into(),
+            external_resource_provider: false,
+        };
+        assert!(matches!(
+            permit_patch(&cfg, &mdev, None),
+            Err(PermitError::Conflict(_))
+        ));
+        assert!(matches!(
+            permit_patch(&cfg, &pci("bad", "10DE:2236"), None),
+            Err(PermitError::Invalid(_))
+        ));
+        // Empty configuration works too.
+        let p = permit_patch(&json!({}), &pci("nvidia.com/A10", "10DE:2236"), None)
+            .unwrap()
+            .unwrap();
+        assert_eq!(
+            p.pointer("/spec/configuration/permittedHostDevices/pciHostDevices/0/resourceName")
+                .unwrap(),
+            "nvidia.com/A10"
+        );
+    }
+
+    #[test]
+    fn unpermitting_removes_only_that_entry_and_reports_unknown_ones() {
+        let cfg = json!({ "permittedHostDevices": {
+            "pciHostDevices": [
+                { "pciVendorSelector": "8086:1572", "resourceName": "intel.com/x710" },
+                { "pciVendorSelector": "10DE:2236", "resourceName": "nvidia.com/A10" } ],
+            "mediatedDevices": [ { "mdevNameSelector": "T4", "resourceName": "nvidia.com/T4" } ] } });
+        let p = unpermit_patch(&cfg, "nvidia.com/A10", Some("7")).unwrap();
+        let list = p
+            .pointer("/spec/configuration/permittedHostDevices/pciHostDevices")
+            .unwrap()
+            .as_array()
+            .unwrap();
+        assert_eq!(list.len(), 1);
+        assert_eq!(list[0]["resourceName"], "intel.com/x710");
+        let p = unpermit_patch(&cfg, "nvidia.com/T4", None).unwrap();
+        assert_eq!(
+            p.pointer("/spec/configuration/permittedHostDevices/mediatedDevices")
+                .unwrap(),
+            &Value::Null,
+            "the last entry removes the key instead of leaving an empty list"
+        );
+        assert!(matches!(
+            unpermit_patch(&cfg, "nope.com/x", None),
+            Err(PermitError::NotFound(_))
+        ));
+    }
+
+    #[test]
+    fn sriov_pools_show_free_virtual_functions_and_kinds_are_hinted() {
+        let a = alloc(&[
+            ("intel.com/sriov_netdevice", "8"),
+            ("nvidia.com/GA102GL_A10", "1"),
+        ]);
+        let inv = DeviceInventory {
+            nodes: vec![NodeDevices::from_allocatable("n1", &a)],
+            ..Default::default()
+        }
+        .with_sriov_pools(&[
+            (
+                "default".into(),
+                "vf-net".into(),
+                "intel.com/sriov_netdevice".into(),
+            ),
+            ("default".into(), "empty".into(), "intel.com/none".into()),
+        ])
+        .with_kind_hints();
+        assert_eq!((inv.sriov_pools[0].free, inv.sriov_pools[0].nodes), (8, 1));
+        assert_eq!((inv.sriov_pools[1].free, inv.sriov_pools[1].nodes), (0, 0));
+        assert_eq!(inv.kind_hints["nvidia.com/GA102GL_A10"], "gpu");
+        assert_eq!(inv.kind_hints["intel.com/sriov_netdevice"], "host-device");
+        assert_eq!(kind_hint("amd.com/gpu"), "gpu");
     }
 }

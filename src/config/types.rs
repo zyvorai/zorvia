@@ -122,6 +122,10 @@ pub struct CPUConfig {
     /// Isolate QEMU emulator thread from vCPU threads
     #[serde(skip_serializing_if = "Option::is_none")]
     pub isolate_emulator_thread: Option<bool>,
+    /// Give the guest the host's NUMA topology (`numa.guestMappingPassthrough`). KubeVirt
+    /// requires dedicated CPU placement and hugepages with it.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub numa_guest_mapping_passthrough: Option<bool>,
     /// Maximum socket count the VM can be hotplugged up to; must be declared at
     /// create time since KubeVirt cannot raise it after the VM exists.
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -137,6 +141,7 @@ impl Default for CPUConfig {
             model: None,
             dedicated_cpu_placement: None,
             isolate_emulator_thread: None,
+            numa_guest_mapping_passthrough: None,
             max_sockets: None,
         }
     }
