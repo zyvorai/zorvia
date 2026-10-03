@@ -302,19 +302,25 @@ export default function SignIn() {
                   (<span className="font-mono">ns/{instance.kubernetes_namespace}</span>)
                 </>
               ) : null}
-              . Retrieve password from Secret{' '}
-              <span className="font-mono">zorvia-auth</span>
-              {' '}
-              (<span className="font-mono">kubectl get secret zorvia-auth -n zorvia-system …</span>). Lab mode only:{' '}
-              <span className="font-mono">admin</span> / <span className="font-mono">Admin@321</span>
-              {' '}(requires <span className="font-mono">ZORVIA_LAB_MODE=1</span>).
+              . The username is <span className="font-mono">admin</span>. To get the password, run:
+              <code
+                className="font-mono"
+                style={{ display: 'block', marginTop: 6, padding: '6px 8px', borderRadius: 6, userSelect: 'all', wordBreak: 'break-all' }}
+              >
+                kubectl -n {instance.kubernetes_namespace || 'zorvia-system'} get secret zorvia-auth -o jsonpath=&apos;{'{.data.admin-password}'}&apos; | base64 -d; echo
+              </code>
+              The password is set at install time (<span className="font-mono">scripts/create-auth-secret.sh</span>). The lab default{' '}
+              <span className="font-mono">Admin@321</span> only works when the server runs with{' '}
+              <span className="font-mono">ZORVIA_LAB_MODE=1</span>.
             </>
           ) : (
             <>
               Signing into <span className="font-mono">{instance?.product ?? 'Zorvia'}</span> on
-              this host. Lab mode only:{' '}
-              <span className="font-mono">admin</span> / <span className="font-mono">Admin@321</span>
-              {' '}(requires <span className="font-mono">ZORVIA_LAB_MODE=1</span>).
+              this host. The username is <span className="font-mono">admin</span> and the password is the one set in{' '}
+              <span className="font-mono">ZORVIA_ADMIN_PASSWORD</span>. If that was not set on a fresh database, a generated password
+              was written to <span className="font-mono">bootstrap-admin-password</span> next to the auth database (read it once, then
+              delete it). The lab default <span className="font-mono">Admin@321</span> only works with{' '}
+              <span className="font-mono">ZORVIA_LAB_MODE=1</span>.
             </>
           )
         ) : null
